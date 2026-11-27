@@ -124,6 +124,7 @@ class OraExportTest {
         layers: List<Layer> = listOf(background(), gloss()),
         paper: Paper = Paper(color = "#FFFFFF"),
     ) = JbDocument(
+        version = if (layers.any { it.kind == LayerKind.INK }) 9 else cc.joycreator.joybrush.core.doc.DOC_VERSION,
         id = "doc-1",
         name = "Two layers",
         paper = paper,

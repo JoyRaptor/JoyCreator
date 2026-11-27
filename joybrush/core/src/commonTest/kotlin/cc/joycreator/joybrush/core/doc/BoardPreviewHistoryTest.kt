@@ -9,7 +9,7 @@ class BoardPreviewHistoryTest {
     private var serial = 0
     private fun ids() = "preview-${++serial}"
     private fun fixture(kind: LayerKind = LayerKind.PAINT): JbDocument {
-        val base = JbDocument(id = "doc", name = "Drawing",
+        val base = JbDocument(id = "doc", name = "Drawing", version = if (kind == LayerKind.INK) 9 else DOC_VERSION,
             boards = listOf(Board("root", "Root", BoardKind.CANVAS, RectPx(0, 0, 100, 100))),
             layers = listOf(Layer("layer", "Content", kind, cels = listOf(Cel("shared")))))
         val first = RegionDocumentOps.create(base, "A", RectPx(0, 0, 10, 10), ::ids).doc
@@ -49,7 +49,7 @@ class BoardPreviewHistoryTest {
             sharedCelId = "ink-shared", cels = paint.layers.single().cels.map { it.copy(id = "ink-${it.id}") },
             regions = paint.layers.single().regions.map { r -> r.copy(frameCel = r.frameCel.mapValues { "ink-${it.value}" }) })
         // The original shared cel is called shared; make its prefixed identity agree as well.
-        val mixed = paint.copy(layers = paint.layers + ink)
+        val mixed = paint.copy(version = 9, layers = paint.layers + ink)
         val overrides = mixed.boards.filter { it.kind == BoardKind.ANIMATION }
             .associate { it.id to it.frames.first().id }
         val saved = DocJson.encode(mixed)

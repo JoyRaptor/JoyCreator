@@ -34,7 +34,7 @@ class MediaLayerDocTest {
         val back = DocJson.decode(DocJson.encode(doc))
         assertEquals(doc, back)
         assertEquals(listOf("0_0", "1_0"), back.layers.last().cels.single().floatTiles)
-        assertEquals(9, DOC_VERSION, "R51 took version 9 at landing (R30.3)")
+        assertEquals(10, DOC_VERSION, "R51 took version 9 at landing (R30.3)")
     }
 
     @Test fun aVersion8MediaLayerOpensAsPaintWithItsPayload() {

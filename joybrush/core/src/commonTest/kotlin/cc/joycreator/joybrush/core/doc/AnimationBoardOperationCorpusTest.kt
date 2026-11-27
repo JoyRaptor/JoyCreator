@@ -20,6 +20,7 @@ class AnimationBoardOperationCorpusTest {
     private fun ids() = "anim-op-corpus-${++serial}"
 
     private fun baseDoc(): JbDocument = JbDocument(
+        version = 9, // historical INK ownership remains supported by pure address plans
         id = "drawing",
         name = "Test",
         boards = listOf(Board("image", "Image", BoardKind.CANVAS, RectPx(-100, -100, 200, 200))),

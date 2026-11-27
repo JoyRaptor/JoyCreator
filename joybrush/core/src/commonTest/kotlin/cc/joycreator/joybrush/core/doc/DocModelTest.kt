@@ -87,7 +87,7 @@ class DocModelTest {
             mask = Cel("mask", tiles = listOf("0_0")),
         )
         val ink = Layer(
-            id = "l-ink", name = "Ink", kind = LayerKind.INK, opacity = 0.5f,
+            id = "l-ink", name = "Ink", kind = LayerKind.PAINT, opacity = 0.5f,
             blend = BlendMode.MULTIPLY, animatedIn = "b-anim",
             cels = listOf(
                 Cel("c-i1", strokesFile = "strokes/ink-1.jsonl"),
@@ -443,16 +443,16 @@ class DocModelTest {
 
     // rule 8 — pixels and strokes do not mix
     @Test
-    fun rule8_paintCelHasNoStrokes() {
-        val doc = fresh()
+    fun rule8_beforeV10PaintCelHasNoStrokes() {
+        val doc = fresh().copy(version = 9)
         val l = doc.layers.single()
         val bad = l.copy(cels = listOf(l.cels.single().copy(strokesFile = "strokes/x.jsonl")))
         assertOneProblem(doc.copy(layers = listOf(bad)), "paint")
     }
 
     @Test
-    fun rule8_inkCelHasNoTiles() {
-        val doc = fresh()
+    fun rule8_legacyInkCelHasNoTiles() {
+        val doc = fresh().copy(version = 9)
         val l = doc.layers.single().copy(kind = LayerKind.INK)
         val bad = l.copy(cels = listOf(l.cels.single().copy(tiles = listOf("0_0"))))
         assertOneProblem(doc.copy(layers = listOf(bad)), "ink")
@@ -578,7 +578,7 @@ class DocModelTest {
     fun encodingIsStableWhateverOrderTheFrameMapWasBuiltIn() {
         val board = Board("b", "B", BoardKind.ANIMATION, RectPx(0, 0, 9, 9), frames = listOf(Frame("f1"), Frame("f2"), Frame("f3")))
         val cels = listOf(Cel("c1"), Cel("c2"), Cel("c3"))
-        val l1 = Layer("l", "l", LayerKind.INK, animatedIn = "b", cels = cels,
+        val l1 = Layer("l", "l", LayerKind.PAINT, animatedIn = "b", cels = cels,
             frameCel = linkedMapOf("f1" to "c1", "f2" to "c2", "f3" to "c3"))
         val l2 = l1.copy(frameCel = linkedMapOf("f3" to "c3", "f2" to "c2", "f1" to "c1"))
         val base = fresh().replacingBoards(board).copy(layers = listOf(l1), activeLayerId = "l")
@@ -703,7 +703,7 @@ class DocModelTest {
         val doc = fresh().copy(paper = everyPaperField())
         val back = DocJson.decode(DocJson.encode(doc))
         assertEquals(everyPaperField(), back.paper, "a paper must come back exactly as it went in")
-        assertEquals(9, back.version, "the codec stamps the current document version (9: one layer kind, R51)")
+        assertEquals(10, back.version, "v10 lines and pixels share a layer")
         assertEquals(DOC_VERSION, back.version, "and reads it from the one constant, not a literal here")
     }
 

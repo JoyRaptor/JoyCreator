@@ -1107,5 +1107,14 @@ status: SOURCE COMPLETE root, C:/Temp/jb-region-routing; all source files releas
 
 Root FILL_UI verification: core1706/backend312/native105, zero failures/errors, four optional corpus skips; final watcher APK52s passed. DEVICE remains Claude media; no root installs. Source handoff reviews/FILL_UI_HANDOFF_20261007.md.
 
+## JOYBRUSH_JB520A_RECOVERY_20261012
+status: ACTIVE — root-authorized scoped recovery, not integration.
+worktree: C:/Temp/jb-520a-recovery; branch lead/jb-5.20a-recovery; base f58bf202.
+files: core/doc/{DocModel,DocJson,DocOps}.kt; core/stroke/{StrokeRecord,StrokeCodec}.kt; core/vector/LineRules.kt;
+androidkit/io/JbArchive.kt, CanvasSnapshot.kt, StagedDrawing.kt, DrawingRecovery.kt narrowly for safety; corresponding tests;
+tasks/joybrush/JB520A_RECOVERY_PLAN_20261012.md. Original jb-520a is untouched.
+COORDINATION: no hot engine/View/UI/brush-format edits. Root owns review, serialized verification and integration.
+DEVICE: none. No builds yet, no browser, no main push. Commit only after root-permitted checks.
+
 ## JOYBRUSH_R51_QUEUE_20261007
 Claude is Lead again (owner, 2026-10-07: Codex takes over fully only when the owner says Claude is out of weekly usage). R51 (one layer kind) approved. Lanes: media session → JB-2.40 (media on any layer). Codex (root) → JB-5.02 fix, JB-5.12, JB-5.13, JB-5.14, then the post-2.40 items; details in tasks/joybrush/LEAD_DESK.md "welcome back to the queue". Lead → review of root's fill/board hand-off, JB-5.20 design, JB-5.01b view capture. DEVICE: Note 9 is the owner's (testing the combined build installed 20:44); no installs or adb input without the Lead.

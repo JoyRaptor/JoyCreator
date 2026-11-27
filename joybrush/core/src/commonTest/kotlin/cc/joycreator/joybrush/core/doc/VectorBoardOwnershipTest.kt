@@ -6,7 +6,7 @@ import cc.joycreator.joybrush.core.render.*
 class VectorBoardOwnershipTest {
     private var serial = 0
     private fun ids() = "fresh-${++serial}"
-    private fun mixed(): JbDocument = JbDocument(id = "doc", name = "Mixed",
+    private fun mixed(): JbDocument = JbDocument(id = "doc", name = "Mixed", version = 9,
         boards = listOf(Board("root", "Image", BoardKind.CANVAS, RectPx(0, 0, 256, 256))),
         layers = listOf(Layer("paint", "Paint", LayerKind.PAINT, cels = listOf(Cel("pixels"))),
             Layer("ink", "Ink", LayerKind.INK, cels = listOf(Cel("vectors", strokesFile = "ink.bin")))))

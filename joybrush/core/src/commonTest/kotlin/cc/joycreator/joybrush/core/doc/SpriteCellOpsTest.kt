@@ -109,7 +109,7 @@ class SpriteCellOpsTest {
         val source = base()
         val ink = Layer("ink", "Ink", LayerKind.INK, visible = false,
             cels = listOf(Cel("ink-shared", strokesFile = "ink.bin")))
-        val doc = RegionDocumentOps.create(source.copy(layers = source.layers + ink),
+        val doc = RegionDocumentOps.create(source.copy(version = 9, layers = source.layers + ink),
             "Region", RectPx(-250, -1, 4, 2), ::ids).doc
         val change = SpriteCellOps.swap(doc, "sprite", 0, 1)
         assertSame(doc, change.doc)

@@ -88,7 +88,7 @@ class DocJsonBoardCorpusTest {
                 ),
             ),
             Layer(
-                id = "l-ink", name = "Ink", kind = LayerKind.INK,
+                id = "l-ink", name = "Ink", kind = LayerKind.PAINT,
                 visible = false, locked = true, opacity = 0.5f, blend = BlendMode.MULTIPLY,
                 cels = listOf(
                     Cel("c-shared-ink", strokesFile = "strokes/shared.jsonl"),
@@ -265,9 +265,10 @@ class DocJsonBoardCorpusTest {
         // Current version roundtrips at DOC_VERSION (no bump).
         assertEquals(DOC_VERSION, DocJson.decode(DocJson.encode(doc)).version)
 
+        val historicalBoards = doc.copy(layers = doc.layers.map { it.copy(cels = it.cels.map { c -> c.copy(strokesFile = null) }) })
         // v6 region document still opens and validates (regional needs 6).
         run {
-            val root = parsed(DocJson.encode(doc))
+            val root = parsed(DocJson.encode(historicalBoards))
             val v6 = JsonObject(root.toMutableMap().also { it["version"] = Json.parseToJsonElement("6") })
             val back = DocJson.decode(v6.toString())
             assertEquals(6, back.version)
@@ -275,7 +276,7 @@ class DocJsonBoardCorpusTest {
         }
         // v5 with regions still decodes but is reported in words (not silently migrated).
         run {
-            val root = parsed(DocJson.encode(doc))
+            val root = parsed(DocJson.encode(historicalBoards))
             val v5 = JsonObject(root.toMutableMap().also { it["version"] = Json.parseToJsonElement("5") })
             val back = DocJson.decode(v5.toString())
             assertEquals(5, back.version)

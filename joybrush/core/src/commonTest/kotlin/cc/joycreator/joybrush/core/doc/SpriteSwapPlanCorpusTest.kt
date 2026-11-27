@@ -27,6 +27,7 @@ class SpriteSwapPlanCorpusTest {
 
     private fun staticSwapDoc(): JbDocument {
         val doc = JbDocument(
+            version = 9, // historical INK payload ownership, not a new v10 drawing
             id = "drawing",
             name = "SwapCorpus",
             paper = Paper(color = "#112233"),
@@ -58,6 +59,7 @@ class SpriteSwapPlanCorpusTest {
      */
     private fun animatedDoc(): JbDocument {
         val doc = JbDocument(
+            version = 9, // historical INK payload ownership, not a new v10 drawing
             id = "drawing",
             name = "SwapCorpus",
             paper = Paper(color = "#112233"),

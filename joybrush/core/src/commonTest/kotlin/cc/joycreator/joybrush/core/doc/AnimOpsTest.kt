@@ -81,7 +81,7 @@ class AnimOpsTest {
             cels = listOf(Cel("c-anim2", strokesFile = "strokes/ink.jsonl")),
             frameCel = board.frames.associate { it.id to "c-anim2" },
         )
-        return copy(layers = layers + layer)
+        return copy(version = 9, layers = layers + layer)
     }
 
     /** The same document plus a second ANIMATION board, so "animated in THIS board" is testable. */

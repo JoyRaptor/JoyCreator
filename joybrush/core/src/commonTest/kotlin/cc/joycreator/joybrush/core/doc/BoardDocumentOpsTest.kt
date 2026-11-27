@@ -120,7 +120,7 @@ class BoardDocumentOpsTest {
     @Test fun `sprite resize is one reversible metadata value preserving paint ink masks and other boards`() {
         val content = base().copy(layers = listOf(
             Layer("paint","Paint",LayerKind.PAINT,cels=listOf(Cel("paint-cel",tiles=listOf("-1_0"))),mask=Cel("mask",tiles=listOf("0_0"))),
-            Layer("ink","Ink",LayerKind.INK,cels=listOf(Cel("ink-cel",strokesFile="strokes/ink.bin")))))
+            Layer("ink","Ink",LayerKind.PAINT,cels=listOf(Cel("ink-cel",strokesFile="strokes/ink.bin")))))
         val before = BoardDocumentOps.createSprite(content,"Sheet",RectPx(0,0,40,60),SpriteGrid(2,3,20,20),::ids).doc
         val after = BoardDocumentOps.resize(before,before.activeBoardId!!,RectPx(0,0,63,76))
         assertEquals(before.layers,after.layers)

@@ -1,13 +1,20 @@
 package cc.joycreator.joybrush.androidkit.io
 
+import cc.joycreator.joybrush.core.brush.BrushException
+import cc.joycreator.joybrush.core.brush.BrushJson
+import cc.joycreator.joybrush.core.brush.BrushPreset
+import cc.joycreator.joybrush.core.brush.BrushValidate
 import cc.joycreator.joybrush.core.media.MediaStores
 import cc.joycreator.joybrush.core.doc.DocJson
+import cc.joycreator.joybrush.core.doc.DOC_VERSION
 import cc.joycreator.joybrush.core.doc.DocException
 import cc.joycreator.joybrush.core.doc.DocOps
 import cc.joycreator.joybrush.core.doc.JbDocument
 import cc.joycreator.joybrush.core.doc.TILE_SIZE
 import cc.joycreator.joybrush.core.stroke.StrokeCodec
 import cc.joycreator.joybrush.core.stroke.StrokeRecord
+import cc.joycreator.joybrush.core.vector.CelLayout
+import cc.joycreator.joybrush.core.vector.LineRules
 import java.io.ByteArrayOutputStream
 import java.io.File
 import java.io.FileInputStream
@@ -59,12 +66,24 @@ data class JbContents(
     val doc: JbDocument,
     /** (layerId, celId, "tx_ty") to one tile of exactly [TILE_BYTES] bytes. */
     val tiles: Map<Triple<String, String, String>, ByteArray>,
-    /** (layerId, celId) to the stroke records of that INK cel. */
+    /** (layerId, celId) to the line records of that cel, ordered by `seq` (an INK cel until v9, any pixel cel from v10). */
     val strokes: Map<Pair<String, String>, List<StrokeRecord>>,
     val thumbnailPng: ByteArray? = null,
     /** Media payloads (DocModel v8, v9): one store tile of exactly `MediaStores.tileBytes(TILE_SIZE, store)` bytes each. */
     val mediaTiles: Map<MediaTileKey, ByteArray> = emptyMap(),
+    /**
+     * Pixel slabs ABOVE a tile's bottom one (v10, JB-5.20 D2): each is [TILE_BYTES] bytes. The bottom slab of every tile
+     * is in [tiles], exactly as before, so a cel of pure pixels has nothing here.
+     */
+    val slabs: Map<SlabKey, ByteArray> = emptyMap(),
+    /** Saved looks of tiles that lines cross (v10, D3): (layerId, celId, "tx_ty") to [TILE_BYTES] bytes. */
+    val looks: Map<Triple<String, String, String>, ByteArray> = emptyMap(),
+    /** The frozen brush copies (v10, D5), by brush id; exactly the ids of `doc.brushes`. */
+    val brushes: Map<String, BrushPreset> = emptyMap(),
 )
+
+/** One non-bottom pixel slab in an archive: `layers/<layerId>/<celId>/<key>.s<seq>.rgba`. */
+data class SlabKey(val layerId: String, val celId: String, val key: String, val seq: Long)
 
 /** One media payload tile in an archive: `layers/<layerId>/<celId>/<key>.<store>.f16`, or `<key>.g.rgba` for the ground. */
 data class MediaTileKey(val layerId: String, val celId: String, val key: String, val store: String)
@@ -77,7 +96,10 @@ data class MediaTileKey(val layerId: String, val celId: String, val key: String,
  * | `mimetype` | [JB_MIMETYPE] | STORED, and the FIRST entry, like OpenRaster |
  * | `document.json` | `DocJson.encode(doc)` | deflate |
  * | `layers/<layerId>/<celId>/<tx>_<ty>.rgba` | one PAINT tile, [TILE_BYTES] bytes | deflate |
- * | `layers/<layerId>/<celId>/strokes.jbs` | `StrokeCodec.encodeAll` of an INK cel | deflate |
+ * | `layers/<layerId>/<celId>/strokes.jbs` | `StrokeCodec.encodeAll` of the cel's line records, ordered by `seq` (INK cel until v9, any pixel cel from v10) | deflate |
+ * | `layers/<layerId>/<celId>/<tx>_<ty>.s<seq>.rgba` | a pixel slab above the tile's bottom one, [TILE_BYTES] bytes (v10; absent for a cel of pure pixels) | deflate |
+ * | `layers/<layerId>/<celId>/<tx>_<ty>.look.rgba` | the saved look of a tile lines cross, [TILE_BYTES] bytes (v10) | deflate |
+ * | `brushes/<n>-<name>.json` | a frozen copy of a brush some line uses, `BrushJson.encode` (v10); the brush's own `id` is its key | deflate |
  * | `layers/<layerId>/<celId>/<tx>_<ty>.<store>.f16` | one media float store tile, little-endian half floats (v8) | deflate |
  * | `layers/<layerId>/<celId>/<tx>_<ty>.g.rgba` | one media ground tile, [TILE_BYTES] bytes like a paint tile (v9) | deflate |
  * | `thumbnail.png` | written by JB-0.08b | stored |
@@ -116,6 +138,11 @@ object JbArchive {
     private const val LAYERS_DIR = "layers"
     private const val STROKES_NAME = "strokes.jbs"
     private const val TILE_EXT = ".rgba"
+    private const val LOOK_SUFFIX = ".look.rgba"
+    private const val BRUSHES_DIR = "brushes"
+    private const val BRUSH_EXT = ".json"
+    /** `<key>.s<seq>.rgba`'s stem is `<key>.s<seq>`. */
+    private val SLAB_STEM = Regex("^(-?\\d+_-?\\d+)\\.s(\\d+)$")
 
     /*
      * Bounds. Every one of these is OURS. A count or a size read out of the file bounds only the
@@ -127,12 +154,14 @@ object JbArchive {
     private const val MAX_DOCUMENT_BYTES = 32 * 1024 * 1024
     private const val MAX_THUMBNAIL_BYTES = 32 * 1024 * 1024
     private const val MAX_STROKES_BYTES = 64 * 1024 * 1024
+    private const val MAX_BRUSH_BYTES = 4 * 1024 * 1024
     private const val MAX_IGNORED_BYTES = 64 * 1024 * 1024
     private const val MAX_TOTAL_BYTES = 1024L * 1024 * 1024
     private const val CHUNK = 8 * 1024
 
     private val TILE_ORDER = compareBy<Triple<String, String, String>>({ it.first }, { it.second }, { it.third })
     private val CEL_ORDER = compareBy<Pair<String, String>>({ it.first }, { it.second })
+    private val SLAB_ORDER = compareBy<SlabKey>({ it.layerId }, { it.celId }, { it.key }, { it.seq })
     private val MEDIA_ORDER = compareBy<MediaTileKey>({ it.layerId }, { it.celId }, { it.key }, { it.store })
     private val MEDIA_TILE_BYTES = MediaStores.tileBytes(TILE_SIZE)
     /** A ground tile's name ends `.g.rgba`: checked before the paint tile's `.rgba`, which it also ends with. */
@@ -225,6 +254,58 @@ object JbArchive {
             }
         }
 
+        // Slabs above the bottom one and saved looks (v10), both directions like the tiles.
+        val slabEntries = ArrayList<Pair<String, ByteArray>>()
+        val slabsDeclared = declaredSlabs(doc)
+        for (key in contents.slabs.keys.sortedWith(SLAB_ORDER)) {
+            checkSlab(key, contents.slabs.getValue(key).size, slabsDeclared)
+            slabEntries.add(slabPath(key) to contents.slabs.getValue(key))
+        }
+        for ((cel, listed) in slabsDeclared) for ((key, seq) in listed) {
+            if (SlabKey(cel.first, cel.second, key, seq) !in contents.slabs) {
+                throw JbArchiveException(
+                    "the document lists a slab at seq $seq on tile \"$key\" of layer \"${cel.first}\" cel \"${cel.second}\", and none was given"
+                )
+            }
+        }
+        val lookEntries = ArrayList<Pair<String, ByteArray>>()
+        val looksDeclared = declaredLooks(doc)
+        for (key in contents.looks.keys.sortedWith(TILE_ORDER)) {
+            checkLook(key, contents.looks.getValue(key).size, looksDeclared)
+            lookEntries.add(lookPath(key) to contents.looks.getValue(key))
+        }
+        for ((cel, keys) in looksDeclared) for (key in keys) {
+            if (Triple(cel.first, cel.second, key) !in contents.looks) {
+                throw JbArchiveException(
+                    "the document lists a look for tile \"$key\" of layer \"${cel.first}\" cel \"${cel.second}\", and none was given"
+                )
+            }
+        }
+
+        // The frozen brushes (v10, D5): exactly the ones the document lists, each the brush it says it is.
+        val frozen = contents.brushes
+        if (frozen.keys != doc.brushes.toSet()) {
+            val missing = doc.brushes.filter { it !in frozen }
+            val extra = frozen.keys.filter { it !in doc.brushes }
+            throw JbArchiveException(
+                (if (missing.isNotEmpty()) "the document lists brush ${missing.joinToString { "\"$it\"" }}, and no copy was given. " else "") +
+                    (if (extra.isNotEmpty()) "a copy of brush ${extra.joinToString { "\"$it\"" }} was given, and the document does not list it" else "")
+            )
+        }
+        val brushEntries = ArrayList<Pair<String, ByteArray>>()
+        for ((index, id) in doc.brushes.sorted().withIndex()) {
+            val preset = frozen.getValue(id)
+            if (preset.id != id) throw JbArchiveException("the frozen copy kept as \"$id\" says it is brush \"${preset.id}\"")
+            val brushProblems = BrushValidate.validate(preset)
+            if (brushProblems.isNotEmpty()) throw JbArchiveException("brush \"$id\" cannot be kept with the drawing: ${brushProblems.joinToString("; ")}")
+            val text = try {
+                BrushJson.encode(preset)
+            } catch (e: BrushException) {
+                throw JbArchiveException("brush \"$id\" cannot be kept with the drawing: ${brief(e)}")
+            }
+            brushEntries.add(brushPath(index, id) to text.toByteArray(Charsets.UTF_8))
+        }
+
         // Media state, both directions, as for paint tiles: every file is declared, and every declared tile has state.
         val mediaDeclared = declaredMediaTiles(doc)
         val mediaEntries = ArrayList<Pair<String, ByteArray>>()
@@ -249,7 +330,15 @@ object JbArchive {
                     "strokes are given for layer \"${cel.first}\" cel \"${cel.second}\", and this document has no such cel"
                 )
             }
-            strokeEntries.add(strokesPath(cel) to StrokeCodec.encodeAll(contents.strokes.getValue(cel)))
+            // In time order on disk: the file says what covers what, whatever order the caller held the lines in.
+            strokeEntries.add(strokesPath(cel) to StrokeCodec.encodeAll(contents.strokes.getValue(cel).sortedBy { it.seq }))
+        }
+
+        // The rules that need the records themselves (JB-5.20 D1, D5, D14): unique ids and seqs, brushes that resolve,
+        // looks only where lines cross. Saving is where the exact look check runs; opening never replays (D3).
+        val lineProblems = lineProblems(doc, contents.strokes, doc.brushes.toSet(), exactLooks = { frozen[it] })
+        if (lineProblems.isNotEmpty()) {
+            throw JbArchiveException("the lines in this document cannot be saved: " + lineProblems.joinToString("; "))
         }
 
         // A cel that says where its strokes are, with no strokes to put there, is a drawing that
@@ -278,12 +367,22 @@ object JbArchive {
                 zos.write(entry.second)
                 zos.closeEntry()
             }
+            for (entry in slabEntries + lookEntries) {
+                zos.putNextEntry(ZipEntry(entry.first))
+                zos.write(entry.second)
+                zos.closeEntry()
+            }
             for (entry in mediaEntries) {
                 zos.putNextEntry(ZipEntry(entry.first))
                 zos.write(entry.second)
                 zos.closeEntry()
             }
             for (entry in strokeEntries) {
+                zos.putNextEntry(ZipEntry(entry.first))
+                zos.write(entry.second)
+                zos.closeEntry()
+            }
+            for (entry in brushEntries) {
                 zos.putNextEntry(ZipEntry(entry.first))
                 zos.write(entry.second)
                 zos.closeEntry()
@@ -325,8 +424,13 @@ object JbArchive {
      * A duplicate entry name is refused here even though [write] can never produce one:
      * `ZipOutputStream` keeps its own set of names and throws `ZipException: duplicate entry` before
      * the second one reaches the disk. Another tool can still build such a file, so the guard stays.
+     *
+     * **Older drawings (JB-5.20 D13).** A file older than version 10 whose layers include INK ones opens with them as PAINT
+     * layers of lines ([DocJson.decode]). Those lines name brushes by id and the file has no frozen copies, so
+     * [legacyBrushes] (the library) supplies the copies, which are then kept with the drawing from the next save. A line
+     * whose brush it cannot supply makes the file unopenable, in words: guessing a brush would draw the line differently.
      */
-    fun read(input: InputStream): JbContents {
+    fun read(input: InputStream, legacyBrushes: ((String) -> BrushPreset?)? = null): JbContents {
         val zis = ZipInputStream(input)
         val names = HashSet<String>()
         val budget = ByteBudget(MAX_TOTAL_BYTES)
@@ -336,6 +440,9 @@ object JbArchive {
         val tiles = LinkedHashMap<Triple<String, String, String>, ByteArray>()
         val strokes = LinkedHashMap<Pair<String, String>, List<StrokeRecord>>()
         val media = LinkedHashMap<MediaTileKey, ByteArray>()
+        val slabs = LinkedHashMap<SlabKey, ByteArray>()
+        val looks = LinkedHashMap<Triple<String, String, String>, ByteArray>()
+        val brushes = LinkedHashMap<String, BrushPreset>()
         var count = 0
 
         try {
@@ -414,6 +521,52 @@ object JbArchive {
                         media[MediaTileKey(parts[1], parts[2], stem, MediaStores.GROUND)] = bytes
                     }
 
+                    name.startsWith("$LAYERS_DIR/") && name.endsWith(LOOK_SUFFIX) -> {
+                        val parts = name.split('/')
+                        val stem = parts.getOrNull(3)?.dropLast(LOOK_SUFFIX.length)
+                        if (parts.size != 4 || stem == null || !isTileKey(stem)) {
+                            throw JbArchiveException("entry \"$name\" is a look path, but not layers/<layer>/<cel>/<tx>_<ty>$LOOK_SUFFIX")
+                        }
+                        val bytes = readBounded(zis, entry, TILE_BYTES + 1, budget)
+                        if (bytes.size != TILE_BYTES) {
+                            throw JbArchiveException("look \"$name\" is ${bytes.size} bytes, a look tile is $TILE_BYTES")
+                        }
+                        looks[Triple(parts[1], parts[2], stem)] = bytes
+                    }
+
+                    name.startsWith("$LAYERS_DIR/") && name.endsWith(TILE_EXT) && SLAB_STEM.matches(name.substringAfterLast('/').dropLast(TILE_EXT.length)) -> {
+                        val parts = name.split('/')
+                        val m = SLAB_STEM.matchEntire(parts.last().dropLast(TILE_EXT.length))!!
+                        if (parts.size != 4) {
+                            throw JbArchiveException("entry \"$name\" is a slab path, but not layers/<layer>/<cel>/<tx>_<ty>.s<seq>.rgba")
+                        }
+                        if (!isTileKey(m.groupValues[1])) throw JbArchiveException("entry \"$name\" is a slab, but \"${m.groupValues[1]}\" is not a \"tx_ty\" tile key")
+                        val seq = m.groupValues[2].toLongOrNull() ?: throw JbArchiveException(
+                            "entry \"$name\" has a slab sequence outside the supported range"
+                        )
+                        val bytes = readBounded(zis, entry, TILE_BYTES + 1, budget)
+                        if (bytes.size != TILE_BYTES) {
+                            throw JbArchiveException("slab \"$name\" is ${bytes.size} bytes, a slab is $TILE_BYTES")
+                        }
+                        val key = SlabKey(parts[1], parts[2], m.groupValues[1], seq)
+                        if (slabs.put(key, bytes) != null) throw JbArchiveException("this archive keeps slab \"$key\" twice")
+                    }
+
+                    name.startsWith("$BRUSHES_DIR/") && name.endsWith(BRUSH_EXT) -> {
+                        if (name.split('/').size != 2) {
+                            throw JbArchiveException("entry \"$name\" is a brush path, but not brushes/<name>$BRUSH_EXT")
+                        }
+                        val bytes = readBounded(zis, entry, MAX_BRUSH_BYTES, budget)
+                        val preset = try {
+                            BrushJson.decodeChecked(bytes.toString(Charsets.UTF_8))
+                        } catch (e: BrushException) {
+                            throw JbArchiveException("the frozen brush \"$name\" cannot be read: ${brief(e)}")
+                        }
+                        if (brushes.put(preset.id, preset) != null) {
+                            throw JbArchiveException("this archive keeps brush \"${preset.id}\" twice")
+                        }
+                    }
+
                     name.startsWith("$LAYERS_DIR/") && name.endsWith(TILE_EXT) -> {
                         val parts = name.split('/')
                         if (parts.size != 4) {
@@ -462,7 +615,7 @@ object JbArchive {
 
         if (!mimetypeSeen) throw JbArchiveException("this archive has no \"$MIMETYPE_NAME\" entry")
         val docBytes = document ?: throw JbArchiveException("this archive has no \"$DOCUMENT_NAME\" entry")
-        return documentFrom(docBytes, tiles, strokes, thumbnail, media)
+        return documentFrom(docBytes, tiles, strokes, thumbnail, media, slabs, looks, brushes, legacyBrushes)
     }
 
     /**
@@ -477,9 +630,14 @@ object JbArchive {
         strokes: Map<Pair<String, String>, List<StrokeRecord>>,
         thumbnail: ByteArray?,
         media: Map<MediaTileKey, ByteArray> = emptyMap(),
+        slabs: Map<SlabKey, ByteArray> = emptyMap(),
+        looks: Map<Triple<String, String, String>, ByteArray> = emptyMap(),
+        brushes: Map<String, BrushPreset> = emptyMap(),
+        legacyBrushes: ((String) -> BrushPreset?)? = null,
     ): JbContents = try {
-        val doc = try {
-            DocJson.decode(docBytes.toString(Charsets.UTF_8))
+        val text = docBytes.toString(Charsets.UTF_8)
+        var doc = try {
+            DocJson.decode(text)
         } catch (e: DocException) {
             // DocJson.decode states the problem in words. This only says which file it was reading.
             throw JbArchiveException("\"$DOCUMENT_NAME\" cannot be read: ${e.message ?: "it is not JSON the document shape allows"}")
@@ -531,7 +689,69 @@ object JbArchive {
             }
         }
 
-        JbContents(doc, tiles, strokes, thumbnail, media)
+        // Slabs and looks (v10), both directions.
+        val slabsDeclared = declaredSlabs(doc)
+        for ((key, bytes) in slabs) checkSlab(key, bytes.size, slabsDeclared)
+        for ((cel, listed) in slabsDeclared) for ((key, seq) in listed) {
+            if (SlabKey(cel.first, cel.second, key, seq) !in slabs) {
+                throw JbArchiveException(
+                    "the document lists a slab at seq $seq on tile \"$key\" of layer \"${cel.first}\" cel \"${cel.second}\", and this archive does not have it"
+                )
+            }
+        }
+        val looksDeclared = declaredLooks(doc)
+        for ((key, bytes) in looks) checkLook(key, bytes.size, looksDeclared)
+        for ((cel, keys) in looksDeclared) for (key in keys) {
+            if (Triple(cel.first, cel.second, key) !in looks) {
+                throw JbArchiveException(
+                    "the document lists a look for tile \"$key\" of layer \"${cel.first}\" cel \"${cel.second}\", and this archive does not have it"
+                )
+            }
+        }
+
+        // The brushes the lines use (D5). A drawing older than version 10 has none frozen: fill them from the library.
+        var frozen = brushes
+        if ((DocJson.fileVersion(text) ?: DOC_VERSION) < 10) {
+            val used = strokes.values.flatten().map { it.brushId }.toSortedSet()
+            if (used.isNotEmpty()) {
+                val copies = LinkedHashMap<String, BrushPreset>()
+                for (id in used) {
+                    val copy = legacyBrushes?.invoke(id) ?: throw JbArchiveException(
+                        "this older drawing has lines drawn with brush \"$id\", which this version of Joy Brush does not have, " +
+                            "so it cannot keep them as editable lines yet"
+                    )
+                    if (copy.id != id) throw JbArchiveException("the legacy copy requested as \"$id\" says it is brush \"${copy.id}\"")
+                    val brushProblems = BrushValidate.validate(copy)
+                    if (brushProblems.isNotEmpty()) throw JbArchiveException("the legacy brush \"$id\" cannot be kept with the drawing: ${brushProblems.joinToString("; ")}")
+                    // A resolver is an import boundary, like brushes/ JSON. Validate the supplied frozen definition,
+                    // so opening cannot succeed only for its next save to fail or silently repair the brush.
+                    try { BrushJson.encode(copy) } catch (e: BrushException) {
+                        throw JbArchiveException("the legacy brush \"$id\" cannot be kept with the drawing: ${brief(e)}")
+                    }
+                    copies[id] = copy
+                }
+                frozen = copies
+                doc = doc.copy(version = DOC_VERSION, brushes = used.toList())
+            }
+        }
+        if (frozen.keys != doc.brushes.toSet()) {
+            val missing = doc.brushes.filter { it !in frozen }
+            val extra = frozen.keys.filter { it !in doc.brushes }
+            throw JbArchiveException(
+                (if (missing.isNotEmpty()) "the document lists brush ${missing.joinToString { "\"$it\"" }}, and this archive has no copy of it. " else "") +
+                    (if (extra.isNotEmpty()) "this archive keeps a copy of brush ${extra.joinToString { "\"$it\"" }}, which the document does not list" else "")
+            )
+        }
+
+        // The records themselves. Opening never replays a line (D3), so the look check here is the cheap one.
+        val lineProblems = lineProblems(doc, strokes, doc.brushes.toSet(), exactLooks = null)
+        if (lineProblems.isNotEmpty()) {
+            throw JbArchiveException("the lines in this archive are not valid: " + lineProblems.joinToString("; "))
+        }
+
+        // In time order for whoever holds them (the file already is, from this build).
+        val ordered = strokes.mapValues { (_, v) -> v.sortedBy { it.seq } }
+        JbContents(doc, tiles, ordered, thumbnail, media, slabs, looks, frozen)
     } catch (e: JbArchiveException) {
         throw e
     } catch (e: RuntimeException) {
@@ -539,12 +759,12 @@ object JbArchive {
     }
 
     /** Reads a `.joybrush` off disk. The file is closed before this returns. */
-    fun open(file: File): JbContents {
+    fun open(file: File, legacyBrushes: ((String) -> BrushPreset?)? = null): JbContents {
         if (!file.isFile) throw JbArchiveException("there is no file at ${file.path}")
         // Wrapped for the same promise [read] makes: a caller that says "this file is damaged" in
         // one catch must not meet a FileNotFoundException from underneath it.
         return try {
-            FileInputStream(file).use { read(it) }
+            FileInputStream(file).use { read(it, legacyBrushes) }
         } catch (e: JbArchiveException) {
             throw e
         } catch (e: Exception) {
@@ -618,6 +838,80 @@ object JbArchive {
         if (size != want) {
             throw JbArchiveException("media tile \"${key.key}\" (${key.store}) of layer \"${key.layerId}\" is $size bytes, a ${key.store} tile is $want")
         }
+    }
+
+    /** (layerId, celId) to the (tile key, seq) of every slab ABOVE a tile's bottom one that the cel lists (v10). */
+    private fun declaredSlabs(doc: JbDocument): Map<Pair<String, String>, List<Pair<String, Long>>> {
+        val out = LinkedHashMap<Pair<String, String>, List<Pair<String, Long>>>()
+        for (l in doc.layers) for (c in l.cels) {
+            val upper = CelLayout.stacks(c).flatMap { (key, stack) -> stack.drop(1).map { key to it.seq } }
+            if (upper.isNotEmpty()) out[Pair(l.id, c.id)] = upper
+        }
+        return out
+    }
+
+    /** (layerId, celId) to the tile keys whose look the cel lists (v10). */
+    private fun declaredLooks(doc: JbDocument): Map<Pair<String, String>, List<String>> {
+        val out = LinkedHashMap<Pair<String, String>, List<String>>()
+        for (l in doc.layers) for (c in l.cels) if (c.looks.isNotEmpty()) out[Pair(l.id, c.id)] = c.looks
+        return out
+    }
+
+    private fun checkSlab(key: SlabKey, size: Int, declared: Map<Pair<String, String>, List<Pair<String, Long>>>) {
+        val listed = declared[Pair(key.layerId, key.celId)]
+        if (listed == null || (key.key to key.seq) !in listed) {
+            throw JbArchiveException(
+                "slab at seq ${key.seq} on tile \"${key.key}\" is in layer \"${key.layerId}\" cel \"${key.celId}\", which does not list it"
+            )
+        }
+        if (!isTileKey(key.key)) throw JbArchiveException("slab key \"${key.key}\" of cel \"${key.celId}\" is not \"tx_ty\"")
+        if (size != TILE_BYTES) {
+            throw JbArchiveException("slab at seq ${key.seq} on tile \"${key.key}\" of layer \"${key.layerId}\" is $size bytes, a slab is $TILE_BYTES")
+        }
+    }
+
+    private fun checkLook(key: Triple<String, String, String>, size: Int, declared: Map<Pair<String, String>, List<String>>) {
+        val keys = declared[Pair(key.first, key.second)]
+        if (keys == null || key.third !in keys) {
+            throw JbArchiveException("look for tile \"${key.third}\" is in layer \"${key.first}\" cel \"${key.second}\", which does not list it")
+        }
+        if (!isTileKey(key.third)) throw JbArchiveException("look key \"${key.third}\" of cel \"${key.second}\" is not \"tx_ty\"")
+        if (size != TILE_BYTES) {
+            throw JbArchiveException("look for tile \"${key.third}\" of layer \"${key.first}\" cel \"${key.second}\" is $size bytes, a look is $TILE_BYTES")
+        }
+    }
+
+    /**
+     * The rules that need the line records (v10). [exactLooks], when given, resolves a frozen brush so the look check can
+     * replay and ask which tiles lines really cross; null = the cheap checks only (what opening does).
+     */
+    private fun lineProblems(
+        doc: JbDocument,
+        strokes: Map<Pair<String, String>, List<StrokeRecord>>,
+        frozenIds: Set<String>,
+        exactLooks: ((String) -> BrushPreset?)?,
+    ): List<String> {
+        val out = ArrayList<String>()
+        for (l in doc.layers) for (c in DocOps.storedCels(l)) {
+            val records = strokes[Pair(l.id, c.id)] ?: emptyList()
+            if (records.isEmpty() && c.looks.isEmpty()) continue
+            out += LineRules.problems(l.id, c, records, frozenIds)
+            if (exactLooks != null) out += LineRules.lookProblems(l.id, c, records, exactLooks)
+        }
+        return out
+    }
+
+    private fun slabPath(key: SlabKey): String =
+        safeName("$LAYERS_DIR/${key.layerId}/${key.celId}/${key.key}.s${key.seq}$TILE_EXT")
+
+    private fun lookPath(key: Triple<String, String, String>): String =
+        safeName("$LAYERS_DIR/${key.first}/${key.second}/${key.third}$LOOK_SUFFIX")
+
+    /** `brushes/<n>-<name>.json`: a brush id is free text (an import's can hold anything), so the file name is a hint only. */
+    private fun brushPath(index: Int, id: String): String {
+        val hint = id.map { if (it.isLetterOrDigit() && it.code < 128 || it == '.' || it == '-' || it == '_') it else '_' }
+            .joinToString("").trim('.').take(40).ifEmpty { "brush" }
+        return safeName("$BRUSHES_DIR/${(index + 1).toString().padStart(3, '0')}-$hint$BRUSH_EXT")
     }
 
     private fun mediaPath(key: MediaTileKey): String =

@@ -1,10 +1,17 @@
 package cc.joycreator.joybrush.core.doc
 
 import cc.joycreator.joybrush.core.paint.Tiles
+import kotlinx.serialization.EncodeDefault
+import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.Serializable
 
 const val DOC_FORMAT = "joybrush.document"
 /**
+ * 10: lines in the one layer (R51 Phase 3, JB-5.20a): a PAINT cel may hold editable line records ([Cel.strokesFile]),
+ *     pixel slabs above its bottom one ([Cel.slabs]), saved looks for the tiles lines cross ([Cel.looks]); the document
+ *     keeps frozen copies of the brushes its lines use ([JbDocument.brushes]). A v9 INK layer is read as PAINT
+ *     ([DocJson.decode]) and a v10 document never has one. All four new fields are written ONLY when used, so a document
+ *     with only pixels is the v9 file with a 10 in it.
  * 9: one layer kind (R51, JB-2.40): realistic media is a per-tile payload on a PAINT cel ([Cel.floatTiles]); a v8 MEDIA
  *    layer is read as PAINT ([DocJson.decode]).
  * 8: the MEDIA layer kind and its float tiles (MEDIA_ENGINE_PLAN §4).
@@ -14,7 +21,7 @@ const val DOC_FORMAT = "joybrush.document"
  * 4: the paper carries a look, a tint and two sliders (JB-9.05, R10).
  * 3: a layer may carry a [Layer.mask] and be [Layer.clip]ped (JB-2.23, Lead ruling R48).
  */
-const val DOC_VERSION = 9
+const val DOC_VERSION = 10
 
 /**
  * The engine's tile size, NOT a second copy of it. `Cel.tiles` holds keys the engine wrote with
@@ -33,7 +40,7 @@ const val TILE_SIZE = Tiles.SIZE
  *    keys are signed and why a board may sit at a negative x or y.
  *  - Paper is a SETTING, not a layer. It is under the art and is optionally flattened into an export.
  *  - A board is a named rectangle that defines export bounds. A new document has one CANVAS board.
- *  - A layer is PAINT (pixels are the truth) or INK (stroke records are the truth). Nothing else.
+ *  - A layer is PAINT: its cel holds pixels and editable lines in time order. INK and MEDIA are legacy read tokens.
  *  - Animation does NOT get a second layer system: each layer retains shared canvas content plus
  *    independent frame addresses inside each Animation board. This ownership applies to both
  *    PAINT and INK. Several frames may point at ONE cel ("duplicate as link"); a held region uses
@@ -136,7 +143,14 @@ const val TILE_SIZE = Tiles.SIZE
  * is refused by name (a [DocException] from [DocJson.decode]), never guessed at.
  */
 @Serializable enum class LayerKind {
-    PAINT, INK,
+    PAINT,
+    /**
+     * v9 and before: a layer of stroke records and no pixels. Since v10 (R51 Phase 3, JB-5.20 D13) there is one kind of
+     * layer: a line is a record in a PAINT cel ([Cel.strokesFile]). The constant stays (R3: append-only) so an older file
+     * still opens; [DocJson.decode] reads an INK layer as PAINT whose cels hold only lines, and a v10 document never has
+     * one ([DocOps.validate] refuses it in words).
+     */
+    INK,
     /**
      * v8 only (the media engine's first form). Since v9 (R51) there is one kind of pixel layer: pencil, watercolour and
      * oil are a payload on the tiles of a PAINT cel they touched ([Cel.floatTiles]). The constant stays (R3: append-only)
@@ -187,15 +201,59 @@ val LayerKind.hasPixels: Boolean get() = this != LayerKind.INK
     HUE, SATURATION, LUMINOSITY,
 }
 
+/**
+ * One pixel slab of a tile that is not just "a plain bottom slab" (JB-5.20 D2/D8a/D14): the tile it sits on, its place in
+ * the cel's time order, and the operator it is applied with (`normal`, `erase`, `behind` or a lower-case blend-mode name;
+ * [SlabOps]). The pixels themselves are an archive entry, not part of `document.json`.
+ */
+@Serializable data class SlabRef(val key: String, val seq: Long, val op: String = SlabOps.NORMAL)
+
+/** The operator words a slab may carry (JB-5.20 D8a): the same set `InkTiles.applyOp` composites with. */
+object SlabOps {
+    const val NORMAL = "normal"
+
+    /** `normal`, `erase`, `behind`, or the lower-case name of a [BlendMode] (what a baked line's brush says). */
+    fun known(op: String): Boolean = op == "behind" || op == "erase" || BlendMode.entries.any { it.name.lowercase() == op }
+}
+
+/**
+ * One cel: the pixels and the editable lines of one layer (static) or one frame (animated), in the order they were made.
+ *
+ * **Pixels.** [tiles] are the tiles that hold pixels, one RGBA8 file each, `layers/<layer>/<cel>/<key>.rgba`. Since v10
+ * that file is the tile's BOTTOM slab (JB-5.20 D2). A tile with only that slab, applied normally, is listed in [tiles]
+ * and nowhere else, exactly as before lines existed, so a cel of pure pixels writes the same entries it always did.
+ *
+ * **Slabs.** A tile that has more than one slab, or a bottom slab that is not plain, is ALSO listed in [slabs]: its WHOLE
+ * stack, one [SlabRef] per slab (an unlisted bottom slab is `seq` 0, `normal`). The slab with the lowest `seq` is the
+ * `.rgba` file; every other is `layers/<layer>/<cel>/<key>.s<seq>.rgba`. Slab `seq`s are unique within a tile (one event
+ * that opens slabs on several tiles gives them all its one `seq`), are never the `seq` of a live line, and 0 is the
+ * "before any line" base that a plain bottom slab implicitly has.
+ *
+ * **Lines.** [strokesFile] says the cel holds editable line records (since v10 on ANY pixel cel, not only an INK one):
+ * `layers/<layer>/<cel>/strokes.jbs`, `StrokeCodec.encodeAll`, ordered by `seq`. The records live there and not in
+ * `document.json`; see [cc.joycreator.joybrush.core.vector.LineRules] for what must hold of them.
+ *
+ * **Looks.** [looks] are tiles whose saved look (slabs and the lines that cross them, composited in `seq` order; D3) is
+ * in `layers/<layer>/<cel>/<key>.look.rgba`, so opening a drawing never replays a line. A look is only ever kept for a tile
+ * that lines cross; a tile of pure pixels needs none, its single slab IS its look. A cache: dropping one loses nothing.
+ *
+ * [slabs], [looks] and [JbDocument.brushes] are written ONLY when they have something in them (`@EncodeDefault(NEVER)`),
+ * so a document with no lines is the file the previous version wrote, byte for byte, apart from its version number.
+ */
+@OptIn(ExperimentalSerializationApi::class)
 @Serializable data class Cel(
     val id: String,
-    val tiles: List<String> = emptyList(),  // PAINT: tile keys "tx_ty" that exist (sparse)
-    val strokesFile: String? = null,        // INK: path inside the document zip
+    val tiles: List<String> = emptyList(),  // PAINT: tile keys "tx_ty" that exist (sparse): each tile's BOTTOM slab (v10)
+    val strokesFile: String? = null,        // INK (v9 and before) or any pixel cel (v10): path of this cel's line records inside the document zip
     // PAINT (v9; MEDIA in v8): tile keys "tx_ty" a pencil, watercolour or oil stroke touched, holding its payload: float
     // state saved as layers/<id>/<cel>/<key>.<store>.f16 (little-endian half floats) for each store the media wrote there
     // (p0, p1, paper; w0, w1 only while wet: MediaStores), and the ground under it as <key>.g.rgba. The look for the
     // same area is in [tiles].
     val floatTiles: List<String> = emptyList(),
+    /** v10 (JB-5.20 D2/D14): full slab stacks of the tiles that are not a single plain slab. See the class comment. */
+    @EncodeDefault(EncodeDefault.Mode.NEVER) val slabs: List<SlabRef> = emptyList(),
+    /** v10 (JB-5.20 D3/D14): tiles with a saved look, `<key>.look.rgba`. Only tiles that lines cross. */
+    @EncodeDefault(EncodeDefault.Mode.NEVER) val looks: List<String> = emptyList(),
 )
 
 @Serializable data class Layer(
@@ -221,6 +279,7 @@ val LayerKind.hasPixels: Boolean get() = this != LayerKind.INK
     val regions: List<RegionFrames> = emptyList(),
 )
 
+@OptIn(ExperimentalSerializationApi::class)
 @Serializable data class JbDocument(
     val format: String = DOC_FORMAT,
     val version: Int = DOC_VERSION,
@@ -231,4 +290,10 @@ val LayerKind.hasPixels: Boolean get() = this != LayerKind.INK
     val layers: List<Layer>,                // bottom -> top
     val activeLayerId: String? = null,
     val activeBoardId: String? = null,
+    /**
+     * v10 (JB-5.20 D5): the ids of the FROZEN COPIES of the brushes the drawing's lines use, `brushes/<id>.json` in the
+     * archive. A line names its brush by id and the id resolves HERE, never in the library, so editing a brush in the
+     * drawer changes no line already drawn, and the drawing opens the same on another phone. Written only when non-empty.
+     */
+    @EncodeDefault(EncodeDefault.Mode.NEVER) val brushes: List<String> = emptyList(),
 )

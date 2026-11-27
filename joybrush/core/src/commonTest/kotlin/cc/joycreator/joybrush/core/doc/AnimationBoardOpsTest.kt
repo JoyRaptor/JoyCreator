@@ -147,7 +147,7 @@ class AnimationBoardOpsTest {
 
     @Test fun `remove held board retains shared and neighboring regions including ink plans`() {
         var doc = source(); val id = doc.activeBoardId!!
-        doc = doc.copy(layers = doc.layers + doc.layers.first().copy(id = "ink", kind = LayerKind.INK,
+        doc = doc.copy(version = 9, layers = doc.layers + doc.layers.first().copy(id = "ink", kind = LayerKind.INK,
             mask = null, cels = doc.layers.first().cels.map { Cel("ink-${it.id}") }, sharedCelId = "ink-shared",
             regions = doc.layers.first().regions.map { r -> r.copy(frameCel = r.frameCel.mapValues { "ink-${it.value}" }) }))
         doc = RegionDocumentOps.setHeld(doc, id, "paint", true).doc

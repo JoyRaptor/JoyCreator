@@ -1,6 +1,8 @@
 package android.opengl;
 
 import java.nio.Buffer;
+import java.util.HashMap;
+import java.util.Map;
 
 public final class GLES20 {
     public static final int GL_FRAMEBUFFER = 0x8D40;
@@ -16,6 +18,7 @@ public final class GLES20 {
     public static final int GL_TEXTURE_WRAP_S = 0x2802;
     public static final int GL_TEXTURE_WRAP_T = 0x2803;
     public static final int GL_NEAREST = 0x2600;
+    public static final int GL_LINEAR = 0x2601;
     public static final int GL_CLAMP_TO_EDGE = 0x812F;
     public static final int GL_RGBA = 0x1908;
     public static final int GL_UNSIGNED_BYTE = 0x1401;
@@ -31,6 +34,9 @@ public final class GLES20 {
     public static int deletedTextures;
     public static int generatedTextures;
     public static int textureUploads;
+    private static final Map<Integer, Integer> boundTextures = new HashMap<>();
+    public static final Map<Integer, Integer> minFilters = new HashMap<>();
+    public static final Map<Integer, Integer> magFilters = new HashMap<>();
 
     private GLES20() {}
 
@@ -45,11 +51,18 @@ public final class GLES20 {
     public static void glDisable(int capability) { if (capability == GL_DITHER) dither = false; }
     public static void glEnable(int capability) { if (capability == GL_DITHER) dither = true; }
     public static void glActiveTexture(int texture) { activeTexture = texture; }
-    public static void glBindTexture(int target, int texture) { boundTexture = texture; }
+    public static void glBindTexture(int target, int texture) {
+        boundTexture = texture;
+        boundTextures.put(activeTexture, texture);
+    }
     public static void glGenTextures(int count, int[] names, int offset) {
         for (int i = 0; i < count; i++) names[offset + i] = 100 + generatedTextures++;
     }
-    public static void glTexParameteri(int target, int name, int value) {}
+    public static void glTexParameteri(int target, int name, int value) {
+        int texture = boundTextures.getOrDefault(activeTexture, boundTexture);
+        if (name == GL_TEXTURE_MIN_FILTER) minFilters.put(texture, value);
+        if (name == GL_TEXTURE_MAG_FILTER) magFilters.put(texture, value);
+    }
     public static void glTexImage2D(int target, int level, int internal, int width, int height,
                                     int border, int format, int type, Buffer pixels) {
         if (boundTexture <= 0 || width <= 0 || height <= 0 || pixels == null) {

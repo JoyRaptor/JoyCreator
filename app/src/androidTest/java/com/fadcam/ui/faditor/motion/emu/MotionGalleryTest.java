@@ -108,10 +108,10 @@ public final class MotionGalleryTest {
                     pose(300 + 30 * frames(t), 130, 60, 60, 0, 0.5, 0.5));
             // 4. a detailed picture arcing upward and growing, tilting as it goes
             sheet(pass, backdrop, "picture", picture(), t -> {
-                double f = frames(t);
-                double scale = 1.0 + 0.04 * f;   // smaller in the past
-                return pose(280 + 14 * f, 150 - 0.9 * f * f - 8 * f, 110 * scale, 110 * scale,
-                        Math.toRadians(4 * f), 0.5, 0.5);
+                double fr = frames(t);
+                double scale = 1.0 + 0.04 * fr;   // smaller in the past
+                return pose(280 + 14 * fr, 150 - 0.9 * fr * fr - 8 * fr, 110 * scale, 110 * scale,
+                        Math.toRadians(4 * fr), 0.5, 0.5);
             });
             pass.release();
         } finally {

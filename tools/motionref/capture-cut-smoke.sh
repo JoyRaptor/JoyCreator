@@ -25,15 +25,12 @@ for variant in a b; do
 done
 cmp <(tail -30 a.frames) <(tail -30 b.frames)
 
-# The app must create its scoped external directory before adb can stage the clip.
-adb shell am start -n "$pkg/com.fadcam.ui.faditor.export.ExportDebugActivity" \
-    --ez motion_footage_fixture true --ez motion_private_reference true \
-    --ez motion_enabled false > external-storage-bootstrap.log
-for _ in {1..25}; do
-    if adb shell test -d "/sdcard/Android/data/$pkg/files"; then break; fi
-    sleep 1
-done
-adb shell test -d "/sdcard/Android/data/$pkg/files"
+# Use a fresh, disposable AVD. Scoped storage can hide Android/data from adb shell.
+adb root
+adb wait-for-device
+test "$(adb shell getprop ro.kernel.qemu | tr -d '\r')" = 1
+test "$(adb shell id -u | tr -d '\r')" = 0
+adb shell mkdir -p "/sdcard/Android/data/$pkg/files"
 
 capture() {
     local variant=$1 enabled=$2 folder="$1-$2"
@@ -44,11 +41,11 @@ capture() {
     adb shell run-as "$pkg" rm -f cache/lane_frame_1160000.rgba cache/lane_frame_1200000.rgba
     adb push "$variant.mp4" "$private"
     adb logcat -c
-    adb shell am start -W -n "$pkg/com.fadcam.ui.faditor.export.ExportDebugActivity" \
+    adb shell am start -n "$pkg/com.fadcam.ui.faditor.export.ExportDebugActivity" \
         --ez motion_footage_fixture true --ez motion_private_reference true \
         --ez motion_footage_calibration true --ez motion_enabled "$enabled" \
         --ela motion_lane_sample_us 1160000,1200000 > "$folder/start.log"
-    grep -q '^Status: ok' "$folder/start.log"
+    grep -q '^Starting: Intent' "$folder/start.log"
     for _ in {1..160}; do
         adb logcat -d -s HighFootageExport LaneReadback ExportDebug ExportService ExportManager AndroidRuntime > "$folder/export.log"
         if grep -qiE 'FATAL EXCEPTION|Export failed|Indexed export flow unavailable' "$folder/export.log"; then

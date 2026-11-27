@@ -1,5 +1,6 @@
 import cc.joycreator.avatar.face.FaceDrive;
 import cc.joycreator.avatar.face.FaceWalk;
+import cc.joycreator.avatar.face.MirrorChip;
 import cc.joycreator.avatar.perform.Inputs;
 import com.fadcam.ui.faditor.avatar.face.FaceStage;
 import com.fadcam.ui.faditor.avatar.face.FaceTuning;
@@ -115,7 +116,7 @@ public class AvatarFaceTakeTest {
     static Run run(List<Frame> frames, boolean mirrorChip, double fps) throws Exception {
         FaceStage st = new FaceStage();
         FaceTuning tu = new FaceTuning();
-        FaceDrive.setMirrorChip(tu, mirrorChip);
+        MirrorChip.set(tu, mirrorChip);
         st.setTuning(tu);
         Inputs in = new Inputs();
         in.setSettings(new org.json.JSONObject("{\"idle\":false,\"blinkAuto\":false,\"breathe\":false}"));   // (as the pilot run: the face alone)
@@ -184,7 +185,7 @@ public class AvatarFaceTakeTest {
         check(off.max("turnX", 2.0, 3.1) < 0.2 && off.min("turnX", 2.0, 3.1) < -0.8 && off.max("blinkR", 3.9, 4.7) >= 0.9,
                 "Mirror off: the same turn and wink land on the other side, like someone facing him");
         FaceTuning fresh = new FaceTuning();
-        check(FaceDrive.mirrorChip(fresh), "the Mirror chip is on by default, as the pilot's tick (the engine's own default moves like a reflection)");
+        check(MirrorChip.on(fresh), "the Mirror chip is on by default, as the pilot's tick (the engine's own default moves like a reflection)");
 
         System.out.println(fails == 0 ? "PASSED" : "FAILED " + fails);
         System.exit(fails == 0 ? 0 : 1);

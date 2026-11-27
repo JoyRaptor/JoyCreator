@@ -448,7 +448,11 @@ private fun latin1(bytes: ByteArray, at: Int, length: Int): String {
  * of either is a `preset` or an archive with a byte-shifted `&` in it — so the encoding is told
  * apart by the format rather than guessed at, and a sequence that is not valid UTF-8 is refused in
  * words instead of decoded into something it is not. Every code point is checked for the two things
- * a naive decoder drops: an overlong encoding and a surrogate.
+ * a naive decoder drops: an overlong encoding and a surrogate — **and a third, which is the one this
+ * function used to get wrong: a code point above `0xFFFF` is a surrogate *pair*, and a 16-bit
+ * `toChar()` cannot write one.** Krita packs are full of emoji, and U+1F600 became U+F600, which
+ * `brushId` then folds into the same `-` as any other name character — so two brushes whose names
+ * differed only by an emoji produced one id and one overwrote the other.
  *
  * **One decoder, two call sites** (this file's `iTXt` and `KeyedArchive`'s XML plist), because three
  * hand-written UTF-8 decoders in one package is three chances to disagree about what a valid
@@ -486,7 +490,19 @@ internal fun decodeUtf8Strict(bytes: ByteArray, at: Int, length: Int, what: Stri
         // surrogate is not a character: both are how a malformed file smuggles a different string
         // past a validator that only counts bytes.
         if (code < 0x80 || code in 0xD800..0xDFFF || code > 0x10FFFF) bad(i)
-        sb.append(code.toChar())
+        // **Above the BMP a code point is a surrogate *pair*, and `Int.toChar()` cannot write one.** Kotlin's
+        // `toChar()` masks to 16 bits, so the landed line turned U+1F600 into U+F600 — a private-use
+        // character, and one that can collide with a real id because `brushId` maps every non-`[a-z0-9._-]`
+        // character to the same `-`. Two brush names differing only by an emoji became one id. The pair is
+        // written arithmetically rather than through a platform helper, so this is one expression in common
+        // code with nothing in it to be unavailable on a target.
+        if (code <= 0xFFFF) {
+            sb.append(code.toChar())
+        } else {
+            val rest = code - 0x10000
+            sb.append((0xD800 + (rest shr 10)).toChar())
+            sb.append((0xDC00 + (rest and 0x3FF)).toChar())
+        }
         i += follow + 1
     }
     return sb.toString()

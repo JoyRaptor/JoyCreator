@@ -14,8 +14,10 @@ import cc.joycreator.joybrush.core.brush.TipSpec
  * Krita `.kpp` and `.bundle` → Joy Brush presets. JB-8.04. **Pixel and colour smudge engines only.**
  *
  * A `.kpp` is a **PNG** whose text chunks carry the settings: `version` and `preset`, the second being the
- * paint-op settings as XML. A `.bundle` is an ODF-style zip — `mimetype`, `meta.xml`,
- * `META-INF/manifest.xml`, `preview.png`, `brushes/`, `patterns/`, `paintoppresets/`.
+ * paint-op settings as XML, and — 61 of the 64 real ones — an `author` in a `zTXt`. A `.bundle` is an
+ * ODF-style zip — `mimetype`, `meta.xml`, `META-INF/manifest.xml`, `preview.png`, `brushes/`, `patterns/`,
+ * `paintoppresets/` — and **`brushes/` is the tip images, not more `.kpp`**: all 32 of the real pack's named
+ * tips resolve to an entry there.
  *
  * **The row exists to get one thing right: what happens to input this reader cannot express.** Krita's own
  * engine list is the cleanest version of that question in Phase 8, because Krita *tells you* what the brush
@@ -38,6 +40,33 @@ import cc.joycreator.joybrush.core.brush.TipSpec
  * name a file nobody has written, and draw as procedural. **[TEXTURE_NOT_DRAWN] by value, never a retyped
  * literal, is the only thing standing between a person and that**, once per brush that carried the bitmap.
  * The condition on removing it is JB-1.05d.
+ *
+ * ### The real format, measured, and what the spec got wrong about it
+ *
+ * Everything below about Krita's own grammar is **measured out of a real file** — David Revoy's Brushkit V8.2,
+ * `joybrush/testdata-local/krita/deevad-v8-2.bundle`, 3 553 039 bytes, 96 zip entries, 64 `.kpp`, all under
+ * `paintoppresets/` and **all 95 other entries DEFLATE** so that the shared inflater is not optional. It is
+ * git-ignored and nothing from it is committed (R8); the *structure* is what is taken here, which is what
+ * the JB-8.01b `.abr` row did with ag-psd's MIT reference source.
+ *
+ * | what | the spec said | the real bytes |
+ * |---|---|---|
+ * | the settings root | `<paintop id="…">` | **`<Preset name="…" paintopid="…">`**, 64 of 64 (Decision 10 is wrong) |
+ * | the engine ids | `Pixel`, `ColorSmudge` | `paintbrush` ×54, `colorsmudge` ×7, `deformbrush`, `experimentbrush`, `duplicate` |
+ * | a setting | an element with attributes | **`<param type="string\|internal\|bytearray" name="KEY">` and the value is its text** |
+ * | a sensor | `<curve sensor= name= commonCurve=>` | **`<param name="SizeSensor">` whose text is `<params id="pressure"><curve>0,0;1,1;</curve></params>`** |
+ * | spacing | `<spacing mode="space" value=…/>` | **`spacing="…"` on the `<Brush>` element inside `brush_definition`** |
+ * | the tip | `<brush_definition type="auto_mask"><cell value="rx;ry"/>` | **`<Brush type="auto_brush\|gbr_brush\|png_brush">` with `spacing`/`scale`/`filename` attributes and a `<MaskGenerator ratio= diameter=/>` child** |
+ * | a texture | `<texture pattern= blendmode= depth=/>` | **`Texture/Pattern/…` parameters, and the pattern's own bytes base64'd TWICE over** |
+ * | the licence | `dc:rights` in `meta.xml` | **`<meta:meta-userdefined meta:name="license" meta:value="…"/>`** — no `dc:rights` at all |
+ * | the author | nothing in a `.kpp` | **a `zTXt` `author` chunk, in two spellings** |
+ *
+ * **`sensor=` ×0, `<spacing` ×0, `commonCurve` ×0, `PixelSize` ×0, `<texture` ×0, `<cell` ×0 across all 64.**
+ * Every one of the spec's fixture shapes is a shape Krita does not write, and the landed fixtures were built
+ * from the spec — so the ~40 mapping tests agreed with the reader and with the spec and with nothing real.
+ * That is the same closed loop that killed the `.abr` reader, and both shapes are now read and both are
+ * tested: this file takes the **real** grammar as primary and keeps the flat/older grammar as a second
+ * reader, because a reader that refuses a stranger's older file is not better than one that reads it.
  *
  * ### Where the bytes are carried, and why that is not a widening of anybody's type
  *
@@ -197,8 +226,41 @@ object KritaImport {
     /** Decision 12: a texture mode this build has no field for. */
     const val TEXTURE_MODE_KEY = "krita.textureMode"
 
+    /** Decision 12: a texture scale outside `GrainSpec`'s own 0..64, kept because the file stated one. */
+    const val TEXTURE_SCALE_KEY = "krita.textureScale"
+
+    /**
+     * The real parameter a texture's own bytes live in, and the only one whose value the sweep is told not to
+     * keep. It is `base64(base64(PNG))` — twice over — in 9 of the 64 real presets of David Revoy's
+     * Brushkit V8.2 (`testdata-local/`, git-ignored), and the largest is 466 408 characters.
+     */
+    private const val TEXTURE_PATTERN_PARAM = "Texture/Pattern/Pattern"
+
     /** Decision 12: the Krita pattern a texture names, kept whether or not its bytes were reachable. */
     const val TEXTURE_PATTERN_KEY = "krita.texturePattern"
+
+    /**
+     * The real preset's `spacing`, kept under a name of its own because the value the brush draws with is a
+     * *rounded, range-checked* copy of it and the file's own text is the one worth having back. The key says
+     * `tip` because in the real format `spacing` is an attribute of the same `<Brush>` element that holds
+     * the tip, so that is where it lives and that is what a reader looking for it will look at.
+     */
+    const val TIP_SPACING_KEY = "krita.tipSpacing"
+
+    /**
+     * Krita's own procedural tip size, **in Krita's unit and unconverted**, and the key says so.
+     *
+     * The name is the honest one: this build knows the number and does not know the unit, and a key called
+     * `krita.tipSize` would be a claim that it does. See [KritaBrush.resolveSize] for the measurement and
+     * for why no conversion is made — it is a Question for the Lead, not this row's decision.
+     */
+    const val TIP_DIAMETER_KEY = "krita.tipDiameterInKritaUnits"
+
+    /**
+     * An image tip's own `scale` factor, kept because `size.base` is that factor *applied* to the tip's
+     * pixel width and the application is this row's arithmetic while the factor is Krita's number.
+     */
+    const val TIP_SCALE_KEY = "krita.tipScale"
 
     // ---- the contract ------------------------------------------------------------------------------
 
@@ -221,8 +283,12 @@ object KritaImport {
         val file = readKppFile(bytes)
         val title = file.title
         val name = title ?: PLACEHOLDER_NAME
+        // Decision 14, and R44 item 5: a lone `.kpp` states **its own author and nothing else**, so it is read
+        // from the file rather than left blank. A brush re-attributed to nobody is a licence defect, not a
+        // missing nicety, and 61 of the 64 real `.kpp` in David Revoy's Brushkit V8.2 state theirs.
+        val author = file.author
         return try {
-            val result = KritaBrush(file, null, null).build(name, brushId(idPrefix, name))
+            val result = KritaBrush(file, null, null, author).build(name, brushId(idPrefix, name))
             val warnings =
                 if (title == null) listOf(PLACEHOLDER_NAME_WARNING) + result.warnings else result.warnings
             ImportLibrary(listOf(result.copy(warnings = warnings)), emptyList())
@@ -273,7 +339,7 @@ object KritaImport {
             }
             try {
                 val file = readKppFile(zip.read(entry))
-                brushes += KritaBrush(file, zip, meta).build(name, brushId(idPrefix, name))
+                brushes += KritaBrush(file, zip, meta, file.author).build(name, brushId(idPrefix, name))
             } catch (e: BrushException) {
                 refused += RefusedBrush(index, name, e.message ?: "it cannot be read")
             }
@@ -284,7 +350,8 @@ object KritaImport {
     // ---- the file-level half of a `.kpp` ------------------------------------------------------------
 
     /**
-     * The two things [readPngTextChunks] can give this importer and the one it cannot.
+     * The two things [readPngTextChunks] can give this importer, the one it cannot, and the one it has to ask
+     * a second time for.
      *
      * `PngChunks`' **uncompressed** read never inflates (Decisions 5 and 6), so a compressed chunk arrives
      * here as `compressed = true` with an **empty** `text`, and *this* is the code that has to do something
@@ -296,6 +363,14 @@ object KritaImport {
      * different messages. Asking a second time is what a caller of a lossy reader has to do, and it is
      * why that second function lives in `PngChunks` and keeps the compressed bytes rather than handing them
      * here.
+     *
+     * **The author is asked for case-insensitively, and the measurement is why.** Krita writes the keyword
+     * in two spellings inside one pack: 35 of the 64 real `.kpp` carry a `zTXt` keyword `author` and 26 carry
+     * `Author`, so a case-sensitive comparison — which is the PNG rule, and is what this file does for
+     * `preset` — silently re-attributes 26 brushes to nobody. `preset` stays case-sensitive, because the two
+     * spellings of *that* keyword have never been seen in one file and a case-insensitive match there would
+     * let a file choose which settings document is read. The two spellings are asked for in turn and the
+     * first that exists wins, which is the same "first match wins" rule `readPngCompressedText` itself uses.
      */
     private fun readKppFile(bytes: ByteArray): KritaFile {
         if (bytes.size > MAX_FILE_BYTES) {
@@ -308,11 +383,16 @@ object KritaImport {
 
         var preset: PngTextChunk? = null
         var title: String? = null
+        var author: String? = null
         for (chunk in chunks) {
             // PNG keywords are 1..79 bytes and case-sensitive ([PngChunks]'s own rule) and Krita writes
             // `preset` in lower case, so this compares exactly rather than guessing at a capitalisation.
             if (chunk.keyword == "preset" && preset == null) preset = chunk
             if (chunk.keyword == "Title" && title == null) title = chunk.text
+            // The author's own keyword, which is `author` or `Author` in the wild — see the KDoc.
+            if (chunk.keyword.equals("author", ignoreCase = true) && author == null) {
+                author = if (chunk.compressed) "" else chunk.text
+            }
         }
         val found = preset
             ?: throw BrushException(
@@ -338,11 +418,52 @@ object KritaImport {
                     "$where, so it is not the XML a .kpp keeps its paint-op settings in"
             )
         }
-        return KritaFile(xml, title?.takeIf { it.isNotBlank() })
+        val authorName: String?
+        val authorProblem: String?
+        if (author != null && author.isNotBlank()) {
+            authorName = author
+            authorProblem = null
+        } else {
+            // Every real author chunk in the pack is compressed, so the uncompressed read hands back an empty
+            // string and the text has to be asked for. Both spellings, in turn, and the first that exists.
+            var found: String? = null
+            var problem: String? = null
+            for (keyword in AUTHOR_KEYWORDS) {
+                try {
+                    found = readPngCompressedText(bytes, keyword)
+                } catch (e: BrushException) {
+                    // **A malformed author chunk must not cost the brush.** It is metadata about who made the
+                    // brush, not the brush: refusing a whole `.kpp` because its `author` chunk is not a DEFLATE
+                    // stream would trade a brush for a byline. The reason is carried to the warning instead, so
+                    // this is not the swallowed exception test 21 is about — that one loses a *licence*, and
+                    // this one loses an *attribution* and says so.
+                    problem = e.message
+                }
+                if (found != null) break
+            }
+            authorName = found?.trim()?.takeIf { it.isNotBlank() }
+            authorProblem = problem
+        }
+        return KritaFile(
+            xml,
+            title?.takeIf { it.isNotBlank() },
+            authorName,
+            authorProblem,
+        )
     }
 
-    /** One `.kpp`'s settings text, and the one name-ish thing a `.kpp` may carry. */
-    private class KritaFile(val presetXml: String, val title: String?)
+    /**
+     * One `.kpp`'s settings text, the one name-ish thing it may carry, and the author it states for itself.
+     *
+     * [authorProblem] is non-null when the file *tried* to state an author and the chunk could not be read,
+     * which is the one case where "this brush has no author" would be a sentence that hides something.
+     */
+    private class KritaFile(
+        val presetXml: String,
+        val title: String?,
+        val author: String?,
+        val authorProblem: String?,
+    )
 
     /**
      * Decision 14, per bundle. **Never `"CC0"`** — that is `BrushPreset`'s own default and a bundle that does
@@ -355,6 +476,32 @@ object KritaImport {
      */
     private class KritaMeta(val license: String?, val author: String?)
 
+    /**
+     * The bundle's own `meta.xml`, and the two strings in it that are a **licence obligation** rather than a
+     * nicety (R44 item 5, blueprint §5: CC-BY attribution is required, and the pack the blueprint names as
+     * the one to ship — David Revoy's Brushkit, CC-BY — is the case).
+     *
+     * **The real `meta.xml` has no `dc:rights` at all, so the landed reader found `license = "unknown"` on
+     * every brush of a CC-BY pack.** Read verbatim out of the real bundle:
+     *
+     * ```xml
+     * <meta:meta>
+     *  <dc:author>Deevad</dc:author>
+     *  <meta:meta-userdefined meta:name="license" meta:value="CC-By with custom rules for redistribution"/>
+     * </meta:meta>
+     * ```
+     *
+     * Three separate reasons the landed tag table missed it: the root is `<meta:meta>` and not
+     * `<office:document-meta><office:meta>`; the licence element is `<meta-userdefined>`, whose name after
+     * the last colon is not in [LICENSE_TAGS]; and **the value is in an attribute, `meta:value`**, not in the
+     * element's text — and no ODF document anywhere puts a licence in a `text` attribute. So the fix reads
+     * **both** places: an element whose local name is `meta-userdefined` and whose `meta:name` is `license`
+     * takes its `meta:value`, and the `<dc:rights>`/`<rights>`/`<license>` element text the landed reader
+     * already handled is kept, because a bundle written by a different tool may use it.
+     *
+     * The comparison is case-insensitive because `meta:name="License"` and `meta:name="license"` are the same
+     * word and ODF does not promise a capitalisation.
+     */
     private fun readBundleMeta(zip: KritaZip): KritaMeta {
         val entry = zip.find(META_NAME) ?: return KritaMeta(null, null)
         val text = try {
@@ -378,6 +525,13 @@ object KritaImport {
             val said = node.text.takeIf { it.isNotBlank() } ?: node.attr("text")?.takeIf { it.isNotBlank() }
             if (license == null && tag in LICENSE_TAGS) license = said
             if (author == null && tag in AUTHOR_TAGS) author = said
+            // …and the form a real Krita bundle writes, where the value is `meta:value` on a
+            // `meta-userdefined` whose `meta:name` says what the value is.
+            val key = node.attr(META_NAME_ATTR)?.trim()?.lowercase()
+            val value = node.attr(META_VALUE_ATTR)?.trim()?.takeIf { it.isNotBlank() }
+            if (value == null) continue
+            if (license == null && key == LICENSE_META_NAME) license = value
+            if (author == null && key != null && key in AUTHOR_META_NAMES) author = value
         }
         return KritaMeta(license, author)
     }
@@ -397,11 +551,35 @@ object KritaImport {
         private val file: KritaFile,
         private val bundle: KritaZip?,
         private val meta: KritaMeta?,
+        /**
+         * The author **this one `.kpp` states in its own `author`/`Author` chunk**, which is more specific
+         * than a bundle's `meta.xml` and therefore wins: in David Revoy's real pack the file says
+         * `David Revoy ( aka Deevad )` where the bundle says `Deevad`, and the fuller string is the better
+         * attribution. Null when the file states none, and then the bundle's own word is used.
+         */
+        private val ownAuthor: String?,
     ) {
 
         // The parse happens in the constructor, so a hostile document throws before a single field exists
         // and the caller turns that into a [RefusedBrush] naming the brush.
         private val root = parseKritaXml(file.presetXml, "this .kpp's preset XML")
+
+        /**
+         * Krita's own settings form, as the real bytes write it — and this is the fact the whole row was
+         * getting wrong. **Every setting is a `<param type="string|internal|bytearray" name="KEY">`, and the
+         * value is the element's *text*, inside a `CDATA` section for the two types that hold text.**
+         *
+         * Measured over the 64 real presets of David Revoy's Brushkit V8.2 (`testdata-local/`, git-ignored):
+         * 7 256 `<param>` elements, `type="string"` 4 973, `type="internal"` 2 265, `type="bytearray"` 18,
+         * and **247 distinct `name`s**. In all 64 presets **no `name` appears twice**, so a map keyed by the
+         * name loses nothing on any of them; a second `<param>` with a name already present wins, which is the
+         * only rule a duplicate needs and the only one a real file has never required.
+         *
+         * The `internal` type writes its value as bare text with no `CDATA` and the other two inside one, and
+         * **both are read the same way**, because a reader that insisted on the `CDATA` would discard 2 265
+         * of the 7 256 settings in the real pack — including every `EraserMode` and every `PressureSize`.
+         */
+        private val settings: Map<String, KritaValue> = readSettings()
 
         private val warnings = ArrayList<String>()
         private val extensions = LinkedHashMap<String, String>()
@@ -419,6 +597,21 @@ object KritaImport {
         private var sizeBase = DEFAULT_DIAMETER_PX
         private var pixelSize: Float? = null
         private var spacing = DEFAULT_SPACING
+
+        /**
+         * The **flat** shape's size curve top, read as a px diameter because that is what the spec's Decision
+         * 4 and its test 11 say it is.
+         *
+         * **And only the flat shape's.** In the real shape a size curve is a **multiplier on the diameter**,
+         * which is why every one of the 64 real `SizeSensor` curves in David Revoy's Brushkit V8.2 tops out
+         * at *exactly* 1.0 — a brush whose size curve ends at 1.0 is a brush whose pressure does not change
+         * its size, which is the common case and not a one-pixel brush. Reading that 1.0 as a diameter is
+         * what the landed `resolveSize` does, and it would have made **all 64 real presets paint one pixel
+         * wide**. The real form's size therefore goes where it belongs: `size.base` is the diameter (a
+         * number this row keeps in Krita's own unit and warns about) and the curve is an **input**, which is
+         * exactly `Param(base, inputs)` and exactly Krita's own `diameter × curve(sensor)`.
+         */
+        private var flatSizeTop: Float? = null
         private var smoothing = DEFAULT_SMOOTHING
         private var scatterAmount = 0f
         private var scatterCount = 1
@@ -427,6 +620,25 @@ object KritaImport {
         // Decision 4's first case, and the one that is easiest to get wrong in the *other* direction: a
         // brush with an image tip still gets a real `size.base`, so it paints at the right size today.
         private var storedTip: KritaStored? = null
+
+        /**
+         * The image brush's own `scale` attribute, which is the factor its pixel width is multiplied by.
+         * 1 when the file does not state one, so an unstated scale is the identity rather than a guess.
+         */
+        private var tipScale = 1f
+
+        /**
+         * Krita's procedural mask's `diameter`, **kept in Krita's own unit and not converted**, with
+         * [TIP_DIAMETER_KEY] naming that unit in the key. See [resolveSize] for why there is no conversion
+         * and what the person is told instead.
+         */
+        private var tipDiameter: String? = null
+
+        /** The real `spacing` attribute of the `<Brush>` element, in Krita's own fraction of the diameter. */
+        private var realSpacing: Float? = null
+
+        /** Krita's `useAutoSpacing`, which means Krita *computed* the spacing and this build did not. */
+        private var realAutoSpacing = false
 
         // Decision 12's two branches, kept apart because they end in different `paperGrain` fields.
         private var textureName: String? = null
@@ -454,34 +666,69 @@ object KritaImport {
             resolveSize()
             texture()
             sweep()
+            // Said here rather than nowhere, and once per brush: the file tried to name its author and the
+            // chunk could not be read, so the brush has no author **and the person is told why**.
+            file.authorProblem?.let { why ->
+                warn(
+                    "this .kpp's own author chunk could not be read, so the brush is imported with no " +
+                        "author rather than not at all: $why"
+                )
+            }
             return finish(name, id)
         }
 
         // ---- Decision 1 and 10: the engine gate, which is the whole row --------------------------------
 
-        /** Decision 10: the id is read from the XML and **nowhere else**, and a missing one refuses. */
+        /**
+         * Decision 10: the id is read from the XML and **nowhere else**, and a missing one refuses.
+         *
+         * **The attribute is `paintopid` on a `<Preset>` root, and the spec's Decision 10 was wrong about
+         * it.** The spec says the settings are `<paintop id="…">`; the reader obeyed; the fixtures obeyed;
+         * and the three agreed with each other and with nothing Krita has ever written. Measured over the 64
+         * real presets of David Revoy's Brushkit V8.2 (`testdata-local/`, git-ignored): the root is
+         * **`<Preset name="…" paintopid="…">` in 64 of 64**, and the values are `paintbrush` ×54,
+         * `colorsmudge` ×7, `deformbrush`, `experimentbrush` and `duplicate` ×1 each. The string `id=` never
+         * appears on a root. So the reader refused 61 of 61 mappable brushes with a sentence about a
+         * `<paintop id="…">` that no such file has, and the row's headline claim — that a `deformbrush` is
+         * refused by name — was untested against anything real.
+         *
+         * There is a **second copy** of the same fact in every real preset, `<param type="string"
+         * name="paintop"><![CDATA[paintbrush]]></param>` (64 of 64, and it always agrees with the
+         * attribute). **It is not read as a fallback.** The attribute is in 64 of 64, a fallback would be a
+         * second place a stranger's file gets to choose an engine, and Decision 10's whole point is that the
+         * engine is read from one place or not at all. The redundant copy is left in the sweep, which keeps
+         * it, so nothing is lost by not reading it.
+         */
         private fun paintopId(): String {
-            val id = root.attr("id")?.takeIf { it.isNotBlank() }
+            val id = root.attr("paintopid")?.takeIf { it.isNotBlank() }
                 ?: throw BrushException(
-                    "its preset XML has no <paintop id=\"…\">, so it does not say which Krita engine this " +
-                        "brush is; Joy Brush will not guess one, because a bristle brush read as a round one " +
-                        "is a different brush wearing the same name"
+                    "its preset XML is a <${root.name}> with no paintopid=\"…\", so it does not say which " +
+                        "Krita engine this brush is; Joy Brush will not guess one, because a bristle brush " +
+                        "read as a round one is a different brush wearing the same name"
                 )
-            root.claim("id")
+            root.claim("paintopid")
             return id
         }
 
         /**
          * Decision 1: a `when` with **no branch that returns a brush for an unlisted engine**.
          *
-         * The named engines each get the same sentence built around the file's own id, because "unsupported"
-         * is not a sentence a person can act on. The `else` refuses too and is not a soft landing: it is
-         * the same refusal with whatever Krita called it, so a Krita release that adds an engine cannot get
-         * in by being new.
+         * **Two spellings of each accepted engine, because the two the spec invented and the two the real
+         * files write are both real.** `paintbrush` is what 54 of 64 real presets carry and `Pixel` is what
+         * Krita's own brush editor calls that engine — the class name rather than the registered name — and a
+         * reader that accepts only one of them refuses half of every pack it has ever seen. So both are
+         * accepted for both engines and **nothing else is**, which keeps Decision 1's actual claim (a
+         * `when` with no soft landing) and the thirteen refused-id cases it is pinned by.
+         *
+         * The refused sentences are built around the file's **own** id, because "unsupported" is not a
+         * sentence a person can act on and the id is what they will see in Krita. The `else` refuses too and
+         * is not a soft landing: it is the same refusal with whatever Krita called it — which is what
+         * `deformbrush`, `experimentbrush` and `duplicate` get, three of the 64 real presets, because none of
+         * them is a dab model Joy Brush has and approximating one is the thing this row exists to refuse.
          */
         private fun engineOf(paintopId: String): String = when (paintopId) {
-            "Pixel" -> "stamp"
-            "ColorSmudge" -> {
+            "paintbrush", "Pixel" -> "stamp"
+            "colorsmudge", "ColorSmudge" -> {
                 warn(SMUDGE_NOT_BUILT)
                 "smudge"
             }
@@ -497,14 +744,181 @@ object KritaImport {
 
         // ---- Decision 4: the tip, and the R40 store it may end in -------------------------------------
 
+        /**
+         * The tip, in whichever of the two shapes the file uses.
+         *
+         * **The real shape is a *value*, not an element.** `brush_definition` is a
+         * `<param type="string" name="brush_definition">` whose text is a nested document,
+         * `<![CDATA[<Brush type="auto_brush" spacing="0.1" …><MaskGenerator …/></Brush>]]>`, and 62 of the
+         * 64 real presets carry it that way. The older element form, `<brush_definition type="auto_mask"
+         * name="start"><cell row="0" col="0" value="1.0;0.6"/></brush_definition>`, is still read by
+         * [elementTip] — the landed tests pin it, it is a shape Krita's own older writers produced, and a
+         * reader that drops it would refuse a preset rather than approximate it.
+         */
         private fun tip() {
-            val definition = root.child("brush_definition")
-            if (definition == null) {
+            val element = root.child("brush_definition")
+            if (element != null) {
+                elementTip(element)
+                return
+            }
+            val value = settings["brush_definition"]
+            if (value == null) {
                 // An absent definition is the spec's first case and is MAPPED, not a fault: a preset that has
                 // not chosen a tip yet still has one, and the default tip is a circle. `tip.aspect` stays 0
                 // and `tip.corner` is 2, and that is a circle.
                 return
             }
+            realTip(value)
+        }
+
+        /**
+         * The real shape, and the three things it turns out to carry.
+         *
+         * - **an `auto_brush`** — a procedural ellipse. `MaskGenerator@ratio` is the aspect and
+         *   `MaskGenerator@diameter` is the size in Krita's own unit. 30 of the 64 real presets.
+         * - **a `png_brush` or `gbr_brush` with a `filename`** — a tip the file *names*. **All 32 of the
+         *   real pack's named tips resolve to an entry of the same bundle**, in `brushes/`, which is a third
+         *   case the spec did not have: the bytes are reachable, so a `.png` one is stored under R40 and a
+         *   `.gbr`/`.gih` one is kept by name with a warning, exactly as a texture this build cannot decode
+         *   is. **Not refused** — see the class KDoc on [KritaStored] and the report; Decision 4's REFUSED
+         *   bullet is scoped to a *base64-embedded* GBR, which no real file has.
+         * - **a name that resolves to nothing** — the spec's *predefined* case, unchanged.
+         */
+        private fun realTip(value: KritaValue) {
+            val where = "its \"brush_definition\""
+            val node = parseKritaXml(value.text, where, bareDoctype = true)
+            node.claim(
+                "type", "filename", "scale", "spacing", "useAutoSpacing", "autoSpacingCoeff",
+                "randomness", "density", "angle", "BrushVersion", "ColorAsMask",
+            )
+            node.attr("scale")?.trim()?.toFloatOrNull()?.let { if (it > 0f) tipScale = it }
+            node.attr("scale")?.let { extensions[TIP_SCALE_KEY] = it.trim() }
+            // The real `spacing` is read here, where the element is already parsed, and applied by
+            // [applyRealSpacing]. Its raw copy is kept so the value is in `extensions` under a name of its own.
+            node.attr("spacing")?.let { extensions[TIP_SPACING_KEY] = it.trim() }
+            realSpacing = node.attr("spacing")?.trim()?.toFloatOrNull()
+            realAutoSpacing = node.attr("useAutoSpacing")?.trim() == "1"
+
+            val kind = node.attr("type")?.trim()?.lowercase() ?: ""
+            if (kind == "auto_brush" || kind.isEmpty()) {
+                aspectOfMask(node)
+                return
+            }
+            val filename = node.attr("filename")?.trim()?.takeIf { it.isNotBlank() }
+            if (filename == null) {
+                // A tip of a kind this build does not recognise and with no name to look up: there is nothing
+                // to fetch and nothing to keep by name, so it is the spec's first case — a round procedural
+                // dab — and the kind is named so the person can see what this build met.
+                val said = node.attr("type")?.trim()?.takeIf { it.isNotBlank() } ?: kind
+                warn(
+                    "this brush's tip is a \"$said\" with no file name, which this build does not read, so " +
+                        "the tip stays a procedural round dab"
+                )
+                return
+            }
+            val base = filename.substringAfterLast('/')
+            val zip = bundle
+            val entry = zip?.let { z -> z.find("brushes/$base") ?: z.find(base) }
+            if (zip == null || entry == null) {
+                // The spec's *predefined* case: a Krita resource path this file does not carry. LOSSY, not
+                // refused — there is nothing to refuse *on*, the file simply does not carry the picture.
+                extensions[TIP_PREDEFINED_KEY] = filename
+                warn(
+                    "$TEXTURE_NOT_DRAWN; this brush's tip is the Krita resource \"$filename\", which this " +
+                        "file and its bundle do not carry, so the tip stays a procedural round dab and the " +
+                        "name is kept in extensions[\"$TIP_PREDEFINED_KEY\"]"
+                )
+                return
+            }
+            val bytes = try {
+                zip.read(entry)
+            } catch (e: BrushException) {
+                // A tip this build cannot read out of the bundle is not a reason to drop the brush: the
+                // name is kept, the tip stays procedural, and the reason is carried into the warning. The
+                // same rule the texture branch uses, and for the same reason — an importer that refuses a
+                // whole pack because one entry is a bomb is a worse tool than one that says so.
+                extensions[TIP_PREDEFINED_KEY] = filename
+                warn(
+                    "$TEXTURE_NOT_DRAWN; this brush's tip is \"brushes/$base\", which this bundle holds but " +
+                        "this build could not read (${
+                            e.message ?: "the entry could not be read"
+                        }), so the tip stays a procedural round dab and the name is kept in " +
+                        "extensions[\"$TIP_PREDEFINED_KEY\"]"
+                )
+                return
+            }
+            if (!isPngSignature(bytes, 0)) {
+                // GIMP's `.gbr` / `.gih` and Adobe's `.abr` are three more binary formats and this row's
+                // budget is one XML reader and one PNG chunk reader. **The tip is kept by name and warned
+                // about, and the brush is kept**, which is Decision 12's rule for a pattern this build
+                // cannot decode and R40's own words: *"refusing the brush instead refuses most of Procreate
+                // and much of Revoy's Krita pack."* 20 of the 64 real presets are in this case.
+                extensions[TIP_PREDEFINED_KEY] = filename
+                val format = base.substringAfterLast('.', "").uppercase().takeIf { it.isNotEmpty() }
+                    ?: "a binary brush format"
+                warn(
+                    "$TEXTURE_NOT_DRAWN; this brush's tip is \"brushes/$base\", which this bundle does carry, " +
+                        "but it is a $format file and this build reads no GIMP or Adobe brush binary, so the " +
+                        "tip stays a procedural round dab and the name is kept in " +
+                        "extensions[\"$TIP_PREDEFINED_KEY\"]"
+                )
+                return
+            }
+            val header = readPngHeader(bytes)
+                ?: throw BrushException("its tip \"brushes/$base\" starts with the PNG signature but carries no IHDR")
+            if (header.width <= 0) {
+                throw BrushException("its tip \"brushes/$base\" has an IHDR width of ${header.width} px")
+            }
+            storedTip = KritaStored(bytes, TIP_IMAGE_FILE, header.width)
+        }
+
+        /**
+         * The procedural mask's own two numbers, and only those two.
+         *
+         * `ratio` is the aspect (see [aspectOfRatio]) and `diameter` is the size (see [resolveSize]); the
+         * other eight attributes a real `MaskGenerator` carries — `type`, `id`, `vfade`, `hfade`, `spikes`,
+         * `antialiasEdges`, `softness_curve` — are Joy Brush tip features this row does not have, so they
+         * are left to the sweep, which keeps them and the brush is told they were kept.
+         */
+        private fun aspectOfMask(node: KritaNode) {
+            val mask = node.childrenNamed("MaskGenerator").firstOrNull() ?: return
+            mask.claim("type", "id", "diameter", "ratio", "vfade", "hfade", "spikes", "antialiasEdges")
+            aspect = aspectOfRatio(mask.attr("ratio"))
+            tipDiameter = mask.attr("diameter")?.trim()?.takeIf { it.isNotBlank() }
+        }
+
+        /**
+         * Krita's own ellipse ratio (`MaskGenerator@ratio`, width over height) onto `TipSpec.aspect`, which
+         * `BrushValidate` rule 6 holds to −1..1 with 0 a circle.
+         *
+         * **`(r − 1) / (r + 1)`.** Chosen because it is one expression with no branch that cannot get a
+         * ratio's sign wrong: `r < 1` (taller than wide) → negative, `r == 1` → **exactly** 0, `r > 1` →
+         * positive, and it is monotone in `r`, so no value rounds to the wrong side. The real pack's four
+         * values are `1` ×27, `0.52`, `0.39` and `0.17`, and the three non-circular ones give −0.3158,
+         * −0.4388 and −0.7094 — every one of them a real ellipse, which the landed `aspectOf` could not have
+         * produced because **a real preset has no `<cell>`: `<cell>` appears 0 times in all 64.**
+         *
+         * A `ratio` that is not a number, or is zero or negative, leaves `aspect` at 0 and says so, because
+         * 0 is a circle and a circle is the one shape this build can draw without a curve.
+         */
+        private fun aspectOfRatio(raw: String?): Float {
+            val text = raw?.trim()?.takeIf { it.isNotBlank() } ?: return 0f
+            val r = text.toFloatOrNull()
+            if (r == null || !r.isFinite() || !(r > 0f)) {
+                warn("this brush's tip ellipse ratio is \"$text\", which is not a positive number, so " +
+                    "tip.aspect stays 0 and a circle is drawn")
+                return 0f
+            }
+            return ((r - 1f) / (r + 1f)).coerceIn(-1f, 1f)
+        }
+
+        /**
+         * The older element shape, unchanged: an absent definition, an `auto_mask` ellipse from a `<cell>`, a
+         * base64-embedded tip (PNG stored, GBR/GIH/ABR **refused by name**), or a name the file does not
+         * carry. Decision 4's REFUSED bullet is scoped to *embedded* and stays exactly that way here, because
+         * [realTip]'s named case is a different thing and the report says which.
+         */
+        private fun elementTip(definition: KritaNode) {
             definition.claim("type", "name", "active", "mask_color_palette")
             val type = definition.attr("type")?.lowercase() ?: ""
 
@@ -597,19 +1011,56 @@ object KritaImport {
 
         // ---- Decisions 2, 2b and 3: sensors, the two tilts, and curves ---------------------------------
 
+        /**
+         * One curve found in the file, in **either** shape, reduced to the four facts the mapping needs.
+         *
+         * Collecting first and applying second is not tidiness, it is Decision 2b. The two-tilt warning
+         * depends on which tilt sensors the file carries *anywhere*, so a reader that decided each curve as
+         * it walked would have to know the whole file before it could map the first one — and the landed
+         * version's two-pass pre-pass was a workaround for exactly that. One list, applied once, cannot
+         * depend on the order the file happened to be written in.
+         *
+         * [target] is the Joy Brush setting this curve drives, or null when the format does not say — and in
+         * the real format it **does** say, through the parameter's own name (see [SENSOR_TARGETS]).
+         * [label] is what a warning and a refusal name, and it is the format's own name for the thing.
+         */
+        private class KritaCurve(
+            val sensor: String,
+            val target: Target?,
+            val label: String,
+            val points: List<List<Float>>,
+            /**
+             * Did this curve come from the **flat** shape (a `sensor` attribute) or from the **real** shape (a
+             * `…Sensor` param's nested document)? It decides one thing only, and that one thing is a px
+             * diameter: see [resolveSize] and [flatSizeTop].
+             */
+            val fromFlatForm: Boolean,
+        )
+
         private fun curves() {
-            val unmappedSensors = LinkedHashSet<String>()
-            val unmappedParams = ArrayList<String>()
+            val found = ArrayList<KritaCurve>()
+            collectFlatCurves(found)
+            collectRealCurves(found)
+            applyCurves(found)
+        }
 
-            // Decision 2b's pre-pass, so the outcome does not depend on which tilt the file happened to
-            // write first: both raw values survive either way, and the *same* one is always the ignored one.
-            val tiltSensors = HashSet<String>()
-            for (node in root.all()) {
-                val sensor = node.attr("sensor")?.lowercase() ?: continue
-                if (INPUTS[sensor] == BrushInput.tilt && isCurve(node)) tiltSensors += sensor
-            }
-            val bothTilts = "xtilt" in tiltSensors && "declination" in tiltSensors
+        /**
+         * Sensors a real parameter names that carry **no curve** and that Joy Brush has no `BrushInput` for.
+         * They contribute nothing, but they are still named, because "Joy Brush has no input for this sensor"
+         * is true whether or not the file happened to give it a curve.
+         */
+        private val unmappedCurveLess = LinkedHashSet<String>()
 
+        /**
+         * The shape the landed reader understood, kept whole: any element carrying a `sensor` and a **curve**
+         * is a curve whatever Krita called it, and its `name` says which setting it drives.
+         *
+         * **Krita writes this shape 0 times in the 64 real presets** — `sensor=` appears nowhere, and so do
+         * `commonCurve`, `<curve …>` as an attribute-carrying element, and `<point>`. It is kept because
+         * these are the landed tests' fixtures and because Krita's older preset writers produced a flat form
+         * this build has no reason to refuse, not because any file it will see uses it.
+         */
+        private fun collectFlatCurves(found: MutableList<KritaCurve>) {
             for (node in root.all()) {
                 val sensor = node.attr("sensor")?.takeIf { it.isNotBlank() } ?: continue
                 // Any element carrying a `sensor` and a **curve** is a curve, whatever Krita called it:
@@ -622,7 +1073,117 @@ object KritaImport {
                 // checking only the mapped ones made a file's legality depend on which setting you looked at,
                 // and nothing here is allowed to depend on that.
                 val points = curvePoints(node)
-                val input = INPUTS[sensor.lowercase()]
+                found += KritaCurve(
+                    sensor.lowercase(),
+                    name?.let { TARGETS[it.lowercase()] },
+                    name ?: node.name,
+                    points,
+                    fromFlatForm = true,
+                )
+            }
+        }
+
+        /**
+         * The shape Krita actually writes, and it is a **value** rather than an element: every input hangs off
+         * a `<param name="…Sensor">` whose text is a nested document.
+         *
+         *  - **one sensor** — `<params id="pressure"><curve>0,0;1,1;</curve></params>`, 902 nested documents
+         *    begin with `<!DOCTYPE params>` and this is the shape;
+         *  - **two or more** — `<params id="sensorslist">` with one `<ChildSensor id="…">` each carrying its
+         *    own `<curve>`, which is how Krita combines two axes onto one setting.
+         *
+         * **Both places a curve can sit are read, and each is read for a measured reason.** Eight of the nine
+         * real `sensorslist` values put their curves on the children, and the ninth (`deevad 6q bokeh`) puts
+         * one on the `<params>` itself *beside* its children; a reader that took only the children would lose
+         * that brush's own curve, and one that took only the direct `<curve>` would lose the other eight. A
+         * direct `<curve>` beside children is given to the **first** child in document order, which is a
+         * choice and is stated as one: the file does not say whose curve it is, and the first child is the
+         * only defensible answer, while the raw text is kept either way.
+         *
+         * **A sensor with no curve contributes nothing at all** — no input, and no warning either, because a
+         * warning that fires on almost every brush is a warning nobody reads. The real pack has 118 sensor
+         * parameters of this shape (`<params id="pressure"/>` with no `<curve>`), and a sensor with no curve
+         * says nothing about the stroke. A sensor with no curve **and no `BrushInput`** is still named,
+         * because that one is a fact about Joy Brush rather than about the file.
+         */
+        private fun collectRealCurves(found: MutableList<KritaCurve>) {
+            for ((paramName, value) in settings) {
+                if (!paramName.endsWith(SENSOR_SUFFIX)) continue
+                val body = value.text
+                // A `…Sensor` param whose value is not a document is not a sensor. `startsWith("<")` is the
+                // test, and it is the same one `readKppFile` uses on a whole `preset` chunk.
+                if (!body.startsWith("<")) continue
+                val params = parseKritaXml(body, "its \"$paramName\"", bareDoctype = true)
+                params.claim("id", "rotationModeEnabled", "type", "softness_threshold", "isCircular")
+                val children = params.childrenNamed("ChildSensor")
+                for (child in children) {
+                    child.claim("id", "rotationModeEnabled", "type", "softness_threshold", "isCircular")
+                }
+                val direct = params.childrenNamed("curve").firstOrNull()
+                if (direct != null) direct.claim("sensor", "name", "type", "commonCurve", "points", "min", "max")
+                val target = SENSOR_TARGETS[paramName.lowercase()]
+
+                val rows = ArrayList<Pair<String, KritaNode?>>()
+                val rootId = params.attr("id")?.trim()?.lowercase()
+                if (rootId != null && rootId != SENSORS_LIST) {
+                    rows += rootId to direct
+                }
+                for (child in children) {
+                    val id = child.attr("id")?.trim()?.lowercase()
+                    if (id.isNullOrEmpty()) continue
+                    rows += id to child.childrenNamed("curve").firstOrNull()
+                }
+                if (rootId == SENSORS_LIST && direct != null && rows.isNotEmpty()) {
+                    // A `<curve>` on the `sensorslist` itself: the first child's, as the KDoc says.
+                    val first = rows[0]
+                    if (first.second == null) rows[0] = first.first to direct
+                }
+                for ((sensor, curve) in rows) {
+                    // A sensor with **no curve** contributes nothing at all: no input, and no warning
+                    // unless Joy Brush has no input for the sensor either, which is a fact about Joy Brush
+                    // rather than about the file. 118 of the 1 020 real sensor parameters are this shape
+                    // (`<params id="pressure"/>`), and inventing an identity curve for them would be
+                    // inventing a setting — and, through [resolveSize], a one-pixel brush.
+                    if (curve == null) {
+                        if (INPUTS[sensor] == null) unmappedCurveLess += sensor
+                        continue
+                    }
+                    found += KritaCurve(
+                        sensor,
+                        target,
+                        paramName,
+                        pointsOf(curve, paramName),
+                        fromFlatForm = false,
+                    )
+                }
+            }
+        }
+
+        /**
+         * Apply every curve the two collectors found, and say the two things that are not obvious.
+         *
+         * Decision 2b's outcome is decided from the whole list, so it does not depend on which tilt the file
+         * happened to write first: both raw values survive either way and the **same** one is always the
+         * ignored one.
+         */
+        private fun applyCurves(found: List<KritaCurve>) {
+            val unmappedSensors = LinkedHashSet(unmappedCurveLess)
+            val unmappedParams = ArrayList<String>()
+
+            // Decision 4's order, and the **flat form's** reading of a size curve as a px diameter. See
+            // [flatSizeTop]: in the real shape the top of a size curve is a **multiplier**, and all 64 real
+            // presets' top out at exactly 1.0, so reading it as a diameter would make every one of them a
+            // one-pixel brush.
+            val tiltSensors = HashSet<String>()
+            for (curve in found) {
+                if (INPUTS[curve.sensor] == BrushInput.tilt) tiltSensors += curve.sensor
+            }
+            val bothTilts = "xtilt" in tiltSensors && "declination" in tiltSensors
+
+            for (curve in found) {
+                val sensor = curve.sensor
+                val points = curve.points
+                val input = INPUTS[sensor]
                 if (input == null) {
                     // Decision 2: the rest have no `BrushInput` and are kept raw and named. **No new
                     // `BrushInput` constant here** — R3 makes that a `BRUSH_VERSION` bump and a validator
@@ -636,15 +1197,21 @@ object KritaImport {
                     // triggered the general per-sensor warning — so this is written for a single tilt too, and
                     // the one that is *ignored* when there are two is the one whose curve is not applied.
                     extensions["krita.$sensor"] = points.asCommonCurve()
-                    if (bothTilts && sensor.equals("declination", ignoreCase = true)) continue
+                    if (bothTilts && sensor == "declination") continue
                 }
-                val target = if (name != null) TARGETS[name.lowercase()] else null
+                val target = curve.target
                 if (target == null) {
-                    unmappedParams += (name ?: node.name)
+                    unmappedParams += curve.label
                     continue
                 }
                 when (target) {
-                    Target.SIZE -> sizeInputs += InputCurve(input, points)
+                    Target.SIZE -> {
+                        sizeInputs += InputCurve(input, points)
+                        // Only the **flat** shape's size curve is a diameter in px. See [flatSizeTop].
+                        if (curve.fromFlatForm && flatSizeTop == null) {
+                            flatSizeTop = points.maxByOrNull { it[0] }?.get(1)
+                        }
+                    }
                     Target.OPACITY -> opacityInputs += InputCurve(input, points)
                     Target.FLOW -> flowInputs += InputCurve(input, points)
                     Target.TIP_ANGLE -> angleInputs += InputCurve(input, points)
@@ -679,6 +1246,16 @@ object KritaImport {
         }
 
         /**
+         * A `<curve>` element's text as Krita spells a curve — `0,0;1,1;` — obeying Decision 3's caps. The
+         * real form puts the points in the element's **text** and the flat form in an attribute, and both go
+         * through here so both obey the same 64-point cap and the same 0..1 x rule.
+         */
+        private fun pointsOf(curve: KritaNode, label: String): List<List<Float>> {
+            val raw = curve.text.trim().takeIf { it.isNotBlank() } ?: ""
+            return checkPoints(parsePairs(raw, "\"$label\" curve"), "\"$label\"")
+        }
+
+        /**
          * Is this element a **curve** rather than one of the other things Krita hangs a `sensor` on?
          *
          * Decided on the shape — a `type="curve"`, a `commonCurve`/`points` attribute, or `<point>` children —
@@ -702,25 +1279,18 @@ object KritaImport {
          * `QDomElement::toXML` writes). Every refusal below is a *shape or number* problem and each has its
          * own sentence, because "65 points", "an x outside 0..1" and "not two numbers" are three different
          * bugs in a person's file.
+         *
+         * The real preset's third shape — the points in a `<curve>` element's **text**, `0,0;1,1;` — goes
+         * through [parsePairs], the very same parse the `commonCurve` attribute goes through, so the 64-point
+         * cap and the 0..1 x rule are the same rules for all three and not three similar ones. **It is the
+         * shape 718 of the 902 real curves are written in.**
          */
         private fun curvePoints(node: KritaNode): List<List<Float>> {
             val where = node.attr("name")?.let { "\"$it\"" } ?: node.name
             val raw = node.attr("commonCurve")?.takeIf { it.isNotBlank() }
                 ?: node.attr("points")?.takeIf { it.isNotBlank() }
             node.claim("sensor", "name", "type", "commonCurve", "points", "min", "max", "value", "key")
-            if (raw != null) {
-                val out = ArrayList<List<Float>>()
-                for (pair in raw.trim().trimEnd(';').split(';')) {
-                    val body = pair.trim()
-                    if (body.isEmpty()) continue
-                    val bits = body.split(',')
-                    if (bits.size != 2) {
-                        throw BrushException("its $where curve point \"$body\" is ${bits.size} numbers, not 2")
-                    }
-                    out += listOf(number(bits[0].trim(), where, "x"), number(bits[1].trim(), where, "y"))
-                }
-                return checkPoints(out, where)
-            }
+            if (raw != null) return checkPoints(parsePairs(raw, where), where)
             val out = ArrayList<List<Float>>()
             for (point in node.childrenNamed("point")) {
                 point.claim("x", "y")
@@ -732,6 +1302,26 @@ object KritaImport {
                 out += listOf(x, y)
             }
             return checkPoints(out, where)
+        }
+
+        /**
+         * Krita's own spelling of a curve — `0,0;0.5,0.8;1,1;` — as `[[x, y], …]`, and **never trimmed**: a
+         * point that is not exactly two numbers, or an x outside 0..1, or a non-finite y, each refuses the
+         * brush with its own sentence. One parse for the `commonCurve` attribute and for the `<curve>` element
+         * text a real preset writes, so the rules are the same rules.
+         */
+        private fun parsePairs(raw: String, where: String): List<List<Float>> {
+            val out = ArrayList<List<Float>>()
+            for (pair in raw.trim().trimEnd(';').split(';')) {
+                val body = pair.trim()
+                if (body.isEmpty()) continue
+                val bits = body.split(',')
+                if (bits.size != 2) {
+                    throw BrushException("its $where curve point \"$body\" is ${bits.size} numbers, not 2")
+                }
+                out += listOf(number(bits[0].trim(), where, "x"), number(bits[1].trim(), where, "y"))
+            }
+            return out
         }
 
         private fun checkPoints(points: List<List<Float>>, where: String): List<List<Float>> {
@@ -766,6 +1356,35 @@ object KritaImport {
         private fun List<List<Float>>.asCommonCurve(): String = joinToString(";") { "${it[0]},${it[1]}" }
 
         // ---- the settings that are not curves ---------------------------------------------------------
+
+        /**
+         * Every `<param>` of the document, keyed by its own `name`.
+         *
+         * **Why a map and not a walk.** The real format puts every setting in one element whose value is its
+         * text, and the readers below ask for settings *by name* — `SizeSensor`, `brush_definition`,
+         * `Texture/Pattern/Name` — so a map is the shape the format is, not a convenience. A `<param>` with
+         * no `name` is skipped and left to the sweep, which keeps it under its own position.
+         */
+        private fun readSettings(): Map<String, KritaValue> {
+            val out = LinkedHashMap<String, KritaValue>()
+            for (node in root.childrenNamed("param")) {
+                val name = node.attr("name")?.takeIf { it.isNotBlank() } ?: continue
+                // Read now, so the sweep knows not to keep this element's character data a second time under
+                // a key of its own. Its `type` and `name` attributes are read too, for the same reason.
+                node.claim("type", "name")
+                // **The one parameter whose value the sweep must not keep**, and the measurement is why: the
+                // real `Texture/Pattern/Pattern` runs to 466 408 characters, which is 1.8 times the whole
+                // 262 144-character extensions budget, so keeping it as a raw string would make a real brush
+                // **unimportable** over a value [realPatternBytes] has already either stored or refused with a
+                // reason. Its `type="bytearray"` is read here and it is base64 of base64 of a PNG.
+                if (name == TEXTURE_PATTERN_PARAM) node.textClaimed = true
+                out[name] = KritaValue(node.attr("type")?.lowercase() ?: "", node.text.trim())
+            }
+            return out
+        }
+
+        /** One `<param>`: the `type` Krita wrote and the value it wrote as the element's text. */
+        private class KritaValue(val type: String, val text: String)
 
         private fun settings() {
             for (node in root.all()) {
@@ -811,36 +1430,111 @@ object KritaImport {
                     if (v != null) pixelSize = v
                 }
             }
+            applyRealSpacing()
+        }
+
+        /**
+         * The real shape's one setting that is not a curve: **`spacing`**, which a real preset writes as an
+         * **attribute of the `<Brush>` element inside `brush_definition`** and not as a `<spacing>` element.
+         * `spacing="0.1"`, in 62 of the 64 real presets (the other two are the `deformbrush` and the
+         * `experimentbrush`, which carry no `<Brush>` at all). `<spacing` as an element appears **0 times** in
+         * the real pack, which is exactly why the landed reader found no spacing on any real brush and left
+         * all 61 of them at `DEFAULT_SPACING`.
+         *
+         * **The value is read in [realTip], where the element is already parsed**, and this only decides what
+         * to do with it. Re-parsing the fragment here to fish one attribute out of it would be a second walk
+         * of a nested document *and* a regex over a stranger's bytes, and Decision 9's "no regex" is a rule
+         * about exactly that.
+         *
+         * **`useAutoSpacing` is said about rather than reproduced.** 57 of the 62 carry it and 9 of those are
+         * `1`, and when it is on Krita *computes* the spacing from `autoSpacingCoeff` and the brush's own
+         * density. This build has not read that formula out of Krita's source, so the file's own `spacing`
+         * is used — a real number, not a default — and the fact that Krita would have computed a different
+         * one is said out loud. Nine of 61 real brushes, and a computed spacing is the difference between a
+         * line and a dotted one.
+         */
+        private fun applyRealSpacing() {
+            val v = realSpacing ?: return
+            val fraction = if (v > 1f) v / 100f else v
+            if (fraction < SPACING_MIN || fraction > SPACING_MAX) {
+                warn(
+                    "its spacing is $v, which reads as $fraction of the diameter and is outside " +
+                        "$SPACING_MIN..$SPACING_MAX; spacing falls back to $DEFAULT_SPACING and the file's " +
+                        "own value is kept in extensions[\"$TIP_SPACING_KEY\"]"
+                )
+                return
+            }
+            spacing = fraction
+            if (realAutoSpacing) {
+                warn(
+                    "this brush has Krita's automatic spacing on, which Krita computes from a formula this " +
+                        "build has not read; spacing is the $fraction the file itself states, not the value " +
+                        "Krita would compute"
+                )
+            }
         }
 
         /**
          * Decision 4's order for `size.base`, written down: **the size sensor's own base, then the
          * `PixelSize` value, then [DEFAULT_DIAMETER_PX]** — and then, in [finish] and over all three, the
-         * embedded tip's own `IHDR` width, because R40 says the stored image never replaces the numbers.
+         * stored tip's own `IHDR` width, because R40 says the stored image never replaces the numbers.
+         *
+         * **Krita's own procedural size is kept in Krita's own unit and is NOT converted, and this is the one
+         * mapping this row deliberately does not make.** `MaskGenerator@diameter` is 30 of the 64 real presets'
+         * tip size and its values run `1`, `3`, `5`, `8`, `10`, `15`, `26.17`, `30`, `32`, `46`, `50`, `55`,
+         * `56`, `60`, `84`, `101`, `102.38`, `600` — a brush Krita calls `deevad 5b pixel` states `1`, which
+         * reads as one pixel; a 6-inch airbrush reads as `600` only if the unit is 1/100 inch, which would
+         * make the same `1` a quarter of a millimetre. **The two readings differ by 96:1 and the bytes do not
+         * say which is right**, and a `.kpp` states no document resolution either, so a px number would have
+         * to come from a DPI this file would have to invent. Inventing it is the thing this row exists to
+         * refuse, so the number is kept, its unit is named in the key, and the person is told what it is and
+         * what it was not used for. It is a Question for the Lead, not a decision this row may take.
+         *
+         * **An image tip's own size is different and is used**: a tip's `IHDR` width is in pixels and
+         * `<Brush scale=>` is a plain multiplier, so `width × scale` needs no unit and no resolution.
          */
         private fun resolveSize() {
-            // The **first** size sensor's curve, not the last: Krita writes pressure first and the pressure
-            // sensor is the one a `size` slider is really about. "The first" is a decision rather than an
-            // accident — "the last" is also deterministic, and picking one out loud is the whole of it.
-            val top = sizeInputs.firstOrNull()?.curve?.maxByOrNull { it[0] }
+            // The **first** size sensor's curve, not the last, and only in the flat shape: see [flatSizeTop]
+            // for the measurement that makes the real shape's curve a multiplier rather than a diameter.
+            val top = flatSizeTop
             var from = pixelSize
             if (top != null) {
-                val v = top[1]
-                if (!(v > 0f) || v > BrushValidate.MAX_SIZE_PX) {
+                if (!(top > 0f) || top > BrushValidate.MAX_SIZE_PX) {
                     warn(
-                        "its size curve tops out at $v px, which is not a diameter Joy Brush can paint (above " +
-                            "0 and at most ${BrushValidate.MAX_SIZE_PX}); size.base falls back to " +
+                        "its size curve tops out at $top px, which is not a diameter Joy Brush can paint " +
+                            "(above 0 and at most ${BrushValidate.MAX_SIZE_PX}); size.base falls back to " +
                             "$DEFAULT_DIAMETER_PX and the file's own value is kept raw"
                     )
                 } else {
-                    from = v
+                    from = top
                     // The size sensor won, so the `PixelSize` element is kept rather than read-and-dropped:
                     // `extensions` is lossless storage and a value nobody decided to lose is a value kept.
                     pixelSize?.let { extensions["krita.PixelSize"] = it.toString() }
                 }
             }
             val v = from
-            if (v == null) return
+            if (v == null) {
+                // Krita's own size is said about even when nothing else set `size.base`, because it is the
+                // one number a person notices first and the reason it was not used is a decision, not an
+                // oversight. 30 of the 61 real brushes take this path.
+                tipDiameter?.let { diameter ->
+                    extensions[TIP_DIAMETER_KEY] = diameter
+                    warn(
+                        "this brush's own tip size is $diameter in Krita's unit, which a .kpp does not " +
+                            "resolve to pixels and which this build will not guess at, so size.base is " +
+                            "$sizeBase px and Krita's number is in extensions[\"$TIP_DIAMETER_KEY\"]"
+                    )
+                }
+                return
+            }
+            tipDiameter?.let { diameter ->
+                extensions[TIP_DIAMETER_KEY] = diameter
+                warn(
+                    "this brush's own tip size is $diameter in Krita's unit, which a .kpp does not resolve " +
+                        "to pixels and which this build will not guess at; size is the ${v} px derived from " +
+                        "its size curve and Krita's own number is in extensions[\"$TIP_DIAMETER_KEY\"]"
+                )
+            }
             if (!(v > 0f) || v > BrushValidate.MAX_SIZE_PX) {
                 warn(
                     "its PixelSize is $v px, which is not a diameter Joy Brush can paint (above 0 and at " +
@@ -860,7 +1554,14 @@ object KritaImport {
          * the name resolves to an entry of *this* bundle, and both branches are right for their own input.
          */
         private fun texture() {
-            val node = root.child("texture") ?: return
+            val node = root.child("texture")
+            if (node == null) {
+                // A real preset has **no `<texture>` element at all** — `<texture ` appears 0 times in the
+                // 64 real presets of David Revoy's Brushkit V8.2 — and hangs the texture off a dozen
+                // `Texture/Pattern/…` parameters instead, 9 of which carry the pattern's own bytes.
+                realTexture()
+                return
+            }
             // A texture the file has **switched off** is not a texture this brush carries: no name, no
             // grain, no R40 warning, because there is nothing kept and nothing left not drawn.
             if (node.attr("enabled")?.equals("false", ignoreCase = true) == true) {
@@ -960,35 +1661,229 @@ object KritaImport {
             )
         }
 
+        /**
+         * The real shape, and the three things it says that the `<texture>` element never did.
+         *
+         * **The pattern's own bytes are in the file**, in `<param type="bytearray"
+         * name="Texture/Pattern/Pattern">` — 9 of the 64 real presets — so this is Decision 12's second branch
+         * reached without a bundle at all. R40 therefore applies to a lone `.kpp` and not only to a
+         * `.bundle`, which the spec did not anticipate: Decision 12's "a `.kpp` on its own, and most
+         * `.bundle` files" says the opposite for a `.kpp`, and the bytes say otherwise.
+         *
+         * **The payload is base64 twice, and that is a measurement, not a guess.** Decoding the parameter once
+         * yields 90–349 804 bytes of *base64 text*; decoding that again yields the PNG. All 9 of 9 need the
+         * second decode and none of the 9 works with one. So the test is a **content test** — decode once, and
+         * if what came out is not a PNG but *is* base64 that decodes to one, it was written twice — and a
+         * payload that is neither is refused in words and kept by name, because a file called `grain.png` has
+         * to hold a PNG.
+         *
+         * **The blend mode is a number, and this build does not know what the numbers mean.** The real
+         * `Texture/Pattern/TexturingMode` is `0` or `1` (and absent for 2 of the 9), never a name. Joy Brush's
+         * `GrainSpec` has no mode field and R31 makes adding one a version bump and a validator change, so the
+         * number is kept under [TEXTURE_MODE_KEY] and **named in a warning** — which is Decision 12's rule for
+         * a mode this build has no field for, arrived at by the same road. Mapping `0` and `1` to names would
+         * be a claim about Krita's enum that this build has not read out of Krita's source, and it is a
+         * Question for the Lead rather than a decision here.
+         *
+         * **`Enabled` is absent for 2 of the 9** — Krita simply does not write it when the texture is on — so
+         * an absent `Enabled` is **on** and only an explicit `false` is off. Getting that backwards would drop
+         * a real brush's paper.
+         */
+        private fun realTexture() {
+            val name = settings["Texture/Pattern/Name"]?.text?.takeIf { it.isNotBlank() }
+            val payload = settings["Texture/Pattern/Pattern"]?.text?.takeIf { it.isNotBlank() }
+            if (name == null && payload == null) return
+            if (settings["Texture/Pattern/Enabled"]?.text?.trim()?.equals("false", ignoreCase = true) == true) {
+                // Switched off: no name kept, no grain, no R40 sentence, because nothing is kept and nothing
+                // is left not drawn. The parameters are still swept, so the file's own values are not lost.
+                return
+            }
+            if (name != null) {
+                textureName = name.substringAfterLast('/')
+                extensions[TEXTURE_PATTERN_KEY] = textureName!!
+            }
+            settings["Texture/Pattern/Scale"]?.text?.trim()?.toFloatOrNull()?.let {
+                if (it > 0f && it <= MAX_GRAIN_SCALE) {
+                    textureScale = it
+                } else {
+                    // The real `deevad 5c screentones` states `9999999`, which is 155 612 times `GrainSpec`'s
+                    // own maximum of 64, so the guard fires on a real value and the file's number is kept.
+                    extensions[TEXTURE_SCALE_KEY] = it.toString()
+                    warn(
+                        "this brush's texture scale is $it, which is outside 0..$MAX_GRAIN_SCALE, so the " +
+                            "grain keeps scale $textureScale and the file's own number is in " +
+                            "extensions[\"$TEXTURE_SCALE_KEY\"]"
+                    )
+                }
+            }
+            settings["Texture/Pattern/Strength"]?.text?.trim()?.toFloatOrNull()?.let {
+                if (it > 0f) textureDepth = it.coerceAtMost(1f)
+            }
+            val mode = settings["Texture/Pattern/TexturingMode"]?.text?.trim()?.takeIf { it.isNotBlank() }
+            if (mode != null) {
+                extensions[TEXTURE_MODE_KEY] = mode
+                warn(
+                    "this brush's texture blend mode is Krita's number $mode, which this build has no name " +
+                        "for and will not guess at; it is in extensions[\"$TEXTURE_MODE_KEY\"] and the grain " +
+                        "is not drawn"
+                )
+            }
+
+            if (payload != null) {
+                val bytes = realPatternBytes(payload)
+                if (bytes != null) {
+                    // R40: the bytes are the grain, the name says the encoding, and the sentence is the one
+                    // every importer says. `grainEnabled` is true because the file really does carry a texture,
+                    // whatever the blend mode's number means.
+                    grainStored = KritaStored(bytes, GRAIN_IMAGE_FILE, 0)
+                    grainEnabled = true
+                    warn(
+                        "$TEXTURE_NOT_DRAWN; this brush's texture is the Krita pattern " +
+                            "\"${textureName ?: "(unnamed)"}\", ${bytes.size} bytes carried in the file itself " +
+                            "and stored base64 in extensions[\"$GRAIN_IMAGE_KEY\"] for JB-1.05d, and a depth " +
+                            "of $textureDepth stands in for it until then"
+                    )
+                    return
+                }
+                warn(
+                    "$TEXTURE_NOT_DRAWN; this brush's texture is the Krita pattern " +
+                        "\"${textureName ?: "(unnamed)"}\", which this file carries but which is not a PNG " +
+                        "after one or two base64 decodes, so none of it is stored, the name is in " +
+                        "extensions[\"$TEXTURE_PATTERN_KEY\"] and the grain is not drawn"
+                )
+                return
+            }
+            // A name and no bytes: Decision 12's first branch, reached from the real shape.
+            warn(
+                "$TEXTURE_NOT_DRAWN; this brush's texture is the Krita pattern " +
+                    "\"${textureName ?: "(unnamed)"}\", which this file does not carry and which is kept by " +
+                    "name in extensions[\"$TEXTURE_PATTERN_KEY\"] rather than drawn"
+            )
+        }
+
+        /**
+         * The pattern payload as PNG bytes, or null when it is not a PNG under one or two base64 decodes.
+         *
+         * **Each cap is checked before the decode that would build the string**, which is the whole of the
+         * order: a 466 408-character payload is refused by arithmetic on its length rather than by allocating
+         * its expansion and comparing afterwards.
+         */
+        private fun realPatternBytes(payload: String): ByteArray? {
+            var text = payload
+            for (attempt in 0..1) {
+                if (text.length > MAX_BASE64_CHARS) {
+                    warn(
+                        "its texture pattern is ${text.length} base64 characters, and this build will not " +
+                            "attempt more than $MAX_BASE64_CHARS, so the pattern is kept by name only"
+                    )
+                    return null
+                }
+                val bytes = try {
+                    kritaBase64Decode(text, "its texture pattern")
+                } catch (e: BrushException) {
+                    return null
+                }
+                if (isPngSignature(bytes, 0)) return bytes
+                if (attempt == 1) return null
+                text = bytes.joinToString("") { (it.toInt() and 0xFF).toChar().toString() }
+            }
+            return null
+        }
+
         // ---- everything the mapping did not read -------------------------------------------------------
 
         /**
-         * **Nothing is silent.** Every attribute of every element that no reader above *claimed* is kept
-         * under its own path in `extensions` — which is what `extensions` is documented to be, *"lossless
-         * storage of imported raw settings"* — and the brush is told once what was kept. The claim set is
-         * the mechanism: a reader marks what it used, so a Krita element this build has never heard of is
-         * *kept* rather than dropped without anybody deciding to drop it.
+         * **Nothing is silent.** Every attribute **and every value** of every element that no reader above
+         * *claimed* is kept under its own path in `extensions` — which is what `extensions` is documented to
+         * be, *"lossless storage of imported raw settings"* — and the brush is told once what was kept and
+         * what was not.
+         *
+         * **The value half is not optional, and it is the half that was missing.** The landed version walked
+         * `node.attributes` and never read `KritaNode.text`, so for a real preset — where 7 256 of the
+         * settings are character data inside `CDATA` sections — it kept the *shape* of the settings and threw
+         * the settings away, while its own KDoc promised that every attribute of every element would be kept
+         * and the warning it emitted said "kept raw in extensions". **`deevad 4a airbrush`'s 8 678-character
+         * settings produced a 20 px brush with no curve, no spacing and no texture, and a warning that
+         * claimed otherwise.** The warning text is fixed with it, below.
+         *
+         * **The key has to identify the element, or the map is a shredder.** `<param name=…>` repeats 155
+         * times in one real preset, so a key of the element's name alone keeps exactly one of them and
+         * silently loses 154. A node's path segment is therefore its element name, and its `name` attribute in
+         * brackets when it has one: `krita.Preset.param[Texture/Pattern/Name]`. **Measured: the 64 real
+         * presets carry 32 to 155 distinct parameter names and no name twice in any one of them**, so this
+         * loses nothing on any of them.
+         *
+         * **Bounded three ways, and every bound says so rather than truncating silently.** A value over
+         * [MAX_RAW_VALUE_CHARS] is shortened with its full length written into the value; a sweep that would
+         * pass the shared extensions cap stops keeping and says how many values it did not keep; and the
+         * whole-brush refusal at [finish] then cannot be reached by a sweep of its own. **The measurement that
+         * makes the second bound necessary rather than theoretical: the largest real preset's kept values come
+         * to 3 872 characters against the 262 144 shared cap, a factor of 68 of headroom, and the one value
+         * that would have blown it — the 466 408-character texture pattern — is claimed by
+         * [realPatternBytes] instead.** The bound is checked *before* each value is added, so a hostile
+         * document cannot make this loop allocate its way past the cap.
          */
         private fun sweep() {
+            // What the readers above have already put in `extensions`, in the same characters `finish` counts.
+            var total = extensionChars()
+            var dropped = 0
+            fun keep(at: String, value: String): Boolean {
+                val stored = if (value.length <= MAX_RAW_VALUE_CHARS) {
+                    value
+                } else {
+                    value.take(MAX_RAW_VALUE_CHARS) + "…(+${value.length} more characters)"
+                }
+                if (total + stored.length > MAX_EXTENSION_BYTES) {
+                    dropped++
+                    return false
+                }
+                total += stored.length
+                extensions[at] = stored
+                rawKept += at
+                return true
+            }
             fun walk(node: KritaNode, path: String) {
+                val own = "$path.${node.segment()}"
                 for ((key, value) in node.attributes) {
                     if (key in node.claimedKeys()) continue
-                    val at = "$path.$key"
-                    if (value.length <= MAX_RAW_VALUE_CHARS) {
-                        extensions[at] = value
-                    } else {
-                        extensions[at] = value.take(MAX_RAW_VALUE_CHARS) + "…(+${value.length} more characters)"
-                    }
-                    rawKept += at
+                    keep("$own.$key", value)
                 }
-                for (child in node.children) walk(child, "$path.${child.name}")
+                // The value, which is the half the real format puts every setting in.
+                val text = node.text.trim()
+                if (text.isNotEmpty() && !node.textClaimed) keep(own, text)
+                for (child in node.children) walk(child, own)
             }
             walk(root, "krita.${root.name}")
-            if (rawKept.isNotEmpty()) {
-                val named = rawKept.distinct().take(8).joinToString(", ")
-                val rest = if (rawKept.size > 8) " and ${rawKept.size - 8} more" else ""
-                warn("kept raw in extensions: $named$rest")
-            }
+            if (rawKept.isEmpty()) return
+            // The one sweep-wide statement, and every clause of it is a fact about what the walk above did.
+            val named = rawKept.distinct().take(8).joinToString(", ")
+            val rest = if (rawKept.size > 8) " and ${rawKept.size - 8} more" else ""
+            val shortened = rawKept.count { extensions[it]?.contains("more characters") == true }
+            warn(
+                "kept raw in extensions: $named$rest — every Krita setting this build has no Joy Brush " +
+                    "setting for, by attribute name and by value, under each element's own path" +
+                    if (shortened > 0) {
+                        "; $shortened of them is over $MAX_RAW_VALUE_CHARS characters and is shortened, with " +
+                            "its full length in the value"
+                    } else {
+                        ""
+                    } +
+                    if (dropped > 0) {
+                        ", and $dropped more were not kept at all because keeping them would have passed " +
+                            "the $MAX_EXTENSION_BYTES-character extensions cap"
+                    } else {
+                        ""
+                    }
+            )
+        }
+
+        /**
+         * One node's path segment: its element name, plus its own `name` attribute in brackets when it has
+         * one, so that 155 `<param>` elements become 155 keys rather than one.
+         */
+        private fun KritaNode.segment(): String {
+            val named = attr("name")?.trim()?.takeIf { it.isNotEmpty() } ?: return name
+            return "$name[$named]"
         }
 
         // ---- finish -------------------------------------------------------------------------------------
@@ -1005,25 +1900,48 @@ object KritaImport {
             // stays `"procedural"` and nothing downstream believes there is a picture.
             var size = sizeBase
             storedTip?.let { stored ->
+                // **The cap is checked before the encoder runs, and that order is the fix.** The landed code
+                // built the whole base64 string and only then compared its length, so a tip this build is
+                // going to refuse — `MAX_ENTRY_BYTES` permits a 32 MiB entry, whose base64 is 42.7 Mi
+                // characters — cost a StringBuilder and a String of that size to be thrown away. The
+                // **length of the base64 is arithmetic on the input** (`ceil(n / 3) × 4`), so the question
+                // "would this fit?" is answerable without building it, and is now.
+                val chars = base64LengthOf(stored.bytes.size)
+                if (extensionChars() + chars > MAX_EXTENSION_BYTES) {
+                    warn(
+                        "$TEXTURE_NOT_DRAWN; this brush's tip is a ${stored.bytes.size}-byte PNG, which is " +
+                            "$chars base64 characters, over the $MAX_EXTENSION_BYTES-character extensions " +
+                            "cap, so none of it is stored: the tip stays procedural and size.base stays " +
+                            "${sizeBase} px"
+                    )
+                    return@let
+                }
                 val b64 = kritaBase64Of(stored.bytes)
-                if (extensionChars() + b64.length <= MAX_EXTENSION_BYTES) {
-                    extensions[TIP_IMAGE_KEY] = b64
-                    tip = tip.copy(source = "image", image = stored.fileName)
+                extensions[TIP_IMAGE_KEY] = b64
+                tip = tip.copy(source = "image", image = stored.fileName)
+                // R40's "the stored image never replaces the numbers", with the real format's own factor: a
+                // `png_brush`'s painted size is its `IHDR` width times the `<Brush scale=…>` it states, and
+                // both are in the same unit — pixels and a plain multiplier — so this needs no resolution and
+                // invents nothing. The 12 real image tips scale to 11.06, 30.72, 40, 62.76, 112, 150, 3754.07
+                // and 454 px, all of them inside `BrushValidate.MAX_SIZE_PX`.
+                val scaled = stored.width * tipScale
+                if (scaled > 0f && scaled <= BrushValidate.MAX_SIZE_PX) {
+                    size = scaled
+                } else {
                     size = stored.width.toFloat()
                     warn(
-                        "$TEXTURE_NOT_DRAWN; this brush's tip is an embedded ${stored.bytes.size}-byte PNG, " +
-                            "stored as ${b64.length} base64 characters in extensions[\"$TIP_IMAGE_KEY\"] for " +
-                            "JB-1.05d. size.base is its ${stored.width} px width, so the brush paints at the " +
-                            "right size today and the bitmap is extra"
-                    )
-                } else {
-                    warn(
-                        "$TEXTURE_NOT_DRAWN; this brush's tip is an embedded ${stored.bytes.size}-byte PNG, " +
-                            "which is ${b64.length} base64 characters, over the $MAX_EXTENSION_BYTES-" +
-                            "character extensions cap, so none of it is stored: the tip stays procedural " +
-                            "and size.base stays ${sizeBase} px"
+                        "this brush's tip is ${stored.width} px wide and states a scale of $tipScale, which " +
+                            "is $scaled px — not a diameter Joy Brush can paint (above 0 and at most " +
+                            "${BrushValidate.MAX_SIZE_PX}) — so size.base is ${stored.width} px, the tip's " +
+                            "own width, and the scale is in extensions[\"$TIP_SCALE_KEY\"]"
                     )
                 }
+                warn(
+                    "$TEXTURE_NOT_DRAWN; this brush's tip is a ${stored.bytes.size}-byte PNG, stored as " +
+                        "${b64.length} base64 characters in extensions[\"$TIP_IMAGE_KEY\"] for JB-1.05d. " +
+                        "size.base is $size px, the tip's own ${stored.width} px width at the scale the file " +
+                        "states, so the brush paints at the right size today and the bitmap is extra"
+                )
             }
 
             var paperGrain = GrainSpec(
@@ -1032,27 +1950,31 @@ object KritaImport {
                 depth = Param(textureDepth),
             )
             grainStored?.let { stored ->
-                val b64 = kritaBase64Of(stored.bytes)
-                if (extensionChars() + b64.length <= MAX_EXTENSION_BYTES) {
-                    extensions[GRAIN_IMAGE_KEY] = b64
-                    paperGrain = paperGrain.copy(enabled = true, source = "image", image = stored.fileName)
-                    warn(
-                        "$TEXTURE_NOT_DRAWN; this brush's grain is the bundle's " +
-                            "patterns/${extensions[TEXTURE_PATTERN_KEY]}, ${stored.bytes.size} bytes stored " +
-                            "as ${b64.length} base64 characters in extensions[\"$GRAIN_IMAGE_KEY\"] for " +
-                            "JB-1.05d, and a depth of $textureDepth stands in for it until then"
-                )
-                } else {
+                // The same order as the tip: **arithmetic first, encoder second.** See the tip branch for why,
+                // and it matters more here — a real texture pattern reaches 262 353 decoded bytes, whose base64
+                // is 349 804 characters, so this is a case that really is over the cap and not a hypothetical.
+                val chars = base64LengthOf(stored.bytes.size)
+                if (extensionChars() + chars > MAX_EXTENSION_BYTES) {
                     // Over the cap the grain is left **off** rather than left on with no picture behind it,
                     // because a grain that claims an image it does not have is the stronger claim.
                     paperGrain = paperGrain.copy(enabled = false)
                     warn(
-                        "$TEXTURE_NOT_DRAWN; this brush's grain is the bundle's ${stored.bytes.size}-byte " +
-                            "pattern, which is ${b64.length} base64 characters, over the " +
-                            "$MAX_EXTENSION_BYTES-character extensions cap, so none of it is stored: " +
+                        "$TEXTURE_NOT_DRAWN; this brush's grain is the ${stored.bytes.size}-byte pattern " +
+                            "\"${extensions[TEXTURE_PATTERN_KEY]}\", which is $chars base64 characters, over " +
+                            "the $MAX_EXTENSION_BYTES-character extensions cap, so none of it is stored: " +
                             "paperGrain.source stays cloud and the grain stays off"
                     )
+                    return@let
                 }
+                val b64 = kritaBase64Of(stored.bytes)
+                extensions[GRAIN_IMAGE_KEY] = b64
+                paperGrain = paperGrain.copy(enabled = true, source = "image", image = stored.fileName)
+                warn(
+                    "$TEXTURE_NOT_DRAWN; this brush's grain is the Krita pattern " +
+                        "\"${extensions[TEXTURE_PATTERN_KEY]}\", ${stored.bytes.size} bytes stored as " +
+                        "${b64.length} base64 characters in extensions[\"$GRAIN_IMAGE_KEY\"] for JB-1.05d, " +
+                        "and a depth of $textureDepth stands in for it until then"
+                )
             }
 
             val characters = extensionChars()
@@ -1075,12 +1997,18 @@ object KritaImport {
                 paperGrain = paperGrain,
                 scatter = ScatterSpec(Param(scatterAmount, scatterInputs), scatterCount, scatterCountJitter),
                 smoothing = smoothing,
-                // Decision 14. A `.kpp` on its own carries no licence at all, so this is "unknown" and
-                // **never "CC0"**, which is `BrushPreset`'s own default and a claim about somebody else's
-                // work that nobody in this file made. A bundle may state one in its `meta.xml` and that is
-                // what is used. Where a brush detail sheet shows it is not this row's business (R40).
+                // Decision 14, R44 item 5, blueprint §5. **The licence is only ever what the file states** —
+                // a lone `.kpp` states none, so that is `"unknown"`, and a bundle's `meta.xml` is the one
+                // place one can come from. **Never `"CC0"`**, which is `BrushPreset`'s own default and a claim
+                // about somebody else's work that nobody in this file made; the real pack is
+                // `CC-By with custom rules for redistribution`, which *requires* attribution, so "unknown"
+                // on it was a legal defect and not a cosmetic one. **The author is the file's own first** and
+                // the bundle's second, because the file's is per-brush and the bundle's is per-package.
+                // Where a brush detail sheet shows either is not this row's business (R40).
                 license = meta?.license?.takeIf { it.isNotBlank() } ?: "unknown",
-                author = meta?.author?.takeIf { it.isNotBlank() } ?: "",
+                author = ownAuthor?.takeIf { it.isNotBlank() }
+                    ?: meta?.author?.takeIf { it.isNotBlank() }
+                    ?: "",
                 sourceFormat = "kpp",
                 extensions = extensions,
             )
@@ -1127,6 +2055,18 @@ object KritaImport {
     ) {
         private val claimed = HashSet<String>()
 
+        /**
+         * Set when a reader has used this element's **character data**, so the sweep does not keep it a
+         * second time under a key of its own.
+         *
+         * **A claim is on an attribute's *name* and this one is on the text**, because a claim cannot be on a
+         * thing that is not a map entry, and the real format puts its settings in the text. It exists for one
+         * measured reason: the real `Texture/Pattern/Pattern` parameter runs to 466 408 characters, which is
+         * 1.8 times the whole 262 144-character extensions budget, so a sweep that kept it would make a real
+         * brush **unimportable** over a value the reader had already either stored or refused with a reason.
+         */
+        var textClaimed: Boolean = false
+
         fun attr(key: String): String? = attributes[key]
 
         fun claim(vararg keys: String) {
@@ -1157,7 +2097,28 @@ object KritaImport {
      * A depth, a node count and an attribute count are all budgets, and all three are checked on the way in
      * rather than after the tree exists.
      */
-    private class KritaXml(private val text: String, private val what: String) {
+    private class KritaXml(
+        private val text: String,
+        private val what: String,
+        /**
+         * May this document carry a **bare** `<!DOCTYPE name>`? **True only for a fragment that came out of
+         * a `CDATA` section of a document this reader has already parsed**, and never for a file's own root.
+         *
+         * **It has to be allowed at all, and this is the measurement that says so:** every one of the 902
+         * nested documents in the 64 real presets of David Revoy's Brushkit V8.2 — every `<params>` sensor
+         * and every `<Brush>` tip definition — begins with exactly `<!DOCTYPE params>`. A reader that refuses
+         * every DOCTYPE refuses every sensor and every tip in the pack.
+         *
+         * **And what is *not* allowed is what makes this safe rather than a hole.** [skipBareDoctype]
+         * accepts one name and a `>`, and refuses an internal subset (`[`, which is where an entity
+         * definition lives) and an external id (`SYSTEM`, `PUBLIC`) **before reading a character of them**.
+         * Decision 9's promise — a DOCTYPE is refused before it is looked at — therefore still holds
+         * **outright for a stranger's own file**, which is parsed with this false, and the only relaxation
+         * is in a place where the bytes have already survived the outer parse. There is no DTD subset to
+         * resolve and no system id to fetch, so there is nothing to resolve and nothing to fetch.
+         */
+        private val bareDoctype: Boolean = false,
+    ) {
 
         private var at = 0
         private var nodes = 0
@@ -1227,9 +2188,11 @@ object KritaImport {
                             return KritaNode(name, attributes, children, body.toString())
                         }
                         text.startsWith("<!--", at) -> skipComment()
-                        text.startsWith("<![CDATA[", at) -> {
-                            val end = skipCdata()
-                            body.append(text.substring(at + 9, end))
+                        text.startsWith(CDATA_OPEN, at) -> {
+                            val from = skipCdata()
+                            // `at` is now past the closing `]]>`, so the text ends `CDATA_CLOSE` back. Both
+                            // offsets come out of [skipCdata] together precisely so they cannot be swapped.
+                            body.append(text.substring(from, at - CDATA_CLOSE))
                         }
                         text.startsWith("<!", at) -> bad(
                             "holds a <! declaration, which is refused before it is read: a DOCTYPE or an " +
@@ -1279,13 +2242,45 @@ object KritaImport {
                         at = end + 2
                     }
                     text.startsWith("<!--", at) -> skipComment()
-                    text.startsWith("<!DOCTYPE", at) || text.startsWith("<!ENTITY", at) -> bad(
-                        "holds a DOCTYPE or an ENTITY declaration, which is refused before it is read"
-                    )
+                    text.startsWith("<!DOCTYPE", at) || text.startsWith("<!ENTITY", at) -> {
+                        if (!bareDoctype) {
+                            bad("holds a DOCTYPE or an ENTITY declaration, which is refused before it is read")
+                        }
+                        if (text.startsWith("<!ENTITY", at)) {
+                            bad("holds an ENTITY declaration, which is refused before it is read")
+                        }
+                        skipBareDoctype()
+                    }
                     text.startsWith("<!", at) -> bad("holds a <! declaration, which is refused")
                     else -> return
                 }
             }
+        }
+
+        /**
+         * Past a `<!DOCTYPE name>` and nothing else — the exact form all 902 nested fragments of the real
+         * pack use — with **a subset or an external id refused before a character of it is read**.
+         *
+         * The order is the safe one: the name is read (a name is a name, and it can only be used in a refusal
+         * sentence), and then the *next* thing is examined before anything is skipped past. A document that
+         * wrote `<!DOCTYPE x [ <!ENTITY y SYSTEM "file:///etc/passwd"> ]>` stops here, at the `[`, having read
+         * no entity and fetched nothing.
+         */
+        private fun skipBareDoctype() {
+            at += CDATA_DOCTYPE.length          // "<!DOCTYPE"
+            skipSpace()
+            val name = readName("the DOCTYPE's own name")
+            skipSpace()
+            if (at < text.length && text[at] == '[') {
+                bad("holds the DOCTYPE <!DOCTYPE $name [ … ]>, whose internal subset is refused before it is read")
+            }
+            if (text.startsWith("SYSTEM", at) || text.startsWith("PUBLIC", at)) {
+                bad("holds the external DOCTYPE <!DOCTYPE $name ${
+                    text.substring(at, minOf(text.length, at + 6))
+                }…>, which is refused before it is read")
+            }
+            if (at >= text.length || text[at] != '>') bad("its <!DOCTYPE $name> is never closed")
+            at++
         }
 
         private fun skipComment() {
@@ -1294,13 +2289,27 @@ object KritaImport {
             at = end + 3
         }
 
-        /** Past a `CDATA` section: skips it and returns where its text started, for [KritaNode.text]. */
+        /**
+         * Past a `CDATA` section, **returning the offset its text started at**, for [KritaNode.text].
+         *
+         * The two go out together and the caller reads `text.substring(start, at - 3)`, which cannot get the
+         * ends the wrong way round. **That is the whole fix, and the bug it replaces was total:** this
+         * function used to return the *closing* `]]>` offset while leaving `at` three further on, so the
+         * caller evaluated `text.substring(at + 9, end)` = `text.substring(end + 12, end)` — a begin past its
+         * own end — and **every** `CDATA` section raised `StringIndexOutOfBoundsException` out of
+         * [convertKpp] and [convertBundle], whose KDoc promises a [BrushException]. 61 of the 61 real presets
+         * in David Revoy's Brushkit V8.2 (`testdata-local/`, git-ignored) contain `CDATA`, so this was every
+         * real `.kpp` and every real `.bundle`: the row converted nothing because it could not finish.
+         *
+         * **An unclosed section was never the problem and still refuses in words** ([bad] below), which is
+         * the other half of the contract and is pinned by its own test.
+         */
         private fun skipCdata(): Int {
-            val start = at + 9
-            val end = text.indexOf("]]>", start)
+            val from = at + CDATA_OPEN.length
+            val end = text.indexOf(CDATA_CLOSE_TEXT, from)
             if (end < 0) bad("its CDATA section is never closed")
-            at = end + 3
-            return end
+            at = end + CDATA_CLOSE
+            return from
         }
 
         private fun skipSpace() {
@@ -1374,7 +2383,13 @@ object KritaImport {
         }
     }
 
-    private fun parseKritaXml(text: String, what: String): KritaNode = KritaXml(text, what).document()
+    /**
+     * The settings document is parsed with `bareDoctype = false` — a stranger's file may not declare
+     * anything — and a **nested** value with it true, because a nested value is character data that has
+     * already been inside a parsed document. See [KritaXml]'s own KDoc for the measurement.
+     */
+    private fun parseKritaXml(text: String, what: String, bareDoctype: Boolean = false): KritaNode =
+        KritaXml(text, what, bareDoctype).document()
 
     // ---- the zip of a `.bundle` ----------------------------------------------------------------------
 
@@ -1627,6 +2642,21 @@ object KritaImport {
      * `internal fun` beside the shared UTF-8 decoder in `PngChunks.kt` — and that file is not in this row's
      * owner area. It is in the report's Questions.
      */
+    /**
+     * **How many characters [kritaBase64Of] will produce for [bytes] bytes, without producing them.**
+     *
+     * RFC 4648 §4: three input bytes are 24 bits and the four output characters take six bits each, so a
+     * group of three always costs four and the remainder costs `ceil(remainder / 3) × 4` — which is the same
+     * answer as `ceil(bytes / 3) × 4`. A group of one byte pads `==` and of two pads `=`, both already paid
+     * for by the ceil.
+     *
+     * **This is the whole of the "check the cap before encoding" fix, and the order is the point.** The
+     * question "would this image fit in `extensions`?" is arithmetic on the *input* size, so it is answered
+     * before the encoder allocates. Building 42.7 Mi characters of `String` in order to compare its length
+     * against a 256 KiB cap and then throw it away is the transient the audit measured at ~340 MB on ART.
+     */
+    private fun base64LengthOf(bytes: Int): Int = (bytes + 2) / 3 * 4
+
     private fun kritaBase64Of(bytes: ByteArray): String {
         val sb = StringBuilder((bytes.size + 2) / 3 * 4)
         var i = 0
@@ -1736,6 +2766,42 @@ object KritaImport {
         "distance" to BrushInput.distance,
     )
 
+    /** Every real input parameter's name ends with this, and the ones that do are sensors. */
+    private const val SENSOR_SUFFIX = "Sensor"
+
+    /** The `id` a real nested sensor document carries when it is a *list* of two or more sensors. */
+    private const val SENSORS_LIST = "sensorslist"
+
+    /**
+     * Which Joy Brush setting each of Krita's own input parameters drives, keyed by the parameter's own
+     * lower-cased name.
+     *
+     * **The real format says which setting a sensor drives only through its parameter name**, so this table
+     * *is* the mapping and every entry in it is a name measured out of the 64 real presets of David Revoy's
+     * Brushkit V8.2 (`testdata-local/`, git-ignored) rather than out of the spec — the spec's `TARGETS` is
+     * keyed by the *flat* form's `name` attribute, which Krita writes **0 times**.
+     *
+     * **Six names map and the rest do not, and the fourteen that do not are named in a warning**, which is
+     * Decision 2's rule — "a sensor Joy Brush has no `BrushInput` for goes to `extensions` with a warning
+     * naming it" — applied to the *setting* rather than to the sensor, because the sensor (`pressure` in
+     * `SizeSensor` and in `SpacingSensor` alike) is the same one and it is the target that differs.
+     * `SpacingSensor` is the clearest case: its sensor is `pressure` in 61 of 62 real presets and Joy Brush
+     * has no spacing curve, so the setting is named and the curve is kept raw.
+     *
+     * **`SoftnessSensor` and `SharpnessSensor` are in the "no" list deliberately.** Krita's softness runs
+     * the opposite way from `TipSpec.hardness` and **this build has not read that polarity out of Krita's
+     * source**, so mapping either would be a guess about somebody else's numbers: an inverted hardness
+     * curve is a different brush wearing the same name, which is the sentence `engineRefusal` uses and the
+     * sentence this whole row is built on. It is a Question for the Lead.
+     */
+    private val SENSOR_TARGETS: Map<String, Target> = mapOf(
+        "sizesensor" to Target.SIZE,
+        "opacitysensor" to Target.OPACITY,
+        "flowsensor" to Target.FLOW,
+        "rotationsensor" to Target.TIP_ANGLE,
+        "scattersensor" to Target.SCATTER,
+    )
+
     /**
      * Decision 12's Photoshop-compatible modes, matched case-insensitively. These are the ones R4 §A.5 has
      * published formulas for (from Krita's `KisMaskingBrushCompositeOp.h`) and the only ones that become
@@ -1748,11 +2814,30 @@ object KritaImport {
 
     private const val META_NAME = "meta.xml"
 
+    /**
+     * The two spellings Krita writes an author's own keyword in, in the order they are asked for.
+     *
+     * **35 of the 64 real `.kpp` in David Revoy's Brushkit V8.2 use `author` and 26 use `Author`**, so a
+     * case-sensitive match re-attributes 26 brushes to nobody. `preset` is *not* matched this way and the
+     * asymmetry is deliberate — see [readKppFile].
+     */
+    private val AUTHOR_KEYWORDS = listOf("author", "Author")
+
     /** The two spellings of the Pixel engine's own size setting, in Krita's flat and element forms. */
     private val PIXEL_SIZE_NAMES = setOf("pixelsize", "pixel_size")
 
     private val LICENSE_TAGS = setOf("rights", "license")
     private val AUTHOR_TAGS = setOf("creator", "contributor", "author")
+
+    /** ODF's own attribute names on a `<meta:meta-userdefined>`: what the value is, and what the value is. */
+    private const val META_NAME_ATTR = "meta:name"
+    private const val META_VALUE_ATTR = "meta:value"
+
+    /** The `meta:name` a Krita bundle writes its licence under. Lower-cased, because the comparison is. */
+    private const val LICENSE_META_NAME = "license"
+
+    /** …and the two it has been seen to write an author under, lower-cased. */
+    private val AUTHOR_META_NAMES = setOf("author", "creator")
 
     private const val DEFAULT_DIAMETER_PX = 20f
     private const val DEFAULT_SPACING = 0.04f
@@ -1808,3 +2893,14 @@ object KritaImport {
 }
 
 private const val KRITA_BASE64 = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/"
+
+/** `<![CDATA[`: the nine characters that open a CDATA section, so the text inside starts nine further on. */
+private const val CDATA_OPEN = "<![CDATA["
+
+/** `]]>`: the three that close it. `at` is left three past the end, so the text ends three back. */
+private const val CDATA_CLOSE = 3
+
+private const val CDATA_CLOSE_TEXT = "]]>"
+
+/** `<!DOCTYPE`, which a nested Krita value opens with and a stranger's file may not carry. */
+private const val CDATA_DOCTYPE = "<!DOCTYPE"

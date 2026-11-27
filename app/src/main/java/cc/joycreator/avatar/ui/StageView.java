@@ -23,6 +23,33 @@ public final class StageView extends View {
 
     public StageView(Context c) {
         super(c);
+        scale = new android.view.ScaleGestureDetector(c, new android.view.ScaleGestureDetector.SimpleOnScaleGestureListener() {
+            @Override
+            public boolean onScaleBegin(android.view.ScaleGestureDetector d) {
+                lastFx = d.getFocusX();
+                lastFy = d.getFocusY();
+                return true;
+            }
+
+            @Override
+            public boolean onScale(android.view.ScaleGestureDetector d) {
+                float nz = Math.max(1f, Math.min(6f, zoom * d.getScaleFactor()));
+                float fx = d.getFocusX(), fy = d.getFocusY();
+                float cx = (fx - baseX - panX) / (baseS * zoom), cy = (fy - baseY - panY) / (baseS * zoom);   // the spot under the fingers stays there
+                zoom = nz;
+                panX = fx - baseX - cx * baseS * zoom + 0f;
+                panY = fy - baseY - cy * baseS * zoom + 0f;
+                panX += 0f;
+                lastFx = fx;
+                lastFy = fy;
+                if (zoom <= 1.001f) {
+                    panX = 0;
+                    panY = 0;
+                }
+                invalidate();
+                return true;
+            }
+        });
         setBackgroundColor(0xFF000000);
         hint.setColor(0xFFA1A1AA);
         hint.setTextSize(12f * c.getResources().getDisplayMetrics().density);
@@ -116,6 +143,13 @@ public final class StageView extends View {
     private LandmarkLayer marks;
     private Dot dragging;
     private boolean moving;
+    // the view: zoom and pan (two fingers; Fit puts them back), "pick a piece", and how the part in hand is shown
+    private float zoom = 1f, panX, panY, baseS = 1f, baseX, baseY, lastFx, lastFy;
+    private boolean picking;
+    private int lookIndex;
+    private final android.view.ScaleGestureDetector scale;
+    private final java.util.function.Consumer<String>[] pickListener = new java.util.function.Consumer[1];
+    public static final int LOOKS = 5;
     private float dragX, dragY, fitS = 1, fitX, fitY;
     private final Paint dotPaint = new Paint(Paint.ANTI_ALIAS_FLAG), dotText = new Paint(Paint.ANTI_ALIAS_FLAG);
 
@@ -211,7 +245,27 @@ public final class StageView extends View {
 
     @Override
     public boolean onTouchEvent(android.view.MotionEvent e) {
-        if (marks == null) return super.onTouchEvent(e);
+        scale.onTouchEvent(e);
+        if (scale.isInProgress() || e.getPointerCount() > 1) {          // two fingers: zoom and pan, never a drag of a dot
+            dragging = null;
+            moving = false;
+            if (e.getActionMasked() == android.view.MotionEvent.ACTION_MOVE && e.getPointerCount() == 2 && zoom > 1.001f) {
+                float fx = (e.getX(0) + e.getX(1)) / 2f, fy = (e.getY(0) + e.getY(1)) / 2f;
+                panX += fx - lastFx;
+                panY += fy - lastFy;
+                lastFx = fx;
+                lastFy = fy;
+            }
+            invalidate();
+            return true;
+        }
+        if (marks == null) {
+            if (picking && pose != null && doc != null && e.getActionMasked() == android.view.MotionEvent.ACTION_UP && pickListener[0] != null) {
+                CharacterDoc.Node n = pose.hit((e.getX() - fitX) / fitS, (e.getY() - fitY) / fitS);
+                if (n != null) pickListener[0].accept(n.id);
+            }
+            return picking || super.onTouchEvent(e);
+        }
         float cx = (e.getX() - fitX) / fitS, cy = (e.getY() - fitY) / fitS;
         switch (e.getActionMasked()) {
             case android.view.MotionEvent.ACTION_DOWN:
@@ -255,6 +309,95 @@ public final class StageView extends View {
         }
     }
 
+    /** The next tap on the picture takes the piece under the finger (the Pick a piece button). */
+    public void setPicking(boolean on, java.util.function.Consumer<String> then) {
+        picking = on;
+        pickListener[0] = then;
+    }
+
+    public boolean picking() {
+        return picking;
+    }
+
+    /** Frames the part in hand (or the whole character when nothing is in hand). */
+    public void fitToHand() {
+        zoom = 1f;
+        panX = panY = 0;
+        android.graphics.RectF r = selected == null || pose == null || doc == null ? null : pose.bounds(doc.find(selected));
+        if (r != null && r.width() > 1 && r.height() > 1) {
+            float viewW = getWidth() - 60 * getResources().getDisplayMetrics().density, viewH = getHeight() - 36 * getResources().getDisplayMetrics().density;
+            zoom = Math.max(1f, Math.min(6f, 0.8f * Math.min(viewW / (r.width() * baseS), viewH / (r.height() * baseS))));
+            float cx = r.centerX(), cy = r.centerY();
+            panX = viewW / 2f - baseX - cx * baseS * zoom;
+            panY = viewH / 2f - baseY - cy * baseS * zoom;
+        }
+        invalidate();
+    }
+
+    /** Cycles how the part in hand is shown: Spotlight, dashes, glow, corners, wash. Returns the new index. */
+    public int cycleLook() {
+        lookIndex = (lookIndex + 1) % LOOKS;
+        invalidate();
+        return lookIndex;
+    }
+
+    public int look() {
+        return lookIndex;
+    }
+
+    private void drawSelection(Canvas c, android.graphics.RectF r, float dp, float s) {
+        float w = Math.max(1f, dp) / s;
+        line.setStrokeWidth(w);
+        line.setPathEffect(null);
+        line.setStyle(Paint.Style.STROKE);
+        switch (lookIndex) {
+            case 0: {   // Spotlight: everything else steps back
+                int save = c.save();
+                c.clipRect(r, android.graphics.Region.Op.DIFFERENCE);
+                dotPaint.setStyle(Paint.Style.FILL);
+                dotPaint.setColor(0x99000000);
+                c.drawRect(-10000, -10000, 20000, 20000, dotPaint);
+                c.restoreToCount(save);
+                c.drawRect(r, line);
+                break;
+            }
+            case 1:     // dashes
+                line.setPathEffect(new android.graphics.DashPathEffect(new float[]{6 * dp / s, 4 * dp / s}, 0));
+                c.drawRect(r, line);
+                line.setPathEffect(null);
+                break;
+            case 2:     // glow
+                line.setStrokeWidth(w * 6);
+                line.setAlpha(60);
+                c.drawRect(r, line);
+                line.setAlpha(255);
+                line.setStrokeWidth(w);
+                c.drawRect(r, line);
+                break;
+            case 3: {   // corners
+                float k = Math.min(r.width(), r.height()) * 0.2f;
+                line.setStrokeWidth(w * 2.5f);
+                c.drawLine(r.left, r.top, r.left + k, r.top, line);
+                c.drawLine(r.left, r.top, r.left, r.top + k, line);
+                c.drawLine(r.right, r.top, r.right - k, r.top, line);
+                c.drawLine(r.right, r.top, r.right, r.top + k, line);
+                c.drawLine(r.left, r.bottom, r.left + k, r.bottom, line);
+                c.drawLine(r.left, r.bottom, r.left, r.bottom - k, line);
+                c.drawLine(r.right, r.bottom, r.right - k, r.bottom, line);
+                c.drawLine(r.right, r.bottom, r.right, r.bottom - k, line);
+                line.setStrokeWidth(w);
+                break;
+            }
+            default:    // wash
+                line.setStyle(Paint.Style.FILL);
+                line.setAlpha(50);
+                c.drawRect(r, line);
+                line.setAlpha(255);
+                line.setStyle(Paint.Style.STROKE);
+                c.drawRect(r, line);
+        }
+    }
+
     public void setHint(String s) {
         hintText = s == null ? "" : s;
         invalidate();
@@ -274,17 +417,21 @@ public final class StageView extends View {
             fitS = s;
             fitX = ox;
             fitY = oy;
-            c.translate(ox, oy);
+            baseS = s;
+            baseX = ox;
+            baseY = oy;
+            fitS = s * zoom;
+            fitX = ox + panX;
+            fitY = oy + panY;
+            s = s * zoom;
+            c.translate(ox + panX, oy + panY);
             c.scale(s, s);
             if (marks != null) drawMarks(c, dp);
             else pose.draw(c);
             if (selected != null && marks == null) {
                 CharacterDoc.Node n = doc.find(selected);
                 android.graphics.RectF r = n == null ? null : pose.bounds(n);
-                if (r != null) {
-                    line.setStrokeWidth(Math.max(1f, dp) / s);
-                    c.drawRect(r, line);
-                }
+                if (r != null) drawSelection(c, r, dp, s);
             }
             c.restoreToCount(save);
         }

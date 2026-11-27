@@ -248,6 +248,21 @@ final class RestPose implements PoseRenderer {
     }
 
     @Override
+    public CharacterDoc.Node hit(float x, float y) {
+        java.util.List<CharacterDoc.Node> all = shown(doc.root);
+        for (int i = all.size() - 1; i >= 0; i--) {
+            CharacterDoc.Node n = all.get(i);
+            if (!"art".equals(n.type)) continue;
+            Bitmap b = bitmap(n.img);
+            if (b == null) continue;
+            int px = Math.round(x - n.x), py = Math.round(y - n.y);
+            if (px < 0 || py < 0 || px >= b.getWidth() || py >= b.getHeight()) continue;
+            if (android.graphics.Color.alpha(b.getPixel(px, py)) > 40) return n;
+        }
+        return null;
+    }
+
+    @Override
     public void release() {
         for (Bitmap b : bitmaps.values()) b.recycle();
         bitmaps.clear();

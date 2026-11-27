@@ -163,5 +163,15 @@
     <string name="avatar_step_box_turn">Turn %1$s</string>
     <string name="avatar_step_box_size">Resize %1$s</string>
     <string name="avatar_step_put_back">Put %1$s back</string>
+    <string name="avatar_hover_fit">Frame the part in hand</string>
+    <string name="avatar_hover_look">How the part in hand is shown: Spotlight, dashes, glow, corners, wash</string>
+    <string name="avatar_hover_pick">Tap a piece on the picture to take it in hand</string>
+    <string-array name="avatar_looks">
+        <item>Spotlight</item>
+        <item>Dashes</item>
+        <item>Glow</item>
+        <item>Corners</item>
+        <item>Wash</item>
+    </string-array>
 </resources>
 

@@ -36,6 +36,9 @@ public interface PoseRenderer {
     /** The part and every piece of it that is drawn right now (a set shows one drawing), outermost first. */
     java.util.List<CharacterDoc.Node> shown(CharacterDoc.Node n);
 
+    /** The drawing under a point (character pixels), topmost first, ignoring see-through pixels; null when there is none. */
+    CharacterDoc.Node hit(float x, float y);
+
     /** "Try this drawing": look at one drawing of a set without changing the file; {@code kidId} null puts it back. */
     void tryDrawing(String setId, String kidId);
 

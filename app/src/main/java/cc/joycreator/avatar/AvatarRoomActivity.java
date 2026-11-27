@@ -139,7 +139,10 @@ public final class AvatarRoomActivity extends Activity implements RoomMenu.Host,
         left.addView(buildTopBar(), new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, px(44)));
         stage = new StageView(this);
         stage.setHint(getString(R.string.avatar_hint_rest));
-        left.addView(stage, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f));
+        android.widget.FrameLayout stageBox = new android.widget.FrameLayout(this);
+        stageBox.addView(stage, new android.widget.FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
+        stageBox.addView(buildStageTools(), new android.widget.FrameLayout.LayoutParams(px(44), ViewGroup.LayoutParams.WRAP_CONTENT, Gravity.END | Gravity.TOP));
+        left.addView(stageBox, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f));
         root.addView(left, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, 1f));
 
         panel = new LinearLayout(this);
@@ -207,6 +210,47 @@ public final class AvatarRoomActivity extends Activity implements RoomMenu.Host,
         paintSaveDot();
         // Export and Joybot join the bar as each one works.
         return bar;
+    }
+
+    private TextView pickTool;
+
+    /** The stage tools, a column at the stage's right edge (36 dp round, grey; on = solid cyan): Fit, the selection look, Pick a piece. */
+    private View buildStageTools() {
+        LinearLayout col = new LinearLayout(this);
+        col.setOrientation(LinearLayout.VERTICAL);
+        col.setPadding(px(4), px(8), px(4), 0);
+        TextView fit = roundButton("\u2316", getString(R.string.avatar_hover_fit));
+        fit.setOnClickListener(v -> stage.fitToHand());
+        TextView look = roundButton("\u25CE", getString(R.string.avatar_hover_look));
+        look.setOnClickListener(v -> {
+            int i = stage.cycleLook();
+            Toast.makeText(this, getResources().getStringArray(R.array.avatar_looks)[i], Toast.LENGTH_SHORT).show();
+        });
+        pickTool = roundButton("\u261D", getString(R.string.avatar_hover_pick));
+        pickTool.setOnClickListener(v -> {
+            boolean on = !stage.picking();
+            stage.setPicking(on, id -> {
+                stage.setPicking(false, null);
+                paintPickTool();
+                inHand(id);
+            });
+            paintPickTool();
+        });
+        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(px(36), px(36));
+        lp.bottomMargin = px(8);
+        col.addView(fit, lp);
+        col.addView(look, lp);
+        col.addView(pickTool, lp);
+        return col;
+    }
+
+    private void paintPickTool() {
+        boolean on = stage.picking();
+        GradientDrawable g = new GradientDrawable();
+        g.setShape(GradientDrawable.OVAL);
+        g.setColor(on ? Studio.ARMED : 0xFF27272A);
+        pickTool.setBackground(g);
+        pickTool.setTextColor(on ? Studio.GROUND : 0xFFFAFAFA);
     }
 
     private void paintSaveDot() {

@@ -1,0 +1,285 @@
+<title>Transition Length Picks</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@600;700&family=IBM+Plex+Sans:wght@400;500&family=IBM+Plex+Mono:wght@500&display=swap">
+<style>
+/* Layout: one narrow column; each question is a row of true-size mini Studio screens; picks collect in one line at the foot. */
+/* Single dark look on purpose: it is Studio's own old-black room. */
+:root {
+  --ground: #000000;   /* Studio's old black */
+  --panel: #111114;    /* a sheet, a drawer */
+  --raised: #1c1c22;   /* a control on a panel */
+  --line: #2c2c35;     /* hairline */
+  --ink: #e4e4e7;
+  --dim: #a1a1aa;
+  --faint: #71717a;
+  --armed: #22d3ee;    /* chosen = solid cyan (the shared palette) */
+  --live: #f43f8e;     /* magenta: the layers that would move */
+  --video: #3f3f46;    /* a clip on the spine */
+  --on-armed: #050507;
+  --display: "Archivo", "Arial Narrow", system-ui, sans-serif;
+  --body: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, Menlo, Consolas, monospace;
+  color-scheme: dark;
+}
+body {
+  background: var(--ground); color: var(--ink); font-family: var(--body); font-size: 14px; line-height: 1.5;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 20px 120px;
+}
+main { max-width: 760px; margin: 0 auto; display: grid; gap: 28px; }
+h1 { font-family: var(--display); font-size: 22px; margin: 0; letter-spacing: 0.01em; text-wrap: balance; }
+.lede { color: var(--dim); margin: 6px 0 0; max-width: 62ch; }
+section { display: grid; gap: 10px; }
+h2 { font-family: var(--display); font-size: 15px; margin: 0; display: flex; gap: 8px; align-items: baseline; }
+h2 .key { font-family: var(--mono); font-size: 12px; color: var(--faint); }
+.q { color: var(--dim); margin: 0; font-size: 13px; max-width: 62ch; }
+.opts { display: grid; grid-template-columns: repeat(auto-fill, minmax(214px, 1fr)); gap: 10px; }
+.opt {
+  all: unset; box-sizing: border-box; cursor: pointer; display: grid; gap: 8px; padding: 10px; align-content: start;
+  background: var(--panel); border: 1px solid var(--line); border-radius: 12px; min-width: 0;
+}
+.opt:focus-visible { outline: 2px solid var(--armed); outline-offset: 2px; }
+.opt[aria-pressed="true"] { border-color: var(--armed); box-shadow: inset 0 0 0 1px var(--armed); }
+.opt .head { display: flex; align-items: center; gap: 8px; }
+.opt .tag { font-family: var(--mono); font-size: 11px; padding: 2px 7px; border-radius: 99px; background: var(--raised); color: var(--dim); }
+.opt[aria-pressed="true"] .tag { background: var(--armed); color: var(--on-armed); }
+.opt .name { font-weight: 500; font-size: 13px; }
+.opt p { margin: 0; color: var(--dim); font-size: 12px; }
+.opt .lead { color: var(--faint); font-size: 11px; }
+.opt svg, .explain svg { width: 100%; height: auto; max-width: 100%; display: block; border-radius: 8px; background: var(--ground); }
+.explain { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 12px; display: grid; gap: 8px; }
+.explain p { margin: 0; color: var(--dim); font-size: 13px; max-width: 64ch; }
+.explain b { color: var(--ink); font-weight: 500; }
+.foot {
+  position: fixed; left: 0; right: 0; bottom: 0; background: var(--panel); border-top: 1px solid var(--line);
+  padding: 12px max(16px, env(safe-area-inset-right, 0px)) calc(12px + env(safe-area-inset-bottom, 0px)) max(16px, env(safe-area-inset-left, 0px));
+}
+.foot .row { max-width: 760px; margin: 0 auto; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+#picks { font-family: var(--mono); font-size: 13px; flex: 1 1 220px; min-width: 0; user-select: all; }
+#copy { all: unset; cursor: pointer; font-weight: 500; font-size: 13px; padding: 8px 16px; border-radius: 99px; background: var(--armed); color: var(--on-armed); }
+#copy:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+.note { color: var(--faint); font-size: 12px; margin: 0; }
+@media (prefers-reduced-motion: no-preference) { .opt { transition: border-color .15s; } }
+</style>
+
+<main>
+  <header>
+    <h1>Transitions that shorten the video</h1>
+    <p class="lede">Your pick A: at a transition the two clips overlap, so the video gets shorter by the transition's length, exactly as the export already does. That also ends the odd frame at the cut. The question is what happens to things placed above the video after that point. Tap one choice in each row; the line at the bottom collects your picks. Mini screens are at phone size.</p>
+  </header>
+
+  <div class="explain">
+    <svg viewBox="0 0 340 128" aria-hidden="true" font-family="IBM Plex Sans, sans-serif">
+      <text x="10" y="16" font-size="10" fill="#a1a1aa">Before: no transition, 10 s</text>
+      <rect x="10" y="24" width="140" height="16" rx="3" fill="#3f3f46"/>
+      <rect x="150" y="24" width="140" height="16" rx="3" fill="#52525b"/>
+      <rect x="176" y="46" width="44" height="10" rx="5" fill="#f43f8e"/>
+      <rect x="236" y="46" width="34" height="10" rx="5" fill="#f43f8e"/>
+      <text x="10" y="80" font-size="10" fill="#a1a1aa">After: a 1 s transition, 9 s</text>
+      <rect x="10" y="88" width="140" height="16" rx="3" fill="#3f3f46"/>
+      <rect x="136" y="88" width="140" height="16" rx="3" fill="#52525b" opacity="0.92"/>
+      <rect x="136" y="88" width="14" height="16" fill="#22d3ee" opacity="0.55"/>
+      <rect x="162" y="110" width="44" height="10" rx="5" fill="#f43f8e"/>
+      <rect x="222" y="110" width="34" height="10" rx="5" fill="#f43f8e"/>
+      <text x="290" y="100" font-size="10" fill="#71717a">1 s shorter</text>
+    </svg>
+    <p>The second clip slides 1 s left over the first, and the cyan overlap is the blend. <b>Magenta are layers above the video</b> (a picture, a sprite, text, a sound) that start after the cut. Moved with the clips, they stay on the same moment of the video. Left where they are, they keep their clock time and land 1 s later in the picture. The same question comes up when a transition is made longer, shorter or removed. The whole change, the transition and any layers moved, is one Undo.</p>
+  </div>
+
+  <section data-key="A">
+    <h2><span class="key">A</span> Where the check appears</h2>
+    <p class="q">It only appears when layers start after the cut. Otherwise nothing is asked.</p>
+    <div class="opts">
+      <button class="opt" data-pick="A1" aria-pressed="false">
+        <div class="head"><span class="tag">A1</span><span class="name">A strip over the timeline</span></div>
+        <svg viewBox="0 0 200 120" aria-hidden="true" font-family="IBM Plex Sans, sans-serif">
+          <rect x="0" y="0" width="200" height="56" fill="#18181b"/>
+          <rect x="8" y="62" width="184" height="24" rx="12" fill="#1c1c22"/>
+          <text x="18" y="78" font-size="9" fill="#e4e4e7">1 s shorter · 6 layers after this</text>
+          <rect x="138" y="67" width="48" height="14" rx="7" fill="#22d3ee"/>
+          <text x="162" y="77" font-size="8" text-anchor="middle" fill="#050507">Move</text>
+          <rect x="8" y="94" width="90" height="12" rx="2" fill="#3f3f46"/><rect x="94" y="94" width="98" height="12" rx="2" fill="#52525b"/>
+          <rect x="94" y="94" width="8" height="12" fill="#22d3ee" opacity="0.6"/>
+          <rect x="120" y="110" width="30" height="6" rx="3" fill="#f43f8e"/><rect x="160" y="110" width="22" height="6" rx="3" fill="#f43f8e"/>
+        </svg>
+        <p>A slim pill sits just above the timeline. The picture keeps playing and nothing is covered. It waits for a tap; ignoring it keeps the default.</p>
+        <p class="lead">Reuses: the timeline's toast row</p>
+      </button>
+      <button class="opt" data-pick="A2" aria-pressed="false">
+        <div class="head"><span class="tag">A2</span><span class="name">Inside the transition sheet</span></div>
+        <svg viewBox="0 0 200 120" aria-hidden="true" font-family="IBM Plex Sans, sans-serif">
+          <rect x="0" y="0" width="200" height="40" fill="#18181b"/>
+          <rect x="6" y="44" width="188" height="72" rx="10" fill="#111114" stroke="#2c2c35"/>
+          <text x="16" y="60" font-size="9" fill="#a1a1aa">Cross Dissolve · 1.0 s</text>
+          <text x="16" y="78" font-size="9" fill="#e4e4e7">1 s shorter. 6 layers after this:</text>
+          <rect x="16" y="86" width="74" height="16" rx="8" fill="#22d3ee"/><text x="53" y="97" font-size="8" text-anchor="middle" fill="#050507">Move with clips</text>
+          <rect x="96" y="86" width="62" height="16" rx="8" fill="#1c1c22"/><text x="127" y="97" font-size="8" text-anchor="middle" fill="#a1a1aa">Leave them</text>
+        </svg>
+        <p>The line sits under the transition's own choices, before you add it or change its length, so the answer is part of the same pick.</p>
+        <p class="lead">Reuses: the transition picker and inspector</p>
+      </button>
+      <button class="opt" data-pick="A3" aria-pressed="false">
+        <div class="head"><span class="tag">A3</span><span class="name">A card at the cut</span></div>
+        <svg viewBox="0 0 200 120" aria-hidden="true" font-family="IBM Plex Sans, sans-serif">
+          <rect x="0" y="0" width="200" height="50" fill="#18181b"/>
+          <rect x="8" y="92" width="90" height="12" rx="2" fill="#3f3f46"/><rect x="94" y="92" width="98" height="12" rx="2" fill="#52525b"/>
+          <rect x="94" y="92" width="8" height="12" fill="#22d3ee" opacity="0.6"/>
+          <rect x="44" y="54" width="112" height="30" rx="8" fill="#1c1c22"/>
+          <path d="M94 84 l4 6 l4 -6 z" fill="#1c1c22"/>
+          <text x="52" y="66" font-size="8" fill="#e4e4e7">1 s shorter · 6 layers</text>
+          <text x="52" y="78" font-size="8" fill="#22d3ee">Move</text><text x="84" y="78" font-size="8" fill="#a1a1aa">Leave</text>
+        </svg>
+        <p>A small card points at the cut on the timeline itself, so you see exactly where the change starts.</p>
+        <p class="lead">Reuses: the timeline's marker popups</p>
+      </button>
+    </div>
+  </section>
+
+  <section data-key="B">
+    <h2><span class="key">B</span> What it says</h2>
+    <p class="q">The words in the check, for a 1 s transition with six layers after the cut.</p>
+    <div class="opts">
+      <button class="opt" data-pick="B1" aria-pressed="false">
+        <div class="head"><span class="tag">B1</span><span class="name">Short</span></div>
+        <p style="color:var(--ink)">1 s shorter · 6 layers after this</p>
+        <p>[Move with clips] [Leave them]</p>
+      </button>
+      <button class="opt" data-pick="B2" aria-pressed="false">
+        <div class="head"><span class="tag">B2</span><span class="name">Says which layers</span></div>
+        <p style="color:var(--ink)">The video gets 1 s shorter. 2 pictures, 1 sprite, 2 texts and 1 sound start after this cut.</p>
+        <p>[Move them with the video] [Leave them]</p>
+      </button>
+      <button class="opt" data-pick="B3" aria-pressed="false">
+        <div class="head"><span class="tag">B3</span><span class="name">As a question</span></div>
+        <p style="color:var(--ink)">Keep 6 layers in step with the video? It gets 1 s shorter here.</p>
+        <p>[Keep in step] [Leave them]</p>
+      </button>
+    </div>
+  </section>
+
+  <section data-key="C">
+    <h2><span class="key">C</span> The default</h2>
+    <p class="q">Which answer is lit in cyan and happens if you do not tap?</p>
+    <div class="opts">
+      <button class="opt" data-pick="C1" aria-pressed="false">
+        <div class="head"><span class="tag">C1</span><span class="name">Move with the clips</span></div>
+        <p>Titles, stickers and sounds stay on the moment they were placed on. Lead's pick: it is what you would expect if you had moved the clip yourself.</p>
+      </button>
+      <button class="opt" data-pick="C2" aria-pressed="false">
+        <div class="head"><span class="tag">C2</span><span class="name">Leave them</span></div>
+        <p>Nothing above the video moves unless you say so. Right for music laid to a clock, wrong for a caption on a face.</p>
+      </button>
+      <button class="opt" data-pick="C3" aria-pressed="false">
+        <div class="head"><span class="tag">C3</span><span class="name">Your last answer</span></div>
+        <p>The first time it is Move; after that it is whatever you chose last in this project.</p>
+      </button>
+    </div>
+  </section>
+
+  <section data-key="D">
+    <h2><span class="key">D</span> Don't ask again</h2>
+    <p class="q">For people who know what they are doing. Whatever you pick, Studio settings has the same tick box to turn the check back on.</p>
+    <div class="opts">
+      <button class="opt" data-pick="D1" aria-pressed="false">
+        <div class="head"><span class="tag">D1</span><span class="name">A tick box in the check</span></div>
+        <svg viewBox="0 0 200 40" aria-hidden="true" font-family="IBM Plex Sans, sans-serif">
+          <rect x="10" y="12" width="16" height="16" rx="3" fill="#22d3ee"/>
+          <path d="M14 20 l3 3 l6 -7" fill="none" stroke="#050507" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+          <text x="34" y="24" font-size="10" fill="#e4e4e7">Don't ask again, always do this</text>
+        </svg>
+        <p>A tick box (solid cyan when on, the tick cut out) under the two answers. Ticked, your answer becomes the rule.</p>
+      </button>
+      <button class="opt" data-pick="D2" aria-pressed="false">
+        <div class="head"><span class="tag">D2</span><span class="name">From the second time</span></div>
+        <p>The tick box shows only after you have answered once, so a first-time user is not offered to skip something they have never seen.</p>
+      </button>
+      <button class="opt" data-pick="D3" aria-pressed="false">
+        <div class="head"><span class="tag">D3</span><span class="name">Settings only</span></div>
+        <p>The check itself stays clean; "Ask when a transition changes the length" lives in Studio settings.</p>
+      </button>
+    </div>
+  </section>
+
+  <section data-key="E">
+    <h2><span class="key">E</span> When it no longer asks</h2>
+    <p class="q">After "don't ask again", what do you see when it acts on its own?</p>
+    <div class="opts">
+      <button class="opt" data-pick="E1" aria-pressed="false">
+        <div class="head"><span class="tag">E1</span><span class="name">A quiet line with Undo</span></div>
+        <p>"Moved 6 layers with the video · Undo" for three seconds, then gone. Nothing to tap unless you want it back.</p>
+      </button>
+      <button class="opt" data-pick="E2" aria-pressed="false">
+        <div class="head"><span class="tag">E2</span><span class="name">Nothing</span></div>
+        <p>It just happens. Undo still takes it all back in one press.</p>
+      </button>
+    </div>
+  </section>
+
+  <section data-key="F">
+    <h2><span class="key">F</span> Showing which layers</h2>
+    <p class="q">While the check is up, do the layers it talks about light up?</p>
+    <div class="opts">
+      <button class="opt" data-pick="F1" aria-pressed="false">
+        <div class="head"><span class="tag">F1</span><span class="name">They glow on the timeline</span></div>
+        <svg viewBox="0 0 200 50" aria-hidden="true">
+          <rect x="8" y="30" width="90" height="12" rx="2" fill="#3f3f46"/><rect x="94" y="30" width="98" height="12" rx="2" fill="#52525b"/>
+          <rect x="20" y="12" width="40" height="8" rx="4" fill="#52525b"/>
+          <rect x="118" y="10" width="34" height="12" rx="6" fill="none" stroke="#f43f8e" stroke-width="2"/>
+          <rect x="121" y="13" width="28" height="6" rx="3" fill="#f43f8e"/>
+          <rect x="160" y="10" width="26" height="12" rx="6" fill="none" stroke="#f43f8e" stroke-width="2"/>
+          <rect x="163" y="13" width="20" height="6" rx="3" fill="#f43f8e"/>
+        </svg>
+        <p>A soft magenta ring on each one that would move, so the number in the check is something you can see.</p>
+      </button>
+      <button class="opt" data-pick="F2" aria-pressed="false">
+        <div class="head"><span class="tag">F2</span><span class="name">No highlight</span></div>
+        <p>The count in the words is enough.</p>
+      </button>
+    </div>
+  </section>
+
+  <p class="note">Built after your picks; until then nothing changes in Studio. Layers that span the cut (start before it, end after it) are not moved; only ones that start after it are.</p>
+</main>
+
+<div class="foot">
+  <div class="row">
+    <span id="picks">Transition picks: A? B? C? D? E? F?</span>
+    <button id="copy" type="button">Copy picks</button>
+  </div>
+</div>
+
+<script>
+(function () {
+  var keys = ['A', 'B', 'C', 'D', 'E', 'F'];
+  var chosen = {};
+  var line = document.getElementById('picks');
+  function render() {
+    line.textContent = 'Transition picks: ' + keys.map(function (k) { return chosen[k] || (k + '?'); }).join(' ');
+  }
+  document.querySelectorAll('section[data-key]').forEach(function (sec) {
+    var key = sec.getAttribute('data-key');
+    sec.querySelectorAll('.opt').forEach(function (b) {
+      b.addEventListener('click', function () {
+        sec.querySelectorAll('.opt').forEach(function (o) { o.setAttribute('aria-pressed', 'false'); });
+        b.setAttribute('aria-pressed', 'true');
+        chosen[key] = b.getAttribute('data-pick');
+        render();
+      });
+    });
+  });
+  var copy = document.getElementById('copy');
+  copy.addEventListener('click', function () {
+    var text = line.textContent;
+    function done() { copy.textContent = 'Copied'; setTimeout(function () { copy.textContent = 'Copy picks'; }, 1500); }
+    try { navigator.clipboard.writeText(text).then(done, selectLine); } catch (e) { selectLine(); }
+  });
+  function selectLine() {
+    var r = document.createRange(); r.selectNodeContents(line);
+    var s = window.getSelection(); s.removeAllRanges(); s.addRange(r);
+    copy.textContent = 'Selected: copy it';
+  }
+  render();
+})();
+</script>

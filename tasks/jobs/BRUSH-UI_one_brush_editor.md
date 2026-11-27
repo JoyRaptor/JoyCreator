@@ -223,3 +223,8 @@ Picked from `tasks/design/UI-Brush-editor-options.html`, told in words to the or
   - **Water (watercolour) barely changes paint already on the layer**: clear water does not lift or move it.
   - **Scraper leaves no mark** on the pattern; Fan blender and the palette knife lay their own grey oil over it.
   - So a real push, a lifting water brush and a scraper that moves paint would be new brush work if he wants them.
+
+## 11-27 (website lane, no phone): audit of section K, and the hover outline now uses Footprint
+- **Read against the card and code: Stage layout, round group buttons, words on every slider end, slider-end pictures and tap-the-footprint-to-open-Unibrush's-shape-editor were already built** (step 1/2 and 11-15 above, seen on the Note 9). Nothing to rebuild.
+- **Built now: the hover outline under the pen** (`HoverOutlineView`) shows, for every dab brush (stamp, smudge, push, Unibrush), the dab the brush would lay at this tilt, from `Footprint.outline` (the same outline the editor shows), scaled to the brush size and turned to the pen's lean; kept while brush and tilt are unchanged. Blades, oil/knife slabs and the circle for pencil, watercolour and Sable are unchanged. Cloud debug build run 46012707287 on `5ac9b6da0`: green (compiles). No host test: it is a drawing view.
+- **Owed: phone look with a real S Pen hovering** (agents cannot inject a hover): a Unibrush calligraphy tip should show its flat nib turned with the pen. Still open as before: Unibrush's own stage (no Clear / Test), and the media brushes' dab ends.

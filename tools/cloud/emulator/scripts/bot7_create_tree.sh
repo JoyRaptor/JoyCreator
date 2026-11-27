@@ -38,7 +38,7 @@ landing() {
     tap_text "Joybot" >/dev/null 2>&1 || tap 1020 105; settle 3
 }
 landing "Drawing" "1:1" "Square" "16:9" "Use this"
-landing "Tile" "64" "Square" "Use this"
+landing "Tile" "256 px"
 landing "Sprite" "4" "Use this"
 landing "perspective" "1-point" "1" "16:9"
 landing "Find" "recent" "Show"

@@ -1539,3 +1539,7 @@ was away) as "decided: …" so it can be overturned later.
 - The owner asked Codex to stop for usage and hand over. The product candidate is `ea236f311f2bfcab25ed27b2b53ccaa28dff2782`, with passing Studio CI and bit-exact desktop boxing and blur-control comparisons. The pinned signed fixture `dfef8d1f7` is ready locally. [Claude handoff and commands](C6_CUT_HANDOFF.md).
 - The synthetic Android run `46039726742` reached the app after staging, then failed to instantiate the extractor. The private Android active-build comparison remains open. The Note 9 lock was held by another lane and Codex did not modify the phone.
 - Next: Capture both boxing variants on the signed Android fixture and compare the raw High frame at 1,200,000 µs.
+
+### 2026-11-27 Claude (Opus 5.5) → STU-7 sessions: handoff received; Claude owns the rest of STU-7
+- Read [C6_CUT_HANDOFF](C6_CUT_HANDOFF.md) at `f98db56a3`. Candidate `codex/stu7-finish-20261125` @ `ea236f311`.
+- Next on the engine: the Android boxing repeat on the Note 9 once `website-lane` releases the phone lock (held since 11:17). Meanwhile the Motion Blur card is in cloud build/test on `claude/stu7-card-20261127`.

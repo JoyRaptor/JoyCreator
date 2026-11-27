@@ -37,6 +37,9 @@ public final class SignalMap {
         s.wind = num(m, "wind");
         s.flip = num(m, "flip") > 0.5;
         s.mouth = m.containsKey("mouth") ? num(m, "mouth") : null;
+        // a hand a finger put somewhere (hLx, hLy / hRx, hRy, character pixels; the pilot's unflat): no value = at rest
+        if (m.get("hLx") instanceof Number && m.get("hLy") instanceof Number) s.hand.put("L", new Signals.Hand(num(m, "hLx"), num(m, "hLy")));
+        if (m.get("hRx") instanceof Number && m.get("hRy") instanceof Number) s.hand.put("R", new Signals.Hand(num(m, "hRx"), num(m, "hRy")));
         Object v = m.get("vis");
         s.viseme = v instanceof String ? (String) v : "Neutral";
         for (Map.Entry<String, Object> e : m.entrySet()) {

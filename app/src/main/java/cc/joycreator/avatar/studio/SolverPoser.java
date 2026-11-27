@@ -48,6 +48,8 @@ public final class SolverPoser implements CharacterPoser {
     private OffscreenCharacterGl gl;
     private boolean broken;
     private double lastT = Double.NaN;
+    private volatile java.util.Map<String, double[]> tips = java.util.Collections.emptyMap();
+    private volatile double[] rootM;
 
     public SolverPoser(CharacterDoc doc, CharacterPictures pictures) {
         this.doc = doc;
@@ -81,6 +83,8 @@ public final class SolverPoser implements CharacterPoser {
             opt.live = true;
             opt.dt = dt > 0 ? dt : 1 / 30.0;
             SolveOut out = solver.eval(s, opt);
+            tips = new java.util.HashMap<>(s.tips);
+            rootM = out.rootM;
             Bitmap b = gl.draw(out, pics, scale);
             c.drawBitmap(b, new Rect(0, 0, gl.width(), gl.height()), new RectF(0, 0, doc.w, doc.h), paint);
         } catch (RuntimeException | OutOfMemoryError e) {
@@ -89,6 +93,17 @@ public final class SolverPoser implements CharacterPoser {
             releaseGl();
             stand.draw(c, signals, seconds);
         }
+    }
+
+    /** Where each hand ("L", "R") was drawn on the last frame, character pixels (a finger on a hand takes it there). */
+    public java.util.Map<String, double[]> tips() {
+        return tips;
+    }
+
+    /** Stage coordinates back to the character's own (a turned-round character mirrored back), from the last frame. */
+    public double[] toInner(double[] p) {
+        double[] m = rootM;
+        return m == null ? p : cc.joycreator.avatar.solve.Mat.ap(cc.joycreator.avatar.solve.Mat.inv(m), p[0], p[1]);
     }
 
     @Override

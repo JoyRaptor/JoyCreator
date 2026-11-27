@@ -14,8 +14,8 @@ jobs:
     timeout-minutes: 30
     env:
       GH_TOKEN: ${{ github.token }}
-      SOURCE_RUN: '45946476209'
-      SOURCE_COMMIT: '3318b68b228e9a4a99384e9ccb16941ed77cfe9e'
+      SOURCE_RUN: '45984414494'
+      SOURCE_COMMIT: 'f86163a075cf2a273e86072c83ee72fb449821f7'
     steps:
       - uses: actions/checkout@v4
       - name: Boot disposable API 30 emulator

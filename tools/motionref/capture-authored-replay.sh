@@ -4,7 +4,7 @@ set -euo pipefail
 out=$1
 pkg=com.fadcam.beta
 component="$pkg/com.fadcam.ui.faditor.export.ExportDebugActivity"
-center=120000
+center=400000
 adb() { timeout --kill-after=5s 30s adb -e "$@"; }
 test "$(adb shell getprop ro.kernel.qemu | tr -d '\r')" = 1
 mkdir -p "$out"

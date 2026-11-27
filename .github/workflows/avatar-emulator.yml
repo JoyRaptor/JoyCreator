@@ -184,14 +184,7 @@ jobs:
           adb -e shell svc power stayon true
           adb -e shell input keyevent 82 || true
           echo "abi: $(adb -e shell getprop ro.product.cpu.abilist | tr -d '\r')"
-          # turn the screen when asked: a tablet's natural way up is landscape, a phone's upright
-          adb -e shell settings put system accelerometer_rotation 0
-          size=$(adb -e shell wm size | tr -d '\r' | tail -1 | awk '{print $NF}'); w=${size%x*}; h=${size#*x}
-          natural=portrait; [ "$w" -gt "$h" ] && natural=landscape
-          if [ "$ORIENT" = "$natural" ]; then rot=0; else rot=1; fi
-          adb -e shell settings put system user_rotation $rot
-          sleep 3
-          echo "screen $size (natural $natural), asked $ORIENT, user_rotation $rot"
+          # the screen is turned by the tests themselves (Emu.turn, -e orientation): adb user_rotation did not turn API 30
           adb -e shell wm size; adb -e shell wm density
 
       - name: Install the app and the tests from this run
@@ -209,6 +202,7 @@ jobs:
         timeout-minutes: 35
         env:
           MSAA: ${{ inputs.msaa || '4' }}
+          ORIENT: ${{ inputs.orientation || 'portrait' }}
           TESTS: ${{ inputs.tests || 'all' }}
           FAULT: ${{ inputs.fault || 'none' }}
         run: |
@@ -218,7 +212,7 @@ jobs:
             room) CLASSES=cc.joycreator.avatar.emu.AvatarRoomSmokeTest ;;
             *)    CLASSES=cc.joycreator.avatar.emu.AvatarDrawParityTest,cc.joycreator.avatar.emu.AvatarRoomSmokeTest ;;
           esac
-          ARGS=(-e class "$CLASSES" -e msaa "$MSAA")
+          ARGS=(-e class "$CLASSES" -e msaa "$MSAA" -e orientation "$ORIENT")
           [ "$FAULT" != none ] && ARGS+=(-e fault "$FAULT")
           mkdir -p emu-out
           timeout 30 adb -e logcat -c

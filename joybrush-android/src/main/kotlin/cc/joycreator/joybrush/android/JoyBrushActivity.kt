@@ -3702,12 +3702,16 @@ class JoyBrushActivity : Activity() {
                         if (!LineSelectionClipboard.accept(result.payload)) {
                             selectUi.say(if (cut) "Those lines couldn't be cut. Nothing was taken away." else "Those lines couldn't be copied.")
                         } else if (!cut) {
-                            selectUi.say("Lines copied. Tap Paste in Select settings or More.")
+                            selectUi.say("Lines copied. Paste now, or later from Select settings or More.", "Paste") {
+                                this@JoyBrushActivity.selection?.pasteCopiedLines()
+                            }
                         } else {
                             // Delete only the lines that were copied, and only if they are still the selection.
                             if (cc.joycreator.joybrush.android.select.SelectionSync.cutAfterCopy(
                                     this@JoyBrushActivity.selection?.tool, lines.ids))
-                                selectUi.say("Lines cut. Tap Paste in Select settings or More.")
+                                selectUi.say("Lines cut. Paste now, or later from Select settings or More.", "Paste") {
+                                    this@JoyBrushActivity.selection?.pasteCopiedLines()
+                                }
                             else selectUi.say("Lines copied, but they changed, so nothing was taken away.")
                         }
                     }

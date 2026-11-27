@@ -485,6 +485,9 @@ class SelectController(
     }
 
     /** Paste records into the current editable plane, assigning fresh identities and importing their frozen brushes. */
+    /** Paste from the "Lines copied" note's own button (11-27: Paste lived only in Settings and More, where nobody looked). */
+    fun pasteCopiedLines() { if (LineSelectionClipboard.hasLines) pasteLines() }
+
     private fun pasteLines() {
         val destination = try {
             if (host is CanvasSelectionHost) host.prepareWithBrushStaging { preparePastedLines() }

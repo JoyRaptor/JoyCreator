@@ -30,7 +30,27 @@ public final class HighFootageGatherTest {
         test.warpSolvesBothComponentsAtTheSamePoint();
         test.alphaAndLinearLight();
         test.missingRangeStaysSharp();
+        test.hardCutStartsSharpAndDropsFutureDonor();
         System.out.println("HighFootageGatherTest: " + test.assertions + " assertions");
+    }
+
+    private void hardCutStartsSharpAndDropsFutureDonor() {
+        int[] current = dot(5, 2, WHITE);
+        var previous = frame(dot(5, 1, RED), -STEP);
+        var center = frame(current, 0);
+        var next = frame(dot(5, 3, BLUE), STEP);
+        var preceding = pair(5, 1, -STEP, 0, 1);
+        var following = pair(5, 1, 0, STEP, 1);
+        var cutBefore = new FlowCache.Pair(preceding.forward, preceding.backward,
+                EnumSet.of(FlowCache.Flag.SCENE_CUT));
+        var cutAfter = new FlowCache.Pair(following.forward, following.backward,
+                EnumSet.of(FlowCache.Flag.SCENE_CUT));
+        check(reconstruct(previous, center, next, cutBefore, following, 1,
+                taps(0, STEP), weights(1, 1)) == current,
+                "first frame of the new shot stays sharp despite a usable forward donor");
+        check(reconstruct(previous, center, next, preceding, cutAfter, 1,
+                taps(0, STEP), weights(1, 1)) == current,
+                "last frame of the old shot cannot borrow from the next shot");
     }
 
     private void staticAndSubpixelAreExact() {

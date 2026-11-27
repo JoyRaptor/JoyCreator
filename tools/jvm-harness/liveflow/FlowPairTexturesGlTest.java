@@ -33,6 +33,17 @@ public final class FlowPairTexturesGlTest {
         owner.release(); owner.release();
         check(GLES20.deletedTextures == 2, "release after clear is idempotent");
 
+        var cutOwner = new FlowPairTexturesGl();
+        cutOwner.set(first);
+        int uploadsBeforeCut = GLES20.textureUploads;
+        int deletesBeforeCut = GLES20.deletedTextures;
+        var cut = new FlowCache.Pair(field(200, 300, 4, 0), field(300, 200, -4, 0),
+                EnumSet.of(FlowCache.Flag.SCENE_CUT));
+        check(cutOwner.set(cut) == null && GLES20.textureUploads == uploadsBeforeCut
+                        && GLES20.deletedTextures == deletesBeforeCut + 2,
+                "scene cut drops the resident pair without uploading vectors");
+        cutOwner.release();
+
         var lost = new FlowPairTexturesGl();
         lost.set(first);
         int deletes = GLES20.deletedTextures;

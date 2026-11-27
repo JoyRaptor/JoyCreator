@@ -53,6 +53,7 @@ public final class JoyFolderTests {
         run("pack folders: the contract (names, safe paths, homes, hidden staging)", JoyFolderTests::packFolders);
         run("large share-in: progress, no half file on failure, plain out-of-space words", JoyFolderTests::largeShareIn);
         run("space: move unused to Trash (stale use, partial failure, plain summary)", JoyFolderTests::trashBatch);
+        run("atomic write: two handles on one folder writing the same file never fail (index.json)", JoyFolderTests::twoWritersOneFile);
         run("placement: the three rules", JoyFolderTests::placement);
         run("roles: adopt by name, drop when gone", JoyFolderTests::roles);
         run("fingerprint: content identity, sampling", JoyFolderTests::fingerprint);
@@ -838,6 +839,37 @@ public final class JoyFolderTests {
         TrashBatch.Result r = new TrashBatch.Result();
         r.moved.add("x.mp4");
         return r;
+    }
+
+    /**
+     * STU-7 (11-23) saw "Could not move .joycreator/index.json.joytmp into place" during an export. The folder is opened
+     * more than once (each screen and service has its own handle), and the write lock was per handle, so two handles
+     * writing the same file at once took each other's temp file. One lock for the process fixes it.
+     */
+    static void twoWritersOneFile() throws Exception {
+        final FileJoyFs real = tempFs();
+        final JoyFolder a = JoyFolder.open(real);
+        final JoyFolder b = JoyFolder.open(tempHandleOn(real));
+        final java.util.concurrent.atomic.AtomicReference<Throwable> failure = new java.util.concurrent.atomic.AtomicReference<>();
+        Thread[] ts = new Thread[2];
+        for (int t = 0; t < 2; t++) {
+            final JoyFolder jf = t == 0 ? a : b;
+            final byte[] body = (t == 0 ? "from-a-" : "from-b-").getBytes(StandardCharsets.UTF_8);
+            ts[t] = new Thread(() -> {
+                try { for (int i = 0; i < 400 && failure.get() == null; i++) jf.writeAtomic(".joycreator/index.json", body); }
+                catch (Throwable e) { failure.compareAndSet(null, e); }
+            });
+        }
+        for (Thread t : ts) t.start();
+        for (Thread t : ts) t.join();
+        check(failure.get() == null, "two handles writing one file: " + failure.get());
+        String now = new String(a.readAll(".joycreator/index.json"), StandardCharsets.UTF_8);
+        check(now.equals("from-a-") || now.equals("from-b-"), "the file is one whole write, not a mix: " + now);
+    }
+
+    /** A second, independent handle on the same directory (as a second screen or service gets). */
+    private static FileJoyFs tempHandleOn(FileJoyFs fs) throws IOException {
+        return new FileJoyFs(fs.root());
     }
 
     // ── helpers ──────────────────────────────────────────────────────────

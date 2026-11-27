@@ -118,7 +118,20 @@ public final class JoyFolder {
         void writeTo(OutputStream out) throws IOException;
     }
 
+    /**
+     * One lock for every handle in the process. The folder is opened once per screen and service, and a lock per handle let
+     * two of them write the same file (the index) at once, each taking the other's temp or old copy: "Could not move
+     * index.json.joytmp into place" (STU-7, 11-23).
+     */
+    private static final Object WRITE_LOCK = new Object();
+
     private void writeAtomic(String rel, Body body) throws IOException {
+        synchronized (WRITE_LOCK) {
+            writeAtomicLocked(rel, body);
+        }
+    }
+
+    private void writeAtomicLocked(String rel, Body body) throws IOException {
         String dir = Placement.parentOf(rel);
         String name = Placement.nameOf(rel);
         String tmp = Placement.join(dir, name + TMP_SUFFIX);

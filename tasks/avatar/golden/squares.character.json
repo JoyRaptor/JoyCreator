@@ -1,0 +1,204 @@
+{
+ "format": "joycreator.character/2",
+ "name": "Golden squares",
+ "w": 400,
+ "h": 400,
+ "root": {
+  "id": "r1v3g",
+  "name": "Golden squares",
+  "type": "group",
+  "kids": [
+   {
+    "id": "head",
+    "name": "Head",
+    "role": "head",
+    "type": "set",
+    "kids": [
+     {
+      "id": "kA",
+      "name": "A",
+      "type": "art",
+      "img": "imgA",
+      "x": 150,
+      "y": 150,
+      "at": [
+       0,
+       0
+      ]
+     },
+     {
+      "id": "kB",
+      "name": "B",
+      "type": "art",
+      "img": "imgB",
+      "x": 150,
+      "y": 150,
+      "at": [
+       1,
+       0
+      ]
+     },
+     {
+      "id": "kC",
+      "name": "C",
+      "type": "art",
+      "img": "imgC",
+      "x": 150,
+      "y": 150,
+      "at": [
+       0.5,
+       0.6
+      ]
+     },
+     {
+      "id": "kD",
+      "name": "B (mirrored)",
+      "type": "mirror",
+      "of": "kB",
+      "at": [
+       -1,
+       0
+      ]
+     }
+    ],
+    "axisX": 200,
+    "pick": {
+     "by": "turn",
+     "depth": 0,
+     "fade": 0,
+     "rest": "kA"
+    },
+    "marks": {
+     "": {
+      "pts": [
+       {
+        "n": 1
+       },
+       {
+        "n": 2
+       },
+       {
+        "n": 3
+       },
+       {
+        "n": 4
+       },
+       {
+        "n": 5
+       },
+       {
+        "n": 6
+       }
+      ],
+      "at": {
+       "kA": [
+        [
+         150,
+         150
+        ],
+        [
+         250,
+         150
+        ],
+        [
+         150,
+         250
+        ],
+        [
+         250,
+         250
+        ],
+        [
+         200,
+         240
+        ],
+        [
+         160,
+         240
+        ]
+       ],
+       "kB": [
+        [
+         170,
+         150
+        ],
+        [
+         270,
+         150
+        ],
+        [
+         170,
+         250
+        ],
+        [
+         270,
+         250
+        ],
+        [
+         220,
+         280,
+         "behind"
+        ],
+        [
+         500,
+         500,
+         "off"
+        ]
+       ],
+       "kC": [
+        [
+         150,
+         180
+        ],
+        [
+         250,
+         180
+        ],
+        [
+         150,
+         280
+        ],
+        [
+         250,
+         280
+        ],
+        [
+         200,
+         270
+        ],
+        [
+         160,
+         270
+        ]
+       ]
+      },
+      "meets": [
+       {
+        "a": "kA",
+        "b": "kC",
+        "at": 0.4
+       }
+      ]
+     }
+    }
+   }
+  ]
+ },
+ "triggers": [],
+ "settings": {
+  "facing": "front",
+  "autoFlip": false,
+  "flipAt": 0.4,
+  "blinkAuto": true,
+  "blinkEvery": 3.6,
+  "breathe": true,
+  "breathRate": 0.28,
+  "idle": true,
+  "eyesLead": true
+ },
+ "pictures": {
+  "imgA": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAGQAAABkCAYAAABw4pVUAAACCUlEQVR4AeyTQUoEQRAEh/2O6Bv8ub5B9D0KffJUh6KzOnRiYYaFpqpzIsjH8+fbtw+HwePyhyKgEJSO61KIQmAEYHFsiEJgBGBxbIhCYARgcWzILYTAPvIvxbEhMFsKUQiMACyODVEIjAAsjg1RCIwALI4NUQiMACzO9oZ8PL1eO59fvG7xd7uQW1ALfqRCgnA7qxXSoRacUUgQbme1QjrUgjMKCcLtrFZIh1pwRiFBuJ3VCulQC84oJAi3s1ohHWrBGYUE4XZWK6RDLTijkCDczmqFdKgFZxQShNtZrZAOteCMQoJwO6sV0qEWnNku5OXr/dr5BL89ubq9e7uQdhIHFwGFLAycl0I4LlYShSwMnJdCOC5WEoUsDJyXQjguVhKFLAycl0I4LlYShSwMnFcphBPzPkkUAnOtEIXACMDi2BCFwAjA4tgQhcAIwOLYEIXACMDiHGgIjAAsjkIUAiMAi2NDFAIjAItjQxQCIwCLY0MUAiMAi2NDFJIh8F+22hCYSYUoBEYAFseGKARGABbHhigERgAWx4YoBEYAFseGlELmDxUyz7y8USElnvlDhcwzL29USIln/lAh88zLGxVS4pk/VMg88/JGhZR45g8VMs+8vFEhJZ7MYbVVIRWdA2cKOQC9ulIhFZ0DZwo5AL26UiEVnQNnCjkAvbpSIRWdA2cKOQC9uvIHAAD//w6R4C0AAAAGSURBVAMA7b1PdH94eScAAAAASUVORK5CYII=",
+  "imgB": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAGQAAABkCAYAAABw4pVUAAACC0lEQVR4AeyTQUoEQRAEh736Mr+j7/A7+jE9K/TJUx2KzurQiYUZFpqqzokgH58v798+HAaPyx+KgEJQOq5LIQqBEYDFsSEKgRGAxbEhCoERgMWxIbcQAvvIvxTHhsBsKUQhMAKwODZEITACsDg2RCEwArA4NkQhMAKwONsb8vT2fO18fvG6xd/tQm5BLfiRCgnC7axWSIdacEYhQbid1QrpUAvOKCQIt7NaIR1qwRmFBOF2ViukQy04o5Ag3M5qhXSoBWcUEoTbWa2QDrXgjEKCcDurFdKhFpxRSBBuZ7VCOtSCMwoJwu2sVkiHWnBmu5Cv149r5xP89uTq9u7tQtpJHFwEFLIwcF4K4bhYSRSyMHBeCuG4WEkUsjBwXgrhuFhJFLIwcF4K4bhYSRSyMHBepRBOzPskUQjMtUIUAiMAi2NDFAIjAItjQxQCIwCLY0MUAiMAi3OgITACsDgKUQiMACyODVEIjAAsjg1RCIwALI4NUQiMACyODVFIhsB/2WpDYCYVohAYAVgcG6IQGAFYHBuiEBgBWBwbohAYAVgcG1IKmT9UyDzz8kaFlHjmDxUyz7y8USElnvlDhcwzL29USIln/lAh88zLGxVS4pk/VMg88/JGhZR4MofVVoVUdA6cKeQA9OpKhVR0Dpwp5AD06kqFVHQOnCnkAPTqSoVUdA6cKeQA9OrKHwAAAP//VqZopAAAAAZJREFUAwCAm3Nk5LAFMAAAAABJRU5ErkJggg==",
+  "imgC": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAGQAAABkCAYAAABw4pVUAAACCklEQVR4AeyTQUoEQRAEh8Wn6D/8uf7Dpygo9MlTHYrO6tCJhRkWmqrOiSAfn2/P3z4cBo/LH4qAQlA6rkshCoERgMWxIQqBEYDFsSEKgRGAxbEhtxAC+8i/FMeGwGwpRCEwArA4NkQhMAKwODZEITACsDg2RCEwArA42xvy9Ppx7Xx+8brF3+1CbkEt+JEKCcLtrFZIh1pwRiFBuJ3VCulQC84oJAi3s1ohHWrBGYUE4XZWK6RDLTijkCDczmqFdKgFZxQShNtZrZAOteCMQoJwO6sV0qEWnFFIEG5ntUI61IIzCgnC7axWSIdacGa7kK/3l2vnE/z25Or27u1C2kkcXAQUsjBwXgrhuFhJFLIwcF4K4bhYSRSyMHBeCuG4WEkUsjBwXgrhuFhJFLIwcF6lEE7M+yRRCMy1QhQCIwCLY0MUAiMAi2NDFAIjAItjQxQCIwCLc6AhMAKwOApRCIwALI4NUQiMACyODVEIjAAsjg1RCIwALI4NUUiGwH/ZakNgJhWiEBgBWBwbohAYAVgcG6IQGAFYHBuiEBgBWBwbUgqZP1TIPPPyRoWUeOYPFTLPvLxRISWe+UOFzDMvb1RIiWf+UCHzzMsbFVLimT9UyDzz8kaFlHgyh9VWhVR0Dpwp5AD06kqFVHQOnCnkAPTqSoVUdA6cKeQA9OpKhVR0Dpwp5AD06sofAAAA///5HwVxAAAABklEQVQDAO7HWyx/tTXcAAAAAElFTkSuQmCC"
+ }
+}

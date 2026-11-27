@@ -291,8 +291,23 @@ public final class JoyFolder {
         JsonObject log = trashLog();
         // Rename in place first so the move into Trash can never collide with another item's name.
         if (!trashName.equals(name) && !fs.rename(rel, trashName)) throw new IOException("Could not trash " + rel);
-        if (!fs.move(Placement.join(dir, trashName), TRASH)) {
-            fs.rename(Placement.join(dir, trashName), name);
+        boolean moved;
+        try {
+            moved = fs.move(Placement.join(dir, trashName), TRASH);
+        } catch (IOException | RuntimeException e) {
+            // A move that THROWS (a full disk, a lost grant) must put the file back under its own name, exactly as one that
+            // returns false does: before, the file stayed in place under its Trash stamp, renamed and not in Trash.
+            if (!trashName.equals(name)) {
+                try {
+                    fs.rename(Placement.join(dir, trashName), name);
+                } catch (IOException | RuntimeException ignored) {
+                    // the first failure is the one to report
+                }
+            }
+            throw e;
+        }
+        if (!moved) {
+            if (!trashName.equals(name)) fs.rename(Placement.join(dir, trashName), name);
             throw new IOException("Could not trash " + rel);
         }
         JsonObject entry = new JsonObject();

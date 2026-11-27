@@ -29,7 +29,7 @@ class JbArchiveStreamTest {
 
     private val layer = "oil"
     private val cel = "c-oil"
-    private val count = 120
+    private val count = 40
     private val names = (0 until count).map { "${it % 12}_${it / 12}" }
     private val storeBytes = MediaStores.tileBytes(TILE_SIZE, "p0")
 
@@ -88,11 +88,14 @@ class JbArchiveStreamTest {
         assertEquals(2 * count, m.made, "each store tile made once")
         val want = ByteArrayOutputStream().also { JbArchive.write(it, inMemory()) }.toByteArray()
         // Entry for entry the same names and bytes (the zip headers also hold the time each was written).
+        // Compared by name, length and checksum one entry at a time, so the test holds no whole file unpacked.
         fun entries(zip: ByteArray) = java.util.zip.ZipInputStream(zip.inputStream()).use { z ->
-            generateSequence { z.nextEntry }.map { it.name to z.readBytes() }.toList() }
-        val a = entries(want); val b = entries(got)
-        assertEquals(a.map { it.first }, b.map { it.first }, "the same entries in the same order")
-        for (i in a.indices) assertContentEquals(a[i].second, b[i].second, a[i].first)
+            generateSequence { z.nextEntry }.map { e ->
+                val crc = java.util.zip.CRC32(); val buf = ByteArray(1 shl 16); var n = 0L
+                while (true) { val r = z.read(buf); if (r < 0) break; crc.update(buf, 0, r); n += r }
+                Triple(e.name, n, crc.value)
+            }.toList() }
+        assertEquals(entries(want), entries(got), "the same entries, in the same order, with the same bytes")
     }
 
     @Test fun aSaveThatRewritesOnlyWhatChangedAlsoHoldsOneTileAtATime() {

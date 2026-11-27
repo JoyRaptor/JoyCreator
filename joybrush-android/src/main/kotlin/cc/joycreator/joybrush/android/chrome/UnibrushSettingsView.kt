@@ -47,8 +47,6 @@ class UnibrushSettingsView(
     private var model = initial
     private var preference = initialPreference
     // BRUSH-UI section K.1: no tabs under the stage; every setting in one list, the top bar's group buttons jump.
-    /** For the cancel button: the mode as the sheet opened. */
-    private val opened = initial
     private val groupStarts = LinkedHashMap<cc.joycreator.joybrush.core.chrome.BrushKnobGroups.Group, View>()
     private lateinit var header: BrushEditorHeader
     private var endpointB = false
@@ -79,18 +77,20 @@ class UnibrushSettingsView(
 
     init {
         orientation = VERTICAL
-        setPadding(kit.dpi(8f), kit.dpi(4f), kit.dpi(8f), kit.dpi(4f))
-        kit.surface(this, 12f)
+        // §L 1 (owner, 11-27): one look for every brush. No panel of its own inside the drawer: the drawer is the panel,
+        // as it is for the paint editor.
         // BRUSH-UI section K.1: the same top bar as every other brush (Studio's drawer header).
         header = BrushEditorHeader(kit, initial.name.ifBlank { "Unibrush" }, GROUPS,
             // Shape is the top of the list, with the pen pad and the tip seen edge-on.
             onGroup = { g -> if (g == GROUPS.first()) scroll.smoothScrollTo(0, 0) else groupStarts[g]?.let { v -> scroll.smoothScrollTo(0, v.top) } },
-            onDone = { close() },
-            onCancel = { cancel() })
-        addView(header, LayoutParams(MATCH, WRAP))
+            onDone = { close() })
+        addView(header, LayoutParams(MATCH, WRAP).apply { setMargins(kit.dpi(2f), 0, 0, kit.dpi(2f)) })
         require(preview.parent == null) { "Supply an unattached real-engine preview View" }
         kit.label(preview, "Live brush stroke drawn by the painting engine")
-        addView(preview, LayoutParams(MATCH, kit.dpi(84f)))
+        // §L 2: the same stage frame as the paint editor's, on the drawing's paper (the host sets its paper).
+        addView(preview, LayoutParams(MATCH, kit.dpi(BrushSettingsView.PREVIEW_DP)).apply {
+            setMargins(kit.dpi(4f), 0, kit.dpi(4f), kit.dpi(2f))
+        })
         input.addView(pen, LayoutParams(kit.dpi(64f), kit.dpi(92f)))
         input.addView(UnibrushPreviewPad(kit) { pressure, tilt ->
             pen.show(pressure, tilt, 0f)
@@ -142,7 +142,7 @@ class UnibrushSettingsView(
             ?: resources.displayMetrics.heightPixels
         // 70% of a short screen, never more than the Note 9's 70% (592 dp): a taller phone keeps the drawn sizes.
         val cap = minOf(available, (resources.displayMetrics.heightPixels * .70f).toInt(), kit.dpi(592f))
-        preview.layoutParams.height = kit.dpi(if (cap < kit.dpi(400f)) 44f else 84f)
+        preview.layoutParams.height = kit.dpi(if (cap < kit.dpi(400f)) 96f else BrushSettingsView.PREVIEW_DP)
         super.onMeasure(widthMeasureSpec, MeasureSpec.makeMeasureSpec(cap, MeasureSpec.EXACTLY))
     }
 
@@ -166,14 +166,6 @@ class UnibrushSettingsView(
     override fun onDetachedFromWindow() {
         finishEditing(); closed = true; assetRequest++; endPictures?.close()
         super.onDetachedFromWindow()
-    }
-
-    /** ✕: the mode goes back to how the sheet opened, then the sheet closes. */
-    private fun cancel() {
-        if (closed) return
-        finishEditing()
-        if (initialValid && model != opened) edit(true, refresh = false) { snapshot(opened) }
-        close()
     }
 
     private fun rebuild(resetScroll: Boolean = false) {

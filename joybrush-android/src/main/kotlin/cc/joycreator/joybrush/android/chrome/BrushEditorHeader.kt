@@ -27,11 +27,14 @@ class BrushEditorHeader(
     private val groups: List<Group>,
     private val onGroup: (Group) -> Unit,
     onDone: () -> Unit,
-    onCancel: () -> Unit,
 ) : LinearLayout(kit.context) {
     private val pills = LinkedHashMap<Group, LinearLayout>()
+    /** The section shown now. Pressure is part of Shape now (§L 7: shape and pressure are one section), so it lights Shape. */
     var active: Group? = null
-        set(value) { if (field != value) { field = value; paint() } }
+        set(value) {
+            val shown = if (value == Group.PRESSURE && Group.SHAPE in groups) Group.SHAPE else value
+            if (field != shown) { field = shown; paint() }
+        }
 
     init {
         orientation = HORIZONTAL
@@ -50,7 +53,8 @@ class BrushEditorHeader(
             orientation = HORIZONTAL; gravity = Gravity.CENTER_VERTICAL
             setPadding(kit.dpi(8f), 0, kit.dpi(4f), 0)
         }
-        for (g in groups) {
+        // §L 7 (owner, 11-27): no separate Pressure link; its settings sit with Shape.
+        for (g in groups.filter { it != Group.PRESSURE || Group.SHAPE !in groups }) {
             val pill = LinearLayout(context).apply {
                 orientation = HORIZONTAL; gravity = Gravity.CENTER
                 minimumWidth = kit.dpi(32f)
@@ -72,8 +76,8 @@ class BrushEditorHeader(
             isHorizontalFadingEdgeEnabled = true; setFadingEdgeLength(kit.dpi(14f))
             addView(row)
         }, LayoutParams(0, kit.dpi(32f), 1f))
-        addView(textButton("Done", "Keep these settings and close") { onDone() })
-        addView(textButton("✕", "Cancel: put the brush back as it was and close", 13f) { onCancel() })
+        // §L 8 (owner, 11-27): one close button, never Done and ✕ both. Changes apply live, so closing keeps them.
+        addView(textButton("✕", "Close. Your changes are already on the brush", 13f) { onDone() })
         active = groups.firstOrNull()
         paint()
     }

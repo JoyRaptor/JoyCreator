@@ -47,10 +47,12 @@ class UnibrushSettingsViewTest {
         val view = sheet()
         val labels = descendants(view).mapNotNull { it.contentDescription?.toString() }
         assertTrue(labels.none { it.startsWith("Show ") && it.endsWith(" brush settings") })
-        for (g in listOf("Shape", "Pressure & tilt", "Colour", "Paper", "Stroke ends", "Feel")) click(view, "Go to $g settings")
+        // §L 7: Shape and pressure are one section, so there is no separate Pressure link.
+        assertTrue(labels.none { it == "Go to Pressure & tilt settings" })
+        for (g in listOf("Shape", "Colour", "Paper", "Stroke ends", "Feel")) click(view, "Go to $g settings")
         // K.4: the footprint opens the tip's shape editor.
         click(view, "Footprint: the mark this brush leaves as the pen tilts. Tap to edit the tip's shape")
-        click(view, "Keep these settings and close")
+        click(view, "Close. Your changes are already on the brush")
     }
 
     /** BRUSH-UI section K.3: with a picture maker, every slider shows a picture at both ends; Softness asks for dabs. */
@@ -69,16 +71,17 @@ class UnibrushSettingsViewTest {
         assertTrue(parts.toString(), parts.isNotEmpty())
     }
 
-    @Test fun cancelPutsTheModeBackAsItOpened() {
+    @Test fun theOneCloseButtonKeepsTheChanges() {
         val original = UnibrushModes.presets().first()
         var last: BrushPreset? = null
         var closed = 0
         val view = UnibrushSettingsView(ChromeKit(context), original, StabilizerPreference(), View(context),
             { p, _ -> last = p }, {}, {}, { closed++ }, { _, _ -> })
         click(view, "Shape A: Square")
-        assertEquals(0f, last!!.tip.quad!!.a.roundness, 0f)
-        click(view, "Cancel: put the brush back as it was and close")
-        assertEquals(original, last)
+        val edited = last
+        assertEquals(0f, edited!!.tip.quad!!.a.roundness, 0f)
+        click(view, "Close. Your changes are already on the brush")
+        assertEquals("closing keeps the edit (§L 8: changes apply live)", edited, last)
         assertEquals(1, closed)
     }
 

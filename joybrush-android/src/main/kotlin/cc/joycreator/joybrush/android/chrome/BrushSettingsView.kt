@@ -50,8 +50,6 @@ class BrushSettingsView(
     private val endViews = ArrayList<Triple<BrushKnobs.Knob, android.widget.ImageView, android.widget.ImageView>>()
 
     private var positions = start
-    /** As the sheet opened, for the cancel button. */
-    private val opened = start
     private val rows = ArrayList<Triple<BrushKnobs.Knob, SeekBar, TextView>>()
     private val checks = ArrayList<Pair<BrushKnobs.Knob, android.widget.CheckBox>>()
     /** True while Reset sets the controls, so it is not heard as the owner ticking them. */
@@ -103,8 +101,7 @@ class BrushSettingsView(
         val groups = sliderKnobs.map { cc.joycreator.joybrush.core.chrome.BrushKnobGroups.groupOf(it.key) }.distinct().sortedBy { it.ordinal }
         header = BrushEditorHeader(kit, base.name, groups,
             onGroup = { g -> groupStarts[g]?.let { v -> scroll.smoothScrollTo(0, v.top) } },
-            onDone = { onDone() },
-            onCancel = { positions = opened; onChange(positions, true); refresh(); onDone() })
+            onDone = { onDone() })
         addView(header, LayoutParams(MATCH, WRAP).apply { setMargins(kit.dpi(2f), 0, 0, kit.dpi(2f)) })
 
         kit.label(preview, "Live preview of ${base.name}: a swoosh, then pressure, tilt, speed and turn one at a time, redrawn as " +

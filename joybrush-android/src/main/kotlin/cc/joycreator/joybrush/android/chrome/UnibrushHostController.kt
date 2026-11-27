@@ -176,7 +176,15 @@ class UnibrushHostController(
     fun openSettings() {
         val active=session?:return
         val epoch=++sheetRevision
-        val image=ImageView(activity).apply{scaleType=ImageView.ScaleType.FIT_XY}
+        // §L 2 (owner, 11-27): never dark on dark. The stroke comes back on a clear ground, so the stage shows the drawing's
+        // own paper under it, as the paint editor's stage does; its corners are slightly round (§L addition 5).
+        val image=ImageView(activity).apply{
+            scaleType=ImageView.ScaleType.FIT_XY
+            background=android.graphics.drawable.GradientDrawable().apply{
+                setColor(canvas.paperArgb or 0xFF000000.toInt());cornerRadius=kit.dp(STAGE_CORNER_DP)
+            }
+            clipToOutline=true
+        }
         image.addOnLayoutChangeListener{_,left,top,right,bottom,oldLeft,oldTop,oldRight,oldBottom->
             if(right-left!=oldRight-oldLeft||bottom-top!=oldBottom-oldTop)redrawPreview(epoch)
         }
@@ -409,5 +417,7 @@ class UnibrushHostController(
         cancelPick();saveDialog?.dismiss();saveDialog=null
         sheet=null;previewImage=null;canvas.onPenReading=null;worker.shutdownNow()
     }
-    companion object {const val REQUEST_PNG=4191; const val PREVIEW_PATIENCE_MS=1500L}
+    companion object {const val REQUEST_PNG=4191; const val PREVIEW_PATIENCE_MS=1500L
+        /** The test-stroke stage's slightly round corners (BRUSH-UI §L addition 5). */
+        const val STAGE_CORNER_DP=8f}
 }

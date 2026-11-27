@@ -76,20 +76,24 @@ class Popovers(private val kit: ChromeKit, private val host: FrameLayout) {
             host.addView(c, FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT))
             catcher = c
         }
+        // A drawer slides up from the bottom EDGE (owner, BRUSH-UI §L, 11-27): it sits on the edge with square bottom
+        // corners, round only on top, and the margins and padding a floating card had go to its content.
+        val avail = host.width - host.paddingLeft - host.paddingRight
+        val w = minOf(avail, kit.dpi(maxWidthDp))
+        val full = w >= avail
         val frame = FrameLayout(host.context).apply {
-            val pad = kit.dpi(8f)
-            setPadding(pad, pad, pad, pad)
-            kit.surface(this, 16f)
+            setPadding(kit.dpi(6f), kit.dpi(6f), kit.dpi(6f), kit.dpi(2f))
+            val r = kit.dp(16f)
+            // A full-width drawer is square at its sides as well; a narrower one (a tablet) keeps its top corners only.
+            kit.surface(this, floatArrayOf(r, r, r, r, 0f, 0f, 0f, 0f))
             elevation = kit.dp(6f)
             isClickable = true
         }
         frame.addView(content)
-        val avail = host.width - host.paddingLeft - host.paddingRight - kit.dpi(12f)
-        val w = minOf(avail, kit.dpi(maxWidthDp))
         val lp = FrameLayout.LayoutParams(w, ViewGroup.LayoutParams.WRAP_CONTENT).apply {
             gravity = android.view.Gravity.BOTTOM or (if (alignEnd) android.view.Gravity.END else android.view.Gravity.START)
-            val m = kit.dpi(6f)
-            setMargins(m, m, m, m)
+            val side = if (full) 0 else kit.dpi(6f)
+            setMargins(side, kit.dpi(6f), side, 0)
         }
         host.addView(frame, lp)
         card = frame

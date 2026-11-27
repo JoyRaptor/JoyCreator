@@ -19,7 +19,7 @@ class BrushEditorStageTest {
     private fun descendants(v: View): List<View> = listOf(v) +
         if (v is ViewGroup) (0 until v.childCount).flatMap { descendants(v.getChildAt(it)) } else emptyList()
 
-    @Test fun topBarHasGroupsDoneAndCancelAndCancelRestoresTheBrush() {
+    @Test fun topBarHasGroupsAndOneCloseButtonThatKeepsTheChanges() {
         val context = RuntimeEnvironment.getApplication()
         val changes = ArrayList<Pair<Map<String, Float>, Boolean>>()
         var closed = 0
@@ -30,10 +30,14 @@ class BrushEditorStageTest {
         val labels = all.mapNotNull { it.contentDescription?.toString() }
         assertTrue(labels.toString(), labels.contains("Go to Shape settings"))
         assertTrue(labels.toString(), labels.contains("Go to Spacing & scatter settings"))
-        val cancel = all.first { it.contentDescription?.toString()?.startsWith("Cancel") == true }
-        cancel.performClick()
-        assertEquals(start to true, changes.last())
+        // §L 8: one close button. Changes are live, so closing keeps them (no second "put it back" step).
+        assertTrue(labels.toString(), labels.none { it.startsWith("Cancel") || it == "Keep these settings and close" })
+        val close = all.first { it.contentDescription?.toString()?.startsWith("Close") == true }
+        close.performClick()
+        assertTrue("closing sends no change", changes.isEmpty())
         assertEquals(1, closed)
+        // §L 7: no separate Pressure link.
+        assertTrue(labels.toString(), labels.none { it == "Go to Pressure & tilt settings" })
         // Words at the ends of the Spacing slider.
         val words = all.filterIsInstance<TextView>().map { it.text.toString() }
         assertTrue(words.toString(), words.containsAll(listOf("Smooth", "Dotted")))

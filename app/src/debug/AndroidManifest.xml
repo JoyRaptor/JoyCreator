@@ -28,6 +28,14 @@
             android:excludeFromRecents="true"
             android:noHistory="true"
             android:theme="@android:style/Theme.Translucent.NoTitleBar" />
+        <!-- Avatar Studio X3: draws Topps and Pip off-screen with CharacterGl and saves PNGs for comparing with the web pilot;
+             results: adb logcat -s AvatarDrawBench -->
+        <activity
+            android:name="cc.joycreator.avatar.draw.CharacterDrawBenchActivity"
+            android:exported="true"
+            android:excludeFromRecents="true"
+            android:noHistory="true"
+            android:theme="@android:style/Theme.Translucent.NoTitleBar" />
         <activity
             android:name="com.fadcam.ui.faditor.motion.MotionBenchActivity"
             android:exported="true"

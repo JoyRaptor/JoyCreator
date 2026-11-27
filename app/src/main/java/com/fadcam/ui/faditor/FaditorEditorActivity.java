@@ -267,56 +267,42 @@ public class FaditorEditorActivity extends AppCompatActivity {
     private float lastUiProgress = -1f;
     private boolean lastExportWasAudioOnly = false;
     private boolean exportEventsReceiverRegistered = false;
+    // X5 (Avatar build): the broadcasts are read by ExportSheetParts, shared with Avatar Studio's room.
     private final android.content.BroadcastReceiver exportEventsReceiver =
-            new android.content.BroadcastReceiver() {
-                @Override
-                public void onReceive(android.content.Context context,
-                        android.content.Intent intent) {
-                    String action = intent.getAction();
-                    if (action == null) return;
-                    switch (action) {
-                        case ExportService.ACTION_EXPORT_STARTED:
-                            exportUiOnStarted();
-                            break;
-                        case ExportService.ACTION_EXPORT_PROGRESS:
-                            exportUiOnProgressDetailed(
-                                    intent.getFloatExtra(ExportService.EXTRA_PROGRESS, 0f),
-                                    intent.getIntExtra(ExportService.EXTRA_PROGRESS_ITEM, -1),
-                                    intent.getIntExtra(ExportService.EXTRA_PROGRESS_ITEMS, -1),
-                                    intent.getLongExtra(ExportService.EXTRA_PROGRESS_BYTES, -1L),
-                                    intent.getLongExtra(ExportService.EXTRA_PROGRESS_ETA_MS, -1L),
-                                    intent.getStringExtra(ExportService.EXTRA_PHASE));
-                            break;
-                        case ExportService.ACTION_EXPORT_FINALIZING:
-                            exportUiOnFinalizing();
-                            break;
-                        case ExportService.ACTION_EXPORT_COMPLETED:
-                            exportStartedLocallyAtMs = 0;
-                            consumeTerminalResult();
-                            restorePreviewAfterExport();
-                            exportUiOnCompleted(intent.getStringExtra(ExportService.EXTRA_OUTPUT_PATH),
-                                    intent.getBooleanExtra(ExportService.EXTRA_AUDIO_ONLY, false),
-                                    intent.getBooleanExtra(
-                                            ExportService.EXTRA_COPY_TO_FOLDER_FAILED, false));
-                            break;
-                        case ExportService.ACTION_EXPORT_ERROR:
-                            exportStartedLocallyAtMs = 0;
-                            consumeTerminalResult();
-                            restorePreviewAfterExport();
-                            exportUiOnError(intent.getStringExtra(ExportService.EXTRA_ERROR_MESSAGE),
-                                    intent.getStringExtra(ExportService.EXTRA_ERROR_CLASS));
-                            break;
-                        case ExportService.ACTION_EXPORT_CANCELLED:
-                            // Also when Cancel was pressed in the notification or while the
-                            // export was still preparing: the screen must not keep showing it.
-                            exportStartedLocallyAtMs = 0;
-                            consumeTerminalResult();
-                            restorePreviewAfterExport();
-                            hideExportProgress();
-                            break;
-                    }
+            com.fadcam.ui.faditor.export.ExportSheetParts.receiver(
+                    new com.fadcam.ui.faditor.export.ExportSheetParts.Events() {
+                @Override public void onStarted() {
+                    exportUiOnStarted();
                 }
-            };
+                @Override public void onProgress(float progress, int item, int items, long bytes,
+                                                 long etaMs, @Nullable String phase) {
+                    exportUiOnProgressDetailed(progress, item, items, bytes, etaMs, phase);
+                }
+                @Override public void onFinalizing() {
+                    exportUiOnFinalizing();
+                }
+                @Override public void onCompleted(@Nullable String outputPath, boolean audioOnly,
+                                                  boolean copyToFolderFailed) {
+                    exportStartedLocallyAtMs = 0;
+                    consumeTerminalResult();
+                    restorePreviewAfterExport();
+                    exportUiOnCompleted(outputPath, audioOnly, copyToFolderFailed);
+                }
+                @Override public void onError(@Nullable String message, @Nullable String errorClass) {
+                    exportStartedLocallyAtMs = 0;
+                    consumeTerminalResult();
+                    restorePreviewAfterExport();
+                    exportUiOnError(message, errorClass);
+                }
+                @Override public void onCancelled() {
+                    // Also when Cancel was pressed in the notification or while the
+                    // export was still preparing: the screen must not keep showing it.
+                    exportStartedLocallyAtMs = 0;
+                    consumeTerminalResult();
+                    restorePreviewAfterExport();
+                    hideExportProgress();
+                }
+            });
 
     // ── Asset pickers ────────────────────────────────────────────────
     private ActivityResultLauncher<Intent> imagePickerLauncher;
@@ -10993,15 +10979,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
 
         // Listen for export status from the :export process (package-scoped broadcasts).
         if (!exportEventsReceiverRegistered) {
-            android.content.IntentFilter filter = new android.content.IntentFilter();
-            filter.addAction(ExportService.ACTION_EXPORT_STARTED);
-            filter.addAction(ExportService.ACTION_EXPORT_PROGRESS);
-            filter.addAction(ExportService.ACTION_EXPORT_FINALIZING);
-            filter.addAction(ExportService.ACTION_EXPORT_COMPLETED);
-            filter.addAction(ExportService.ACTION_EXPORT_ERROR);
-            filter.addAction(ExportService.ACTION_EXPORT_CANCELLED);
-            androidx.core.content.ContextCompat.registerReceiver(this, exportEventsReceiver,
-                    filter, androidx.core.content.ContextCompat.RECEIVER_NOT_EXPORTED);
+            com.fadcam.ui.faditor.export.ExportSheetParts.listen(this, exportEventsReceiver);
             exportEventsReceiverRegistered = true;
         }
 
@@ -11011,10 +10989,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         // Cancel export button — a start-intent action reaches the :export process
         // (no binding exists across processes).
         findViewById(R.id.btn_cancel_export).setOnClickListener(v -> {
-            android.content.Intent cancelIntent =
-                    new android.content.Intent(this, ExportService.class);
-            cancelIntent.setAction(ExportService.ACTION_CANCEL_EXPORT);
-            startService(cancelIntent);
+            com.fadcam.ui.faditor.export.ExportSheetParts.stop(this);
             exportStartedLocallyAtMs = 0;
             hideExportProgress();
             Toast.makeText(this, R.string.faditor_export_cancelled, Toast.LENGTH_SHORT).show();
@@ -14079,18 +14054,6 @@ public class FaditorEditorActivity extends AppCompatActivity {
             root.addView(helper);
 
             // ── Editable output file name (pre-filled with the default name) ──
-            TextView fileNameLabel = new TextView(this);
-            fileNameLabel.setText(R.string.faditor_export_filename_label);
-            fileNameLabel.setTextColor(Studio.INK_FAINT);
-            fileNameLabel.setTextSize(11);
-            android.widget.LinearLayout.LayoutParams fnLabelLp =
-                    new android.widget.LinearLayout.LayoutParams(
-                            android.widget.LinearLayout.LayoutParams.MATCH_PARENT,
-                            android.widget.LinearLayout.LayoutParams.WRAP_CONTENT);
-            fnLabelLp.topMargin = pad / 2;
-            fileNameLabel.setLayoutParams(fnLabelLp);
-            root.addView(fileNameLabel);
-
             // Named after the product, not the legacy fork (drawer audit 2026-09-24, ExportConf-1).
             // Into the Joy Creator folder, an export is named after its project ("Lecture 3"), the way
             // the folder names everything; elsewhere the timestamped name stays.
@@ -14104,25 +14067,13 @@ public class FaditorEditorActivity extends AppCompatActivity {
                     + new java.text.SimpleDateFormat("yyyyMMdd_HHmmss", java.util.Locale.US)
                             .format(new java.util.Date());
 
-            final android.widget.EditText fileNameInput = new android.widget.EditText(this);
-            fileNameInput.setText(defaultExportBaseName);
-            fileNameInput.setSelectAllOnFocus(true);
-            fileNameInput.setSingleLine(true);
-            fileNameInput.setTextColor(Studio.INK);
-            fileNameInput.setTextSize(14);
-            fileNameInput.setInputType(android.text.InputType.TYPE_CLASS_TEXT);
-            android.widget.LinearLayout.LayoutParams fnInputLp =
-                    new android.widget.LinearLayout.LayoutParams(
-                            android.widget.LinearLayout.LayoutParams.MATCH_PARENT,
-                            android.widget.LinearLayout.LayoutParams.WRAP_CONTENT);
-            fnInputLp.topMargin = (int) (4 * getResources().getDisplayMetrics().density);
-            fileNameInput.setLayoutParams(fnInputLp);
+            final android.widget.EditText fileNameInput = com.fadcam.ui.faditor.export.ExportSheetParts
+                    .nameRow(this, root, defaultExportBaseName, pad);
             if (namedRegionExport) {
                 fileNameInput.setText(R.string.studio_d3_uses_region_names);
                 fileNameInput.setEnabled(false);
                 fileNameInput.setAlpha(0.6f);
             }
-            root.addView(fileNameInput);
 
             final android.widget.CheckBox cleanAudio = exportCheckbox(root,
                     R.string.faditor_clean_audio_label, R.string.faditor_clean_audio_desc, pad);
@@ -14187,18 +14138,10 @@ public class FaditorEditorActivity extends AppCompatActivity {
 
             // ── Resolution + Quality pickers (persisted on the project's ExportSettings;
             //    defaults = Original/High = the legacy byte-identical export path) ──
-            final com.fadcam.ui.faditor.model.ExportSettings.Resolution[] resValues = {
-                    com.fadcam.ui.faditor.model.ExportSettings.Resolution.ORIGINAL,
-                    com.fadcam.ui.faditor.model.ExportSettings.Resolution.FHD_1080P,
-                    com.fadcam.ui.faditor.model.ExportSettings.Resolution.HD_720P,
-                    com.fadcam.ui.faditor.model.ExportSettings.Resolution.SD_480P};
-            final String[] resLabels = getResources().getStringArray(R.array.export_resolutions);
-            final com.fadcam.ui.faditor.model.ExportSettings.Quality[] qualValues = {
-                    com.fadcam.ui.faditor.model.ExportSettings.Quality.HIGH,
-                    com.fadcam.ui.faditor.model.ExportSettings.Quality.MEDIUM,
-                    com.fadcam.ui.faditor.model.ExportSettings.Quality.LOW};
-            final String[] qualLabels = {getString(R.string.remote_quality_high),
-                    getString(R.string.remote_quality_medium), getString(R.string.remote_quality_low)};
+            final com.fadcam.ui.faditor.model.ExportSettings.Resolution[] resValues =
+                    com.fadcam.ui.faditor.export.ExportSheetParts.SIZES;
+            final com.fadcam.ui.faditor.model.ExportSettings.Quality[] qualValues =
+                    com.fadcam.ui.faditor.export.ExportSheetParts.QUALITIES;
 
             // ── One-tap "Low bandwidth" preset chip: 720p + Low quality in one tap
             //    (cosmetic — just drives the two spinners below, no encoder changes). ──
@@ -14206,17 +14149,8 @@ public class FaditorEditorActivity extends AppCompatActivity {
             // so this is roughly twice as fast as 1080p — speed is what it is for.
             // The sheet chip (an opaque dialog, so SheetKit's screen ramp), not a hand-rolled
             // TextView (drawer audit 2026-09-24, ExportConf-8).
-            final TextView lowBandwidthChip = com.fadcam.ui.faditor.SheetKit.chip(this,
-                    getString(R.string.export_draft_chip));
-            com.fadcam.ui.faditor.tools.ObjectDrawer.Kit.describe(lowBandwidthChip,
-                    getString(R.string.export_draft_chip_desc));
-            android.widget.LinearLayout.LayoutParams chipLp =
-                    new android.widget.LinearLayout.LayoutParams(
-                            android.widget.LinearLayout.LayoutParams.WRAP_CONTENT,
-                            android.widget.LinearLayout.LayoutParams.WRAP_CONTENT);
-            chipLp.topMargin = pad / 2;
-            lowBandwidthChip.setLayoutParams(chipLp);
-            root.addView(lowBandwidthChip);
+            final TextView lowBandwidthChip =
+                    com.fadcam.ui.faditor.export.ExportSheetParts.draftChip(this, root, pad);
 
             // Keep the screen on for the WHOLE export (owner, 2026-09-25). Samsung moves a
             // screen-off export onto the little cores within ~90 s: the 48-min lecture took
@@ -14227,23 +14161,11 @@ public class FaditorEditorActivity extends AppCompatActivity {
             keepAwakeBox.setOnCheckedChangeListener((b, on) -> getSharedPreferences(
                     EXPORT_PREFS, MODE_PRIVATE).edit().putBoolean(PREF_EXPORT_KEEP_AWAKE, on).apply());
 
-            final android.widget.Spinner resSpinner =
-                    buildExportSettingSpinner(root, getString(R.string.row_resolution_title), resLabels,
-                            java.util.Arrays.asList(resValues)
-                                    .indexOf(project.getExportSettings().getResolution()), pad);
-            final android.widget.Spinner qualSpinner =
-                    buildExportSettingSpinner(root, getString(R.string.export_quality), qualLabels,
-                            java.util.Arrays.asList(qualValues)
-                                    .indexOf(project.getExportSettings().getQuality()), pad);
-
-            lowBandwidthChip.setOnClickListener(v -> {
-                int resIdx = java.util.Arrays.asList(resValues)
-                        .indexOf(com.fadcam.ui.faditor.model.ExportSettings.Resolution.HD_720P);
-                int qualIdx = java.util.Arrays.asList(qualValues)
-                        .indexOf(com.fadcam.ui.faditor.model.ExportSettings.Quality.LOW);
-                if (resIdx >= 0) resSpinner.setSelection(resIdx);
-                if (qualIdx >= 0) qualSpinner.setSelection(qualIdx);
-            });
+            final android.widget.Spinner resSpinner = com.fadcam.ui.faditor.export.ExportSheetParts
+                    .sizeSpinner(this, root, project.getExportSettings().getResolution(), pad);
+            final android.widget.Spinner qualSpinner = com.fadcam.ui.faditor.export.ExportSheetParts
+                    .qualitySpinner(this, root, project.getExportSettings().getQuality(), pad);
+            com.fadcam.ui.faditor.export.ExportSheetParts.bindDraftChip(lowBandwidthChip, resSpinner, qualSpinner);
 
             // ── Audio-only export (mux the composed audio mix to .m4a, no video).
             //    Not persisted on ExportSettings: an audio pull is a one-off act,
@@ -14518,42 +14440,12 @@ public class FaditorEditorActivity extends AppCompatActivity {
     private android.widget.Spinner buildExportSettingSpinner(
             @NonNull android.widget.LinearLayout root, @NonNull String label,
             @NonNull String[] options, int initialIndex, int pad) {
-        TextView labelView = new TextView(this);
-        labelView.setText(label);
-        labelView.setTextColor(Studio.INK_FAINT);
-        labelView.setTextSize(11);
-        android.widget.LinearLayout.LayoutParams labelLp =
-                new android.widget.LinearLayout.LayoutParams(
-                        android.widget.LinearLayout.LayoutParams.MATCH_PARENT,
-                        android.widget.LinearLayout.LayoutParams.WRAP_CONTENT);
-        labelLp.topMargin = pad / 2;
-        labelView.setLayoutParams(labelLp);
-        root.addView(labelView);
-
-        android.widget.Spinner spinner = new android.widget.Spinner(this);
-        android.widget.ArrayAdapter<String> adapter = new android.widget.ArrayAdapter<String>(
-                this, android.R.layout.simple_spinner_item, options) {
-            @NonNull
-            @Override
-            public View getView(int position, @Nullable View convertView,
-                                @NonNull android.view.ViewGroup parent) {
-                View v = super.getView(position, convertView, parent);
-                if (v instanceof TextView) ((TextView) v).setTextColor(Studio.INK);
-                return v;
-            }
-        };
-        adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
-        spinner.setAdapter(adapter);
-        spinner.setSelection(Math.max(0, initialIndex));
-        root.addView(spinner);
-        return spinner;
+        return com.fadcam.ui.faditor.export.ExportSheetParts.spinner(this, root, label, options, initialIndex, pad);
     }
 
     @NonNull
     private static String sanitizeExportFileName(@Nullable String rawInput, @NonNull String fallback) {
-        if (rawInput == null) return fallback;
-        String cleaned = rawInput.trim().replaceAll("[/\\\\:*?\"<>|]", "").trim();
-        return cleaned.isEmpty() ? fallback : cleaned;
+        return com.fadcam.ui.faditor.export.ExportSheetParts.sanitizeName(rawInput, fallback);
     }
 
     /**
@@ -15098,29 +14990,13 @@ public class FaditorEditorActivity extends AppCompatActivity {
     @NonNull
     private android.widget.CheckBox exportCheckbox(@NonNull android.widget.LinearLayout root,
                                                    int labelRes, int descRes, int pad) {
-        android.widget.CheckBox box = new android.widget.CheckBox(this);
-        SheetKit.styleCheckbox(box);
-        box.setText(labelRes);
-        box.setTextColor(Studio.INK);
-        android.widget.LinearLayout.LayoutParams lp = new android.widget.LinearLayout.LayoutParams(
-                android.widget.LinearLayout.LayoutParams.MATCH_PARENT,
-                android.widget.LinearLayout.LayoutParams.WRAP_CONTENT);
-        lp.topMargin = pad / 2;
-        box.setLayoutParams(lp);
-        root.addView(box);
-        if (descRes != 0) exportNote(root, descRes);
-        return box;
+        return com.fadcam.ui.faditor.export.ExportSheetParts.checkbox(this, root, labelRes, descRes, pad);
     }
 
     /** The grey explainer line under an export-sheet control. */
     @NonNull
     private TextView exportNote(@NonNull android.widget.LinearLayout root, int textRes) {
-        TextView desc = new TextView(this);
-        desc.setText(textRes);
-        desc.setTextColor(Studio.INK_FAINT);
-        desc.setTextSize(11);
-        root.addView(desc);
-        return desc;
+        return com.fadcam.ui.faditor.export.ExportSheetParts.note(this, root, textRes);
     }
 
     private void showExportProgress() {

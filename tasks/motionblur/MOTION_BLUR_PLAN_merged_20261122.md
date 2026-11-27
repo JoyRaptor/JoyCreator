@@ -408,11 +408,11 @@ overrides §3 wherever they differ.
 | Part | Locked |
 |---|---|
 | A1, where it lives | A **card in the Effects stack** (`FxPanel` card shape: `CTL` fill, 10dp radius, caret, drag bars, 28dp swatch, name, enable chip, ✕), on a clip, picture, sprite, puppet or effect layer. The separate tool button and the `MotionBlurSettingsSheet` dialog go away. "Add effect" lists it with the others |
-| B3, card layout | Preset chips (Natural / Crisp / Heavy / Trailing). Under them, **one draggable shutter strip**: pull an end to change the angle, drag the middle to change the timing. Handles are at least 28dp for a thumb. **The owner added B1's frame labels**: tick marks and mono 8–9sp labels "last frame · this frame · next frame" under the strip. Then one value row, "Shutter 180° · centred", with its ‹◆› keyframe control (angle and phase key together), and the Mix slider with ‹◆› |
+| B3, card layout | Preset chips (Natural / Crisp / Heavy / Trailing). Under them, **one draggable shutter strip**: pull an end to change the angle, drag the middle to change the timing. Handles are at least 28dp for a thumb. **The owner added B1's frame labels**: tick marks and mono 8–9sp labels "last frame · this frame · next frame" under the strip. **Space rule (owner, 11-27): drawers cover the picture, so nothing takes a line of its own if it can share one.** Closed card = header, preset row, shutter row, Mix row, slim More tab. The preset row carries the **Long trail tick box right-aligned** after the four chips. The shutter row is Kit-shaped: the label column holds "Shutter" with the value ("180° · centred", mono) under it, the strip fills the slider+value width, and its ‹◆› (angle and phase key together) sits at the row's right end, in the same column as Mix's ‹◆› |
 | C1, colour | Studio's colour **inside the card, everywhere it sits**: chosen chips and slider fills in flat Studio aqua `GO`; the strip's open part and the action pills ("Show exact frame") in the `GO`→`GO_END` gradient. The drawer around it keeps its own room colour (SpriteLab pink, VisLab orange, effect-layer slate). Tick boxes stay `ARMED` cyan (app-wide rule) |
 | D1, can't blur yet | The card stays and says why in one plain line, plus what to do instead. No greyed, dead controls |
 | E1, compare | Hold the card's swatch (or the preview) to see the frame sharp; let go to see it blurred. A "Show exact frame" gradient pill renders the paused frame at export quality |
-| F1, deeper controls | A "▸ More" fold at the foot, closed by default. Rows appear only when they apply (no "Filmed video" group on a sprite) |
+| F1, deeper controls | A slim "▸ MORE" tab (section-label type, about 16dp, not a 40dp row) under Mix, closed by default. Rows appear only when they apply (no "Filmed video" group on a sprite) |
 
 ### K.1 The shutter strip
 
@@ -421,21 +421,19 @@ overrides §3 wherever they differ.
   middle to go back to the preset.
 - The value row under it always states the numbers ("270° · behind"), so it never relies on the
   picture alone. TalkBack reads the same words.
-- Dragging the left end past "last frame" while at 720° offers **Long trail** (a one-tap chip
-  "Longer? Turn on Long trail"). It never switches mode on its own.
+- Dragging the left end past "last frame" while at 720° pulses the Long trail tick box once.
+  It never switches mode on its own.
 
 ### K.2 Long trail (owner's addition: "really force things")
 
-A stylised trail longer than any camera shutter can make. Off by default; a tick box on the card
-(not hidden in More), because it is a look people go looking for.
+A stylised trail longer than any camera shutter can make. Off by default. Its tick box sits at the
+right end of the preset row (no line of its own). Ticking it adds **two rows only**:
 
 | Control | Behaviour |
 |---|---|
-| Long trail | Tick box. When on, the strip shows the trail window (fading toward the past) and the rows below appear |
-| Length | 1–32 frames back, keyframable |
-| Fade | 0–100 %, how fast older parts disappear (weight curve over the window), keyframable |
-| Look | Smear (continuous) / Copies (separate ghosts) / Both |
-| Copies | 2–12, shown only for Copies or Both |
+| Long trail | Tick box on the preset row. When on, **the shutter strip itself becomes the trail** (row label "Trail", value "8 frames back"): one handle at the far end, dragged back 1–32 frames, frame ticks, fading toward the past; its ‹◆› keys the length. No second strip, no Length slider. Unticking restores the last shutter setting |
+| Fade | Row under Mix. 0–100 %, how fast older parts disappear (weight curve over the window), keyframable |
+| Look | Row under Fade: Smear (continuous) / Copies (separate ghosts) / Both chips, with a right-aligned − n + counter for the number of copies (2–12), dimmed for Smear |
 
 Engine rules:
 1. **The trail is built from where things really were**, never by stretching one velocity. Studio

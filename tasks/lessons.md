@@ -1217,3 +1217,4 @@ as `TIME * knob` are "rate" and the host integrates them.
 - A shell `&&` after a failed lock still let the next line run and remove the lock at the end: take a lock with an exit on failure and a trap.
 - One fix for a failure path covers one path: the refused frame reached the same stale stores a minute after the failed frame was fixed. List every way out of a frame.
 - Before raising a limit, find what it protects: the 256 MB paint room looked like a guess, but saves hold all of it in a 512 MB heap. A code review caught what the phone test had not reached.
+- Claiming the phone is a gate, not a step: `phone.ps1 claim` exits 3 when someone holds it, but `;` and `| tail` hide that. Stop on the exit code, and install through `phone.ps1 install`, which refuses; raw `adb install` over the VisLab session's check closed its app on 11-01.

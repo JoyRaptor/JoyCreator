@@ -18,6 +18,10 @@ import android.view.TextureView;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import androidx.media3.common.C;
+import androidx.media3.common.util.GlProgram;
+import androidx.media3.common.util.GlUtil;
+import androidx.media3.effect.DefaultVideoFrameProcessor;
 
 import com.fadcam.FLog;
 import com.fadcam.ui.faditor.fx.FxCompiler;
@@ -1139,7 +1143,7 @@ public class FxPreviewTextureView extends TextureView
     record AvatarShutter(RecordedAvatarMotion.Source source,
                          com.fadcam.ui.faditor.sprite.SpriteOverlayItem placement,
                          com.fadcam.ui.faditor.motion.MotionBreaks placementBreaks,
-                         long pieceStartUs, long pieceEndUs) {}
+                         long pieceStartUs, long pieceEndUs, boolean nativeBase) {}
 
     /**
      * One rung of the z-ordered composite walk: a PiP to draw over the frame so far, or an
@@ -1314,6 +1318,8 @@ public class FxPreviewTextureView extends TextureView
 
     /** Staging (OES→2D) and presentation (2D→screen) programs. Built once, never rebuilt. */
     private int stageProgram, presentProgram, gradeProgram, cropProgram, layerProgram;
+    @Nullable private GlProgram avatarBaseStage;
+    private boolean avatarBaseStageUnavailable;
     /** @see #PICTURE_ALPHA_FRAGMENT - compiled with the rest, used only while fading. */
     private int pictureAlphaProgram;
     /**
@@ -1819,6 +1825,7 @@ public class FxPreviewTextureView extends TextureView
             degraded = false;
             failedKey = null;
             compiledKey = null;
+            avatarBaseStageUnavailable = false;
             stageProgram = buildProgram(FxGlSource.VERTEX_SHADER, STAGE_FRAGMENT);
             stageStillProgram = buildProgram(FxGlSource.VERTEX_SHADER, STAGE_STILL_FRAGMENT);
             presentProgram = buildProgram(FxGlSource.VERTEX_SHADER, FxGlSource.PASSTHROUGH_FRAGMENT);
@@ -2039,9 +2046,13 @@ public class FxPreviewTextureView extends TextureView
 
             // 1 — OES into an ordinary 2D texture, decoder transform applied once.
             FastFootageExposure footage = fastFootage;
-            boolean stagedVideo = drawStage(vw, vh, footage != null ? footageStage : null);
-            var indexed = indexedFootage;
             CompositePlan cp = plan;
+            AvatarShutter avatar = cp != null && cp.rungs.size() == 1 ? cp.rungs.get(0).avatar : null;
+            boolean avatarBase = !degraded && motionFrame != null && footage == null
+                    && avatar != null && avatar.nativeBase()
+                    && clipCrop == null && rotation == 0 && sourceW == vw && sourceH == vh;
+            boolean stagedVideo = drawStage(vw, vh, footage != null ? footageStage : null, avatarBase);
+            var indexed = indexedFootage;
             if (!degraded && motionClockActive) prepareShutterPrograms(cp, vw, vh);
             int cur = drawFootage(footage, indexed, stagedVideo, vw, vh);
 
@@ -2516,11 +2527,12 @@ public class FxPreviewTextureView extends TextureView
         return new float[]{(1f - w) / 2f, (1f - h) / 2f, w, h};
     }
 
-    private boolean drawStage(int vw, int vh, @Nullable int[] stage) {
+    private boolean drawStage(int vw, int vh, @Nullable int[] stage, boolean avatarBase) {
         android.graphics.Bitmap b = baseStill;
         if (b != null && !b.isRecycled() && drawStageStill(b, vw, vh)) return false;
         GLES20.glBindFramebuffer(GLES20.GL_FRAMEBUFFER, targets[0][1]);
         stageViewport(vw, vh, stage);
+        if (avatarBase && drawAvatarBaseStage()) return true;
         GLES20.glUseProgram(stageProgram);
         bindQuad(stageProgram);
         GLES20.glUniformMatrix4fv(
@@ -2531,6 +2543,47 @@ public class FxPreviewTextureView extends TextureView
         GLES20.glUniform1i(GLES20.glGetUniformLocation(stageProgram, "uOesTexture"), 0);
         GLES20.glDrawArrays(GLES20.GL_TRIANGLE_STRIP, 0, 4);
         return true;
+    }
+
+    /** Match the export decoder's SDR sampling for an unscaled recorded-avatar backdrop. */
+    private boolean drawAvatarBaseStage() {
+        if (avatarBaseStageUnavailable) return false;
+        try {
+            if (avatarBaseStage == null) {
+                avatarBaseStage = new GlProgram(getContext(),
+                        "shaders/vertex_shader_transformation_es2.glsl",
+                        "shaders/fragment_shader_transformation_sdr_external_es2.glsl");
+                // Match the triangle fan and corner order used by Media3's decoder sampler.
+                avatarBaseStage.setBufferAttribute("aFramePosition", new float[]{
+                        -1f, -1f, 0f, 1f, -1f, 1f, 0f, 1f,
+                        1f, 1f, 0f, 1f, 1f, -1f, 0f, 1f
+                }, 4);
+                float[] identity = GlUtil.create4x4IdentityMatrix();
+                avatarBaseStage.setFloatsUniform("uTransformationMatrix", identity);
+                avatarBaseStage.setFloatsUniform("uRgbMatrix", identity);
+                avatarBaseStage.setIntUniform("uOutputColorTransfer", C.COLOR_TRANSFER_SDR);
+                avatarBaseStage.setIntUniform("uSdrWorkingColorSpace",
+                        DefaultVideoFrameProcessor.WORKING_COLOR_SPACE_DEFAULT);
+            }
+            avatarBaseStage.use();
+            avatarBaseStage.setFloatsUniform("uTexTransformationMatrix", texMatrix);
+            avatarBaseStage.setSamplerTexIdUniform("uTexSampler", oesTexId, 0);
+            avatarBaseStage.bindAttributesAndUniforms();
+            GLES20.glDrawArrays(GLES20.GL_TRIANGLE_FAN, 0, 4);
+            GlUtil.checkGlError();
+            return true;
+        } catch (java.io.IOException | GlUtil.GlException | RuntimeException failure) {
+            releaseAvatarBaseStage();
+            avatarBaseStageUnavailable = true;
+            return false;
+        }
+    }
+
+    private void releaseAvatarBaseStage() {
+        GlProgram program = avatarBaseStage;
+        avatarBaseStage = null;
+        if (program == null) return;
+        try { program.delete(); } catch (GlUtil.GlException ignored) { }
     }
 
     /**
@@ -4077,6 +4130,7 @@ public class FxPreviewTextureView extends TextureView
                 try { meshStamp.release(); } catch (Exception ignored) { }
                 releaseAuthoredMeshExposure();
                 releaseAvatarShutter();
+                releaseAvatarBaseStage();
                 for (android.graphics.Bitmap b; (b = stillTrash.poll()) != null; ) b.recycle();
                 if (inputSurface != null) { inputSurface.release(); inputSurface = null; }
                 if (inputTexture != null) { inputTexture.release(); inputTexture = null; }

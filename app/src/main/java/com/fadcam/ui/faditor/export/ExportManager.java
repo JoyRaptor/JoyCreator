@@ -1019,8 +1019,7 @@ public class ExportManager {
                 factory.setExperimentalAdjustSurfaceTextureTransformationMatrix(false);
             }
             var processor = factory.build();
-            builder.setVideoFrameProcessorFactory(highFootage
-                    ? FootageFrameProcessor.factory(processor) : processor);
+            builder.setVideoFrameProcessorFactory(FootageFrameProcessor.factory(processor));
         }
         return builder;
     }
@@ -7167,8 +7166,11 @@ public class ExportManager {
         // size and blends the incoming leg against it; only the finished blend is scaled to the
         // canvas, which the overlay passes below need to place titles and pictures at 1:1.
         if (overlayW > 0 && overlayH > 0) {
-            videoEffects.add(Presentation.createForWidthAndHeight(
-                    overlayW, overlayH, Presentation.LAYOUT_SCALE_TO_FIT));
+            Presentation canvas = Presentation.createForWidthAndHeight(
+                    overlayW, overlayH, Presentation.LAYOUT_SCALE_TO_FIT);
+            // Keep the resize unless the registered decoder output matches this canvas.
+            videoEffects.add(recordedAvatarRun && isVideo && videoEffects.isEmpty()
+                    ? new FootageFrameProcessor.AvatarCanvas(canvas) : canvas);
         }
 
         // ── M7: a MASTER (spine) clip's OWN FxStack ───────────────────────────────────

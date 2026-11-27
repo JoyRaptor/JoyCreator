@@ -3,6 +3,8 @@ package com.fadcam.ui.faditor.compositor;
 import android.content.Context;
 
 import androidx.annotation.Nullable;
+import androidx.media3.common.ColorInfo;
+import androidx.media3.common.Format;
 
 import com.fadcam.ui.faditor.avatar.AvatarItemPuppet;
 import com.fadcam.ui.faditor.avatar.AvatarParamTrack;
@@ -22,6 +24,12 @@ import java.util.Map;
 /** Shared admission, source fences, and placement opacity for recorded avatar blur. */
 public final class RecordedAvatarMotion {
     private RecordedAvatarMotion() {}
+
+    public static boolean canStageNativeVideo(@Nullable Format format) {
+        return format != null && format.width > 0 && format.height > 0
+                && format.rotationDegrees == 0 && format.pixelWidthHeightRatio == 1f
+                && !ColorInfo.isTransferHdr(format.colorInfo);
+    }
 
     public static boolean supports(SpriteOverlayItem item) {
         var take = item.getAvatarTrack();

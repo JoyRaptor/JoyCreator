@@ -1372,10 +1372,17 @@ public final class FxLivePreviewController {
                     RigidSpriteMotion.opacity(item, editorMs), null, editorMs, null, 0f,
                     size[0], size[1], item.getId() + "#avatar", motion.bitmap(), 1f);
             var placement = RecordedAvatarMotion.snapshotPlacement(item);
+            var player = host.activeVideoPlayer();
+            var format = player == null ? null : player.getVideoFormat();
+            var base = host.clipAtPlayhead();
+            boolean nativeBase = RecordedAvatarMotion.canStageNativeVideo(format)
+                    && format.width == size[0] && format.height == size[1]
+                    && base != null && base.getRotationDegrees() == 0 && !base.isFlipHorizontal()
+                    && !base.isFlipVertical() && !base.getEffectStack().isActive();
             rungs.add(FxPreviewTextureView.Rung.avatar(sharp,
                     new FxPreviewTextureView.AvatarShutter(motion.avatar(), placement,
                             RecordedAvatarMotion.placementFences(placement),
-                            clock.editorStartUs(), clock.editorEndUs())));
+                            clock.editorStartUs(), clock.editorEndUs(), nativeBase)));
             return true;
         } catch (RuntimeException | OutOfMemoryError unavailable) {
             return false;

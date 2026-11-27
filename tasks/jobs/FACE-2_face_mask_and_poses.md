@@ -1,6 +1,6 @@
 # FACE-2: a face mask and expression poses, so your face drives any creature's head at every angle
 
-**Milestone:** M?  ·  **State:** 🔨 NOT done: turning and nodding your head do not turn the head in the face test (the owner, 11-27, relayed by the Avatar lead)  ·  **Owner:** "face capture scout" (side session of the Avatar lead)  ·  **Checked:** 2026-11-27 against `c841e4711`
+**Milestone:** M?  ·  **State:** 🔨 built in the pilot; the face test's head turn fixed 11-27 (his report); his look when everything is done  ·  **Owner:** "face capture scout" (side session of the Avatar lead)  ·  **Checked:** 2026-11-27 against `c841e4711`
 
 ## Why it matters (for the user)
 Pinning points of your face to a painted, sliced head one by one tears it apart (Topps, 11-22) and has to be redone for
@@ -69,6 +69,20 @@ noblend, nocarrypose, noswap, norecordmp; noturnfollow). Limits: your face's dep
 shows the lift of a smile, not its pull back: the poses are where you say what a profile does); a mirrored drawing (a
 `mirror` angle) does not bend by the mask yet; Make the face counts in real time and needs the camera on.
 
+## The face test did not turn the head (the owner, 11-27, relayed by the lead; fixed the same day)
+His words: "it doesn't seem to be doing the left to right. It only seems to be going closer and further away. When I look
+up or down, it doesn't really look up or down." Measured with a made-up face turned 30 degrees and nodded 20: in Perform
+the head turns (the head pad reaches about 0.9 and Left / Right Profile, Upward, Downward show); but the **Test** button on
+the Face mask screen and on Face pins (Set up) passed on only the face's points and expressions, never the head's turn and
+nod, and the mask screen also held the head on the drawing being placed: the pad stayed at 0 and Topps on Frontal. In
+that Test the only thing that moved was the face bend (which also shifts a little as you lean in and out, from the
+camera's perspective). **Fix:** while Test is on, your head's turn and nod move the head pad and your tilt the head, as in
+Perform (from where the pad was when Test began; Stop puts it back); the mask screen lets go of the drawing it was holding
+so the pad picks the angle (its points are hidden meanwhile) and comes back to it on Stop. Check 21 (the mask's Test and
+Face pins' Test; Stop) failed first on the old code (pad 0, Frontal at every turn) and passes now; planted fault
+`noheadturn` caught. The made-up face of the break test now has open lids: a face with no lid gap kept being taken for a
+new neutral, which washes any held turn back to straight.
+
 ## For the phone room (the spec addition; the room's sessions build it)
 - **Data** (the turn set, `joycreator.character/2`, kept by both checkers as they are): the mask points are ordinary
   landmarks of `marks['']` with extra fields `key`, `face` (MediaPipe indices), `handle`, `mask` (an added point), `xyz`
@@ -121,5 +135,7 @@ Which places are the user's and which are guessed, each drawing's real turn, and
   `al-solve.js` (the mask bend before a drawing is drawn), `al-cards.js` (the entry), `index.html`.
 - `al-solve.js` is being ported to Java (X2, golden files `tasks/avatar/golden/`): every behaviour added here must be
   written into the spec for the port; the golden cases have no mask, so they do not change.
+- Trap (11-27): the pilot autosaves into the page's own database (IndexedDB, not only localStorage); a test run that
+  ends mid-edit leaves a half-tested character that the next suite opens. Clear both before each suite.
 - Trap (round 5): measure what is drawn, never the numbers set. Trap (round 6): a context field must be passed down in
   `ctx()` or children never see it.

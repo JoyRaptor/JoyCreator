@@ -23,6 +23,8 @@
  *   noswap     a strong pose never swaps a part's drawing      norecordmp a pass does not record the poses
  * stage 4 (across the head turn):
  *   noturnfollow  mid-turn, the mask bends where its points rest, not where the turn has carried them
+ * the face test (the owner, 11-27: "When I look left to right, it doesn't look left or right"):
+ *   noheadturn  Test passes your face's points but not your head's turn and nod to the head pad
  */
 (function (root) {
   'use strict';
@@ -44,7 +46,14 @@
     function rnd() { seed = (seed * 1103515245 + 12345) % 2147483648; return seed / 2147483648; }
     for (var i = 0; i < 478; i++) { var a = rnd() * Math.PI * 2, r = 0.2 + 0.8 * rnd(); p[i * 3] = 0.5 + Math.cos(a) * r * 0.08; p[i * 3 + 1] = 0.6 + Math.sin(a) * r * 0.11; p[i * 3 + 2] = -0.06 * (1 - r * r); }
     [[33, -0.035, 0.57], [133, -0.012, 0.57], [263, 0.035, 0.57], [362, 0.012, 0.57]].forEach(function (e) { p[e[0] * 3] = 0.5 + e[1]; p[e[0] * 3 + 1] = e[2]; });   // eye corners where eyes are
+    [[159, 145, -0.024], [160, 144, -0.03], [158, 153, -0.018], [386, 374, 0.024], [385, 380, 0.03], [387, 373, 0.018]].forEach(function (l) { p[l[0] * 3] = p[l[1] * 3] = 0.5 + l[2]; p[l[0] * 3 + 1] = 0.565; p[l[1] * 3 + 1] = 0.575; });   // open lids (a face with no lid gap is taken for a new neutral again and again)
     return p;
+  }
+  /** The tracker's head rotation (column-major, as MediaPipe gives it) for a turn of yaw degrees (+ = the person's right) and a nod of pitch (+ = down). */
+  function headMat(yaw, pitch) {
+    var y = -yaw * Math.PI / 180, q = pitch * Math.PI / 180, cy = Math.cos(y), sy = Math.sin(y), cp = Math.cos(q), sp = Math.sin(q);
+    var R = [[cy, 0, sy], [sp * sy, cp, -sp * cy], [-cp * sy, sp, cp * cy]];
+    return [R[0][0], R[1][0], R[2][0], 0, R[0][1], R[1][1], R[2][1], 0, R[0][2], R[1][2], R[2][2], 0, 0, 0, 0, 1];
   }
   function browsUp(p) { var o = Float32Array.from(p); [107, 336, 70, 300, 9, 105, 334].forEach(function (i) { o[i * 3 + 1] -= 0.014; }); return o; }   // brows raised (no pose made for it here)
   function smileOf(p) { var o = Float32Array.from(p); [[61, -0.014, -0.01], [291, 0.014, -0.01]].forEach(function (q) { o[q[0] * 3] += q[1]; o[q[0] * 3 + 1] += q[2]; }); return o; }   // both mouth corners out and up
@@ -70,7 +79,7 @@
     opt = opt || {};
     var plant = opt.plant || null, app = AL.app, R = K.mk(), MS = AL.maskScreen, MA = AL.mask;
     var realSnap = null, unthrottle = null, saved = K.ids(app.ch), real = { place: MA.place, carry: MA.carry, hide: MA.hide, addPoint: MA.addPoint, fitTurn: MA.fitTurn, solve: MA.solve, chip: MS.chip, edit: app.edit,
-      drive: MA.drive, bendFor: MA.bendFor, setGain: MA.setGain, swapsNow: MA.swapsNow, channels: app.inp.channels, cam: { on: app.inp.cam.on, mode: app.inp.cam.mode, stage: app.inp.cam._faceStage, lm: app.inp.cam.lm, v: app.inp.cam.v }, take: app.inp.take };
+      drive: MA.drive, bendFor: MA.bendFor, setGain: MA.setGain, swapsNow: MA.swapsNow, turnHead: AL.facepins.turnHead, channels: app.inp.channels, cam: { on: app.inp.cam.on, mode: app.inp.cam.mode, stage: app.inp.cam._faceStage, lm: app.inp.cam.lm, v: app.inp.cam.v }, take: app.inp.take };
     K.sim(true);
     try {
       if (plant === 'nostay') MA.place = function (set, a, i, x, y) { real.place(set, a, i, x, y); var L = MA.data(set).mine[a] || []; var k = L.indexOf(i); if (k >= 0) L.splice(k, 1); real.carry(set); };
@@ -168,7 +177,7 @@
       var inp = app.inp, F = AL.face, base = cloud(), now = { xyz: base }, t = 0, rawHead = { headYawDeg: 0, headPitchDeg: 0, headRollDeg: 0 };
       var fst = new F.Stage(F.calibration(), {}); for (var q0 = 0; q0 < 12; q0++) fst.process(rawHead, (t += 1 / 30), base);
       var keepCam = { on: inp.cam.on, mode: inp.cam.mode, stage: inp.cam._faceStage, lm: inp.cam.lm, v: inp.cam.v };
-      function result(xyz) { var marks = []; for (var j = 0; j < 478; j++) marks.push({ x: xyz[j * 3], y: xyz[j * 3 + 1] / 0.75, z: xyz[j * 3 + 2] }); return { faceBlendshapes: [{ categories: [] }], facialTransformationMatrixes: [{ data: [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1] }], faceLandmarks: [marks] }; }
+      function result(xyz) { var marks = []; for (var j = 0; j < 478; j++) marks.push({ x: xyz[j * 3], y: xyz[j * 3 + 1] / 0.75, z: xyz[j * 3 + 2] }); return { faceBlendshapes: [{ categories: [] }], facialTransformationMatrixes: [{ data: headMat(now.yaw || 0, now.pitch || 0) }], faceLandmarks: [marks] }; }
       function arm() { inp.cam.on = true; inp.cam.mode = 'always'; inp.cam._faceStage = fst; inp.cam.v = { readyState: 4, videoWidth: 640, videoHeight: 480, paused: false, play: function () { return Promise.resolve(); } }; inp.cam.lm = { detectForVideo: function () { return result(now.xyz); } }; }
       unthrottle = function () { inp.cam.last = -1e9; }; app.hooks.push(unthrottle); arm();
       if (plant === 'nodrive') MA.drive = function () {};
@@ -202,6 +211,31 @@
       MA.setGain && (app.edit(function () { MA.setGain(set, 0.5); }, false, 'All points')); now.xyz = base; await K.step(15); var h0 = K.snap(app); now.xyz = smileOf(base); await K.step(20); var half = most(moves(h0, K.snap(app)));
       app.edit(function () { MA.setGain(set, 1); }, false, 'All points');
       R.F('13 All points at half moves the head about half as far', half > big * 0.3 && half < big * 0.7, { full: Math.round(big * 10) / 10, half: Math.round(half * 10) / 10 });
+      // 21 the face test turns his head with yours, through the head pad, as far as the pad goes (the owner, 11-27: "When I look
+      //    left to right, it doesn't look left or right"), on the mask's Test and on Face pins' Test; Stop puts the pad back
+      if (plant === 'noheadturn') AL.facepins.turnHead = function () {};
+      function headShown() { var hs = MA.headSet(app.ch); return (hs.kids || []).filter(function (k) { return (app.out.items || []).some(function (it) { return !it.ghost && AL.ancestorWith(app.ch, it.id, function (q) { return q.id === k.id; }); }); })[0] || null; }
+      async function turnTo(y, pch) { now.yaw = y; now.pitch = pch; for (var r21 = 0; r21 < 3; r21++) { await new Promise(function (r) { setTimeout(r, 160); }); await K.step(3); } }   // (the face stage eases in real time)
+      async function sweep() {
+        var o = {}; for (var q21 = 0; q21 < 5; q21++) { var yp = [[30, 0], [-30, 0], [0, 20], [0, -20], [0, 0]][q21]; await turnTo(yp[0], yp[1]); var k21 = headShown(); o[yp.join(',')] = { pad: [Math.round(app.bt.x * 100) / 100, Math.round(app.bt.y * 100) / 100], at: k21 && k21.at, name: k21 && k21.name }; }
+        return o;
+      }
+      function turned(o) { return o['30,0'].pad[0] >= 0.6 && o['-30,0'].pad[0] <= -0.6 && o['0,20'].pad[1] >= 0.6 && o['0,-20'].pad[1] <= -0.6 && !!o['30,0'].at && o['30,0'].at[0] > 0.2 && !!o['-30,0'].at && o['-30,0'].at[0] < -0.2 && !!o['0,20'].at && o['0,20'].at[1] > 0.5 && !!o['0,-20'].at && o['0,-20'].at[1] < -0.5; }
+      if (!app.maskMode.tryHook) { var tb21 = button(/^Test$/); if (tb21) tb21.click(); }
+      var pad0 = { x: app.bt.x, y: app.bt.y }, held0 = app.force[set.id], sw21 = await sweep();
+      R.F('21 the mask’s Test turns his head with yours, left and right, up and down, through the head pad', turned(sw21), sw21);
+      var stop21 = button(/^Stop$/); if (stop21) stop21.click(); await K.step(2);
+      R.F('21 ...and Stop puts the head pad back and shows the drawing you were placing on', Math.abs(app.bt.x - pad0.x) < 1e-6 && Math.abs(app.bt.y - pad0.y) < 1e-6 && app.force[set.id] === app.maskMode.angle,
+        { pad: [app.bt.x, app.bt.y], was: pad0, held: app.force[set.id] === app.maskMode.angle, heldBefore: held0 === app.maskMode.angle });
+      MS.close(app); AL.facepins.open(app, { camera: false }); arm(); await K.step(2);
+      await turnTo(0, 0); var fpb = button(/^Test$/); if (fpb) fpb.click(); await turnTo(0, 0);   // (Test begins looking at the phone: the head moves from there, as in Perform)
+      var sw21b = await sweep(); now.yaw = 0; now.pitch = 0;
+      R.F('21 ...and so does the Test on Face pins', !!fpb && turned(sw21b), sw21b);
+      var fps = button(/^Stop$/); if (fps) fps.click(); AL.facepins.close(app); await K.step(2);
+      AL.stages.go(app, 'setup'); app.select('head'); app.refreshPanel(true); MS.open(app); arm(); await K.step(2);
+      if (app.maskMode.angle !== front.id) MS.goTo(app, front.id);
+      var tbBack = button(/^Test$/); if (tbBack) tbBack.click(); await K.step(3);
+
       // 14-18 (stage 3) poses: make the face, pose him, blended live, carried, a drawing swapped
       var MP = AL.maskPoses, realMP = { capture: MP.capture, move: MP.move, weights: MP.weights, carry: MP.carry };
       if (plant === 'nocapture') MP.capture = function () { return false; };
@@ -290,6 +324,7 @@
     } finally {
       if (realSnap) MA.snapOf = realSnap;
       MA.place = real.place; MA.carry = real.carry; MA.hide = real.hide; MA.addPoint = real.addPoint; MA.fitTurn = real.fitTurn; MA.solve = real.solve; MS.chip = real.chip; app.edit = real.edit;
+      if (real.turnHead) AL.facepins.turnHead = real.turnHead;
       MA.drive = real.drive; MA.bendFor = real.bendFor; MA.setGain = real.setGain; MA.swapsNow = real.swapsNow; app.inp.channels = real.channels;
       if (unthrottle && app.hooks.indexOf(unthrottle) >= 0) app.hooks.splice(app.hooks.indexOf(unthrottle), 1);
       var c0 = app.inp.cam; c0.on = real.cam.on; c0.mode = real.cam.mode; c0._faceStage = real.cam.stage; c0.lm = real.cam.lm; c0.v = real.cam.v; app.inp.take = real.take;
@@ -304,7 +339,7 @@
       noturn: /^5 each drawing/, nolearn: /^6 carried/, noundo: /^1 \.\.\.as one undo|^8 each drag/, noentry: /^1 Face mask is on/,
       nodrive: /^10 Test/, nopass: /^10 Test/, noturnbend: /^11 the face/, norecordmk: /^12 a pass/, nogain2: /^13 All points/,
       nocapture: /^14 Make the face/, noposemove: /^15 posing/, noblend: /^16 live/, nocarrypose: /^17 a pose made/, noswap: /^18 swap/, norecordmp: /^19 /,
-      noturnfollow: /^20 mid-turn/ };
+      noturnfollow: /^20 mid-turn/, noheadturn: /^21 the mask/ };
     for (var k in want) { if (only && only.indexOf(k) < 0) continue; var r = await X.run({ plant: k }); out[k] = { caught: r.fails.some(function (f) { return want[k].test(f.label); }), fails: r.fails.map(function (f) { return f.label; }).slice(0, 4) }; }
     return out;
   };

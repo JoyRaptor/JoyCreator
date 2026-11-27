@@ -61,8 +61,10 @@
       if (!cam.on && !(AL.intake && AL.intake.hosted)) { app.toast('Starting the face camera\u2026'); app.inp.camStart().then(function () { cam.mode = 'always'; app.toast('Relax and look at the phone: that is your neutral face.'); app.refreshPanel(true); }).catch(function () { app.toast('The face camera could not start here.'); }); }
       else cam.mode = 'always';
       W.tryHook = AL.facepins.tryHook(app); app.hooks.push(W.tryHook);
+      delete app.force[W.set];                                       // the head turns with you: the pad picks its drawing (the mask is hidden meanwhile)
     } else if (!on && W.tryHook) {
-      var k = app.hooks.indexOf(W.tryHook); if (k >= 0) app.hooks.splice(k, 1); W.tryHook = null; AL.facepins.clearStatic(app);
+      var k = app.hooks.indexOf(W.tryHook); if (k >= 0) app.hooks.splice(k, 1); W.tryHook.restore(); W.tryHook = null; AL.facepins.clearStatic(app);
+      app.force[W.set] = W.angle;                                    // back on the drawing you were placing on
       if (cam.on) cam.mode = W.camWasOn && W.camMode ? W.camMode : 'always';
     }
   };
@@ -103,7 +105,9 @@
   function el(tag, at) { var e = document.createElementNS(NS, tag); for (var k in at) e.setAttribute(k, at[k]); return e; }
   ms.draw = function (app) {
     var W = app.maskMode; if (!W || !W.svg) return;
-    var pts = ms.points(app), byKey = {}, svg = W.svg; while (svg.firstChild) svg.removeChild(svg.firstChild);
+    var svg = W.svg; while (svg.firstChild) svg.removeChild(svg.firstChild);
+    if (W.tryHook) return;                                           // testing: the head turns with you, so the mask of one drawing is not drawn
+    var pts = ms.points(app), byKey = {};
     pts.forEach(function (q) { if (q && q.p.key) byKey[q.p.key] = q; });
     AL.mask.EDGES.forEach(function (e) {
       var a = byKey[e[0]], b = byKey[e[1]]; if (!a || !b || a.state === 'off' || b.state === 'off') return;

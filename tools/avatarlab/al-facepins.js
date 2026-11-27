@@ -175,7 +175,7 @@
   fp.close = function (app) {
     var W = app.fpMode; if (!W) return;
     stageOff(app); markersOff(app);
-    if (W.hook) { var i = app.hooks.indexOf(W.hook); if (i >= 0) app.hooks.splice(i, 1); W.hook = null; }
+    if (W.hook) fp.setFollow(app, false);
     clearStatic(app);
     var cam = app.inp.cam; if (cam.on) cam.mode = W.camWasOn && W.prevMode && W.prevMode !== 'paused' ? W.prevMode : 'always';
     if (W.raf) cancelAnimationFrame(W.raf);
@@ -204,21 +204,35 @@
     if (cam.on) cam.mode = on ? 'always' : 'paused';
     if (on && W.mode !== 'live') { W.testFrom = W.mode; W.mode = 'live'; W.face = { k: 1, x: 0, y: 0 }; }
     else if (!on && W.testFrom) { W.mode = W.testFrom; W.testFrom = null; W.face = { k: 1, x: 0, y: 0 }; }
+    var hs = AL.mask && AL.mask.headSet(app.ch);
     if (on && !W.hook) {
-      W.hook = function (dt, liveNow) {
-        if (liveNow || !cam.on) return;
-        app.inp.watch(); fp.feed(app.inp, cam.face, dt);
-        [app._bs, app.held].forEach(function (S) { if (!S) return; for (var k in app.inp.S) if (k.slice(0, 3) === 'pt.' || k.slice(0, 3) === 'mk.' || k.slice(0, 5) === 'face.') S[k] = app.inp.S[k]; });
-      };
-      app.hooks.push(W.hook);
-    } else if (!on && W.hook) { app.hooks.splice(app.hooks.indexOf(W.hook), 1); W.hook = null; clearStatic(app); }
+      W.hook = fp.tryHook(app); app.hooks.push(W.hook);
+      if (hs) { W.hadHeadForce = hs.id in app.force; W.headForce = app.force[hs.id]; delete app.force[hs.id]; }     // the head turns with you: the pad picks its drawing
+    } else if (!on && W.hook) {
+      var i0 = app.hooks.indexOf(W.hook); if (i0 >= 0) app.hooks.splice(i0, 1); W.hook.restore(); W.hook = null; clearStatic(app);
+      if (hs && W.hadHeadForce) app.force[hs.id] = W.headForce;
+    }
   };
   function clearStatic(app) { [app._bs, app.held].forEach(function (S) { if (!S) return; for (var k in S) if (k.slice(0, 3) === 'pt.' || k.slice(0, 3) === 'mk.' || k.slice(0, 3) === 'mp.' || k.slice(0, 5) === 'face.') delete S[k]; }); }
   fp.clearStatic = clearStatic;
   /** For any screen that tries the face in Set up (where the picture otherwise holds still): one frame of the face into the build signals. */
   fp.tryHook = function (app) {
-    return function (dt, liveNow) { var cam = app.inp.cam; if (liveNow || !cam.on) return; app.inp.watch(); fp.feed(app.inp, cam.face, dt);
+    var z = { bt: { x: app.bt.x, y: app.bt.y }, roll: (app._bs && app._bs.roll) || 0, zero: null };
+    var hook = function (dt, liveNow) { var cam = app.inp.cam; if (liveNow || !cam.on) return; app.inp.watch(); fp.feed(app.inp, cam.face, dt); fp.turnHead(app, z, cam.face);
       [app._bs, app.held].forEach(function (S) { if (!S) return; for (var k in S) if (k.slice(0, 3) === 'mp.' && !(k in app.inp.S)) delete S[k]; for (var k2 in app.inp.S) if (k2.slice(0, 3) === 'pt.' || k2.slice(0, 3) === 'mk.' || k2.slice(0, 3) === 'mp.' || k2.slice(0, 5) === 'face.') S[k2] = app.inp.S[k2]; }); };
+    /** Stop: the head pad back where it was, no jump out. */
+    hook.restore = function () { app.bt.x = z.bt.x; app.bt.y = z.bt.y; if (app._bs) app._bs.roll = z.roll; };
+    return hook;
+  };
+  /** The face test (the owner, 11-27: "When I look left to right, it doesn't look left or right"): your head's turn and nod
+      move the head pad, and your tilt the head, exactly as in Perform: from where the pad was when the test began, by how far
+      your head has moved since (al-inputs.js does the same with cam.zero). */
+  fp.turnHead = function (app, z, f) {
+    if (!f || f.turnX == null) return;
+    if (!z.zero) z.zero = { fx: f.turnX, fy: f.turnY || 0, fr: f.roll || 0 };
+    function cl(v) { return v < -1 ? -1 : v > 1 ? 1 : v; }
+    app.bt.x = cl(z.bt.x + f.turnX - z.zero.fx); app.bt.y = cl(z.bt.y + (f.turnY || 0) - z.zero.fy);
+    if (app._bs) app._bs.roll = cl(z.roll + (f.roll || 0) - z.zero.fr);
   };
 
   /* ── the pins on the stage: numbered, coloured, where they pull now ── */

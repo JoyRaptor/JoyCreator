@@ -24,10 +24,10 @@ class LineSplitApplyTest {
         val shorter = line("b", 0, n = 4)                          // the seq it carries is ignored: its place is kept
         LineSplitApply.apply(LineEdit.Split(listOf(AddressedStroke(at("b"), shorter)), setOf(at("c")))) { list }
         assertEquals(listOf("a", "b", "d"), list.map { it.id })
-        assertEquals("the shortened line keeps its seq, so nothing above or below it moves", 2L, list[1].seq)
+        assertEquals(2L, list[1].seq, "the shortened line keeps its seq, so nothing above or below it moves")
         assertEquals(4, list[1].samples.size)
         assertEquals(listOf(1L, 4L), listOf(list[0].seq, list[2].seq))
-        assertEquals("untouched lines are the same records", line("a", 1), list[0])
+        assertEquals(line("a", 1), list[0], "untouched lines are the same records")
     }
 
     @Test fun aLineThatIsGoneRefusesTheEditInTheEnginesWords() {

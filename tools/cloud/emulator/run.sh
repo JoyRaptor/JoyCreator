@@ -28,6 +28,7 @@ adb wait-for-device
 # No system file picker, so the app's required "choose the Joy Creator folder" step is skipped (the app skips it on
 # a device with no folder picker). Harmless if the package is absent.
 adb shell pm disable-user --user 0 com.android.documentsui 2>&1 || true
+adb shell settings put secure immersive_mode_confirmations confirmed || true
 adb shell settings put global window_animation_scale 0 || true
 adb shell settings put global transition_animation_scale 0 || true
 adb shell settings put global animator_duration_scale 0 || true

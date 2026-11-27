@@ -8,7 +8,8 @@
 #   .\tools\cloud-build.ps1 run   <ref> [variant]   start + wait + fetch in one go
 #   .\tools\cloud-build.ps1 test  <ref> [suites]    runs tests on GitHub and prints a short summary (run it in the background);
 #                                                   suites: all (default) or any of jb-core,jb-androidkit,jb-android,studio,joybot
-#   .\tools\cloud-build.ps1 emulator <ref> <script> [phone|tablet|both]
+#   .\tools\cloud-build.ps1 emulator <ref> <script> [phone|tablet|both] [apkRunId]
+#                                                   (apkRunId: reuse the APK of an earlier emulator run, skipping the 6 minute build)
 #                                                   builds the debug APK, boots cloud Android emulators (.github/workflows/emulator.yml),
 #                                                   runs tools/cloud/emulator/scripts/<script>.sh on them, waits (run it in the background)
 #                                                   and downloads screenshots and logs to build\cloud\emulator-<run>\<name>\
@@ -322,13 +323,13 @@ function Sign-Bundle([string] $aab) {
     Write-Host ("signed: {0} ({1:N1} MB); upload this one to Play" -f $signed, ((Get-Item $signed).Length / 1MB))
 }
 
-function Start-Emulator([string] $ref, [string] $script, [string] $profiles) {
+function Start-Emulator([string] $ref, [string] $script, [string] $profiles, [string] $apkRun = "") {
     if (-not $ref -or -not $script) { throw "usage: emulator <ref> <script> [phone|tablet|both]" }
     if (-not $profiles) { $profiles = "phone" }
     if ($profiles -notin @("phone", "tablet", "both")) { throw "profiles: phone, tablet or both" }
     $rid = "em-" + [Guid]::NewGuid().ToString("N").Substring(0, 8)
     $wf = "emulator.yml"
-    Api POST "/actions/workflows/$wf/dispatches" @{ ref = $WorkflowRef; inputs = @{ ref = $ref; script = $script; profiles = $profiles; request_id = $rid } } | Out-Null
+    Api POST "/actions/workflows/$wf/dispatches" @{ ref = $WorkflowRef; inputs = @{ ref = $ref; script = $script; profiles = $profiles; apk_run = $apkRun; request_id = $rid } } | Out-Null
     for ($i = 0; $i -lt 24; $i++) {
         Start-Sleep -Seconds 5
         $runs = Api GET "/actions/workflows/$wf/runs?event=workflow_dispatch&per_page=30"
@@ -385,7 +386,7 @@ switch ($Cmd) {
         if (-not $ok) { exit 1 }
     }
     "emulator" {
-        $id = Start-Emulator $Rest[0] $Rest[1] $(if ($Rest.Count -ge 3) { $Rest[2] } else { "" })
+        $id = Start-Emulator $Rest[0] $Rest[1] $(if ($Rest.Count -ge 3) { $Rest[2] } else { "" }) $(if ($Rest.Count -ge 4) { $Rest[3] } else { "" })
         $ok = Wait-Build $id
         try { Get-EmulatorResults $id } catch { Write-Host "no results to fetch: $($_.Exception.Message)" }
         if (-not $ok) { exit 1 }

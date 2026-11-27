@@ -30,6 +30,10 @@ on:
           - phone
           - tablet
           - both
+      apk_run:
+        description: "Optional: id of an earlier emulator run whose APK to reuse (skips the 6 minute build; script changes only)"
+        required: false
+        default: ""
       request_id:
         description: Tag that tools/cloud-build.ps1 uses to find its run (any short text)
         required: false
@@ -54,6 +58,7 @@ env:
 
 jobs:
   build:
+    if: inputs.apk_run == ''
     runs-on: ubuntu-latest
     timeout-minutes: 120
     outputs:
@@ -132,7 +137,7 @@ jobs:
         with:
           name: emu-apk-${{ steps.meta.outputs.sha }}
           path: apk-out/app-debug.apk
-          retention-days: 1
+          retention-days: 3
           if-no-files-found: error
 
   plan:
@@ -150,6 +155,7 @@ jobs:
 
   emulator:
     needs: [build, plan]
+    if: ${{ !cancelled() && needs.plan.result == 'success' && (needs.build.result == 'success' || needs.build.result == 'skipped') }}
     runs-on: ubuntu-latest
     timeout-minutes: 60
     strategy:
@@ -168,10 +174,14 @@ jobs:
           git fetch -q --depth 1 origin "$GITHUB_SHA"
           git checkout -q FETCH_HEAD -- tools/cloud/emulator
 
-      - uses: actions/download-artifact@v4
+      - name: Get the APK (this run's build, or the earlier run named in apk_run)
+        uses: actions/download-artifact@v4
         with:
-          name: emu-apk-${{ needs.build.outputs.sha }}
+          pattern: emu-apk-*
+          merge-multiple: true
           path: apk
+          run-id: ${{ inputs.apk_run || github.run_id }}
+          github-token: ${{ github.token }}
 
       - name: Let the emulator use KVM
         run: |
@@ -199,7 +209,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: emulator-${{ matrix.profile }}-${{ needs.build.outputs.sha }}
+          name: emulator-${{ matrix.profile }}-${{ github.run_id }}
           path: emu-out/
           retention-days: 3
           if-no-files-found: warn

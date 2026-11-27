@@ -184,13 +184,13 @@ h2 .key { font-family: var(--mono); font-size: 12px; color: var(--faint); }
   <!-- ===================== LOCKED: owner picks 2026-11-27 ===================== -->
   <section class="locked">
     <h2><span class="key">✓</span> Your picks, put together</h2>
-    <p class="q">Picked 2026-11-27: <b>A1 B3 C1 D1 E1 F1</b>, with B1's frame labels on the B3 strip, and a <b>Long trail</b> for streaks longer than any real camera can make. Packed tight: drawers cover the picture, so nothing gets a line of its own if it can share one.</p>
+    <p class="q">Picked 2026-11-27: <b>A1 B3 C1 D1 E1 F1</b>, with B1's frame labels on the B3 strip. No separate Long trail mode: the strip simply reaches further back, a <b>Streak</b> preset gets you there in one tap, and Fade and Copies live in More, where they work on short blurs too. The card is always a header and three rows.</p>
     <div class="opts">
       <div class="opt">
         <div class="head"><span class="tag">1</span><span class="name">The card as it opens</span></div>
         <div class="stage ctx-adj"><div class="drawer">
           <div class="card own-studio"><div class="ch"><span class="caret">▾</span><span class="grab"><i></i><i></i></span><span class="sw mb"></span><span class="cname">Motion Blur</span><span class="en">◉</span><span class="x">✕</span></div>
-            <div class="chips"><span class="chip on">Natural</span><span class="chip">Crisp</span><span class="chip">Heavy</span><span class="chip">Trailing</span><span class="tick push"><span class="bx"></span>Long trail</span></div>
+            <div class="chips" style="flex-wrap:nowrap"><span class="chip on">Natural</span><span class="chip">Crisp</span><span class="chip">Heavy</span><span class="chip">Trailing</span><span class="chip">Streak</span></div>
             <div class="row"><span class="rl">Shutter<b class="rv">180° · centred</b></span>
               <svg class="strip inrow" viewBox="0 0 320 44" aria-hidden="true">
                 <defs><linearGradient id="gK1" x1="0" x2="1"><stop offset="0" stop-color="#35f6bf"/><stop offset="1" stop-color="#97fe8b"/></linearGradient></defs>
@@ -207,14 +207,14 @@ h2 .key { font-family: var(--mono); font-size: 12px; color: var(--faint); }
             <div class="row"><span class="rl">Mix</span><div class="sl"><span class="f" style="width:100%"></span><span class="t" style="left:100%"></span></div><span class="val">100%</span><span class="kf">‹<span class="d"></span>›</span></div>
             <div class="more">▸ More</div>
           </div></div></div>
-        <p>Long trail sits at the right end of the preset row. The shutter's numbers sit under its label, and its keyframe diamond is at the right end of the strip, in the same column as Mix's. "More" is a slim tab under Mix, not a full row. Pull an end of the bar to widen it, drag its middle to slide it earlier or later.</p>
+        <p>Pull an end of the bar to widen it, drag its middle to slide it earlier or later. The shutter's numbers sit under its label; its keyframe diamond lines up with Mix's.</p>
       </div>
       <div class="opt">
-        <div class="head"><span class="tag">2</span><span class="name">Long trail ticked: the same strip becomes the trail</span></div>
+        <div class="head"><span class="tag">2</span><span class="name">Pulled past the last frame (or tap Streak)</span></div>
         <div class="stage ctx-adj"><div class="drawer">
           <div class="card own-studio">
-            <div class="chips"><span class="chip">Natural</span><span class="chip">Crisp</span><span class="chip">Heavy</span><span class="chip">Trailing</span><span class="tick push"><span class="bx on"></span>Long trail</span></div>
-            <div class="row"><span class="rl">Trail<b class="rv">8 frames back</b></span>
+            <div class="chips" style="flex-wrap:nowrap"><span class="chip">Natural</span><span class="chip">Crisp</span><span class="chip">Heavy</span><span class="chip">Trailing</span><span class="chip on">Streak</span></div>
+            <div class="row"><span class="rl">Shutter<b class="rv">8 frames back</b></span>
               <svg class="strip inrow" viewBox="0 0 320 44" aria-hidden="true">
                 <defs><linearGradient id="gK2" x1="0" x2="1"><stop offset="0" stop-color="#35f6bf" stop-opacity=".08"/><stop offset=".75" stop-color="#35f6bf" stop-opacity=".7"/><stop offset="1" stop-color="#97fe8b"/></linearGradient></defs>
                 <rect x="4" y="15" width="312" height="4" rx="2" fill="rgba(255,255,255,.18)"/>
@@ -226,12 +226,23 @@ h2 .key { font-family: var(--mono); font-size: 12px; color: var(--faint); }
                 <text x="300" y="42" text-anchor="end" font-family="IBM Plex Mono, monospace" font-size="9" fill="#c9c9d3">this frame</text>
               </svg><span class="kf">‹<span class="d"></span>›</span></div>
             <div class="row"><span class="rl">Mix</span><div class="sl"><span class="f" style="width:100%"></span><span class="t" style="left:100%"></span></div><span class="val">100%</span><span class="kf">‹<span class="d"></span>›</span></div>
-            <div class="row"><span class="rl">Fade</span><div class="sl"><span class="f" style="width:60%"></span><span class="t" style="left:60%"></span></div><span class="val">60%</span><span class="kf">‹<span class="d"></span>›</span></div>
-            <div class="row"><span class="rl">Look</span><div class="chips" style="padding:0;flex-wrap:nowrap"><span class="chip on">Smear</span><span class="chip">Copies</span><span class="chip">Both</span></div><span class="step push">−<b>4</b>+</span></div>
             <div class="more">▸ More</div>
           </div></div></div>
-        <p>No second strip and no Length slider: with Long trail ticked, the shutter strip becomes the trail. Drag its end back up to 32 frames (more than a second at 24 fps); the label shows the length. Fade sets how fast the old part disappears. Smear is one long streak, Copies leaves separate ghosts, Both does both. The small −&nbsp;4&nbsp;+ counter is the number of ghosts and dims for Smear. The trail follows where things really were, so curves trail along the curve, on sprites, puppets, pictures and filmed video.</p>
-        <p class="reuse">Untick Long trail and the strip goes back to the shutter, keeping your last shutter setting. Only two rows are added (Fade and Look).</p>
+        <p>Same card, same three rows. Drag the left handle past "last frame" and the strip zooms out as you go, up to 32 frames back (more than a second at 24 fps). Past two frames the trail only grows backwards, behind the moving thing. Streak is a preset for this: 8 frames back, fading out. The bar fades toward the past to show the fade.</p>
+      </div>
+      <div class="opt">
+        <div class="head"><span class="tag">3</span><span class="name">More, opened: the trail's look sits with the other fine controls</span></div>
+        <div class="stage ctx-adj"><div class="drawer">
+          <div class="card own-studio">
+            <div class="more">▾ More</div>
+            <div class="row"><span class="rl">Fade</span><div class="sl"><span class="f" style="width:60%"></span><span class="t" style="left:60%"></span></div><span class="val">60%</span><span class="kf">‹<span class="d"></span>›</span></div>
+            <div class="row"><span class="rl">Look</span><div class="chips" style="padding:0;flex-wrap:nowrap"><span class="chip on">Smear</span><span class="chip">Copies</span><span class="chip">Both</span></div><span class="step push">−<b>4</b>+</span></div>
+            <div class="row"><span class="rl">Preview</span><div class="chips" style="padding:0"><span class="chip">Fast</span><span class="chip on">Auto</span><span class="chip">High</span></div></div>
+            <div class="row"><span class="rl">Export</span><div class="chips" style="padding:0"><span class="chip">Standard</span><span class="chip on">High</span><span class="chip">Exact</span></div></div>
+            <div class="note full">…and the rest of F1's rows, only where they apply.</div>
+          </div></div></div>
+        <p>Fade and Look work on every blur, not just long ones: a 180° blur with Fade gives a comet tail, Copies at 180° gives a stuttery strobe. Fade 0% and Smear are a real camera, so most people never open this.</p>
+        <p class="reuse">No mode, no tick box, no rows that appear and disappear on the card. Under the hood the engine switches from the shutter method to real earlier frames past two frames; you never see that switch.</p>
       </div>
     </div>
   </section>

@@ -27,6 +27,9 @@ def nodes(path):
 
 
 def match(ns, needle):
+    if needle.startswith("="):   # "=Round": the whole text or description must be exactly this
+        k = needle[1:].lower()
+        return [n for n in ns if k == n["text"].lower() or k == n["desc"].lower()]
     k = needle.lower()
     return [n for n in ns if k in n["text"].lower() or k in n["desc"].lower() or k in n["rid"].lower()]
 

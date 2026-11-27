@@ -1238,6 +1238,21 @@ public final class AvatarRoomActivity extends Activity implements RoomMenu.Host,
     }
 
     @Override
+    public java.util.List<String> drawOrder() {
+        return glStage == null ? new java.util.ArrayList<>() : glStage.drawOrder();
+    }
+
+    @Override
+    public void stackEdit(String stepName, String nodeId, cc.joycreator.avatar.file.Stack.Step step) {
+        final String pid = poseJson() == null ? null : poseEdit;
+        final java.util.List<String> drawn = drawOrder();
+        edit.apply(stepName, doc -> {
+            CharacterDoc.Node k = doc.find(nodeId);
+            if (k != null) step.apply(doc.json, pid, k.json, drawn);
+        });
+    }
+
+    @Override
     public void restack(String id, int by) {
         CharacterDoc.Node node = character.find(id);
         if (node == null) return;

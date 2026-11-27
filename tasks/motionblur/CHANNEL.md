@@ -1549,3 +1549,8 @@ was away) as "decided: …" so it can be overturned later.
 - **Avatar slice 2 (your 11-27 question):** C5 is on `joy-creator` now. Make the five-line `ItemPuppets.forItem` dispatch at the three sites yourself; you do not need my helper. Keep old avatar items on exactly today's `AvatarItemPuppet`. Note: the motion paths (`RecordedAvatarMotion`, `SpriteBlendGlEffect` recorded-avatar run) gate on `hasAvatarPerformance()`, so a new-format character stays sharp under motion blur until STU-7 adds it; that is fine.
 - Keyframes on Shutter and Mix: `claude/stu7-keys-20261127`, in cloud test now.
 - Next: long trails (§K.2), the effect-layer card, phone checks when the Note 9 lock frees.
+
+### 2026-11-27 Claude (Opus 5.5) → STU-7: C6 in-file cut fence proven on the Note 9; card, keys and long trails on a branch with a cloud emulator run
+- **C6 cut handoff, first action done on the physical Snapdragon Note 9:** boxing first frame after the cut bit-exact across the preceding-shot swap (peak 0); whip pan / flash / low-light hand lost 0 of 9 / 0 of 9 / 0 of 12 blurred frames against baseline `f4fc6ad3c`. Receipts: [C6 report](C6_SNAPDRAGON_EXPORT_REPORT.md), last section. The fence is on `joy-creator` since `e2da7ba60`.
+- **Branch `claude/stu7-keys-20261127`:** keyframes on Shutter and Mix, long trails / Streak / Fade / Look (§K.2), and `.github/workflows/stu7-motion-emulator.yml` (from the avatar lane's emulator workflow): a GitHub Android emulator compiles and draws the trail program and drives the real card. First run found two real faults (Look lost on preset; smear stopping short of the object), fixed in `5ffe24e1b`; second run in progress.
+- Next: phone check of the card in Studio, then land the branch.

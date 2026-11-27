@@ -41,6 +41,7 @@ public final class SolverStage extends GLSurfaceView implements GLSurfaceView.Re
     private volatile JSONObject pendingCharacter;
     private volatile boolean pendingNewPictures;
     private volatile Signals signals = new Signals();
+    private volatile java.util.List<String> lastOrder = new java.util.ArrayList<>();
     private volatile Map<String, double[]> lastAnchor = new HashMap<>(), lastTips = new HashMap<>();
     private volatile Map<String, String> force = new HashMap<>();
     private volatile Map<String, Double> poses = new HashMap<>();
@@ -94,6 +95,11 @@ public final class SolverStage extends GLSurfaceView implements GLSurfaceView.Re
             Log.w(TAG, "snapshot failed", e);
         }
         return s;
+    }
+
+    /** The ids of what was drawn on the last frame, back to front, no ghosts: the picture's own draw order. */
+    public java.util.List<String> drawOrder() {
+        return lastOrder;
     }
 
     /** Where each limb grows from and where each hand is, from the last frame solved (what the walker needs). */
@@ -167,6 +173,9 @@ public final class SolverStage extends GLSurfaceView implements GLSurfaceView.Re
             Map<String, Double> ps = poses;
             if (!ps.isEmpty()) opt.poses = ps;
             SolveOut out = solver.eval(s, opt);
+            java.util.List<String> ord = new java.util.ArrayList<>();
+            for (cc.joycreator.avatar.solve.Item it : out.items) if (!it.ghost) ord.add(it.id);
+            lastOrder = ord;
             lastAnchor = new HashMap<>(s.anchor);
             lastTips = new HashMap<>(s.tips);
             gl.draw(out, pics, new CharacterGl.View(viewS, viewX, viewY), null, 0, width, height);

@@ -19,6 +19,7 @@ import androidx.media3.effect.BitmapOverlay;
 import androidx.media3.effect.GlEffect;
 
 import com.fadcam.FLog;
+import com.fadcam.ui.faditor.compositor.PuppetMeshClockProbe;
 import com.fadcam.launch.LaunchGate;
 import com.fadcam.ui.faditor.compositor.AuthoredSpriteMeshExposure;
 import com.fadcam.ui.faditor.compositor.MeshExposureGl;
@@ -683,6 +684,11 @@ final class SpriteBlendGlEffect implements GlEffect {
                 } catch (Exception ignored) {
                     drawFlat(inputTexId, presentationTimeUs);
                     return;
+                }
+                long editorUs = presentationTimeUs + editorTimeOffsetMs * 1000L;
+                if (PuppetMeshClockProbe.at(editorUs) && "c5-puppet-limb".equals(item.getSheetId())) {
+                    PuppetMeshClockProbe.record("export", editorUs, localMs, cx, cy, wNorm, hNorm,
+                            rot, inputTexId, 0, frameW, frameH);
                 }
                 meshStamp.configure(frameW, frameH);
                 int stampTex;

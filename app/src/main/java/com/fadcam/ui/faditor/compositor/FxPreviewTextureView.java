@@ -3438,6 +3438,11 @@ public class FxPreviewTextureView extends TextureView
         if (mi == null || mi.spec == null || bmp == null || bmp.isRecycled()) return src;
         int dst = src == 0 ? 1 : 0;
         if (drawAuthoredMesh(mi.shutter, src, dst, vw, vh)) return dst;
+        var frame = motionFrame;
+        if (motionReadback != null && frame != null && PuppetMeshClockProbe.at(frame.editorTimeUs())) {
+            PuppetMeshClockProbe.record("preview", frame.editorTimeUs(), mi.localMs, mi.cx, mi.cy,
+                    mi.wNorm, mi.hNorm, mi.rotDeg, 0, targets[src][1], vw, vh);
+        }
         meshStamp.configure(vw, vh);
         int stampTex = 0;
         try {

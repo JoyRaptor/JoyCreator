@@ -1,5 +1,5 @@
 # Avatar Studio on a cloud Android emulator: builds the debug app and its instrumented tests in this run, boots an
-# API 30 x86_64 emulator (SwiftShader GL; the arm64 app runs through the image's ARM translation), installs both and runs
+# API 30 x86_64 emulator (software GL: -gpu guest, which reports ANGLE on SwiftShader Vulkan; the arm64 app runs through the image's ARM translation), installs both and runs
 # the avatar tests (app/src/androidTest/java/cc/joycreator/avatar/emu/):
 #   AvatarDrawParityTest  Topps and Pip, five poses, solved and drawn with CharacterGl, against the web pilot's pictures
 #   AvatarRoomSmokeTest   the room opens with Topps, real taps through the four stages, then Pip the same way
@@ -32,9 +32,9 @@ on:
         required: false
         default: pixel_4
       gpu:
-        description: "Emulator GL: swiftshader_indirect (SwiftShader on its own host thread), swiftshader or guest"
+        description: "Emulator GL: guest (ANGLE on SwiftShader Vulkan inside the emulator; the steady one), swiftshader_indirect or swiftshader (host SwiftShader: froze the emulator in 2 of 4 runs)"
         required: false
-        default: swiftshader_indirect
+        default: guest
       msaa:
         description: "Samples for the off-screen drawing in AvatarDrawParityTest: 4 or 0"
         required: false
@@ -54,7 +54,7 @@ on:
 run-name: "avatar emulator ${{ inputs.tests || 'all' }} fault=${{ inputs.fault || 'none' }} @ ${{ inputs.ref || github.ref_name }} [${{ inputs.request_id || 'push' }}]"
 
 concurrency:
-  group: avatar-emulator-${{ inputs.ref || github.ref }}-${{ inputs.fault || 'none' }}-${{ inputs.device || 'pixel_4' }}-${{ inputs.gpu || 'si' }}-${{ inputs.msaa || '4' }}
+  group: avatar-emulator-${{ inputs.ref || github.ref }}-${{ inputs.fault || 'none' }}-${{ inputs.device || 'pixel_4' }}-${{ inputs.gpu || 'guest' }}-${{ inputs.msaa || '4' }}
   cancel-in-progress: ${{ github.event_name == 'push' }}
 
 permissions:
@@ -141,11 +141,11 @@ jobs:
           echo "gradle: $(( ($(date +%s) - START + 59) / 60 )) min"
           ./gradlew --stop > /dev/null 2>&1 || true   # its memory goes to the emulator
 
-      - name: Boot the emulator (API 30, x86_64, SwiftShader)
+      - name: Boot the emulator (API 30, x86_64, software GL)
         timeout-minutes: 12
         env:
           DEVICE: ${{ inputs.device || 'pixel_4' }}
-          GPU: ${{ inputs.gpu || 'swiftshader_indirect' }}
+          GPU: ${{ inputs.gpu || 'guest' }}
         run: |
           set -euo pipefail
           sudo chmod a+rw /dev/kvm
@@ -218,7 +218,7 @@ jobs:
           if grep -q '^OK (' emu-out/instrument.txt; then result=pass; else result=fail; fi
           echo "result=$result" >> "$GITHUB_OUTPUT"
           {
-            echo "### Avatar emulator: $result (tests=$TESTS, fault=$FAULT, msaa=$MSAA, ${{ inputs.device || 'pixel_4' }}, ${{ inputs.gpu || 'swiftshader_indirect' }}) @ ${{ steps.meta.outputs.sha }}"
+            echo "### Avatar emulator: $result (tests=$TESTS, fault=$FAULT, msaa=$MSAA, ${{ inputs.device || 'pixel_4' }}, ${{ inputs.gpu || 'guest' }}) @ ${{ steps.meta.outputs.sha }}"
             echo '```'
             grep -E '^(OK|FAILURES|Tests run|INSTRUMENTATION_|Error)' emu-out/instrument.txt | head -20
             sed -n '/draw parity/,/^$/p;/room smoke/,/^$/p' emu-out/avatar-log.txt | sed 's/^[^:]*: //' | head -60

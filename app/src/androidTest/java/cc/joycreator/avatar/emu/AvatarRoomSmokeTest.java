@@ -40,6 +40,7 @@ public class AvatarRoomSmokeTest {
     public void tapsThroughTheFourStagesWithToppsAndPip() throws Exception {
         File out = Emu.dir("room");
         StringBuilder log = new StringBuilder();
+        empty.setLength(0);
         try (ActivityScenario<AvatarRoomActivity> sc = ActivityScenario.launch(AvatarRoomActivity.class)) {
             Emu.sleep(4000);                                   // the stage's first frames (SwiftShader compiles slowly)
             AvatarRoomActivity[] a = new AvatarRoomActivity[1];
@@ -54,7 +55,14 @@ public class AvatarRoomSmokeTest {
         } finally {
             Log.i(Emu.TAG, "room smoke\n" + log);
         }
+        assertTrue("no character on the stage (under " + (int) (MIN_DRAWN * 100) + "% of it drawn) in: " + empty + "\n" + log, empty.length() == 0);
     }
+
+    /** The character must cover at least this share of the stage (Topps about 23%, Pip about 15%; the stage's own buttons
+     * and caption alone are about 3%). */
+    private static final double MIN_DRAWN = 0.06;
+    /** The screenshots where the stage was empty: collected so every stage still gets its picture before the test fails. */
+    private final StringBuilder empty = new StringBuilder();
 
     private void stages(AvatarRoomActivity a, File out, String who, StringBuilder log) throws Exception {
         TextView[] tabs = (TextView[]) field(a, "stageTabs");
@@ -97,9 +105,23 @@ public class AvatarRoomSmokeTest {
             if (d > 24) drawn++;
         }
         double share = drawn / (double) px.length;
-        log.append(String.format(Locale.ROOT, "%-28s stage %dx%d, %.1f%% drawn\n", name, w, h, share * 100));
+        log.append(String.format(Locale.ROOT, "%-28s stage %dx%d, %.1f%% drawn; %s\n", name, w, h, share * 100, where(a)));
         s.recycle();
-        assertTrue(name + ": the stage looks empty (" + String.format(Locale.ROOT, "%.2f", share * 100) + "% drawn)", share > 0.01);
+        if (share < MIN_DRAWN) empty.append(empty.length() == 0 ? "" : ", ").append(name);
+    }
+
+    /** Where the character and the camera are (the walker's x, y and the stage view), to tell "walked off" from "not drawn". */
+    private static String where(AvatarRoomActivity a) {
+        try {
+            Object w = field(a, "walker"), st = field(a, "stage");
+            String walk = w == null ? "no walker" : String.format(Locale.ROOT, "walker x %.1f y %.1f",
+                w.getClass().getField("x").getDouble(w), w.getClass().getField("y").getDouble(w));
+            return String.format(Locale.ROOT, "%s, view scale %.3f at %.1f, %.1f", walk,
+                (Float) st.getClass().getMethod("viewScale").invoke(st), (Float) st.getClass().getMethod("viewX").invoke(st),
+                (Float) st.getClass().getMethod("viewY").invoke(st));
+        } catch (Throwable e) {
+            return "position unknown (" + e + ")";
+        }
     }
 
     private static Object field(Object o, String name) throws Exception {

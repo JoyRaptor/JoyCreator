@@ -34,6 +34,16 @@ public final class HighFootageGatherGlTest {
                 && GlProgram.samplers.get("uBeforeBackward") == 32
                 && GlProgram.samplers.get("uAfterForward") == 41
                 && GlProgram.samplers.get("uAfterBackward") == 42, "both bidirectional pairs are bound");
+        for (int field : new int[]{31, 32, 41, 42}) {
+            check(GLES20.minFilters.get(field) == GLES20.GL_NEAREST
+                            && GLES20.magFilters.get(field) == GLES20.GL_NEAREST,
+                    "packed flow keeps nearest filtering after Media3 sampler binding");
+        }
+        for (int color : new int[]{11, 12, 13}) {
+            check(GLES20.minFilters.get(color) == GLES20.GL_LINEAR
+                            && GLES20.magFilters.get(color) == GLES20.GL_LINEAR,
+                    "color donors keep linear filtering");
+        }
         expect("uRegion", .25f, 0f, .5f, 1f);
         expect("uFlowSize", 320f, 180f);
         expect("uSourcePerFlowPixel", 2f, 4f);

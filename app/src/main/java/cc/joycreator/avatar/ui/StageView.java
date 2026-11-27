@@ -14,7 +14,8 @@ import cc.joycreator.avatar.file.CharacterDoc;
  */
 public final class StageView extends View {
     private CharacterDoc doc;
-    private RestPose pose;
+    private PoseRenderer pose;
+    private java.util.function.Function<CharacterDoc, PoseRenderer> factory = RestPose::new;
     private final Paint hint = new Paint(Paint.ANTI_ALIAS_FLAG);
     private String hintText = "";
     private String selected;
@@ -30,12 +31,20 @@ public final class StageView extends View {
         line.setStrokeWidth(Math.max(1f, c.getResources().getDisplayMetrics().density));
     }
 
+    /** What draws the character: {@link RestPose} until the solver's renderer is plugged in here. */
+    public void setRendererFactory(java.util.function.Function<CharacterDoc, PoseRenderer> f) {
+        factory = f == null ? RestPose::new : f;
+        if (pose != null) pose.release();
+        pose = doc == null ? null : factory.apply(doc);
+        invalidate();
+    }
+
     public void setCharacter(CharacterDoc d) {
         if (pose != null && d != null && pose.samePictures(d)) {
             pose.retarget(d);      // an edit of the tree: the decoded pictures stay
         } else {
             if (pose != null) pose.release();
-            pose = d == null ? null : new RestPose(d);
+            pose = d == null ? null : factory.apply(d);
         }
         doc = d;
         invalidate();

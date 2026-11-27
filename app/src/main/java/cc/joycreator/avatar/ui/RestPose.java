@@ -20,7 +20,7 @@ import java.util.Map;
  * not the real pose: the stage says so nowhere to the user, but it is the only thing that draws a character until
  * {@code CharacterSolver} lands, and it is replaced then, not extended.</p>
  */
-final class RestPose {
+final class RestPose implements PoseRenderer {
     private CharacterDoc doc;
     private final Map<String, Bitmap> bitmaps = new HashMap<>();
     private final Paint paint = new Paint(Paint.FILTER_BITMAP_FLAG | Paint.ANTI_ALIAS_FLAG);
@@ -30,16 +30,19 @@ final class RestPose {
     }
 
     /** The same character after an edit of its tree: the pictures are the same, so the decoded ones are kept. */
-    void retarget(CharacterDoc d) {
+    @Override
+    public void retarget(CharacterDoc d) {
         doc = d;
     }
 
-    boolean samePictures(CharacterDoc d) {
+    @Override
+    public boolean samePictures(CharacterDoc d) {
         return doc.pictures == d.pictures || doc.pictures.size() == d.pictures.size() && doc.name.equals(d.name) && doc.pictures.keySet().equals(d.pictures.keySet());
     }
 
     /** One part drawn on its own, optionally tinted and see-through (the ghost of a neighbouring drawing while matching). */
-    void drawSubtree(Canvas c, CharacterDoc.Node n, int tint, int alpha) {
+    @Override
+    public void drawSubtree(Canvas c, CharacterDoc.Node n, int tint, int alpha) {
         paint.setAlpha(alpha);
         if (tint != 0) paint.setColorFilter(new android.graphics.PorterDuffColorFilter(tint, android.graphics.PorterDuff.Mode.SRC_ATOP));
         drawNode(c, n);
@@ -48,7 +51,8 @@ final class RestPose {
     }
 
     /** Draws into the rectangle at the origin of the canvas, sized doc.w x doc.h (the caller scales). */
-    void draw(Canvas c) {
+    @Override
+    public void draw(Canvas c) {
         drawNode(c, doc.root);
     }
 
@@ -76,7 +80,8 @@ final class RestPose {
     /** "Try this drawing": the drawing the person chose to look at for a set, kept only while they look. */
     private final Map<String, String> tried = new HashMap<>();
 
-    void tryDrawing(String setId, String kidId) {
+    @Override
+    public void tryDrawing(String setId, String kidId) {
         if (kidId == null) tried.remove(setId);
         else tried.put(setId, kidId);
     }
@@ -84,7 +89,8 @@ final class RestPose {
     /** What the live hands and the take say now (the take's own lane names); empty until Perform or Motion drives it. */
     private Map<String, Object> sig = new HashMap<>();
 
-    void setSignals(Map<String, Object> s) {
+    @Override
+    public void setSignals(Map<String, Object> s) {
         sig = s == null ? new HashMap<>() : s;
     }
 
@@ -162,7 +168,8 @@ final class RestPose {
     }
 
     /** Where a part is on the picture (the drawings it shows now), or null when it shows nothing. */
-    RectF bounds(CharacterDoc.Node n) {
+    @Override
+    public RectF bounds(CharacterDoc.Node n) {
         RectF out = new RectF();
         boolean[] any = {false};
         grow(n, out, any);
@@ -193,7 +200,8 @@ final class RestPose {
         }
     }
 
-    void release() {
+    @Override
+    public void release() {
         for (Bitmap b : bitmaps.values()) b.recycle();
         bitmaps.clear();
     }

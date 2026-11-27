@@ -2251,12 +2251,29 @@ public class FxPreviewTextureView extends TextureView
                 footageStage[1] / (float) height,
                 (footageStage[0] + footageStage[2]) / (float) width,
                 (footageStage[1] + footageStage[3]) / (float) height);
-        if (indexed != null) {
-            indexed.observe(frame);
-            if (drawHighFootage(exposure, indexed, frame, source, width, height)) {
-                if (footageFlow != null) footageFlow.reset();
-                return 2;
-            }
+        if (indexed == null) return 0;
+        indexed.observe(frame);
+        long ptsUs = frame.decodedPtsUs();
+        var neighbours = indexed.neighbours(frame);
+        long previousUs = neighbours == null ? Long.MIN_VALUE : neighbours.previousUs();
+        var previousPair = previousUs == Long.MIN_VALUE ? null : indexed.ready(frame, previousUs, ptsUs);
+        boolean canPair = previousPair != null && !previousPair.crossesCut();
+        if (!canPair) {
+            // Cold analysis is ambiguous. Flush older frames, then seed this frame sharp.
+            if (footageFlow != null) footageFlow.reset();
+            clearHighFootageHistory();
+            clearPausedFootageColors();
+        }
+        long nextUs = neighbours == null ? Long.MIN_VALUE : neighbours.nextUs();
+        var nextPair = nextUs == Long.MIN_VALUE ? null : indexed.ready(frame, ptsUs, nextUs);
+        boolean nextIsCut = nextPair != null && nextPair.crossesCut();
+        MotionBreaks sourceCuts = nextIsCut
+                ? new MotionBreaks.Builder().add(frame.editorTimeUs()
+                        + Math.round((nextUs - ptsUs) / (double) input.speed())).build()
+                : MotionBreaks.none();
+        if (drawHighFootage(exposure, indexed, frame, source, width, height, canPair, sourceCuts)) {
+            if (footageFlow != null) footageFlow.reset();
+            return 2;
         }
         if (fastFootageFailed) return 0;
         try {
@@ -2265,11 +2282,11 @@ public class FxPreviewTextureView extends TextureView
                 footageFlow = new FastFootagePreviewOwner(assets, FAST_FOOTAGE_MAX_GAP_US);
                 footageGather = new FastFootageGatherGl(assets);
             }
-            var estimate = footageFlow.observe(false, true, true, true, input.speed(),
-                    targets[0][0], frame.decodedPtsUs(), frame.continuityEpoch(), source);
+            var estimate = footageFlow.observeVerifiedPair(input.speed(), targets[0][0], ptsUs,
+                    frame.continuityEpoch(), source, canPair ? previousUs : Long.MIN_VALUE);
             if (estimate == null || frame.periodUs() <= 0) return 0;
             var taps = input.shutter().schedule(frame.editorTimeUs(), frame.periodUs(),
-                    FastFootageGatherGl.MAX_TAPS, exposure.fences(), MotionBreaks.none());
+                    FastFootageGatherGl.MAX_TAPS, exposure.fences(), sourceCuts);
             // Slot 1 is the existing grade destination. The third target as a source lets
             // the optional grade run exactly as before without sampling its own attachment.
             return footageGather.draw(targets[0][0], targets[2][1], width, height,
@@ -2285,7 +2302,7 @@ public class FxPreviewTextureView extends TextureView
 
     private boolean drawHighFootage(FastFootageExposure exposure, PreviewIndexedFlow indexed,
                                     PreviewMotionClock.Frame frame, LiveFlowGl.SourceGeometry source,
-                                    int width, int height) {
+                                    int width, int height, boolean canPair, MotionBreaks sourceCuts) {
         if (highFootageFailed) return false;
         try {
             if (highFootageWidth != width || highFootageHeight != height) {
@@ -2300,7 +2317,8 @@ public class FxPreviewTextureView extends TextureView
             if (pause.paused()) {
                 clearHighFootageHistory();
                 releaseHighFootageTargets(true);
-                return drawPausedHighFootage(exposure, indexed, frame, source, width, height, pause);
+                return canPair && drawPausedHighFootage(exposure, indexed, frame, source, width, height,
+                        pause, sourceCuts);
             }
             clearPausedFootageColors();
             if (highFootageTargets[0][0] == 0) {
@@ -2335,13 +2353,13 @@ public class FxPreviewTextureView extends TextureView
                 }
                 newestFootagePts = pts;
             }
-            var pair = previousFootagePts == Long.MIN_VALUE ? null
+            var pair = !canPair || previousFootagePts == Long.MIN_VALUE ? null
                     : indexed.ready(frame, previousFootagePts, pts);
             var uploaded = highFootageFlow.set(pair);
             if (uploaded == null || frame.periodUs() <= 0) return false;
             var input = exposure.input();
             var taps = input.shutter().schedule(frame.editorTimeUs(), frame.periodUs(),
-                    HighFootageGatherGl.MAX_TAPS, exposure.fences(), MotionBreaks.none());
+                    HighFootageGatherGl.MAX_TAPS, exposure.fences(), sourceCuts);
             // A live decoder supplies the previous donor. The gather keeps the centre color
             // for any future taps until a route can supply the exact next staged frame.
             var staged = new HighFootageGatherGl.Frame(
@@ -2362,7 +2380,7 @@ public class FxPreviewTextureView extends TextureView
 
     private boolean drawPausedHighFootage(FastFootageExposure exposure, PreviewIndexedFlow indexed,
                                           PreviewMotionClock.Frame frame, LiveFlowGl.SourceGeometry source,
-                                          int width, int height, FootagePause pause)
+                                          int width, int height, FootagePause pause, MotionBreaks sourceCuts)
             throws java.io.IOException, androidx.media3.common.util.GlUtil.GlException {
         var neighbours = indexed.neighbours(frame);
         if (neighbours == null || source.rotationDegrees() != 0 || !motionClock.isCurrent(frame)) {
@@ -2370,6 +2388,16 @@ public class FxPreviewTextureView extends TextureView
             return false;
         }
         long center = frame.decodedPtsUs(), previous = neighbours.previousUs(), next = neighbours.nextUs();
+        var before = indexed.ready(frame, previous, center);
+        var after = next == Long.MIN_VALUE ? null : indexed.ready(frame, center, next);
+        if (before == null || before.crossesCut() || (next != Long.MIN_VALUE && after == null)) {
+            clearPausedFootageColors();
+            return false;
+        }
+        if (after != null && after.crossesCut()) {
+            after = null;
+            next = Long.MIN_VALUE;
+        }
         var input = exposure.input();
         var stage = new PausedFootageColorWorker.Stage(width, height, footageStage[0], footageStage[1],
                 footageStage[2], footageStage[3], footageStage[4], footageStage[5]);
@@ -2379,12 +2407,6 @@ public class FxPreviewTextureView extends TextureView
             pausedColors.release();
             pausedColors = null;
             loggedPausedGather = false;
-        }
-        var before = indexed.ready(frame, previous, center);
-        var after = next == Long.MIN_VALUE ? null : indexed.ready(frame, center, next);
-        if (before == null || (next != Long.MIN_VALUE && after == null)) {
-            clearPausedFootageColors();
-            return false;
         }
         if (after != null && (before.forward.width != after.forward.width
                 || before.forward.height != after.forward.height)) return false;
@@ -2396,7 +2418,7 @@ public class FxPreviewTextureView extends TextureView
         if (pausedColors == null) return false;
         long period = Math.round((center - previous) / (double) input.speed());
         var taps = input.shutter().schedule(frame.editorTimeUs(), period,
-                HighFootageGatherGl.MAX_TAPS, exposure.fences(), MotionBreaks.none());
+                HighFootageGatherGl.MAX_TAPS, exposure.fences(), sourceCuts);
         var uploadedBefore = highFootageFlow.set(before);
         var uploadedAfter = pausedFootageAfter.set(after);
         if (uploadedBefore == null || (after != null && uploadedAfter == null)) return false;

@@ -15,6 +15,7 @@ public final class FlowCacheTest {
         FlowCacheTest test = new FlowCacheTest();
         test.roundTripAndKey();
         test.corruptionIsAMiss();
+        test.rejectsChunksWithoutSceneCutAssessment();
         test.interruptedReplaceKeepsPriorChunk();
         test.leastRecentlyViewedQuota();
         System.out.println("FlowCacheTest: " + test.assertions + " assertions");
@@ -60,6 +61,19 @@ public final class FlowCacheTest {
         file.write(file.read() ^ 0x40);
         file.close();
         check(cache.get(key) == null, "a CRC-damaged chunk is a cache miss");
+        deleteTree(root);
+    }
+
+    private void rejectsChunksWithoutSceneCutAssessment() throws Exception {
+        File root = temp("old-scene-assessment");
+        FlowCache cache = new FlowCache(root);
+        FlowCache.Key key = key("old-analysis", 0, "high", 0, 33_367);
+        cache.put(key, pair(9, 7, 0, 33_367, 2));
+        try (var file = new RandomAccessFile(onlyChunk(root), "rw")) {
+            file.seek(Integer.BYTES);
+            file.writeInt(2);
+        }
+        check(cache.get(key) == null, "old cache must not authorize unchecked footage neighbours");
         deleteTree(root);
     }
 

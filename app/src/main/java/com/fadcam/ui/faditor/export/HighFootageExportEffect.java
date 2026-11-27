@@ -153,11 +153,20 @@ record HighFootageExportEffect(Uri uri, long startUs, long endUs, double speed,
                 return false;
             }
             long editorUs = Math.round((current.sourceUs() - startUs) / speed);
-            var taps = shutter.schedule(editorUs, periodUs, HighFootageGatherGl.MAX_TAPS,
-                    fences, MotionBreaks.none());
-            if (taps == null) return false;
             int width = destination.width, height = destination.height;
             Analysed fields = worker.submit(() -> analyse(prior, current, next, width, height)).get();
+            if (fields.before() != null && fields.before().crossesCut()) {
+                previous = null;
+                prior.texture().release();
+                previousFlow.set(null);
+                return false;
+            }
+            MotionBreaks sourceCuts = fields.after() != null && fields.after().crossesCut()
+                    ? new MotionBreaks.Builder().add(Math.round((next.sourceUs() - startUs) / speed)).build()
+                    : MotionBreaks.none();
+            var taps = shutter.schedule(editorUs, periodUs, HighFootageGatherGl.MAX_TAPS,
+                    fences, sourceCuts);
+            if (taps == null) return false;
             var before = previousFlow.set(fields.before());
             var after = nextFlow.set(fields.after());
             if (before == null && after == null) return false;

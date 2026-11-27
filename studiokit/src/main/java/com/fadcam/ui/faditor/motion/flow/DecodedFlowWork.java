@@ -54,13 +54,14 @@ public final class DecodedFlowWork implements FlowAnalyzer.Work {
         if (cancellation.isCancelled()) return null;
         var assessment = FlowPairAssessment.assess(from, to, trustedForward, trustedBackward, confidence);
         if (cancellation.isCancelled()) return null;
+        if (assessment.contains(FlowCache.Flag.SCENE_CUT)) return zeroPair(FlowCache.Flag.SCENE_CUT);
         return new FlowCache.Pair(trustedForward, trustedBackward, assessment);
     }
 
     private FlowCache.Pair zeroPair(FlowCache.Flag flag) {
         FlowField forward = FlowField.zero(key.width, key.height, key.fromPtsUs, key.toPtsUs);
         FlowField backward = FlowField.zero(key.width, key.height, key.toPtsUs, key.fromPtsUs);
-        if (flag == FlowCache.Flag.LONG_GAP) {
+        if (flag != FlowCache.Flag.DUPLICATE) {
             float[] untrusted = new float[key.width * key.height];
             forward = forward.withConfidence(untrusted);
             backward = backward.withConfidence(untrusted);

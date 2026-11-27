@@ -66,6 +66,7 @@ public final class FlowPairTexturesGl {
     private static boolean usable(FlowCache.Pair pair) {
         return pair != null && !pair.has(FlowCache.Flag.LONG_GAP)
                 && !pair.has(FlowCache.Flag.DUPLICATE)
+                && !pair.crossesCut()
                 && pair.forward.fromPtsUs < pair.forward.toPtsUs;
     }
 

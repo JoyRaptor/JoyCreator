@@ -14,6 +14,7 @@ public final class DecodedFlowWorkTest {
         test.buildsTrustedPair();
         test.cancelsBetweenExpensiveStages();
         test.skipsDuplicateAndLongGap();
+        test.fencesDecodedSceneCut();
         test.assessesFlashAndWideMotion();
         System.out.println("DecodedFlowWorkTest: " + test.assertions + " assertions");
     }
@@ -122,6 +123,7 @@ public final class DecodedFlowWorkTest {
         var wide = FlowPairAssessment.assess(from, new LumaImage(w, h, shifted),
                 translation(w, h, dx, 0, 1), translation(w, h, -dx, 1, 0), cp);
         check(wide.contains(FlowCache.Flag.POSSIBLE_WHIP_PAN), "wide coherent shift is a whip candidate");
+        check(!wide.contains(FlowCache.Flag.SCENE_CUT), "coherent whip motion does not lose its pair");
         check(wide.contains(FlowCache.Flag.OCCLUSION) && !wide.contains(FlowCache.Flag.FLASH),
                 "unpaired edges are flagged and a translated texture is not a flash");
         var mismatched = FlowPairAssessment.assess(from, new LumaImage(w, h, shifted),
@@ -129,6 +131,60 @@ public final class DecodedFlowWorkTest {
         check(mismatched.contains(FlowCache.Flag.OCCLUSION)
                 && !mismatched.contains(FlowCache.Flag.POSSIBLE_WHIP_PAN),
                 "inconsistent vectors cannot trigger a camera motion flag");
+    }
+
+    private void fencesDecodedSceneCut() throws Exception {
+        FlowCache.Key key = new FlowCache.Key("scene-cut", 0, 0, 0, 0, 0,
+                116_000, 120_000, "cpu-r1", "high", 24, 20);
+        int count = key.width * key.height;
+        float[] earlier = new float[count], later = new float[count], flashed = new float[count];
+        for (int i = 0; i < count; i++) {
+            earlier[i] = ((i + i / key.width) & 1) == 0 ? .12f : .60f;
+            later[i] = 1f - earlier[i];
+            flashed[i] = earlier[i] + .28f;
+        }
+        var from = new LumaImage(key.width, key.height, earlier);
+        var to = new LumaImage(key.width, key.height, later);
+        DecodedFlowWork.Estimator unaligned = (a, b, fromUs, toUs) ->
+                FlowField.zero(a.width, a.height, fromUs, toUs);
+        var cut = new DecodedFlowWork(key, (pts, w, h) -> pts == key.fromPtsUs ? from : to,
+                unaligned, FlowConfidence.Params.DEFAULT).analyze(() -> false);
+        check(cut.crossesCut(), "large decoded change with collapsed trust is a scene cut");
+        check(cut.forward.fromPtsUs == key.fromPtsUs && cut.forward.toPtsUs == key.toPtsUs
+                        && cut.forward.confidence(0, 0) == 0 && cut.backward.confidence(0, 0) == 0,
+                "scene cut preserves exact endpoints and rejects both directions");
+        var forward = FlowField.zero(key.width, key.height, key.fromPtsUs, key.toPtsUs);
+        var backward = FlowField.zero(key.width, key.height, key.toPtsUs, key.fromPtsUs);
+        check(!FlowPairAssessment.assess(from, to, forward, backward, FlowConfidence.Params.DEFAULT)
+                        .contains(FlowCache.Flag.SCENE_CUT),
+                "large jump without a collapse in confidence does not fence the pair");
+        var dark = new LumaImage(key.width, key.height, new float[count]);
+        float[] dimmed = new float[count];
+        Arrays.fill(dimmed, .02f);
+        var dim = new LumaImage(key.width, key.height, dimmed);
+        check(!FlowPairAssessment.assess(dark, dim, forward.withConfidence(new float[count]),
+                        backward.withConfidence(new float[count]), FlowConfidence.Params.DEFAULT)
+                        .contains(FlowCache.Flag.SCENE_CUT),
+                "collapsed confidence in low light without a large jump does not fence the pair");
+        var flash = new LumaImage(key.width, key.height, flashed);
+        for (boolean enteringFlash : new boolean[]{true, false}) {
+            var flashPair = new DecodedFlowWork(key, (pts, w, h) ->
+                    (pts == key.fromPtsUs) == enteringFlash ? from : flash,
+                    unaligned, FlowConfidence.Params.DEFAULT).analyze(() -> false);
+            check(flashPair.has(FlowCache.Flag.FLASH) && !flashPair.crossesCut(),
+                    "large exposure change that keeps the image texture is a flash in either direction");
+        }
+        var dir = Files.createTempDirectory("stu7-scene-cut-cache");
+        try {
+            FlowCache cache = new FlowCache(dir.toFile());
+            cache.put(key, cut);
+            check(new FlowCache(dir.toFile()).get(key).crossesCut(), "warm cache retains the scene-cut fence");
+            try (var files = Files.list(dir)) {
+                for (var file : files.toArray(java.nio.file.Path[]::new)) Files.delete(file);
+            }
+        } finally {
+            Files.deleteIfExists(dir);
+        }
     }
 
     private static FlowField translation(int w, int h, float dx, long from, long to) {

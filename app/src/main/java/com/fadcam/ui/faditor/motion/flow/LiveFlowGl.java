@@ -121,6 +121,12 @@ public final class LiveFlowGl {
      */
     public Estimate observe(int sourceTexture, long sourcePtsUs, long continuityEpoch,
                             SourceGeometry geometry) throws IOException, GlUtil.GlException {
+        return observe(sourceTexture, sourcePtsUs, continuityEpoch, geometry, null);
+    }
+
+    Estimate observe(int sourceTexture, long sourcePtsUs, long continuityEpoch,
+                     SourceGeometry geometry, Long verifiedPreviousUs)
+            throws IOException, GlUtil.GlException {
         requireOpen();
         if (sourceTexture <= 0) throw new IllegalArgumentException("Missing live source texture");
         int width = geometry.visibleWidth() / SCALE;
@@ -131,7 +137,15 @@ public final class LiveFlowGl {
         }
         if (continuityEpoch == epoch && geometry.equals(source)) {
             var newest = frames.newest();
-            if (newest != null && newest.ptsUs == sourcePtsUs) return latest;
+            if (newest != null && newest.ptsUs == sourcePtsUs) {
+                if (verifiedPreviousUs == null || latest == null
+                        || latest.previousPtsUs() == verifiedPreviousUs) return latest;
+                reset();
+            } else if (newest != null && verifiedPreviousUs != null
+                    && newest.ptsUs != verifiedPreviousUs) {
+                // A cut, dropped frame, or pending indexed result invalidates the pair.
+                reset();
+            }
         }
 
         saveState();

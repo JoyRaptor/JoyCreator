@@ -74,6 +74,17 @@ public final class FastFootagePreviewOwner {
         return estimate == null ? null : new Frame(estimate, sourceSpeed);
     }
 
+    /** Observe only the exact previous frame approved by indexed analysis. */
+    @Nullable
+    public Frame observeVerifiedPair(double sourceSpeed, int stagedTexture, long sourcePtsUs,
+                                     long continuityEpoch, LiveFlowGl.SourceGeometry geometry,
+                                     long previousPtsUs) throws IOException, GlUtil.GlException {
+        requireOpen();
+        observing = true;
+        var estimate = liveFlow.observe(stagedTexture, sourcePtsUs, continuityEpoch, geometry, previousPtsUs);
+        return estimate == null ? null : new Frame(estimate, sourceSpeed);
+    }
+
     /** Flush after seek/cut metadata changes before the next staged frame. */
     public void reset() {
         requireOpen();

@@ -11,7 +11,26 @@ public final class FastFootagePreviewOwnerTest {
     public static void main(String[] args) throws Exception {
         hiddenAndDisabledPathsDoNotOpenGl();
         enabledPathPublishesOnlyContinuousFlow();
+        verifiedCutFlushesOldFrames();
         System.out.println("FastFootagePreviewOwnerTest: " + checks + " checks passed");
+    }
+
+    private static void verifiedCutFlushesOldFrames() throws Exception {
+        var owner = new FastFootagePreviewOwner(new AssetManager(), 50_000);
+        check(owner.observeVerifiedPair(1, 11, 40_000, 7, GEOMETRY, Long.MIN_VALUE) == null,
+                "first indexed frame starts sharp");
+        check(owner.observeVerifiedPair(1, 12, 80_000, 7, GEOMETRY, 40_000) != null,
+                "verified neighbour gets flow");
+        check(owner.observeVerifiedPair(1, 13, 120_000, 7, GEOMETRY, Long.MIN_VALUE) == null,
+                "cut invalidates the ring at the same decoder epoch");
+        check(owner.observeVerifiedPair(1, 13, 120_000, 7, GEOMETRY, Long.MIN_VALUE) == null,
+                "redrawing the cut cannot recover an old estimate");
+        var after = owner.observeVerifiedPair(1, 14, 160_000, 7, GEOMETRY, 120_000);
+        check(after != null && after.estimate().previousPtsUs() == 120_000,
+                "the next frame only borrows inside the new shot");
+        check(owner.observeVerifiedPair(1, 15, 208_000, 7, GEOMETRY, 200_000) == null,
+                "dropped indexed neighbour cannot use a different staged timestamp");
+        owner.release();
     }
 
     private static void hiddenAndDisabledPathsDoNotOpenGl() throws Exception {

@@ -44,6 +44,8 @@ public final class HighFootageGather {
         }
         double totalWeight = validateSchedule(projectTimesUs, weights);
         if (sourceSpeed == 0) return current.argb();
+        if (previousToCurrent != null && previousToCurrent.crossesCut()
+                && previousToCurrent.forward.toPtsUs == current.ptsUs()) return current.argb();
 
         PairWindow before = window(previous, current, previousToCurrent, current.ptsUs());
         PairWindow after = window(current, next, currentToNext, current.ptsUs());
@@ -114,7 +116,7 @@ public final class HighFootageGather {
     private static PairWindow window(SourceFrame from, SourceFrame to, FlowCache.Pair pair,
                                      long centerPts) {
         if (from == null || to == null || pair == null || pair.has(FlowCache.Flag.LONG_GAP)
-                || pair.has(FlowCache.Flag.DUPLICATE)) {
+                || pair.has(FlowCache.Flag.DUPLICATE) || pair.crossesCut()) {
             return null;
         }
         if (from.width() != to.width() || from.height() != to.height()

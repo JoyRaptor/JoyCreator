@@ -40,7 +40,8 @@ public final class FlowCache {
     public static final long DEFAULT_MAX_BYTES = 256L * 1024L * 1024L;
 
     private static final int MAGIC = 0x4a464c57; // JFLW
-    private static final int VERSION = 2;
+    // Older chunks have no scene-cut classification and must be reanalysed before use.
+    private static final int VERSION = 3;
     private static final int DIGEST_BYTES = 32;
     private static final int MAX_RAW_BYTES = 256 * 1024 * 1024;
     private static final float VECTOR_SCALE = 16f;
@@ -69,7 +70,7 @@ public final class FlowCache {
     }
 
     public enum Flag {
-        DUPLICATE(1), LONG_GAP(2), FLASH(4), OCCLUSION(8), POSSIBLE_WHIP_PAN(16);
+        DUPLICATE(1), LONG_GAP(2), FLASH(4), OCCLUSION(8), POSSIBLE_WHIP_PAN(16), SCENE_CUT(32);
 
         final int bit;
         Flag(int bit) { this.bit = bit; }
@@ -102,6 +103,9 @@ public final class FlowCache {
         }
 
         public boolean has(Flag flag) { return (flags & flag.bit) != 0; }
+
+        /** The later presentation timestamp belongs to a new shot. */
+        public boolean crossesCut() { return has(Flag.SCENE_CUT); }
     }
 
     /** Every value that can make an analysed field geometrically or algorithmically different. */

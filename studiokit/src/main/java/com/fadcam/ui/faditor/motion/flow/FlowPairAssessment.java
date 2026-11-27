@@ -2,8 +2,13 @@ package com.fadcam.ui.faditor.motion.flow;
 
 import java.util.EnumSet;
 
-/** Conservative, advisory scene hints. Duplicate pixels and long gaps are safe zero-motion cases. */
+/** Detects decoded shot boundaries and records other scene hints for the flow pair. */
 final class FlowPairAssessment {
+    private static final double CUT_LUMA_JUMP = 0.16;
+    private static final double CUT_MAX_TRUSTED_FRACTION = 0.15;
+    private static final double TRUST_FLOOR = 0.25;
+    private static final double EXPOSURE_NOISE_VARIANCE = 0.05 * 0.05;
+
     private FlowPairAssessment() {}
 
     static boolean longGap(FlowCache.Key key) {
@@ -25,11 +30,21 @@ final class FlowPairAssessment {
         EnumSet<FlowCache.Flag> flags = EnumSet.noneOf(FlowCache.Flag.class);
         int stride = Math.max(1, Math.min(from.width, from.height) / 48);
         double whipDistance = Math.hypot(from.width, from.height) * 0.08;
-        int count = 0, valid = 0, fast = 0;
+        int count = 0, valid = 0, fast = 0, trusted = 0;
         double residual = 0, residualSquared = 0, directionX = 0, directionY = 0;
+        double jump = 0, signedJump = 0, jumpSquared = 0, lumaSum = 0, lumaSquared = 0;
         for (int y = 0; y < from.height; y += stride) {
             for (int x = 0; x < from.width; x += stride) {
                 count++;
+                double luma = from.at(x, y);
+                double difference = to.at(x, y) - luma;
+                jump += Math.abs(difference);
+                signedJump += difference;
+                jumpSquared += difference * difference;
+                lumaSum += luma;
+                lumaSquared += luma * luma;
+                if (forward.confidence(x, y) >= TRUST_FLOOR) trusted++;
+                if (backward.confidence(x, y) >= TRUST_FLOOR) trusted++;
                 if (FlowConfidence.occluded(forward, backward, x, y, confidence)) continue;
                 valid++;
                 double u = forward.u(x, y), v = forward.v(x, y);
@@ -43,6 +58,21 @@ final class FlowPairAssessment {
                     directionY += v / distance;
                 }
             }
+        }
+        double meanShift = signedJump / count;
+        double shiftVariance = jumpSquared / count - meanShift * meanShift;
+        double meanLuma = lumaSum / count;
+        double lumaVariance = lumaSquared / count - meanLuma * meanLuma;
+        // A uniform exposure change that preserves detail is stronger evidence than flow trust
+        // during a flash, since the photometric confidence term drops on brightness changes.
+        boolean uniformExposureChange = Math.abs(meanShift) >= 0.10
+                && shiftVariance <= EXPOSURE_NOISE_VARIANCE
+                && lumaVariance >= EXPOSURE_NOISE_VARIANCE;
+        if (uniformExposureChange) {
+            flags.add(FlowCache.Flag.FLASH);
+        } else if (jump >= count * CUT_LUMA_JUMP
+                && trusted <= 2 * count * CUT_MAX_TRUSTED_FRACTION) {
+            flags.add(FlowCache.Flag.SCENE_CUT);
         }
         if (count - valid >= count * 0.1) flags.add(FlowCache.Flag.OCCLUSION);
         if (valid >= count * 0.5) {

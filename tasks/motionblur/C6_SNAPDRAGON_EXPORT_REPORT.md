@@ -70,3 +70,18 @@ On the Snapdragon, the Sony 240 fps street-running sample completed matching Hig
 The native receipt showed linear filtering on all four packed flow grids after the Media3 sampler bind. The upload configured nearest sampling, which the bind replaced. Interpolating packed motion bytes can create a velocity that neither adjacent cell contains. Candidate `04371ce8f3bf1d395172fb637e4abf8817464c8f` reapplies nearest filtering to the four flow samplers after binding and keeps linear filtering for color donors. The focused GL suite passed, and a deliberate wrong-minification-filter mutation failed the new assertion.
 
 At 100,000 µs, desktop replays used the exact native colors and four flow grids. Selecting intact flow cells reduced whole-frame average error from the captured phone High output’s 2.241 to 1.492/255 on the original low-light shot, where native sharp was 1.720/255. For the Sony running shot the figures were 2.774 to 1.887/255, where native sharp was 2.341/255. Both exact-input replays also improved their motion regions. These are host replays of device inputs. The candidate still needs its actual Android and preview/export measurements. [Studio](https://github.com/JoyRaptor/JoyCreator/actions/runs/45985678343) · [Native APK build](https://github.com/JoyRaptor/JoyCreator/actions/runs/45985684594).
+
+### Native corrected sampling proof
+
+The signed `f4fc6ad3cbb02a30f0657b2d2ed2c7a36832960f` fixture from [Android Actions](https://github.com/JoyRaptor/JoyCreator/actions/runs/45985684594) reported `GL_NEAREST` on all four packed flow samplers through the draw for both real shots. Both reruns completed High and sharp export on the USB Snapdragon Note 9. The references and source inputs are identical to the preceding cases.
+
+| Shot | Editor PTS (µs) | Old High MAE / 255 | Corrected High MAE / 255 | Sharp MAE / 255 |
+| --- | ---: | ---: | ---: | ---: |
+| Sony running | 100,000 | 2.774 | 1.882 | 2.341 |
+| Sony running | 200,000 | 2.796 | 1.861 | 2.445 |
+| Sony running | 333,333 | 2.873 | 1.949 | 2.453 |
+| Low-light hand | 100,000 | 2.241 | 1.499 | 1.720 |
+| Low-light hand | 200,000 | 2.038 | 1.452 | 1.501 |
+| Low-light hand | 333,333 | 2.358 | 1.719 | 1.817 |
+
+All six corrected High samples improved whole-frame accuracy against the sharp baseline. These are measured exports from two independent shots. Preview parity, broader scene coverage and sustained Android profiling are open. Evidence is in `D:/Temp/stu7-owner-media-intake-20261127/native-nearest-sony/native-reference-device-060321/` and `native-nearest-low-light/native-reference-device-060432/`. The prior APK was verified by SHA-256 after each run and the device lock was released.

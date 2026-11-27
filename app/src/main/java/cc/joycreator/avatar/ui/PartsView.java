@@ -41,6 +41,9 @@ public final class PartsView extends ScrollView {
         /** One step in the stack: -1 back one, +1 forward one, Integer.MIN_VALUE very back, Integer.MAX_VALUE very front. */
         void restack(String id, int by);
 
+        /** The stance row and card on Arrange. */
+        StanceCard.Host stances();
+
         /** "Put it back": clears the part's move, turn and size, as one step. */
         void putBack(String id);
 
@@ -147,6 +150,7 @@ public final class PartsView extends ScrollView {
             if (n.id.equals(node.id)) parent[0] = p;
         });
         if (parent[0] == null) return;
+        StanceCard.add(getContext(), column, doc, host.stances(), dp);
         column.addView(label(getContext().getString(R.string.avatar_in_front_or_behind)));
         HorizontalScrollView scroll = new HorizontalScrollView(getContext());
         scroll.setHorizontalScrollBarEnabled(false);

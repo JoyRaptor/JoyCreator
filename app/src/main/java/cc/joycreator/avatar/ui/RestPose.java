@@ -259,6 +259,27 @@ final class RestPose implements PoseRenderer {
     }
 
     @Override
+    public double[] restBounds(CharacterDoc.Node n) {
+        double[] b = {1e9, 1e9, -1e9, -1e9};
+        growAll(n, b);
+        return b[0] > b[2] ? null : b;
+    }
+
+    private void growAll(CharacterDoc.Node n, double[] b) {
+        if ("art".equals(n.type)) {
+            Bitmap bm = bitmap(n.img);
+            if (bm != null) {
+                float[] sz = shownSize(n.img, bm);
+                b[0] = Math.min(b[0], n.x);
+                b[1] = Math.min(b[1], n.y);
+                b[2] = Math.max(b[2], n.x + sz[0]);
+                b[3] = Math.max(b[3], n.y + sz[1]);
+            }
+        }
+        for (CharacterDoc.Node k : n.kids) growAll(k, b);
+    }
+
+    @Override
     public CharacterDoc.Node hit(float x, float y) {
         java.util.List<CharacterDoc.Node> all = shown(doc.root);
         for (int i = all.size() - 1; i >= 0; i--) {

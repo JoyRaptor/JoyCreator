@@ -42,6 +42,7 @@ public final class SolverStage extends GLSurfaceView implements GLSurfaceView.Re
     private volatile boolean pendingNewPictures;
     private volatile Map<String, Object> signals = new HashMap<>();
     private volatile Map<String, String> force = new HashMap<>();
+    private volatile Map<String, Double> poses = new HashMap<>();
     private volatile boolean live;
     private volatile double clock, breath, dt = 1 / 60.0;
     private volatile float viewS = 1, viewX, viewY;
@@ -107,6 +108,12 @@ public final class SolverStage extends GLSurfaceView implements GLSurfaceView.Re
         requestRender();
     }
 
+    /** A stance forced to a level while it is being worked on (stance id to 0..1); empty lets the buttons decide. */
+    public void setPoses(Map<String, Double> p) {
+        poses = p == null ? new HashMap<>() : p;
+        requestRender();
+    }
+
     /** "Try this drawing": a drawing of a set shown whatever the signals say (set id to drawing id). */
     public void setForce(Map<String, String> f) {
         force = f == null ? new HashMap<>() : f;
@@ -149,6 +156,8 @@ public final class SolverStage extends GLSurfaceView implements GLSurfaceView.Re
             opt.dt = dt;
             Map<String, String> f = force;
             if (!f.isEmpty()) opt.force = f;
+            Map<String, Double> ps = poses;
+            if (!ps.isEmpty()) opt.poses = ps;
             SolveOut out = solver.eval(s, opt);
             gl.draw(out, pics, new CharacterGl.View(viewS, viewX, viewY), null, 0, width, height);
         } catch (RuntimeException e) {

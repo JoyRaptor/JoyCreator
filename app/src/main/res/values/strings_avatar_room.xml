@@ -181,5 +181,14 @@
     <string name="avatar_hover_update_art">Bring in the repainted file: every pin and setting stays</string>
     <string name="avatar_step_update_art">Update the art</string>
     <string name="avatar_update_done">%1$d pictures replaced, %2$d new layers in Extras, %3$d not in the new file (kept).</string>
+    <string name="avatar_name_stance">Name this stance</string>
+    <string name="avatar_name_stance_default">Sitting</string>
+    <string name="avatar_step_add_stance">Add a stance</string>
+    <string name="avatar_step_make_fours">Work out all fours</string>
+    <string name="avatar_step_work_out_again">Work the stance out again</string>
+    <string name="avatar_step_copy_stance">Copy a stance</string>
+    <string name="avatar_step_rename_stance">Rename a stance</string>
+    <string name="avatar_step_remove_stance">Remove a stance</string>
+    <string name="avatar_no_fours">This character cannot be put on all fours: it needs a torso, two legs that bend and an arm that bends, drawn from the side.</string>
 </resources>
 

@@ -1,0 +1,14 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "avatarlab-video",
+      "runtimeExecutable": "node",
+      "runtimeArgs": [
+        "C:/+Projects/JoyCreator/.claude/worktrees/avatarlab-video-voice-d2d4e9/tools/avatarlab/serve.mjs",
+        "8798"
+      ],
+      "port": 8798
+    }
+  ]
+}

@@ -1,0 +1,19 @@
+Picked up JAVA_TOOL_OPTIONS:  -Djdk.net.unixdomain.tmpdir=C:/Temp
+> Task :androidkit:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :core:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :core:compileKotlinJvm
+> Task :core:compileJvmMainJava NO-SOURCE
+> Task :core:jvmProcessResources NO-SOURCE
+> Task :core:processJvmMainResources SKIPPED
+> Task :core:jvmMainClasses
+> Task :core:jvmJar
+> Task :androidkit:compileKotlin
+> Task :androidkit:compileJava NO-SOURCE
+> Task :androidkit:processResources
+> Task :androidkit:classes
+> Task :androidkit:jar
+> Task :androidkit:compileTestKotlin
+w: file:///C:/Temp/jb-claude-main/joybrush/androidkit/src/test/kotlin/cc/joycreator/joybrush/androidkit/gl/GlJointPaintHistoryTest.kt:292:57 Unchecked cast of 'Any!' to 'HashMap<Long, Int>'.
+
+BUILD SUCCESSFUL in 3m 55s
+6 actionable tasks: 6 executed

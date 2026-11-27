@@ -1,0 +1,108 @@
+Picked up JAVA_TOOL_OPTIONS:  -Djdk.net.unixdomain.tmpdir=C:/Temp
+Calculating task graph as no cached configuration is available for tasks: :joybrush-android:testDebugUnitTest
+> Task :joybrush:androidkit:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :joybrush:core:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :joybrush:core:compileKotlinJvm UP-TO-DATE
+> Task :joybrush:core:compileJvmMainJava NO-SOURCE
+> Task :joybrush:core:jvmProcessResources NO-SOURCE
+> Task :joybrush:core:processJvmMainResources SKIPPED
+> Task :joybrush:core:jvmMainClasses UP-TO-DATE
+> Task :joybrush:core:jvmJar
+> Task :joybrush:androidkit:compileKotlin UP-TO-DATE
+> Task :joybrush:androidkit:compileJava NO-SOURCE
+> Task :joybrush:androidkit:processResources
+> Task :joybrush:androidkit:classes
+> Task :joybrush:androidkit:jar
+> Task :joybrush-android:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :joybrush-android:preBuild UP-TO-DATE
+> Task :joybrush-android:preDebugBuild UP-TO-DATE
+> Task :joybrush-android:generateDebugResValues UP-TO-DATE
+> Task :joybrush-android:generateDebugResources UP-TO-DATE
+> Task :joybrush-android:packageDebugResources UP-TO-DATE
+> Task :joybrush-android:processDebugNavigationResources UP-TO-DATE
+> Task :joybrush-android:parseDebugLocalResources UP-TO-DATE
+> Task :joybrush-android:generateDebugRFile UP-TO-DATE
+> Task :studiokit:preBuild UP-TO-DATE
+> Task :studiokit:preDebugBuild UP-TO-DATE
+> Task :studiokit:generateDebugResValues UP-TO-DATE
+> Task :studiokit:generateDebugResources UP-TO-DATE
+> Task :studiokit:packageDebugResources UP-TO-DATE
+> Task :studiokit:processDebugNavigationResources UP-TO-DATE
+> Task :studiokit:parseDebugLocalResources UP-TO-DATE
+> Task :studiokit:generateDebugRFile UP-TO-DATE
+> Task :studiokit:javaPreCompileDebug UP-TO-DATE
+> Task :studiokit:compileDebugJavaWithJavac UP-TO-DATE
+> Task :studiokit:bundleLibCompileToJarDebug UP-TO-DATE
+> Task :joybrush-android:compileDebugKotlin
+w: file:///C:/Temp/jb-claude-main/joybrush-android/src/main/kotlin/cc/joycreator/joybrush/android/board/BoardChromeView.kt:397:70 'field scaledDensity: Float' is deprecated. Deprecated in Java.
+w: file:///C:/Temp/jb-claude-main/joybrush-android/src/main/kotlin/cc/joycreator/joybrush/android/board/BoardPanels.kt:173:60 'static field SOFT_INPUT_ADJUST_RESIZE: Int' is deprecated. Deprecated in Java.
+w: file:///C:/Temp/jb-claude-main/joybrush-android/src/main/kotlin/cc/joycreator/joybrush/android/board/BoardRuntimeController.kt:509:37 The corresponding parameter in the supertype 'Host' is named 'id'. This may cause problems when calling this function with named arguments.
+w: file:///C:/Temp/jb-claude-main/joybrush-android/src/main/kotlin/cc/joycreator/joybrush/android/board/BoardRuntimeController.kt:519:29 The corresponding parameter in the supertype 'Host' is named 'id'. This may cause problems when calling this function with named arguments.
+w: file:///C:/Temp/jb-claude-main/joybrush-android/src/main/kotlin/cc/joycreator/joybrush/android/board/BoardRuntimeController.kt:587:27 The corresponding parameter in the supertype 'Host' is named 'id'. This may cause problems when calling this function with named arguments.
+w: file:///C:/Temp/jb-claude-main/joybrush-android/src/main/kotlin/cc/joycreator/joybrush/android/board/BoardRuntimeController.kt:641:29 The corresponding parameter in the supertype 'Host' is named 'id'. This may cause problems when calling this function with named arguments.
+w: file:///C:/Temp/jb-claude-main/joybrush-android/src/main/kotlin/cc/joycreator/joybrush/android/board/ExportChoiceSheet.kt:60:61 'field scaledDensity: Float' is deprecated. Deprecated in Java.
+w: file:///C:/Temp/jb-claude-main/joybrush-android/src/main/kotlin/cc/joycreator/joybrush/android/board/ExportChoiceSheet.kt:63:61 'field scaledDensity: Float' is deprecated. Deprecated in Java.
+w: file:///C:/Temp/jb-claude-main/joybrush-android/src/main/kotlin/cc/joycreator/joybrush/android/board/ExportChoiceSheet.kt:66:60 'field scaledDensity: Float' is deprecated. Deprecated in Java.
+w: file:///C:/Temp/jb-claude-main/joybrush-android/src/main/kotlin/cc/joycreator/joybrush/android/board/ExportChoiceSheet.kt:83:50 Condition is always 'true'.
+w: file:///C:/Temp/jb-claude-main/joybrush-android/src/main/kotlin/cc/joycreator/joybrush/android/board/ExportChoiceSheet.kt:83:92 Condition is always 'true'.
+w: file:///C:/Temp/jb-claude-main/joybrush-android/src/main/kotlin/cc/joycreator/joybrush/android/board/ExportChoiceSheet.kt:99:30 'var isChecked: Boolean' is deprecated. Deprecated in Java.
+w: file:///C:/Temp/jb-claude-main/joybrush-android/src/main/kotlin/cc/joycreator/joybrush/android/library/DrawingsActivity.kt:42:16 'var statusBarColor: Int' is deprecated. Deprecated in Java.
+w: file:///C:/Temp/jb-claude-main/joybrush-android/src/main/kotlin/cc/joycreator/joybrush/android/library/DrawingsActivity.kt:43:16 'var navigationBarColor: Int' is deprecated. Deprecated in Java.
+w: file:///C:/Temp/jb-claude-main/joybrush-android/src/main/kotlin/cc/joycreator/joybrush/android/select/SelectCountView.kt:212:62 'static fun obtain(p0: Int, p1: Float, p2: Float, p3: Float): AccessibilityNodeInfo.RangeInfo!' is deprecated. Deprecated in Java.
+
+> Task :joybrush-android:javaPreCompileDebug UP-TO-DATE
+> Task :joybrush-android:compileDebugJavaWithJavac NO-SOURCE
+> Task :joybrush-android:bundleLibRuntimeToJarDebug
+> Task :joybrush-android:bundleLibCompileToJarDebug
+> Task :joybrush-android:preDebugUnitTestBuild UP-TO-DATE
+> Task :joybrush-android:writeDebugAarMetadata UP-TO-DATE
+> Task :studiokit:writeDebugAarMetadata UP-TO-DATE
+> Task :joybrush-android:checkDebugUnitTestAarMetadata UP-TO-DATE
+> Task :joybrush-android:compileDebugLibraryResources UP-TO-DATE
+> Task :joybrush-android:generateDebugUnitTestResValues UP-TO-DATE
+> Task :joybrush-android:mapDebugUnitTestSourceSetPaths UP-TO-DATE
+> Task :joybrush-android:generateDebugUnitTestResources UP-TO-DATE
+> Task :joybrush-android:mergeDebugUnitTestResources UP-TO-DATE
+> Task :joybrush-android:extractDeepLinksDebug UP-TO-DATE
+> Task :joybrush-android:processDebugManifest UP-TO-DATE
+> Task :studiokit:extractDeepLinksDebug UP-TO-DATE
+> Task :studiokit:processDebugManifest UP-TO-DATE
+> Task :joybrush-android:processDebugUnitTestManifest UP-TO-DATE
+> Task :studiokit:compileDebugLibraryResources UP-TO-DATE
+> Task :joybrush-android:processDebugUnitTestResources UP-TO-DATE
+> Task :joybrush-android:compileDebugUnitTestKotlin
+w: file:///C:/Temp/jb-claude-main/joybrush-android/src/test/kotlin/cc/joycreator/joybrush/android/board/BoardPanelsTest.kt:139:49 'static field SOFT_INPUT_ADJUST_RESIZE: Int' is deprecated. Deprecated in Java.
+w: file:///C:/Temp/jb-claude-main/joybrush-android/src/test/kotlin/cc/joycreator/joybrush/android/board/CanvasBoundSaveGuardTest.kt:169:46 Unchecked cast of 'Any?' to 'Map<String, Any>'.
+w: file:///C:/Temp/jb-claude-main/joybrush-android/src/test/kotlin/cc/joycreator/joybrush/android/board/CanvasBoundSaveGuardTest.kt:209:28 Java type mismatch: inferred type is 'Any?', but 'Any' was expected.
+w: file:///C:/Temp/jb-claude-main/joybrush-android/src/test/kotlin/cc/joycreator/joybrush/android/board/ExportChoiceSheetTest.kt:58:60 'var isChecked: Boolean' is deprecated. Deprecated in Java.
+w: file:///C:/Temp/jb-claude-main/joybrush-android/src/test/kotlin/cc/joycreator/joybrush/android/board/ExportChoiceSheetTest.kt:59:57 'var isChecked: Boolean' is deprecated. Deprecated in Java.
+w: file:///C:/Temp/jb-claude-main/joybrush-android/src/test/kotlin/cc/joycreator/joybrush/android/board/ExportChoiceSheetTest.kt:61:61 'var isChecked: Boolean' is deprecated. Deprecated in Java.
+w: file:///C:/Temp/jb-claude-main/joybrush-android/src/test/kotlin/cc/joycreator/joybrush/android/board/ExportChoiceSheetTest.kt:62:56 'var isChecked: Boolean' is deprecated. Deprecated in Java.
+w: file:///C:/Temp/jb-claude-main/joybrush-android/src/test/kotlin/cc/joycreator/joybrush/android/board/ExportChoiceSheetTest.kt:63:77 'var isChecked: Boolean' is deprecated. Deprecated in Java.
+w: file:///C:/Temp/jb-claude-main/joybrush-android/src/test/kotlin/cc/joycreator/joybrush/android/board/ExportChoiceSheetTest.kt:64:71 'var isChecked: Boolean' is deprecated. Deprecated in Java.
+
+> Task :joybrush-android:javaPreCompileDebugUnitTest UP-TO-DATE
+> Task :joybrush-android:compileDebugUnitTestJavaWithJavac NO-SOURCE
+> Task :joybrush-android:generateDebugUnitTestAssets UP-TO-DATE
+> Task :joybrush-android:mergeDebugShaders UP-TO-DATE
+> Task :joybrush-android:compileDebugShaders NO-SOURCE
+> Task :joybrush-android:generateDebugAssets UP-TO-DATE
+> Task :joybrush-android:mergeDebugAssets UP-TO-DATE
+> Task :studiokit:mergeDebugShaders UP-TO-DATE
+> Task :studiokit:compileDebugShaders NO-SOURCE
+> Task :studiokit:generateDebugAssets UP-TO-DATE
+> Task :studiokit:mergeDebugAssets UP-TO-DATE
+> Task :joybrush-android:mergeDebugUnitTestAssets UP-TO-DATE
+> Task :joybrush-android:packageDebugUnitTestForUnitTest UP-TO-DATE
+> Task :joybrush-android:generateDebugUnitTestConfig UP-TO-DATE
+> Task :joybrush-android:processDebugJavaRes UP-TO-DATE
+> Task :joybrush-android:processDebugUnitTestJavaRes UP-TO-DATE
+> Task :studiokit:bundleLibRuntimeToJarDebug UP-TO-DATE
+> Task :studiokit:processDebugJavaRes NO-SOURCE
+
+> Task :joybrush-android:testDebugUnitTest
+Picked up JAVA_TOOL_OPTIONS:  -Djdk.net.unixdomain.tmpdir=C:/Temp
+
+BUILD SUCCESSFUL in 2m 29s
+52 actionable tasks: 8 executed, 44 up-to-date
+Configuration cache entry stored.

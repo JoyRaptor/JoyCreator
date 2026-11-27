@@ -1,0 +1,14 @@
+Picked up JAVA_TOOL_OPTIONS:  -Djdk.net.unixdomain.tmpdir=C:/Temp
+Starting a Gradle Daemon, 63 busy and 1 incompatible Daemons could not be reused, use --status for details
+> Task :androidkit:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :core:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :core:compileKotlinJvm
+> Task :core:compileJvmMainJava NO-SOURCE
+> Task :core:jvmProcessResources NO-SOURCE
+> Task :core:processJvmMainResources SKIPPED
+> Task :core:jvmMainClasses
+> Task :core:jvmJar
+> Task :androidkit:compileKotlin
+
+BUILD SUCCESSFUL in 2m 51s
+3 actionable tasks: 3 executed

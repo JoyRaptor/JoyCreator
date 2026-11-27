@@ -1,0 +1,14 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "avatarlab",
+      "runtimeExecutable": "node",
+      "runtimeArgs": [
+        "C:/+Projects/JoyCreator/.claude/worktrees/avatarlab-walk-stage-8c89bc/tools/avatarlab/serve.mjs",
+        "8801"
+      ],
+      "port": 8801
+    }
+  ]
+}

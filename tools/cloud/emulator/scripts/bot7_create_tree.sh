@@ -21,7 +21,13 @@ landing() {
     local name="$1"; shift
     echo "=== landing $name"
     tap_text "Create something" >/dev/null 2>&1; settle 2
-    if ! tap_text "$name" >/dev/null 2>&1; then echo "RESULT $name: bubble not found"; return; fi
+    local found=0 k
+    for k in 0 1 2 3 4 5 6; do
+        if tap_text "$name" >/dev/null 2>&1; then found=1; break; fi
+        swipe 900 1960 200 1960 300; settle 1      # the bubbles are a row that scrolls sideways
+        dump; echo "bubbles after swipe $k:"; python3 "$HERE_LIB/uia.py" list /tmp/ui.xml | grep -i "|" | head -12
+    done
+    [ "$found" = 1 ] || { echo "RESULT $name: bubble not found"; shot "${name}_notfound"; return; }
     settle 3; shot "${name}_asks"
     dump "${name}_asks"; python3 "$HERE_LIB/uia.py" list /tmp/ui.xml | head -25
     for answer in "$@"; do tap_text "$answer" >/dev/null 2>&1 && { echo "answered $answer"; settle 3; }; done

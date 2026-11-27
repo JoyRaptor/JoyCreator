@@ -120,7 +120,8 @@
     if (n && AL.fit && AL.fit.can && !AL.fit.can(app, n)) return;
     var ui = app.ui, mine = n ? fp.list(app.ch).filter(function (q) { return q.node === n.id; }).length : 0;
     pb.appendChild(ui.lab('Your face', 'setup motion'));
-    pb.appendChild(ui.row([fp.chip(app)]));
+    var isHead = n && AL.mask && AL.maskScreen && AL.mask.headSet(app.ch) === n;
+    pb.appendChild(ui.row(isHead ? [AL.maskScreen.chip(app), fp.chip(app)] : [fp.chip(app)]));          // FACE-2: the face mask, on the turning head
     pb.appendChild(ui.note(mine ? mine + ' face pin' + (mine > 1 ? 's' : '') + ' pull this part. Tap <b>Face pins</b> to add, try or change them.'
       : 'Pin a point of your face (a mouth corner, a cheek, a brow) to any spot on this part: it follows that point. Or let it follow an expression (cheeks puffed, a smile, wide eyes) in its <b>Links</b> or <b>Shapes</b>.'));
   };

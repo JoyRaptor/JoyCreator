@@ -29,6 +29,23 @@ excellent product that people are going to want."
   sheet pass); step 0's landmarks (`set.marks`, one numbered set per piece, here / behind / not here, `al-format.js`),
   which the head turn already bends through.
 
+## Stage 1 built (11-27): the mask on every angle
+| | Built | Check |
+|---|---|---|
+| ✅ | **Face mask** on the head's card (Set up, Motion); one screen: the head on the stage with the mask drawn inside the stage, the panel below | 1, 9 |
+| ✅ | Putting it on: 20 named points linked to face points, on every drawing, guessed (Snap to parts by slice names, else the mask turned), one undo step; the file stays valid | 1 |
+| ✅ | Drag a big handle and the points you have not placed follow; a point you placed stays exactly where you put it (his round-2 complaint) | 2 |
+| ✅ | Hidden on this drawing (dashed), Not here; Add a point (a diamond, numbered, on every drawing); rename; make a point a big handle; Follow the mask again; Reset this drawing; Looks right | 3, 4 |
+| ✅ | Each drawing's real turn from its points (a made-up placing at 25 degrees left and face on is read back within 6 degrees); Adjust / Use the worked-out turn | 5 |
+| ✅ | Carried to a drawing with only four points placed, the rest land on its features: the creature's own face shape is learned (error under 0.7 of the plain mask's, under a quarter of the face) | 6 |
+| ✅ | The mask points are the head's landmarks: the head turn bends through them | 7 |
+| ✅ | One undo step per drag, Undo puts it back; Done closes | 8, 9 |
+
+12 checks, 8 of 8 planted faults caught (nostay, norefit, nohide, noadd, noturn, nolearn, noundo, noentry). Found and
+fixed on the way: the view still gliding after the head was chosen made points land 1-2 points off (the view now snaps
+when the mask opens or the drawing changes). Rough: a drawing's turn guessed from slice names alone (before any point is
+placed) can be far off; it says "?" until three points are placed.
+
 ## The plan
 **The mask IS the head's own landmarks.** Mask points are the whole-head piece's numbered landmarks (`set.marks['']`)
 with a name, a key (`eyeL`) and the face point they follow; so placing the mask also gives the head turn its landmarks.

@@ -16,6 +16,7 @@ ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 D = "app/src/main/java/cc/joycreator/avatar/face/FaceDrive.java"
 W = "app/src/main/java/cc/joycreator/avatar/face/FaceWalk.java"
 I = "app/src/main/java/cc/joycreator/avatar/perform/Inputs.java"
+MC = "app/src/main/java/cc/joycreator/avatar/face/MirrorChip.java"
 M = "app/src/main/java/cc/joycreator/avatar/ui/SignalMap.java"
 
 PLANTS = [
@@ -52,8 +53,8 @@ PLANTS = [
     ("the face's lanes have no owner while it drives", [(I, "o.add(\"facepins\");", "")]),
     ("in the room, while-talking-only drives all the time", [(I, "faceDrive.apply(faceOn ? face : null, talking,", "faceDrive.apply(faceOn ? face : null, true,")]),
     ("the face's lanes never reach the solver (face pins move nothing)", [(M, "s.extra.put(k, ((Number) e.getValue()).doubleValue());   // face pins", "{ }   // face pins")]),
-    ("the Mirror chip shows the engine's flag as it is (off while it reflects)", [(D, "return t == null || !t.mirror;", "return t != null && t.mirror;")]),
-    ("the Mirror chip sets the engine's flag as it is (on = like someone facing you)", [(D, "t.mirror = !on;", "t.mirror = on;")]),
+    ("the Mirror chip shows the engine's flag as it is (off while it reflects)", [(MC, "return t == null || !t.mirror;", "return t != null && t.mirror;")]),
+    ("the Mirror chip sets the engine's flag as it is (on = like someone facing you)", [(MC, "t.mirror = !on;", "t.mirror = on;")]),
     ("the camera starts but the face does not drive", [(I, "if (on && faceDrive.mode() == cc.joycreator.avatar.face.FaceDrive.Mode.OFF) faceDrive.setMode(cc.joycreator.avatar.face.FaceDrive.Mode.ALWAYS);", "")]),
 ]
 

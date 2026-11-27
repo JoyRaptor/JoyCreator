@@ -369,7 +369,7 @@ left turn swung the face a third as far as his right, so a fixed swing walked hi
 
 **Also found:** the phone room's **Mirror** chip showed the engine's flag the wrong way round (the engine's `mirror` means "like
 someone facing you"): it read OFF while the character moved like a reflection, and ON switched it to facing. Now
-`FaceDrive.mirrorChip` / `setMirrorChip` (ON = reflection, the default, as the pilot's tick).
+`MirrorChip.on` / `set` (ON = reflection, the default, as the pilot's tick).
 
 **Proof:** `run-avatar-face.sh` runs `AvatarFaceTakeTest` (15 checks on his take through the phone's face engine, the room's
 hands and walking with your face; the turn check failed first on the old code), plants 33 of 33 caught; `run-face.sh`: the pilot

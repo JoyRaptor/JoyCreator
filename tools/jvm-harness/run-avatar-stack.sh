@@ -15,6 +15,7 @@ javac -nowarn -encoding UTF-8 -d "$OUT" \
   app/src/main/java/cc/joycreator/avatar/file/Stances.java \
   app/src/main/java/cc/joycreator/avatar/file/Stack.java \
   app/src/main/java/cc/joycreator/avatar/perform/Walker.java \
+  app/src/main/java/cc/joycreator/avatar/perform/DepthWalk.java \
   tools/jvm-harness/WalkerTest.java \
   tools/jvm-harness/StackTest.java || exit 1
 java -Djava.awt.headless=true -cp "$OUT" StackTest

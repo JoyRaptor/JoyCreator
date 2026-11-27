@@ -8,7 +8,7 @@
 #   .\tools\cloud-build.ps1 run   <ref> [variant]   start + wait + fetch in one go
 #   .\tools\cloud-build.ps1 test  <ref> [suites]    runs tests on GitHub and prints a short summary (run it in the background);
 #                                                   suites: all (default) or any of jb-core,jb-androidkit,jb-android,studio,joybot
-#   .\tools\cloud-build.ps1 emulator <ref> [tests] [fault] [device]
+#   .\tools\cloud-build.ps1 emulator <ref> [tests] [fault] [device] [gpu] [msaa]
 #                                                   builds <ref>, boots an Android emulator on GitHub and runs the Avatar Studio
 #                                                   instrumented tests (.github/workflows/avatar-emulator.yml); waits, then fetches
 #                                                   the pictures and logs into build\cloud\avatar-emulator-*\ (run it in the background).
@@ -359,6 +359,8 @@ switch ($Cmd) {
         $script:Workflow = "avatar-emulator.yml"
         $x = @{ tests = $(if ($Rest.Count -ge 2) { $Rest[1] } else { "all" }); fault = $(if ($Rest.Count -ge 3) { $Rest[2] } else { "none" }) }
         if ($Rest.Count -ge 4) { $x.device = $Rest[3] }
+        if ($Rest.Count -ge 5) { $x.gpu = $Rest[4] }
+        if ($Rest.Count -ge 6) { $x.msaa = $Rest[5] }
         $id = Start-Build $Rest[0] "" "" $x
         $ok = Wait-Build $id
         try { Get-Build $id } catch { Write-Host "no pictures to fetch: $($_.Exception.Message)" }

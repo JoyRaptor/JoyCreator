@@ -31,9 +31,14 @@ final class Emu {
 
     /** The run's planted fault ({@code am instrument -e fault <name>}), or "" for an honest run. */
     static String fault() {
+        return arg("fault", "");
+    }
+
+    /** An {@code am instrument -e <name> <value>} argument, or {@code def} when the run gave none. */
+    static String arg(String name, String def) {
         Bundle a = InstrumentationRegistry.getArguments();
-        String f = a == null ? null : a.getString("fault");
-        return f == null ? "" : f;
+        String f = a == null ? null : a.getString(name);
+        return f == null || f.isEmpty() ? def : f;
     }
 
     static File dir(String sub) {

@@ -5,7 +5,7 @@
 #   AvatarRoomSmokeTest   the room opens with Topps, real taps through the four stages, then Pip the same way
 # Pictures (phone, pilot difference, room screenshots), the instrument output and logcat are the run's artifact.
 #
-# Started by:  .\tools\cloud-build.ps1 emulator <ref> [tests] [fault] [device]   (or the Actions tab, "Run workflow"),
+# Started by:  .\tools\cloud-build.ps1 emulator <ref> [tests] [fault] [device] [gpu] [msaa]   (or the Actions tab, "Run workflow"),
 # and by itself on a push that touches the avatar code or these tests.
 # Rules as build.yml: never signs, no secrets, the logs are public (print nothing from the PC).
 # What an emulator cannot show: pen pressure and tilt, the phone's real GPU (Adreno/Mali precision and speed), camera,
@@ -31,6 +31,14 @@ on:
         description: "Emulator profile (avdmanager device id): pixel_4 (phone) or pixel_tablet"
         required: false
         default: pixel_4
+      gpu:
+        description: "Emulator GL: swiftshader_indirect (SwiftShader on its own host thread), swiftshader or guest"
+        required: false
+        default: swiftshader_indirect
+      msaa:
+        description: "Samples for the off-screen drawing in AvatarDrawParityTest: 4 or 0"
+        required: false
+        default: '4'
       request_id:
         description: Tag that tools/cloud-build.ps1 uses to find its run (any short text)
         required: false
@@ -46,7 +54,7 @@ on:
 run-name: "avatar emulator ${{ inputs.tests || 'all' }} fault=${{ inputs.fault || 'none' }} @ ${{ inputs.ref || github.ref_name }} [${{ inputs.request_id || 'push' }}]"
 
 concurrency:
-  group: avatar-emulator-${{ inputs.ref || github.ref }}-${{ inputs.fault || 'none' }}-${{ inputs.device || 'pixel_4' }}
+  group: avatar-emulator-${{ inputs.ref || github.ref }}-${{ inputs.fault || 'none' }}-${{ inputs.device || 'pixel_4' }}-${{ inputs.gpu || 'si' }}-${{ inputs.msaa || '4' }}
   cancel-in-progress: ${{ github.event_name == 'push' }}
 
 permissions:
@@ -65,7 +73,7 @@ env:
 jobs:
   emulator:
     runs-on: ubuntu-latest
-    timeout-minutes: 120
+    timeout-minutes: 60
     steps:
       - name: Check out
         uses: actions/checkout@v4
@@ -134,8 +142,10 @@ jobs:
           ./gradlew --stop > /dev/null 2>&1 || true   # its memory goes to the emulator
 
       - name: Boot the emulator (API 30, x86_64, SwiftShader)
+        timeout-minutes: 12
         env:
           DEVICE: ${{ inputs.device || 'pixel_4' }}
+          GPU: ${{ inputs.gpu || 'swiftshader_indirect' }}
         run: |
           set -euo pipefail
           sudo chmod a+rw /dev/kvm
@@ -148,7 +158,7 @@ jobs:
             --package 'system-images;android-30;google_apis;x86_64' --device "$DEVICE"
           printf 'hw.ramSize=3072\ndisk.dataPartition.size=4G\nhw.keyboard=yes\n' >> "$ANDROID_AVD_HOME/avatar.avd/config.ini"
           "$ANDROID_HOME/emulator/emulator" -avd avatar -no-window -no-audio -no-boot-anim -no-snapshot \
-            -gpu swiftshader -accel on > "$RUNNER_TEMP/emulator.log" 2>&1 &
+            -gpu "$GPU" -accel on > "$RUNNER_TEMP/emulator.log" 2>&1 &
           emu_pid=$!
           for attempt in $(seq 1 120); do
             if adb -e get-state 2>/dev/null | grep -qx device; then break; fi
@@ -177,7 +187,9 @@ jobs:
 
       - name: Run the avatar tests
         id: run
+        timeout-minutes: 35
         env:
+          MSAA: ${{ inputs.msaa || '4' }}
           TESTS: ${{ inputs.tests || 'all' }}
           FAULT: ${{ inputs.fault || 'none' }}
         run: |
@@ -187,23 +199,26 @@ jobs:
             room) CLASSES=cc.joycreator.avatar.emu.AvatarRoomSmokeTest ;;
             *)    CLASSES=cc.joycreator.avatar.emu.AvatarDrawParityTest,cc.joycreator.avatar.emu.AvatarRoomSmokeTest ;;
           esac
-          ARGS=(-e class "$CLASSES")
+          ARGS=(-e class "$CLASSES" -e msaa "$MSAA")
           [ "$FAULT" != none ] && ARGS+=(-e fault "$FAULT")
           mkdir -p emu-out
-          adb -e logcat -c
+          timeout 30 adb -e logcat -c
           adb -e logcat -v time > emu-out/logcat-live.txt 2>&1 &   # kept even if the emulator dies mid-test
           timeout 1500 adb -e shell am instrument -w -r "${ARGS[@]}" "$PKG.test/$RUNNER_CLASS" | tee emu-out/instrument.txt
-          echo "instrument exit: ${PIPESTATUS[0]}; device: $(adb -e get-state 2>&1)" | tee emu-out/device.txt
-          cp "$RUNNER_TEMP/emulator.log" emu-out/ 2>/dev/null || true
-          adb -e logcat -d > emu-out/logcat.txt || true
-          adb -e logcat -d -s AvatarEmu:V TestRunner:V AndroidRuntime:E > emu-out/avatar-log.txt || true
+          echo "instrument exit: ${PIPESTATUS[0]}; device: $(timeout 20 adb -e get-state 2>&1)" | tee emu-out/device.txt
+          # every adb call from here has a time limit: a frozen emulator must not hold the run (it once held it 2 hours)
+          timeout 60 adb -e logcat -d > emu-out/logcat.txt || true
+          timeout 60 adb -e logcat -d -s AvatarEmu:V TestRunner:V AndroidRuntime:E > emu-out/avatar-log.txt || true
+          [ -s emu-out/avatar-log.txt ] || grep -E ' (I|W|E)/(AvatarEmu|TestRunner|AndroidRuntime)' emu-out/logcat-live.txt > emu-out/avatar-log.txt || true
           # the pictures the tests saved in the app's own files
-          adb -e exec-out run-as "$PKG" tar -cf - files/avatar-emu > "$RUNNER_TEMP/emu.tar" && tar -xf "$RUNNER_TEMP/emu.tar" -C emu-out || true
+          timeout 120 adb -e exec-out run-as "$PKG" tar -cf - files/avatar-emu > "$RUNNER_TEMP/emu.tar" && tar -xf "$RUNNER_TEMP/emu.tar" -C emu-out || true
+          kill %1 2>/dev/null || true
+          cp "$RUNNER_TEMP/emulator.log" emu-out/ 2>/dev/null || true
           [ -d emu-out/files/avatar-emu ] && mv emu-out/files/avatar-emu emu-out/pictures && rmdir emu-out/files || true
           if grep -q '^OK (' emu-out/instrument.txt; then result=pass; else result=fail; fi
           echo "result=$result" >> "$GITHUB_OUTPUT"
           {
-            echo "### Avatar emulator: $result (tests=$TESTS, fault=$FAULT, ${{ inputs.device || 'pixel_4' }}) @ ${{ steps.meta.outputs.sha }}"
+            echo "### Avatar emulator: $result (tests=$TESTS, fault=$FAULT, msaa=$MSAA, ${{ inputs.device || 'pixel_4' }}, ${{ inputs.gpu || 'swiftshader_indirect' }}) @ ${{ steps.meta.outputs.sha }}"
             echo '```'
             grep -E '^(OK|FAILURES|Tests run|INSTRUMENTATION_|Error)' emu-out/instrument.txt | head -20
             sed -n '/draw parity/,/^$/p;/room smoke/,/^$/p' emu-out/avatar-log.txt | sed 's/^[^:]*: //' | head -60

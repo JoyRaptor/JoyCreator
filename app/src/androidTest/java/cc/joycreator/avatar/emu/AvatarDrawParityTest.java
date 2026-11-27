@@ -216,7 +216,10 @@ public class AvatarDrawParityTest {
         final EGLSurface surf;
         int samples;
 
+        /** {@code -e msaa 0} asks for no multisampling (the emulator's SwiftShader can stall on a multisampled pbuffer). */
         EglBox() {
+            int want = Integer.parseInt(Emu.arg("msaa", "4"));
+            Log.i(Emu.TAG, "EGL: display, asking for " + want + " samples");
             dpy = EGL14.eglGetDisplay(EGL14.EGL_DEFAULT_DISPLAY);
             int[] ver = new int[2];
             EGL14.eglInitialize(dpy, ver, 0, ver, 1);
@@ -224,14 +227,16 @@ public class AvatarDrawParityTest {
             int[] n = new int[1];
             int[] msaa = {EGL14.EGL_RED_SIZE, 8, EGL14.EGL_GREEN_SIZE, 8, EGL14.EGL_BLUE_SIZE, 8, EGL14.EGL_ALPHA_SIZE, 8,
                 EGL14.EGL_RENDERABLE_TYPE, EGL14.EGL_OPENGL_ES2_BIT, EGL14.EGL_SURFACE_TYPE, EGL14.EGL_PBUFFER_BIT,
-                EGL14.EGL_SAMPLE_BUFFERS, 1, EGL14.EGL_SAMPLES, 4, EGL14.EGL_NONE};
+                EGL14.EGL_SAMPLE_BUFFERS, 1, EGL14.EGL_SAMPLES, want, EGL14.EGL_NONE};
             int[] plain = {EGL14.EGL_RED_SIZE, 8, EGL14.EGL_GREEN_SIZE, 8, EGL14.EGL_BLUE_SIZE, 8, EGL14.EGL_ALPHA_SIZE, 8,
                 EGL14.EGL_RENDERABLE_TYPE, EGL14.EGL_OPENGL_ES2_BIT, EGL14.EGL_SURFACE_TYPE, EGL14.EGL_PBUFFER_BIT, EGL14.EGL_NONE};
-            if (EGL14.eglChooseConfig(dpy, msaa, 0, cfg, 0, 1, n, 0) && n[0] > 0) samples = 4;
+            if (want > 0 && EGL14.eglChooseConfig(dpy, msaa, 0, cfg, 0, 1, n, 0) && n[0] > 0) samples = want;
             else { EGL14.eglChooseConfig(dpy, plain, 0, cfg, 0, 1, n, 0); samples = 0; }
+            Log.i(Emu.TAG, "EGL: config chosen (" + samples + " samples), making the context");
             ctx = EGL14.eglCreateContext(dpy, cfg[0], EGL14.EGL_NO_CONTEXT, new int[] {EGL14.EGL_CONTEXT_CLIENT_VERSION, 2, EGL14.EGL_NONE}, 0);
             surf = EGL14.eglCreatePbufferSurface(dpy, cfg[0], new int[] {EGL14.EGL_WIDTH, W, EGL14.EGL_HEIGHT, H, EGL14.EGL_NONE}, 0);
             if (!EGL14.eglMakeCurrent(dpy, surf, surf, ctx)) throw new IllegalStateException("no GL context: " + EGL14.eglGetError());
+            Log.i(Emu.TAG, "EGL: current");
         }
 
         /** glReadPixels gives the bottom row first; a Bitmap wants the top row first (both premultiplied). */

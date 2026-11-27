@@ -2453,6 +2453,11 @@ public class FxPreviewTextureView extends TextureView
 
     private void releaseHighFootage() {
         clearHighFootageHistory();
+        // Called on every frame without footage input: nothing held means nothing to do (no
+        // EGL query per frame while motion blur is off).
+        if (pausedColorWorker == null && pausedColors == null && pausedFootageAfter == null
+                && highFootageFlow == null && highFootageGather == null
+                && highFootageWidth == 0 && highFootageHeight == 0) return;
         boolean contextCurrent = eglContext != EGL14.EGL_NO_CONTEXT
                 && eglContext.equals(EGL14.eglGetCurrentContext());
         if (pausedColorWorker != null) pausedColorWorker.close(contextCurrent);

@@ -1273,7 +1273,9 @@ public final class FxLivePreviewController {
     @Nullable
     private FxPreviewTextureView.AuthoredMeshSource authoredMeshSource(SpriteOverlayItem sprite, long playheadMs) {
         var clock = motionClock.anchor();
-        if (clock == null || !AuthoredSpriteMeshExposure.supportsDirectMesh(sprite) || !authoredMeshVisible()) {
+        // The sprite's own Motion Blur must be on: the project switch alone is not an opt-in.
+        if (clock == null || !sprite.isRigidMotionBlurEnabled()
+                || !AuthoredSpriteMeshExposure.supportsDirectMesh(sprite) || !authoredMeshVisible()) {
             return null;
         }
         var current = host.spriteMotionCell(sprite, playheadMs);

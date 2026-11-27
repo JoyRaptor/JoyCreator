@@ -5,13 +5,16 @@ import kotlinx.serialization.Serializable
 
 const val DOC_FORMAT = "joybrush.document"
 /**
+ * 9: one layer kind (R51, JB-2.40): realistic media is a per-tile payload on a PAINT cel ([Cel.floatTiles]); a v8 MEDIA
+ *    layer is read as PAINT ([DocJson.decode]).
+ * 8: the MEDIA layer kind and its float tiles (MEDIA_ENGINE_PLAN §4).
  * 7: explicit screen transparency for paper.
  * 6: board-local region frame addresses and a saved current frame for each board.
  * 5: board chrome's tiled display flag.
  * 4: the paper carries a look, a tint and two sliders (JB-9.05, R10).
  * 3: a layer may carry a [Layer.mask] and be [Layer.clip]ped (JB-2.23, Lead ruling R48).
  */
-const val DOC_VERSION = 8
+const val DOC_VERSION = 9
 
 /**
  * The engine's tile size, NOT a second copy of it. `Cel.tiles` holds keys the engine wrote with
@@ -135,14 +138,14 @@ const val TILE_SIZE = Tiles.SIZE
 @Serializable enum class LayerKind {
     PAINT, INK,
     /**
-     * v8 (the media engine, MEDIA_ENGINE_PLAN §4): pencil, watercolour and oil. The truth is FLOAT state (paint
-     * body, water, graphite) in tiles listed by [Cel.floatTiles]; its [Cel.tiles] are an ordinary RGBA "look"
-     * rendered from that state, so export, thumbnails, masks and the eyedropper read it like a paint layer.
+     * v8 only (the media engine's first form). Since v9 (R51) there is one kind of pixel layer: pencil, watercolour and
+     * oil are a payload on the tiles of a PAINT cel they touched ([Cel.floatTiles]). The constant stays (R3: append-only)
+     * so a v8 file still opens; [DocJson.decode] reads it as PAINT, and a v9 document never has it.
      */
     MEDIA,
 }
 
-/** A layer whose [Cel.tiles] are pixels a compositor draws (paint, and a media layer's look). */
+/** A layer whose [Cel.tiles] are pixels a compositor draws (PAINT; and the v8 MEDIA kind, read as PAINT). */
 val LayerKind.hasPixels: Boolean get() = this != LayerKind.INK
 /**
  * How a layer combines with what is under it. The constant NAME is what lands in `document.json`
@@ -188,9 +191,10 @@ val LayerKind.hasPixels: Boolean get() = this != LayerKind.INK
     val id: String,
     val tiles: List<String> = emptyList(),  // PAINT: tile keys "tx_ty" that exist (sparse)
     val strokesFile: String? = null,        // INK: path inside the document zip
-    // MEDIA (v8): tile keys "tx_ty" holding float state, saved as layers/<id>/<cel>/<key>.<store>.f16 (little-endian half
-    // floats) for each store the layer's media wrote there (p0, p1, paper; w0, w1 only while wet: MediaStores). The look
-    // for the same area is in [tiles].
+    // PAINT (v9; MEDIA in v8): tile keys "tx_ty" a pencil, watercolour or oil stroke touched, holding its payload: float
+    // state saved as layers/<id>/<cel>/<key>.<store>.f16 (little-endian half floats) for each store the media wrote there
+    // (p0, p1, paper; w0, w1 only while wet: MediaStores), and the ground under it as <key>.g.rgba. The look for the
+    // same area is in [tiles].
     val floatTiles: List<String> = emptyList(),
 )
 

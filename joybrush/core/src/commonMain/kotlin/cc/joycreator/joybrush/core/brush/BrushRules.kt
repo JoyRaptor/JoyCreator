@@ -20,22 +20,15 @@ object BrushRules {
     /**
      * The sentence to show a person if [engine] may not be used on a [kind] layer, or null if it may.
      *
-     * A media layer's pixels are a look rendered from its paint and water, so anything that writes only pixels would be
-     * undone by the next render (the Lead, step-4 check 1): on MEDIA only media brushes paint, and an eraser ([erases]) is
-     * let through because the canvas routes it to the media engine, which erases the state itself. A media brush is
-     * never refused here: on a paint or ink layer the canvas makes a media layer above for it (contract point 5).
+     * Since R51 there is one kind of pixel layer: every brush paints on PAINT (a v8 MEDIA layer is read as PAINT, and
+     * [kind] says MEDIA only for one that was not). A media brush lays its paint over the pixels under it and keeps a
+     * payload beside them, so like the brushes that read the paint it needs pixels: on INK it is refused (until ink
+     * joins the one kind, JB-5.20).
      */
-    fun refusalFor(engine: String, kind: LayerKind, erases: Boolean = false): String? {
-        if (engine == ENGINE_MEDIA) return null
-        if (kind == LayerKind.MEDIA) {
-            if (erases) return null
-            val what = when (engine) {
-                ENGINE_SMUDGE -> "Smudge"; ENGINE_PUSH -> "Push"; "wet" -> "Wet paint"; ENGINE_FILL -> "Fill"
-                else -> "This brush"
-            }
-            return "$what works on a paint layer. A pencil, watercolour or oil layer is painted and blended with its own brushes."
-        }
-        if (kind == LayerKind.PAINT || engine !in READS_PIXELS) return null
+    fun refusalFor(engine: String, kind: LayerKind): String? {
+        if (kind != LayerKind.INK) return null
+        if (engine == ENGINE_MEDIA) return "Pencil, watercolour and oil paint on a paint layer, and an ink layer has no pixels for them."
+        if (engine !in READS_PIXELS) return null
         val what = when (engine) {
             ENGINE_SMUDGE -> "Smudge"
             ENGINE_PUSH -> "Push"

@@ -171,7 +171,7 @@ class CurveEditorView(
  * even touches.
  */
 @SuppressLint("ViewConstructor")
-class PenReadingView(private val kit: ChromeKit) : View(kit.context) {
+open class PenReadingView(protected val kit: ChromeKit) : View(kit.context) {
 
     private var pressure = 0f
     private var tilt = Float.NaN
@@ -199,13 +199,26 @@ class PenReadingView(private val kit: ChromeKit) : View(kit.context) {
         setMeasuredDimension(w, w + kit.dpi(28f))
     }
 
+    /** The ring's centre and radius in this view, as drawn. */
+    protected fun ringCenterX(): Float = width / 2f
+    protected fun ringCenterY(): Float = kit.dp(16f) + ringRadius()
+    protected fun ringRadius(): Float = width / 2f - kit.dp(6f)
+
+    /** Drawn inside the ring, under the pen's lean and ball (the Unibrush A/B shapes, BRUSH-UI §L 4). */
+    protected open fun drawInside(c: Canvas, cx: Float, cy: Float, r: Float) {
+        c.drawCircle(cx, cy, r * 0.5f, ring)
+    }
+
+    /** Drawn last, over everything (handles, the rotation caret). */
+    protected open fun drawOver(c: Canvas, cx: Float, cy: Float, r: Float) {}
+
     override fun onDraw(c: Canvas) {
-        val r = width / 2f - kit.dp(6f)
-        val cx = width / 2f
-        val cy = kit.dp(16f) + r
+        val r = ringRadius()
+        val cx = ringCenterX()
+        val cy = ringCenterY()
         c.drawText("Pen", cx, kit.dp(12f), text)
         c.drawCircle(cx, cy, r, ring)
-        c.drawCircle(cx, cy, r * 0.5f, ring)
+        drawInside(c, cx, cy, r)
         // AXIS_ORIENTATION: 0 = the pen points up the screen, +π/2 = right. The dot sits where the pen's top leans.
         val t = if (tilt.isFinite()) tilt else 0f
         val reach = r * Math.sin(t.toDouble().coerceIn(0.0, Math.PI / 2)).toFloat()
@@ -224,6 +237,7 @@ class PenReadingView(private val kit: ChromeKit) : View(kit.context) {
             c.drawPath(wedge, lean)
         }
         c.drawCircle(cx + dx, cy + dy, ball, dot)
+        drawOver(c, cx, cy, r)
         val tiltText = if (tilt.isFinite()) "${Math.round(Math.toDegrees(t.toDouble()))}°" else "no tilt"
         c.drawText("${Math.round(pressure * 100)}% · $tiltText", cx, cy + r + kit.dp(14f), text)
     }

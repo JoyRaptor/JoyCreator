@@ -3882,8 +3882,7 @@ class JbCanvasView(context: Context) : GLSurfaceView(context), UnibrushCanvasPor
                 for((k,v) in made.contents.tiles) if(k in index) sizes[k]=v.size else held[k]=v
                 for((k,v) in made.contents.mediaTiles) if(k in index) sizes[k]=v.size else held[k]=v
                 val order=ArrayList<Any>(made.contents.tiles.size+made.contents.mediaTiles.size)
-                made.contents.tiles.keys.sortedWith(JbArchive.TILE_ORDER).forEach { order.add(it) }
-                made.contents.mediaTiles.keys.sortedWith(JbArchive.MEDIA_ORDER).forEach { order.add(it) }
+                order.addAll(made.contents.tiles.keys); order.addAll(made.contents.mediaTiles.keys)
                 val source=cc.joycreator.joybrush.androidkit.io.BatchedTileSource(order,sizes,held,streamBatchBytes,
                     post={ work -> onGl(allowLost=true){ work() } },
                     read={ k -> ice.take(index.getValue(k)) },

@@ -5,8 +5,8 @@ package cc.joycreator.joybrush.androidkit.io
  * S2). The tiles were copied on the graphics chip when the save began, so the drawing is free to change meanwhile and
  * the file is still the drawing as it was at that instant.
  *
- * [order] is every tile in the order the archive writes them (pictures, then paint stores, each in the archive's own
- * order); a tile in [held] is already in memory (it was read the old way) and the rest are read by [read] on the graphics
+ * [tiles] are every tile of the save (picture tiles and paint store tiles; they are read in the order the archive writes
+ * them); a tile in [held] is already in memory (it was read the old way) and the rest are read by [read] on the graphics
  * thread, which [post] reaches. At most two batches of about [batchBytes] are in memory at once: the one being written
  * and the next. [pictures] and [media] are the save's two tile maps.
  *
@@ -15,7 +15,7 @@ package cc.joycreator.joybrush.androidkit.io
  * way. [finish] (the archive calls it when the save ends, whichever way) lets go of every copy not read yet.
  */
 internal class BatchedTileSource(
-    private val order: List<Any>,
+    tiles: Collection<Any>,
     private val sizes: Map<Any, Int>,
     private val held: Map<Any, ByteArray>,
     batchBytes: Long,
@@ -25,6 +25,11 @@ internal class BatchedTileSource(
     private val alive: () -> Boolean = { true },
     private val waitMs: Long = 10_000L,
 ) {
+    /** Every tile in the order the archive takes them ([JbArchive.TILE_ORDER], then [JbArchive.MEDIA_ORDER]): batches follow it. */
+    @Suppress("UNCHECKED_CAST")
+    private val order: List<Any> =
+        (tiles.filterIsInstance<Triple<*, *, *>>() as List<Triple<String, String, String>>).sortedWith(JbArchive.TILE_ORDER) +
+            tiles.filterIsInstance<MediaTileKey>().sortedWith(JbArchive.MEDIA_ORDER)
     private val position = HashMap<Any, Int>(order.size * 2).apply { order.forEachIndexed { i, k -> put(k, i) } }
     private val batchOf = IntArray(order.size)
     private val batches: List<IntRange>

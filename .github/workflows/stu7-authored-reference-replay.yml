@@ -1,0 +1,60 @@
+name: STU-7 authored reference replay
+on:
+  push:
+    branches: [codex/stu7-c7-authored-replay-20261127]
+    paths:
+      - .github/workflows/stu7-authored-reference-replay.yml
+      - tools/motionref/capture-authored-replay.sh
+permissions:
+  contents: read
+  actions: read
+jobs:
+  replay:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      GH_TOKEN: ${{ github.token }}
+      SOURCE_RUN: '45946476209'
+      SOURCE_COMMIT: '3318b68b228e9a4a99384e9ccb16941ed77cfe9e'
+    steps:
+      - uses: actions/checkout@v4
+      - name: Boot disposable API 30 emulator
+        run: |
+          set -euo pipefail
+          sudo chmod a+rw /dev/kvm
+          echo "$ANDROID_HOME/platform-tools" >> "$GITHUB_PATH"
+          export PATH="$ANDROID_HOME/platform-tools:$ANDROID_HOME/cmdline-tools/latest/bin:$PATH"
+          sdkmanager 'emulator' 'platform-tools' 'system-images;android-30;google_apis;x86_64'
+          export ANDROID_USER_HOME="$RUNNER_TEMP/stu7-android"
+          export ANDROID_AVD_HOME="$ANDROID_USER_HOME/avd"
+          mkdir -p "$ANDROID_AVD_HOME"
+          echo no | avdmanager create avd --name stu7 --package 'system-images;android-30;google_apis;x86_64'
+          "$ANDROID_HOME/emulator/emulator" -avd stu7 -no-window -no-audio -no-boot-anim -no-snapshot -gpu swiftshader -accel on > "$RUNNER_TEMP/emulator.log" 2>&1 &
+          emu_pid=$!
+          for attempt in {1..120}; do
+            if adb -e get-state 2>/dev/null | grep -qx device; then break; fi
+            if ! kill -0 "$emu_pid" 2>/dev/null; then cat "$RUNNER_TEMP/emulator.log"; exit 1; fi
+            sleep 2
+          done
+          timeout 300 bash -c 'until [ "$(adb -e shell getprop sys.boot_completed | tr -d "\r")" = 1 ]; do sleep 2; done'
+      - name: Install pinned APK
+        run: |
+          set -euo pipefail
+          for attempt in {1..60}; do
+            if gh run download --repo "$GITHUB_REPOSITORY" "$SOURCE_RUN" --name "joycreator-defaultDebug-${SOURCE_COMMIT:0:9}" --dir "$RUNNER_TEMP/stu7-apk"; then break; fi
+            sleep 10
+          done
+          test "$(cat "$RUNNER_TEMP/stu7-apk/COMMIT.txt")" = "$SOURCE_COMMIT"
+          apk=$(find "$RUNNER_TEMP/stu7-apk" -name '*.apk' -print -quit)
+          test -n "$apk"
+          adb -e install "$apk"
+      - name: Capture six exact Studio output crops
+        run: bash tools/motionref/capture-authored-replay.sh "$RUNNER_TEMP/stu7-authored"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: stu7-authored-reference-studio-crops
+          path: |
+            ${{ runner.temp }}/emulator.log
+            ${{ runner.temp }}/stu7-authored/
+          retention-days: 7

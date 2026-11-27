@@ -12,13 +12,19 @@ is the spec.** The two source plans sit beside it, for reasons only. Section num
 merged plan's.
 
 ## Resume here (whoever picks this up: read this block first, then the newest channel entry)
+
+**11-25 continuation plan:** Fence the indexed session at the gated editor source boundary and
+drive analysis from actual latched PTS. Prove identical-PTS replacement drops stale results.
+Then stage matching color frames for High gather and retain the Fast/sharp fallback. Verify
+the export route independently before paired emulator checks and the physical/release corpus.
 **Owner, 2026-11-23: Codex finishes ALL remaining sections (C2 landing through C7).** Claude is
 standby. If Codex runs out of usage, Claude continues from this block with no loss. Codex keeps
 this block true at every landmark; it is the hand-over.
-- **Active step:** Paired C5 authored mesh, C5 True Layer Order mesh and C6 High GPU component passed exact Android and Studio Actions on isolated branches. C7 review tooling and help copy are landed. C4b device tests remain blocked by unavailable adb execution.
-- **Code branch / head:** `codex/motionblur-20261122` @ `c1a4d59d2` (pushed). Capture and timing tools @ `e8adf9628` on `codex/stu7-c4b-benchmark-gate`. Independent C6 source ring and decoded safeguards @ `20cee01f7` on `codex/stu7-flow-luma-20261123`; footage reconstruction oracle @ `393fcc04d` on `codex/stu7-c6-reconstruct-20261124`; LiveFlow GL owner @ `0e3aa6142` on `codex/stu7-live-flow-gl-20261124`. Independent C5 mesh stamp and exposure schedule @ `96e9637ba` on `codex/stu7-pose-sampling-20261123`; bounded Exact mesh renderer @ `2a647be01` on `codex/stu7-c5-mesh-sweep-20261124`. Gated C4 integration @ `d7c950bd7` on `codex/stu7-c4-integration-20261123`. C7 blind review tool @ `583a31699`; audited corpus preparation @ `fcafda1b5` on `codex/stu7-c7-corpus-audit-20261124`. Debug DIS vs GPU @ `b627a4de7` on `codex/stu7-c6-dis-bakeoff-20261124`. High CPU reference @ `8e5b0706d` on `codex/stu7-c6-high-reconstruct-20261124`. Fast footage preview @ `273e295ed` on `codex/stu7-c6-preview-integrate-20261124`. Paired C5 authored-mesh routing @ `23bc5f524` on `codex/stu7-c5-gated-integration-20261124`; True Layer Order mesh routing @ `1fc57d25d` on `codex/stu7-c5-ordered-mesh-20261124`. C6 High GPU reconstruction @ `5edb745d5` on `codex/stu7-c6-high-gl-20261124`. Current-base C7 review tool @ `575a72b11` on `codex/stu7-c7-current-review-20261124`.
-- **Last landed on `joy-creator`:** C3 `add742305` and C2 `665409126`. C4a `LanePlan`, C6 flow core and `tools/motionref` also landed. C7 audited blind-review tooling landed at `87305f485`; gated help copy landed at `8c17ae74f`.
-- **Exact next action:** Define and test a C6 background decoder interface that delivers quarter-resolution luma and the actual decoded PTS to `DecodedFlowWork`.
+- **Active step:** C4 exact PiP latch export parity and speed passed on Snapdragon. Ordered graphics memory held flat over 50 settled seeks on the same APK. C5 strict preview parity remains open. C6 export and Inspect Frame are verified; the two-sided paused High route repeated bit-exactly on Snapdragon. Raw export parity is still open. Gated source candidate: `codex/stu7-finish-20261125` at `2b9cef94c74edba0f873998367f80770fc050471`. C4-only source `5798b6c0c` passed exact checks and landed at `3c0179278` with the internal switch off.
+- **Code branch / head:** `codex/motionblur-20261122` @ `c1a4d59d2` (pushed). Capture and timing tools @ `e8adf9628` on `codex/stu7-c4b-benchmark-gate`. Independent C6 source ring and decoded safeguards @ `20cee01f7` on `codex/stu7-flow-luma-20261123`; footage reconstruction oracle @ `393fcc04d` on `codex/stu7-c6-reconstruct-20261124`; LiveFlow GL owner @ `0e3aa6142` on `codex/stu7-live-flow-gl-20261124`. Independent C5 mesh stamp and exposure schedule @ `96e9637ba` on `codex/stu7-pose-sampling-20261123`; bounded Exact mesh renderer @ `2a647be01` on `codex/stu7-c5-mesh-sweep-20261124`. Gated C4 integration @ `d7c950bd7` on `codex/stu7-c4-integration-20261123`. C7 blind review tool @ `583a31699`; audited corpus preparation @ `fcafda1b5` on `codex/stu7-c7-corpus-audit-20261124`. Debug DIS vs GPU @ `b627a4de7` on `codex/stu7-c6-dis-bakeoff-20261124`. High CPU reference @ `8e5b0706d` on `codex/stu7-c6-high-reconstruct-20261124`. Fast footage preview @ `273e295ed` on `codex/stu7-c6-preview-integrate-20261124`. Paired C5 authored-mesh routing @ `23bc5f524` on `codex/stu7-c5-gated-integration-20261124`; True Layer Order mesh routing @ `1fc57d25d` on `codex/stu7-c5-ordered-mesh-20261124`. C6 High GPU reconstruction @ `5edb745d5` on `codex/stu7-c6-high-gl-20261124`. Current-base C7 review tool @ `575a72b11` on `codex/stu7-c7-current-review-20261124`. Current-base C4 is `c11c8ff27` on `codex/stu7-c4-current-candidate-20261124`. C6 decoder and Motion Bench are `145438945` on `codex/stu7-c6-analysis-decoder-20261124`. C5 recorded-avatar replay is `c9297d7e7` on `codex/stu7-c5-avatar-replay-20261124`. Combined current candidate is `b3074ed83` on `codex/stu7-c4-c6-combined-20261125`. C5 recorded-clock replay and shared stamp are `420f019be` on `codex/stu7-c5-avatar-route-20261125`.
+- **Current verification branches:** `codex/stu7-c5-avatar-recovery-20261125` at [`c27d93529`](https://github.com/JoyRaptor/JoyCreator/commit/c27d935297d8fba9b0c3d5e59597626569b3b171) includes recovery [`24f1d2b17`](https://github.com/JoyRaptor/JoyCreator/commit/24f1d2b17686c97b9b18e8b97c0628d3762aaa8b). Emulator-only fixture APK [`eade01ae3`](https://github.com/JoyRaptor/JoyCreator/commit/eade01ae33801e45272b330e120b6b7e08ea1ee7) is on `codex/stu7-c5-avatar-emulator-20261125`. C6 session [`576952f06`](https://github.com/JoyRaptor/JoyCreator/commit/576952f067fb9adaa9d69501110fcf7904c1f4cb) is pushed on `codex/stu7-c6-indexed-session-20261125`; the CPU-to-GL orientation bridge is [`660165067`](https://github.com/JoyRaptor/JoyCreator/commit/660165067e30019873b53aea14b32a267cc9166d) with green proof head [`5b9d1310b`](https://github.com/JoyRaptor/JoyCreator/commit/5b9d1310b978e87e4cc38d3048d0660793047884) on `codex/stu7-c6-editor-session-20261125`.
+- **Last landed on `joy-creator`:** C4 `3c0179278`, C3 `add742305` and C2 `665409126`. C6 flow core and `tools/motionref` also landed. C7 audited blind-review tooling landed at `87305f485`; gated help copy landed at `8c17ae74f`.
+- **Exact next action:** Use the 4edd80435 fixture on the pinned Wi-Fi Snapdragon to compare device decoder output format, source transform and exact avatar pixels in preview and export.
 - **Open owner asks:** Look #1. Review the controls and matched frames in the local bundle at `C:/workspace/motion-c2-evidence/C3_OWNER_REVIEW.zip`, and flag any default that feels wrong.
 - **Evidence outside the repo:** `C:/Temp/motionref-evidence-20261122/` (owner slow-mo pairs).
 
@@ -100,6 +106,10 @@ this block true at every landmark; it is the hand-over.
   APK build green), plus the [GPU port plan](../motionblur/C6_FLOW_GPU_PLAN.md).
 - 2026-11-22: Claude landed C4a `LanePlan` and the footage reference tool `tools/motionref` at `f4e80974e`
   (64/64 Studio CI). C4 design revised: old projects keep the old route unless `legacyLooksTheSame()`.
+- 2026-11-26: [C4 Snapdragon acceptance report](../motionblur/C4_SNAPDRAGON_ACCEPTANCE_REPORT.md).
+  Ordering, compatibility, legacy JSON stability and blur-off latch were exercised. PiP and seek memory remain open.
+- 2026-11-26: [C6 Snapdragon export report](../motionblur/C6_SNAPDRAGON_EXPORT_REPORT.md).
+  Bundled repeats, sharp and cut controls, the private normal/slow recording and Inspect Frame were exercised. Release quality and performance remain open.
 
 ## What is left (the queue; Codex works down it unless the channel says otherwise)
 - [x] **C1 = §9 step 0: route proof, bench and shutter core.** Brief: [tasks/motionblur/CODEX_C1_brief.md](../motionblur/CODEX_C1_brief.md).
@@ -125,8 +135,7 @@ this block true at every landmark; it is the hand-over.
     in the sheet instead of showing a silent tick box, and apply the house tick-box and hover-label rules.
 - [ ] **Owner look #1:** a mix-and-match page (presets, Mix, exposure shapes) plus a phone session.
       Claude, or Codex if Claude is out.
-- [ ] **C4 = §9 step 3:** C4a ✅ (`LanePlan`). Next C4b-f per [C4_COMPOSITOR_DESIGN.md](../motionblur/C4_COMPOSITOR_DESIGN.md) (Claude's go,
-      gated by its §6 equivalence corpus).
+- [x] **C4 = §9 step 3:** gated shared compositor landed at `3c0179278`. See the [Snapdragon acceptance report](../motionblur/C4_SNAPDRAGON_ACCEPTANCE_REPORT.md) and [C4 design](../motionblur/C4_COMPOSITOR_DESIGN.md). True Layer Order remains behind its internal switch.
 - [ ] **C5 = §9 step 4:** puppets and avatars.
 - [ ] **C6 = §9 step 5:** filmed video. **Done:** the Java oracle (`FlowField`, `LumaImage`, `PyramidFlowEstimator`,
       `FlowConfidence`, `GlobalMotionFit`, `SourceFrameRing`). **Left:** the GPU port per

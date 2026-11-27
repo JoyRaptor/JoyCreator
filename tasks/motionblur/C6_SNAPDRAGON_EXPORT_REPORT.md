@@ -1,0 +1,58 @@
+# C6 High footage export on the Snapdragon Note 9
+
+The SM-N960U ran the [gated debug fixture APK](https://github.com/JoyRaptor/JoyCreator/actions/runs/45776341462) at `f7590614d09f2ac4568eaeba3a919b296ad01100`. The existing installation was restored by hash and the device lock was released.
+
+| Case | Export start to mux commit | High stages |
+|---|---:|---:|
+| Trimmed normal-speed bundled clip, first run | 12,267 ms | 1 |
+| Same media and trim in a new project, repeat | 4,206 ms | 1 |
+| Same normal-speed clip with the master switch off | 830 ms | 0 |
+| Two trimmed bundled clips at half speed | 13,194 ms | 2 |
+
+The three 960×540 RGBA readbacks matched exactly between the first and repeat normal-speed exports at editor PTS 133,666, 300,333, and 500,333 µs. High differed from the matched sharp control at all three times, with 18,964, 31,693, and 25,126 channel samples outside the comparator's one-code-unit limit. On the half-speed join, both sources independently entered High at source PTS 266,666 µs. A second capture bracketed that join. The first frame on source 2 at editor PTS 1,334,333 µs was identical to sharp. High differed from sharp on the next two sampled frames at 1,400,999 and 1,467,667 µs. This proves the first-frame fallback and subsequent High recovery at that source cut.
+
+Thermal status was 0, with battery temperature ranging from 26.4 to 26.6 °C. The timings cover short fixtures with export setup overhead. The release gate still requires the 30-second and sustained playback runs.
+
+Evidence under `C:/Temp/stu7-c4-physical-20261125/footage-device-024927/` includes native-sized manifests, three frame samples per route, repeat and sharp comparisons, export logs, and thermal samples. The cut evidence is in sibling folder `footage-device-025238/`.
+
+## Private normal-speed and slow-motion recording
+
+The [`0e3494ccf` test APK](https://github.com/JoyRaptor/JoyCreator/actions/runs/45778341242) exported two trims from the owner's local recording. Normal-speed High took 16,630 ms from export start to mux commit, compared with 825 ms for sharp. The steady slow-motion High trim took 17,563 ms, compared with 1,113 ms for sharp. High changed pixels at all six matched editor PTS values. Peak channel differences ranged from 54 to 74 in normal footage and from 114 to 127 in the slow-motion section. This comparison establishes the effect's output. Blind quality scoring and the full performance gate remain open.
+
+Inspect Frame at 300 ms produced a bitmap after the High gather marker on the bundled clip. Direct live-preview parity, device seek/context-loss checks for High, and Exynos testing remain open. Private evidence is under `C:/Temp/stu7-c4-physical-20261125/footage-device-030512/`. The staged source copy was removed from the sandbox and the original APK was restored by hash before release of the lock.
+
+## Independent centered-shutter calibration
+
+The debug-only fixture a9334c439 from [Actions 45835093208](https://github.com/JoyRaptor/JoyCreator/actions/runs/45835093208) used the full untrimmed 14-frame, 640×360, 30 fps BT.709 sharp sequence. It used the same centered 180-degree shutter as the 240 fps integrated reference. Both exports read the same 640×360 frames at the exact matched timestamps. No reference resizing was needed. The private source was staged on the phone, removed after the run, and retained locally only. The previous APK was restored by hash and the lock released.
+
+| Editor PTS | Reference frame | High mean absolute error | Sharp mean absolute error | High / sharp PSNR |
+|---|---:|---:|---:|---:|
+| 100,000 µs | 4 | 2.241 / 255 | 1.720 / 255 | 34.94 / 37.23 dB |
+| 200,000 µs | 7 | 2.038 / 255 | 1.501 / 255 | 36.13 / 40.43 dB |
+| 333,333 µs | 11 | 2.358 / 255 | 1.817 / 255 | 34.23 / 36.94 dB |
+
+High had more whole-frame error than the sharp control at all three times. In the reference-defined motion region (pixels with more than eight code values of contrast against its clean sharp frame), it reduced mean error from 15.629 to 15.188 and from 16.436 to 16.119 in the first and third samples. Error rose from 10.593 to 10.715 in the second. Quality on this low-light shot remains open. The 14 frames are one shot for C7. These three diagnostics do not provide a blind-review score.
+
+Raw pixels, local previews and metrics are in C:/Temp/stu7-c4-physical-20261125/reference-device-091014/.
+
+## Paused High preview on Snapdragon
+
+The isolated [c0a9420b6 debug APK](https://github.com/JoyRaptor/JoyCreator/actions/runs/45836328274) used the gated candidate ef9607b54. The real editor paused at editor time 300,333 µs and latched source PTS 533,333 µs. The draw logged matching preceding and next source PTS 500,000 and 566,666 µs. Cold and repeated 960×540 readbacks were byte-identical, and High differed from the master-off readback in 18,432 pixels (maximum 46/255, RGB RMS 1.559).
+
+Inspect Frame produced distinct High and sharp PNGs at the same requested position (RGB RMS 1.900). The preview/Inspect cross-route RMS was 2.923 for High and 2.837 for sharp. Inspect passes through the encoder and its route marker reports the first successful High frame. The exact pre-encode service export comparison is tracked separately. The previous installation was verified by hash after both runs and the device lock was released.
+
+The readbacks and logs are in C:/Temp/stu7-c4-physical-20261125/paused-device-091908/ and paused-device-092024/.
+
+## Exact pre-encode paused preview/export comparison
+
+The isolated [793aaf5ac APK](https://github.com/JoyRaptor/JoyCreator/actions/runs/45838060635) ran through Wi-Fi debugging on the Snapdragon. The preview and Android export service both wrote full 960×540 bottom-up RGBA at exact editor PTS 300,333 µs. Cold and warm High preview matched bit-for-bit. Preview and export each differed from their own sharp control, with maximum High-versus-sharp error 46/255 on both.
+
+| Comparison | Max error | Mean error | Channels above 1 |
+|---|---:|---:|---:|
+| High preview vs export | 15 | 0.08253 | 32,048 |
+| Sharp preview vs export | 15 | 0.08056 | 31,755 |
+| High minus sharp, preview vs export | 6 | 0.00781 | 1,178 |
+
+Both the High and sharp pair miss the strict 1/255 maximum. Most of the difference is already present in the sharp base. The difference of the two motion effects is considerably smaller and still exceeds 1/255. Exact staged preview/export pixel parity remains open. Evidence is in C:/Temp/stu7-c4-physical-20261125/paused-raw-device-134854/.
+
+The corrected [emulator run](https://github.com/JoyRaptor/JoyCreator/actions/runs/45881985564) completed all five preview and raw service comparisons plus both Inspect controls. High preview and raw export were bit-exact at editor PTS 300,333 µs, and the sharp pair was bit-exact too. Both sharp controls differed from their own High render. This isolates the outstanding pixel gap to the physical Note 9 path.

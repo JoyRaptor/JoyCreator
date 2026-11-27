@@ -1,5 +1,14 @@
 # Lessons Learned
 
+## Handed-over work and Android render evidence
+
+- A follow-up to finish a pasted takeover handoff is an execution request. Start at the live job
+  card, verify the active source and claims, and continue the implementation from the exact handoff.
+- Bind capture logs to the process that owns the operation. Studio preview runs in the app process
+  and export runs in `:export`. Use actual latched PTS in the comparison and reject stale receipts.
+- Compile the assembled GLSL on a real GLES implementation. Fake-GLES ownership checks can pass
+  even when a language-reserved identifier prevents the shader from compiling.
+
 ## `MediaMetadataRetriever` is not thread-safe and must not be allocated per frame
 
 **Pattern:** `android.media.MediaMetadataRetriever` holds a native parser tied to
@@ -1307,3 +1316,6 @@ When the owner asks to conserve review credits, keep concurrency small, checkpoi
 
 ## 2026-11-24: an undo gap is only a gap if no layer above records it (undo sweep)
 - A read-only helper said Studio's Hide / Lock / Pass-through had no undo step, and I added one. They already had one: `ObjectDrawer` records every header toggle through its `undoSink`, one level above the call site, so each tap would have cost two presses. Before adding a step, look for the container's own recorder (drawer undo sinks, `beginEdit`/`endEdit` brackets, a session-close commit) as well as the method's callers. And a helper's "no step" is a lead to check in the code, never a finding to act on.
+
+## 2026-11-26: pin the requested phone transport (STU-7)
+- When the owner connects the Note 9 over Wi-Fi, confirm the model and TCP connection in the Android device list before driving it. Pin the same Wi-Fi target for the lock, capture, and recovery checks, and recheck the target after a reconnect.

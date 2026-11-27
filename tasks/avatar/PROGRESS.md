@@ -40,7 +40,7 @@ Updated 11-27 by the lead.
 | Set up card: pins, magnifier, pin wizard | 5 | 🟡 pins on the picture with a loupe, and pins guessed from the pixels (matches the pilot), landed; the pin wizard owed | slice 1 |
 | Arrange: the box, stances, all fours, reshape with pins, in front / behind | 8 | 🟡 the box, in front / behind, stances and all fours landed (checked against the pilot); reshape with pins and a stance's in-front/behind owed | slice 1 |
 | Motion: swinging parts, turning round, round heads | 5 | ✅ swinging, turning around, breathing and blinking, round heads landed (not tried on a phone) | slice 1 |
-| Walking, the joystick and its gestures | 5 | 🟡 walking by dragging the body (ground line, strides, jump, fall, all fours, hover) landed, 2 traces of the pilot matched frame by frame; the joystick, its gestures and walk with your face owed | slice 1 |
+| Walking, the joystick and its gestures | 5 | 🟡 walking by dragging the body (ground line, strides, jump, fall, all fours, hover) landed, 2 traces of the pilot matched frame by frame; the joystick (rate steer, speed curve, tap/flick gestures, six-slot sheet) landed, not tried on a phone; its depth walking rides on the depth port (face session) | slice 1 |
 | Face capture on the phone, walk with your face | 5 | ⬜ | slice 1 |
 | Side-by-side pass against the pilot: every control, every word, polish | 8 | ⬜ | slice 1 + lead |
 | **Slice 2: characters inside Video Studio** | | | |

@@ -35,6 +35,9 @@ public final class Inputs implements Walker.Body {
     /** How long a mood or the Breeze stays "yours" (owned by the live hand) after it was last touched, in ms. */
     private static final long HOLD_MOOD_MS = 700, HOLD_WIND_MS = 600, BLINK_MS = 200;
 
+    /** A hand's lanes in a take (the pilot's HAND): where the left and the right hand are, character pixels; null = at rest. */
+    public static final String[] HAND_LANES = {"hLx", "hLy", "hRx", "hRy"};
+
     private static final List<String> BODY_NAMES = java.util.Arrays.asList("turnX", "turnY", "roll", "sway", "bounce", "lookX", "lookY", "mouth", "vis",
             "browL", "browR", "blinkL", "blinkR", "lidUp", "lidLow", "lidTilt", "wind");
 
@@ -69,6 +72,10 @@ public final class Inputs implements Walker.Body {
     private final Map<String, Double> poseBefore = new LinkedHashMap<>();                     // the stance levels as they were at the start of this frame
     private double babbleAt, babbleHold;
     private int babbleI;
+    // a finger on a hand (the pilot's pose.handL / handR and sm.hL / hR): where the hand is wanted, where it is (eased), held
+    private final double[][] handTo = new double[2][], handSm = new double[2][];
+    private final boolean[] handHeld = new boolean[2];
+    private boolean handsUsed;                                                                 // a hand was taken once: its lanes join the take
 
     /** The buttons this character has (ids), so their lanes exist in a take. */
     // ── what the walker asks of the hands ──────────────────────────────────────────────────────────
@@ -101,8 +108,44 @@ public final class Inputs implements Walker.Body {
 
     @Override
     public double[] placed(String held) {
-        return null;                       // a finger on a foot or hand: not wired yet
+        if ("handL".equals(held)) return handTo[0];       // a finger on a hand: where it put the hand (feet: not wired yet)
+        if ("handR".equals(held)) return handTo[1];
+        return null;
     }
+
+    // ── a finger on a hand ────────────────────────────────────────────────────────────────────────
+
+    private static int handIndex(String side) {
+        return "R".equals(side) ? 1 : 0;
+    }
+
+    /**
+     * A finger took the {@code side} hand ("L" or "R") and puts it at (x, y), character pixels: the hand eases there and
+     * stays there after the finger lets go (the pilot's liveGrab / liveMove). While held, the hand is yours in a pass.
+     */
+    public void holdHand(String side, double x, double y) {
+        int i = handIndex(side);
+        handTo[i] = new double[] {x, y};
+        handHeld[i] = true;
+        handsUsed = true;
+    }
+
+    /** The finger let go: the hand stays where it was put. */
+    public void letGoHand(String side) {
+        handHeld[handIndex(side)] = false;
+    }
+
+    /** The hand goes back to rest (the pilot's double tap on an arm). */
+    public void homeHand(String side) {
+        int i = handIndex(side);
+        handTo[i] = null;
+        handHeld[i] = false;
+    }
+
+    public boolean handHeld(String side) {
+        return handHeld[handIndex(side)];
+    }
+
 
     /** A stance's level as it stood at the start of this frame (the walker reads last frame's, as the pilot does). */
     @Override
@@ -338,6 +381,8 @@ public final class Inputs implements Walker.Body {
     public Set<String> owners(long nowMs) {
         Set<String> o = new HashSet<>();
         if (headHeld) o.add("head");
+        if (handHeld[0]) o.add("handL");
+        if (handHeld[1]) o.add("handR");
         if (talking || micOn) o.add("mouth");
         if (faceSeen) {                                    // (the pilot's owned(): only while the face drives and is seen)
             o.add("head");
@@ -360,6 +405,7 @@ public final class Inputs implements Walker.Body {
         List<String> n = new ArrayList<>(BODY_NAMES);
         for (String id : buttonIds) n.add("g:" + id);
         for (String k : faceLanes) if (!n.contains(k)) n.add(k);
+        if (handsUsed) for (String k : HAND_LANES) if (!n.contains(k)) n.add(k);
         Take t = recorder.take();
         if (t != null) for (String k : t.ch.keySet()) if (!n.contains(k)) n.add(k);
         return n;
@@ -463,6 +509,20 @@ public final class Inputs implements Walker.Body {
         m.put("wind", wi);
         for (String id : buttonIds) m.put("g:" + id, isOn(id) ? 1.0 : 0.0);
         m.putAll(fo.lanes);                                  // the face's own lanes: points pt.<i>.x/y, expressions face.<name>
+        if (handsUsed) {                                     // hands: eased toward where a finger put them; null = at rest (the pilot's flat())
+            for (int i = 0; i < 2; i++) {
+                double[] want = handTo[i];
+                if (want == null) handSm[i] = null;
+                else if (handSm[i] == null) handSm[i] = want.clone();
+                else {
+                    double k = 1 - Math.exp(-20 * dt);
+                    handSm[i][0] += (want[0] - handSm[i][0]) * k;
+                    handSm[i][1] += (want[1] - handSm[i][1]) * k;
+                }
+                m.put(HAND_LANES[i * 2], handSm[i] == null ? null : (Object) handSm[i][0]);
+                m.put(HAND_LANES[i * 2 + 1], handSm[i] == null ? null : (Object) handSm[i][1]);
+            }
+        }
         faceLanes.addAll(fo.lanes.keySet());
         return m;
     }

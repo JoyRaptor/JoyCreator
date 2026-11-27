@@ -124,6 +124,14 @@ public final class SolverStage extends GLSurfaceView implements GLSurfaceView.Re
         return lastTips;
     }
 
+    private volatile double[] lastRootM;
+
+    /** Stage coordinates back to the character's own (where it walked to and its turn taken off), from the last frame. */
+    public double[] toInner(double[] p) {
+        double[] m = lastRootM;
+        return m == null ? p : cc.joycreator.avatar.solve.Mat.ap(cc.joycreator.avatar.solve.Mat.inv(m), p[0], p[1]);
+    }
+
     /** One frame's worth of everything the drawing needs. */
     public void frame(Signals sig, boolean moving, double dtSeconds, float scale, float ox, float oy) {
         signals = sig == null ? new Signals() : sig;
@@ -219,6 +227,7 @@ public final class SolverStage extends GLSurfaceView implements GLSurfaceView.Re
             lastOrder = ord;
             lastAnchor = new HashMap<>(s.anchor);
             lastTips = new HashMap<>(s.tips);
+            lastRootM = out.rootM;
             float[] bp = backdropPic;
             if (bp != null) backdrop.draw(width, height, bp);
             gl.keep = bp != null;

@@ -82,6 +82,10 @@ public final class AvatarRoomActivity extends Activity implements RoomMenu.Host,
     private PartsView parts;
     private PerformPanel performPanel;
     private cc.joycreator.avatar.ui.LandmarksScreen landmarks;
+    private cc.joycreator.avatar.ui.SolverStage glStage;
+    private boolean glWorks = true;
+    private Object glPictures;
+    private final java.util.Map<String, String> forced = new java.util.HashMap<>();
     private final cc.joycreator.avatar.ui.PinsLayer pins = new cc.joycreator.avatar.ui.PinsLayer(this);
     private final cc.joycreator.avatar.ui.BoxLayer box = new cc.joycreator.avatar.ui.BoxLayer(this);
     private android.widget.FrameLayout panelBody;
@@ -141,7 +145,14 @@ public final class AvatarRoomActivity extends Activity implements RoomMenu.Host,
         stage = new StageView(this);
         stage.setHint(getString(R.string.avatar_hint_rest));
         android.widget.FrameLayout stageBox = new android.widget.FrameLayout(this);
+        glStage = new cc.joycreator.avatar.ui.SolverStage(this);
+        glStage.setFailure(() -> {                             // the GPU drawing could not start: the stand-in draws instead
+            glWorks = false;
+            updateGl();
+        });
+        stageBox.addView(glStage, new android.widget.FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
         stageBox.addView(stage, new android.widget.FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
+        stage.setGlBacked(true);
         stageBox.addView(buildStageTools(), new android.widget.FrameLayout.LayoutParams(px(44), ViewGroup.LayoutParams.WRAP_CONTENT, Gravity.END | Gravity.TOP));
         left.addView(stageBox, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f));
         root.addView(left, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, 1f));
@@ -308,6 +319,7 @@ public final class AvatarRoomActivity extends Activity implements RoomMenu.Host,
         }
         applyPanels();
         refreshPins();
+        updateGl();
     }
 
     /** Layers when asked for; otherwise the performer's panel on Motion and Perform, the parts card on the first two. */
@@ -319,6 +331,7 @@ public final class AvatarRoomActivity extends Activity implements RoomMenu.Host,
         parts.setVisibility(!showLayers && !matching && !perform ? View.VISIBLE : View.GONE);
         performPanel.setVisibility(perform ? View.VISIBLE : View.GONE);
         if (landmarks != null) landmarks.view().setVisibility(matching ? View.VISIBLE : View.GONE);
+        if (glStage != null) updateGl();
     }
 
     private LinearLayout buildStageRow() {
@@ -460,6 +473,7 @@ public final class AvatarRoomActivity extends Activity implements RoomMenu.Host,
         applyPanels();
         if (character != null) parts.show(character, inHand, stageIndex);
         refreshPins();
+        updateGl();
     }
 
     @Override
@@ -522,10 +536,22 @@ public final class AvatarRoomActivity extends Activity implements RoomMenu.Host,
         paintSaveDot();
     }
 
+    /** The GPU drawing shows unless the landmarks screen has the stage (it draws its own solid and ghost) or the GPU failed. */
+    private void updateGl() {
+        boolean matching = landmarks != null && landmarks.isOpen();
+        boolean on = glWorks && !matching;
+        glStage.setVisibility(on ? View.VISIBLE : View.INVISIBLE);
+        stage.setGlBacked(on);
+    }
+
     /** RoomEdit says the character changed (a step, an undo, a redo, or a new one on the stage). */
     private void edited(CharacterDoc d) {
         character = d;
         stage.setCharacter(d);
+        Object pics = d.json.opt("pictures");
+        glStage.setCharacter(d, pics == glPictures);
+        glPictures = pics;
+        inputs.setSettings(d.json.optJSONObject("settings"));
         stage.setSelected(inHand);
         layers.show(d, inHand);
         parts.show(d, inHand, stageIndex);
@@ -762,8 +788,9 @@ public final class AvatarRoomActivity extends Activity implements RoomMenu.Host,
     };
 
     private void frame(double dt) {
-        if (stageIndex < 2) {
+        if (stageIndex < 2) {                                   // building: the still pose, nothing moving
             stage.setSignals(null);
+            glStage.frame(null, false, inputs.time(), 0, dt, stage.viewScale(), stage.viewX(), stage.viewY());
             return;
         }
         if (inputs.micOn() && mic != null) {
@@ -774,6 +801,7 @@ public final class AvatarRoomActivity extends Activity implements RoomMenu.Host,
         if (inputs.faceOn() && faceCapture != null) inputs.faceSaw(faceCapture.sample(System.nanoTime()));
         java.util.Map<String, Object> sig = inputs.frame(dt, System.currentTimeMillis());
         stage.setSignals(sig);
+        glStage.frame(sig, true, inputs.time(), inputs.breath(), dt, stage.viewScale(), stage.viewX(), stage.viewY());
         Object tx = sig.get("turnX"), ty = sig.get("turnY");
         if (tx instanceof Number && ty instanceof Number) performPanel.showHead(((Number) tx).doubleValue(), ((Number) ty).doubleValue());
         performPanel.tick();
@@ -783,6 +811,7 @@ public final class AvatarRoomActivity extends Activity implements RoomMenu.Host,
     @Override
     protected void onResume() {
         super.onResume();
+        glStage.onResume();
         looping = true;
         lastFrameNs = 0;
         android.view.Choreographer.getInstance().postFrameCallback(frameLoop);
@@ -813,6 +842,9 @@ public final class AvatarRoomActivity extends Activity implements RoomMenu.Host,
     @Override
     public void tryDrawing(String setId, String kidId) {
         stage.tryDrawing(setId, kidId);
+        if (kidId == null) forced.remove(setId);
+        else forced.put(setId, kidId);
+        glStage.setForce(new java.util.HashMap<>(forced));
     }
 
     @Override
@@ -961,6 +993,7 @@ public final class AvatarRoomActivity extends Activity implements RoomMenu.Host,
     @Override
     protected void onPause() {
         super.onPause();
+        glStage.onPause();
         looping = false;
         micOff();                                               // the microphone's light goes out with the room
         faceOff();                                              // and so does the camera's

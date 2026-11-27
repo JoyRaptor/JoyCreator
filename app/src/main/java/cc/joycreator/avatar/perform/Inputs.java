@@ -35,7 +35,7 @@ public final class Inputs {
     /** How long a mood or the Breeze stays "yours" (owned by the live hand) after it was last touched, in ms. */
     private static final long HOLD_MOOD_MS = 700, HOLD_WIND_MS = 600, BLINK_MS = 200;
 
-    private static final List<String> BODY_NAMES = java.util.Arrays.asList("turnX", "turnY", "roll", "lookX", "lookY", "mouth", "vis",
+    private static final List<String> BODY_NAMES = java.util.Arrays.asList("turnX", "turnY", "roll", "sway", "bounce", "lookX", "lookY", "mouth", "vis",
             "browL", "browR", "blinkL", "blinkR", "lidUp", "lidLow", "lidTilt", "wind");
 
     public final TakeRecorder recorder = new TakeRecorder();
@@ -45,6 +45,10 @@ public final class Inputs {
     private final Random rnd = new Random(7);
 
     private double turnX, turnY, roll, mouth, wind;
+    // life (the pilot's step): a character that is alive by itself: eased movement, idle sway, darting eyes, auto blinks, breathing
+    private org.json.JSONObject settings;                                    // null until the room gives it: then the raw hands are used as they are
+    private final Random life = new Random(11);
+    private double t, nextBlink = 1.5, blinkT = -1, nextDart = 1, dartX, dartY, smTurnX, smTurnY, smRoll, smSway, smBounce, smMouth, smLookX, smLookY, smBrowL, smBrowR, smLidUp, smLidLow, smLidTilt, smWind;
     private String vis = "Neutral", mood = "Neutral";
     private double[] moodNow = MOODS.get("Neutral");
     private boolean headHeld, talking, blinkHold, micOn, faceOn;
@@ -57,6 +61,30 @@ public final class Inputs {
     private int babbleI;
 
     /** The buttons this character has (ids), so their lanes exist in a take. */
+    /** The character's settings (blinkAuto, blinkEvery, breathe, breathRate, idle, eyesLead); with them the character is alive by itself. */
+    public void setSettings(org.json.JSONObject s) {
+        settings = s == null ? new org.json.JSONObject() : s;
+    }
+
+    /** How deep the chest is now (-1..1), from the clock and the character's breathing rate; 0 when it does not breathe. */
+    public double breath() {
+        if (settings == null || !settings.optBoolean("breathe", true)) return 0;
+        return Math.sin(t * 2 * Math.PI * settings.optDouble("breathRate", 0.28));
+    }
+
+    /** The clock the life runs on, in seconds. */
+    public double time() {
+        return t;
+    }
+
+    private static double ease(double cur, double to, double rate, double dt) {
+        return cur + (to - cur) * (1 - Math.exp(-rate * dt));
+    }
+
+    private static double clamp(double v, double a, double b) {
+        return v < a ? a : v > b ? b : v;
+    }
+
     public void setButtons(List<String> ids) {
         buttonIds.clear();
         buttonIds.addAll(ids);
@@ -209,24 +237,88 @@ public final class Inputs {
     /** What the live hands say now (before a take is laid under them). */
     public Map<String, Object> live(long nowMs, double dt) {
         if (talking) babble(dt);
+        t += dt;
         boolean blink = blinkHold || nowMs < blinkUntil;
+        double lookX = 0, lookY = 0, sway = 0, bounce = 0, tx = turnX, ty = turnY, ro = roll, mo = micOn && !talking ? micOpen : mouth, bl = moodNow[3], bR = moodNow[3];
+        double lu = moodNow[0], ll = moodNow[2], lt = moodNow[1], wi = wind;
+        if (settings != null) {
+            // idle life: small movements even when nobody is touching it; eased so nothing snaps
+            double idle = settings.optBoolean("idle", true) && !faceOn ? 1 : 0;
+            tx += idle * 0.035 * Math.sin(t * 0.43);
+            ty += idle * 0.03 * Math.sin(t * 0.31 + 2);
+            sway += idle * 0.07 * Math.sin(t * 0.52);
+            smTurnX = ease(smTurnX, clamp(tx, -1, 1), 11, dt);
+            smTurnY = ease(smTurnY, clamp(ty, -1, 1), 11, dt);
+            smRoll = ease(smRoll, ro, 10, dt);
+            smSway = ease(smSway, sway, 8, dt);
+            smBounce = ease(smBounce, bounce, 12, dt);
+            smMouth = ease(smMouth, mo, mo > smMouth ? 38 : 22, dt);
+            // eyes go first, the head follows, plus small darts
+            nextDart -= dt;
+            if (nextDart <= 0) {
+                nextDart = 1.6 + life.nextDouble() * 2.6;
+                dartX = (life.nextDouble() - 0.5) * 0.5;
+                dartY = (life.nextDouble() - 0.5) * 0.3;
+            }
+            boolean lead = settings.optBoolean("eyesLead", true);
+            lookX = (lead ? clamp((tx - smTurnX) * 2.6, -1, 1) : 0) + idle * dartX;
+            lookY = (lead ? clamp((ty - smTurnY) * 2.6, -1, 1) : 0) + idle * dartY;
+            smLookX = ease(smLookX, clamp(lookX, -1, 1), 26, dt);
+            smLookY = ease(smLookY, clamp(lookY, -1, 1), 26, dt);
+            double lift = mo > 0.75 ? 0.25 : 0;
+            smBrowL = ease(smBrowL, bl + lift, 14, dt);
+            smBrowR = ease(smBrowR, bR + lift, 14, dt);
+            smLidUp = ease(smLidUp, lu, 12, dt);
+            smLidLow = ease(smLidLow, ll, 12, dt);
+            smLidTilt = ease(smLidTilt, lt, 10, dt);
+            smWind = ease(smWind, wi, 3, dt);
+            // blinks: uneven on purpose
+            if (blinkT >= 0) {
+                blinkT += dt;
+                if (blinkT >= 0.11) blinkT = -1;
+                else blink = true;
+            } else if (settings.optBoolean("blinkAuto", true) && !faceOn) {
+                nextBlink -= dt;
+                if (nextBlink <= 0) {
+                    blinkT = 0;
+                    double every = settings.optDouble("blinkEvery", 3.6);
+                    nextBlink = life.nextDouble() < 0.18 ? 0.24 : every * (0.45 + life.nextDouble() * 1.1);
+                }
+            }
+            tx = smTurnX;
+            ty = smTurnY;
+            ro = smRoll;
+            mo = smMouth < 0.015 ? 0 : smMouth;
+            lookX = smLookX;
+            lookY = smLookY;
+            sway = smSway;
+            bounce = smBounce;
+            bl = smBrowL;
+            bR = smBrowR;
+            lu = smLidUp;
+            ll = smLidLow;
+            lt = smLidTilt;
+            wi = smWind;
+        }
         Map<String, Object> m = new LinkedHashMap<>();
-        m.put("turnX", turnX);
-        m.put("turnY", turnY);
-        m.put("roll", roll);
-        m.put("lookX", 0.0);
-        m.put("lookY", 0.0);
+        m.put("turnX", tx);
+        m.put("turnY", ty);
+        m.put("roll", ro);
+        m.put("sway", sway);
+        m.put("bounce", bounce);
+        m.put("lookX", lookX);
+        m.put("lookY", lookY);
         boolean followMic = micOn && !talking;
-        m.put("mouth", followMic ? micOpen : mouth);
+        m.put("mouth", settings != null ? mo : followMic ? micOpen : mouth);
         m.put("vis", followMic ? micVis : vis);
-        m.put("browL", moodNow[3]);
-        m.put("browR", moodNow[3]);
+        m.put("browL", settings != null ? bl : moodNow[3]);
+        m.put("browR", settings != null ? bR : moodNow[3]);
         m.put("blinkL", blink ? 1.0 : 0.0);
         m.put("blinkR", blink ? 1.0 : 0.0);
-        m.put("lidUp", moodNow[0]);
-        m.put("lidTilt", moodNow[1]);
-        m.put("lidLow", moodNow[2]);
-        m.put("wind", wind);
+        m.put("lidUp", settings != null ? lu : moodNow[0]);
+        m.put("lidTilt", settings != null ? lt : moodNow[1]);
+        m.put("lidLow", settings != null ? ll : moodNow[2]);
+        m.put("wind", settings != null ? wi : wind);
         for (String id : buttonIds) m.put("g:" + id, isOn(id) ? 1.0 : 0.0);
         if (faceOn && face != null) {
             for (Map.Entry<String, Float> e : face.entrySet()) {

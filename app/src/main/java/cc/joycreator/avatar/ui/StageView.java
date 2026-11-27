@@ -143,6 +143,7 @@ public final class StageView extends View {
     private LandmarkLayer marks;
     private Dot dragging;
     private boolean moving;
+    private boolean glBacked;
     // the view: zoom and pan (two fingers; Fit puts them back), "pick a piece", and how the part in hand is shown
     private float zoom = 1f, panX, panY, baseS = 1f, baseX, baseY, lastFx, lastFy;
     private boolean picking;
@@ -165,7 +166,7 @@ public final class StageView extends View {
     }
 
     private void drawMarks(Canvas c, float dp) {
-        if (marks.solid() == null && marks.ghost() == null) pose.draw(c);
+        if (marks.solid() == null && marks.ghost() == null && !glBacked) pose.draw(c);
         if (marks.ghost() != null) pose.drawSubtree(c, marks.ghost(), marks.ghostTint(), 120);
         if (marks.solid() != null) pose.drawSubtree(c, marks.solid(), 0, 255);
         drawDots(c, dp, false);
@@ -309,6 +310,29 @@ public final class StageView extends View {
         }
     }
 
+    /**
+     * True when the real character is drawn by the GPU surface behind this view: this view then draws only what goes over it
+     * (dots, boxes, the selection) and is see-through. False: this view draws the stand-in itself.
+     */
+    public void setGlBacked(boolean on) {
+        glBacked = on;
+        setBackgroundColor(on ? 0x00000000 : 0xFF000000);
+        invalidate();
+    }
+
+    /** The view's scale and offset (character pixels to this view's pixels), as the GPU drawing needs them. */
+    public float viewScale() {
+        return fitS;
+    }
+
+    public float viewX() {
+        return fitX;
+    }
+
+    public float viewY() {
+        return fitY;
+    }
+
     /** The next tap on the picture takes the piece under the finger (the Pick a piece button). */
     public void setPicking(boolean on, java.util.function.Consumer<String> then) {
         picking = on;
@@ -427,7 +451,7 @@ public final class StageView extends View {
             c.translate(ox + panX, oy + panY);
             c.scale(s, s);
             if (marks != null) drawMarks(c, dp);
-            else pose.draw(c);
+            else if (!glBacked) pose.draw(c);
             if (selected != null && marks == null) {
                 CharacterDoc.Node n = doc.find(selected);
                 android.graphics.RectF r = n == null ? null : pose.bounds(n);

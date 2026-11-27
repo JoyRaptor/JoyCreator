@@ -32,7 +32,7 @@ public class InputsTest {
         return ((Number) l.get(Math.min(i, l.size() - 1))).doubleValue();
     }
 
-    public static void main(String[] a) {
+    public static void main(String[] a) throws Exception {
         Inputs in = new Inputs();
         in.setButtons(Arrays.asList("t1", "t2"));
 
@@ -72,6 +72,29 @@ public class InputsTest {
         in.talk(false);
         f = tick(in);
         ok(((Number) f.get("mouth")).doubleValue() == 0.0 && "Neutral".equals(f.get("vis")), "letting go shuts it");
+
+        // life: with the character's settings it is alive by itself; without them the hands are used as they are
+        Inputs lf = new Inputs();
+        lf.setSettings(new org.json.JSONObject());
+        boolean moved = false, blinked = false, shut = true;
+        double maxBreath = 0;
+        for (int i = 0; i < 400; i++) {
+            Map<String, Object> g = lf.frame(DT, now += 33);
+            moved |= Math.abs(((Number) g.get("turnX")).doubleValue()) > 0.01;
+            blinked |= ((Number) g.get("blinkL")).doubleValue() == 1.0;
+            maxBreath = Math.max(maxBreath, Math.abs(lf.breath()));
+        }
+        ok(moved, "an idle character sways a little by itself");
+        ok(blinked, "and blinks by itself");
+        ok(maxBreath > 0.9, "and breathes");
+        Inputs still = new Inputs();
+        still.setSettings(new org.json.JSONObject().put("idle", false).put("blinkAuto", false).put("breathe", false));
+        boolean quiet = true;
+        for (int i = 0; i < 400; i++) {
+            Map<String, Object> g = still.frame(DT, now += 33);
+            quiet &= Math.abs(((Number) g.get("turnX")).doubleValue()) < 1e-9 && ((Number) g.get("blinkL")).doubleValue() == 0.0 && still.breath() == 0;
+        }
+        ok(quiet, "with idle, blinks and breathing off it is perfectly still");
 
         // the microphone: the mouth follows the voice, and is the mic's while it is on
         Inputs m = new Inputs();

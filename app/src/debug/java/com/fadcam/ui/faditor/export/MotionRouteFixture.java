@@ -462,9 +462,9 @@ final class MotionRouteFixture {
         if (!media.mkdirs()) throw new IOException("Cannot create puppet mesh fixture directory");
         File source = copyAsset(context, media, "card2.mp4");
         long duration = durationMs(source);
-        if (duration < 1_000L) throw new IOException("Puppet mesh fixture is shorter than 1 second");
+        if (duration < 3_500L) throw new IOException("Puppet mesh fixture is shorter than 3.5 seconds");
         var timeline = project.getTimeline();
-        timeline.addClip(clip(source, duration, 1_000L));
+        timeline.addClip(clip(source, duration, 3_500L));
 
         var sheet = new SpriteSheet("c5-puppet-limb", "C5 puppet limb", Uri.fromFile(writePuppetAtlas(media)).toString());
         sheet.setGrid(2, 1);
@@ -472,11 +472,9 @@ final class MotionRouteFixture {
         var sprite = SpriteOverlayItem.create(sheet.getId());
         sprite.setCenter(0.5f, 0.54f);
         sprite.setSizeFraction(0.75f);
-        sprite.setTimeRange(0L, 899L);
+        sprite.setTimeRange(0L, 3499L);
         sprite.setRigidMotionBlurEnabled(enabled);
         sprite.setRigidMotionShutter(new MotionShutter.Controls(540, MotionShutter.Timing.CENTERED, 0, 100));
-        sprite.getFrameTrack().put(FrameTrack.Key.ofCell(0L, 0));
-        sprite.getFrameTrack().put(FrameTrack.Key.ofCell(367L, 1));
 
         // One triangulated arm, with the shoulder fixed and independent elbow/wrist offsets.
         var topology = new PuppetTopology(
@@ -486,11 +484,15 @@ final class MotionRouteFixture {
         float[] lifted = {0f, 0f, 0f, -0.055f, -0.06f, -0.22f};
         float[] lowered = {0f, 0f, 0f, 0.065f, -0.06f, 0.20f};
         var bends = mesh.ensureTrack();
-        bends.put(0L, mesh.handles(), Easing.LINEAR.name());
-        bends.put(120L, mesh.handles(), Easing.LINEAR.name());
-        bends.put(333L, lifted, Easing.LINEAR.name());
-        bends.put(620L, lowered, Easing.LINEAR.name());
-        bends.put(790L, mesh.handles(), Easing.LINEAR.name());
+        for (long repeat = 0L; repeat < 3500L; repeat += 1000L) {
+            sprite.getFrameTrack().put(FrameTrack.Key.ofCell(repeat, 0));
+            sprite.getFrameTrack().put(FrameTrack.Key.ofCell(repeat + 367L, 1));
+            bends.put(repeat, mesh.handles(), Easing.LINEAR.name());
+            bends.put(repeat + 120L, mesh.handles(), Easing.LINEAR.name());
+            bends.put(repeat + 333L, lifted, Easing.LINEAR.name());
+            bends.put(repeat + 620L, lowered, Easing.LINEAR.name());
+            bends.put(repeat + 790L, mesh.handles(), Easing.LINEAR.name());
+        }
         sprite.setMesh(mesh);
         timeline.addSpriteOverlay(sprite);
         if (!storage.save(project)) throw new IOException("Could not save the puppet mesh fixture");

@@ -610,8 +610,12 @@ final class SpriteBlendGlEffect implements GlEffect {
                 }
                 if (meshExposure == null) meshExposure = new MeshExposureGl(meshStamp);
                 GLES20.glGetIntegerv(GLES20.GL_FRAMEBUFFER_BINDING, outputFramebuffer, 0);
-                return meshExposure.compositeSprite(outputFramebuffer[0], inputTexId, frameW, frameH,
+                boolean drawn = meshExposure.compositeSprite(outputFramebuffer[0], inputTexId, frameW, frameH,
                         cell, renderer.cellAspect(), meshExposureCell, taps);
+                if (drawn && com.fadcam.BuildConfig.DEBUG && "c5-puppet-limb".equals(item.getSheetId())) {
+                    FLog.i("PuppetMeshParity", "export editorUs=" + editorUs + " cell=" + cell);
+                }
+                return drawn;
             } catch (Exception error) {
                 if (!loggedMeshExposureFailure) {
                     FLog.w("SpriteBlend", "authored mesh shutter failed; drawing the ordinary mesh", error);

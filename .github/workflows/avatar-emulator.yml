@@ -20,11 +20,11 @@ on:
         required: true
         default: joy-creator
       tests:
-        description: "all, draw (AvatarDrawParityTest) or room (AvatarRoomSmokeTest)"
+        description: "all, draw (AvatarDrawParityTest), room (AvatarRoomSmokeTest), studio (AvatarStudioDrawTest), or a test class name"
         required: false
         default: all
       fault:
-        description: "Planted fault to prove the tests can fail: none, or shift (one piece drawn 2 px off)"
+        description: "Planted fault to prove the tests can fail: none, shift (one piece drawn 2 px off) or rest (Studio draws only the standing picture)"
         required: false
         default: none
       device:
@@ -210,7 +210,10 @@ jobs:
           case "$TESTS" in
             draw) CLASSES=cc.joycreator.avatar.emu.AvatarDrawParityTest ;;
             room) CLASSES=cc.joycreator.avatar.emu.AvatarRoomSmokeTest ;;
-            *)    CLASSES=cc.joycreator.avatar.emu.AvatarDrawParityTest,cc.joycreator.avatar.emu.AvatarRoomSmokeTest ;;
+            studio) CLASSES=cc.joycreator.avatar.emu.AvatarStudioDrawTest ;;
+            all)  CLASSES=cc.joycreator.avatar.emu.AvatarDrawParityTest,cc.joycreator.avatar.emu.AvatarRoomSmokeTest,cc.joycreator.avatar.emu.AvatarStudioDrawTest ;;
+            *)    [[ "$TESTS" =~ ^[A-Za-z]+$ ]] || { echo "tests: all, draw, room, studio or one test class name"; exit 1; }
+                  CLASSES="cc.joycreator.avatar.emu.$TESTS" ;;
           esac
           ARGS=(-e class "$CLASSES" -e msaa "$MSAA" -e orientation "$ORIENT")
           [ "$FAULT" != none ] && ARGS+=(-e fault "$FAULT")
@@ -234,7 +237,7 @@ jobs:
             echo "### Avatar emulator: $result (tests=$TESTS, fault=$FAULT, msaa=$MSAA, ${{ inputs.device || 'pixel_4' }} ${{ inputs.orientation || 'portrait' }}, ${{ inputs.gpu || 'guest' }}) @ ${{ steps.meta.outputs.sha }}"
             echo '```'
             grep -E '^(OK|FAILURES|Tests run|INSTRUMENTATION_|Error)' emu-out/instrument.txt | head -20
-            sed -n '/draw parity/,/^$/p;/room smoke/,/^$/p' emu-out/avatar-log.txt | sed 's/^[^:]*: //' | head -60
+            sed -n '/draw parity/,/^$/p;/room smoke/,/^$/p;/studio draw/,/^$/p' emu-out/avatar-log.txt | sed 's/^[^:]*: //' | head -60
             echo '```'
             if [ "$result" = fail ]; then
               echo 'Failure:'; echo '```'; cat emu-out/device.txt

@@ -17,7 +17,7 @@
 #                                                   builds <ref> and its androidTest, boots an Android emulator on GitHub and runs the Avatar Studio
 #                                                   instrumented tests (.github/workflows/avatar-emulator.yml); waits, then fetches
 #                                                   the pictures and logs into build\cloud\avatar-emulator-*\ (run it in the background).
-#                                                   tests: all (default), draw or room; fault: none (default) or shift; device: pixel_4
+#                                                   tests: all (default), draw, room, studio or a test class; fault: none, shift or rest; device: pixel_4
 #                                                   (default) or pixel_tablet, add :landscape or :portrait to turn it (pixel_4:landscape).
 #                                                   Exit code 0 = the tests passed.
 # runId defaults to the last run started from this worktree (build\cloud\last-run.json); "latest" = the newest run anyone started.
@@ -259,8 +259,10 @@ function Get-Build([string] $id, $art = $null, [string] $root = "") {
     if (Test-Path $res) {   # an emulator run: its verdict, the drawing table, where the pictures are
         Write-Host ""
         Get-Content $res | ForEach-Object { Write-Host "  $_" }
-        $par = Join-Path $dest "pictures\draw\parity.txt"
-        if (Test-Path $par) { Get-Content $par | ForEach-Object { Write-Host "  $_" } }
+        foreach ($t in "pictures\draw\parity.txt", "pictures\studio\studio.txt") {
+            $par = Join-Path $dest $t
+            if (Test-Path $par) { Get-Content $par | ForEach-Object { Write-Host "  $_" } }
+        }
         Get-Content (Join-Path $dest "instrument.txt") -ErrorAction SilentlyContinue | Where-Object { $_ -match '^(OK|FAILURES|Tests run)' } | ForEach-Object { Write-Host "  $_" }
         Write-Host "  pictures: build\cloud\$($a.name)\pictures\ ; logs: instrument.txt, avatar-log.txt, logcat.txt"
     }

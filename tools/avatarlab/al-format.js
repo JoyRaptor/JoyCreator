@@ -161,9 +161,11 @@
   };
 
   /* ── the file, /1 to /2 and back ──────────────────────────────────────────────────────────── */
-  F.upgrade = function (doc) {
-    var o = copy(doc), report = [];
-    if (o.format === F.CHARACTER) return { doc: o, report: report };
+  /** inPlace: change the document itself (the pilot opening a file: no second copy of its pictures in memory). */
+  F.upgrade = function (doc, inPlace) {
+    var report = [];
+    if (doc && doc.format === F.CHARACTER) return { doc: inPlace ? doc : copy(doc), report: report };
+    var o = inPlace ? doc : copy(doc);
     if (o.format && o.format !== F.CHARACTER_OLD) { report.push('Not a character file this reads (' + o.format + ').'); return { doc: o, report: report }; }
     var nb = 0;
     walk(o.root, function (n) {
@@ -298,6 +300,52 @@
     Object.keys(doc.characters || {}).forEach(function (id) { if (!ids[id]) say('char-who', id, 'A carried character ' + id + ' is not in the scene.'); F.check(doc.characters[id]).forEach(function (b) { say(b.code, id + ' › ' + b.where, b.say); }); });
     return bad;
   };
+
+  /* ── editing the landmarks (the pilot's landmarks screen, copying an angle and the solver use these; the phone's Marks class
+        does the same). A place is [x, y], [x, y, 'behind'] or [x, y, 'off']. ── */
+  var MK = AL.marks = {};
+  /** "Not here": takes no part. A missing place counts as not here. */
+  MK.off = function (q) { return !q || q[2] === 'off'; };
+  MK.stateOf = function (q) { return !q ? 'off' : q[2] === 'off' || q[2] === 'behind' ? q[2] : 'here'; };
+  MK.has = function (set) { var m = set && set.marks; if (!m) return false; for (var k in m) if (m[k] && m[k].pts && m[k].pts.length) return true; return false; };
+  MK.piece = function (set, part, create) {
+    var pk = part || '', all = set.marks || (create ? (set.marks = {}) : null); if (!all) return null;
+    return all[pk] || (create ? (all[pk] = { pts: [], at: {} }) : null);
+  };
+  /** A drawing's row; made on first use with every point "not here", parked where `from` has it (else at 0, 0). */
+  MK.row = function (mk, id, from) {
+    if (mk.at[id]) return mk.at[id];
+    var src = from && mk.at[from];
+    return (mk.at[id] = mk.pts.map(function (p, i) { var q = src && src[i]; return [q ? q[0] : 0, q ? q[1] : 0, 'off']; }));
+  };
+  /** A new landmark: placed where `places` = { <drawing id>: [x, y] } says; in every other drawing "not here", parked at the first place. */
+  MK.add = function (mk, places) {
+    var ids = Object.keys(places), first = places[ids[0]];
+    ids.forEach(function (id) { MK.row(mk, id, ids.filter(function (o) { return o !== id && mk.at[o]; })[0]); });
+    mk.pts.push({ n: mk.pts.length + 1 });
+    Object.keys(mk.at).forEach(function (id) { var p = places[id]; mk.at[id].push(p ? [p[0], p[1]] : [first[0], first[1], 'off']); });
+    return mk.pts.length - 1;
+  };
+  /** Take landmark i out of every drawing; the rest are numbered again. An empty piece goes, and so do empty marks. */
+  MK.remove = function (set, part, i) {
+    var pk = part || '', mk = MK.piece(set, pk, false); if (!mk || !mk.pts[i]) return;
+    mk.pts.splice(i, 1); Object.keys(mk.at).forEach(function (id) { mk.at[id].splice(i, 1); });
+    mk.pts.forEach(function (p, k) { p.n = k + 1; });
+    if (!mk.pts.length) MK.clear(set, pk);
+  };
+  MK.clear = function (set, part) { if (!set.marks) return; delete set.marks[part || '']; if (!Object.keys(set.marks).length) delete set.marks; };
+  /** Here, behind or not here, for landmark i in one drawing. */
+  MK.setState = function (mk, id, i, st) { var r = mk.at[id]; if (!r || !r[i]) return; var q = r[i]; r[i] = st === 'behind' || st === 'off' ? [q[0], q[1], st] : [q[0], q[1]]; };
+  MK.move = function (mk, id, i, x, y) { var r = mk.at[id]; if (!r || !r[i]) return; var q = r[i]; r[i] = q.length > 2 ? [x, y, q[2]] : [x, y]; };
+  /** Where drawings a and b meet on the way between them, as a share of the way from a to b (0.5 when never set). */
+  MK.meet = function (mk, a, b) { var ms = mk.meets || []; for (var i = 0; i < ms.length; i++) { if (ms[i].a === a && ms[i].b === b) return ms[i].at; if (ms[i].a === b && ms[i].b === a) return 1 - ms[i].at; } return 0.5; };
+  MK.setMeet = function (mk, a, b, v) {
+    var ms = (mk.meets || []).filter(function (m) { return !((m.a === a && m.b === b) || (m.a === b && m.b === a)); });
+    if (Math.abs(v - 0.5) > 1e-6) ms.push({ a: a, b: b, at: v });
+    if (ms.length) mk.meets = ms; else delete mk.meets;
+  };
+  /** A copied drawing starts with every landmark exactly where its source has it (same states), in every piece. */
+  MK.copyRows = function (set, from, to) { for (var k in (set.marks || {})) { var mk = set.marks[k]; if (mk.at[from]) mk.at[to] = mk.at[from].map(function (q) { return q.slice(); }); } };
 
   /** Text with keys in order: two documents that mean the same thing give the same text. */
   F.canonical = function (o) {

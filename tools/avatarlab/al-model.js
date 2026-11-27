@@ -48,7 +48,7 @@
 
   AL.newCharacter = function (name, w, h) {
     var ch = {
-      format: 'joycreator.character/1', name: name || 'New character', w: w || 512, h: h || 512,
+      format: AL.format ? AL.format.CHARACTER : 'joycreator.character/1', name: name || 'New character', w: w || 512, h: h || 512,
       root: { id: AL.id('r'), name: name || 'Character', type: 'group', kids: [] },
       triggers: [],
       settings: { facing: 'front', autoFlip: false, flipAt: 0.4, blinkAuto: true, blinkEvery: 3.6, breathe: true, breathRate: 0.28, idle: true, eyesLead: true }
@@ -137,6 +137,7 @@
   /* ── saving ──────────────────────────────────────────────────────────────── */
   AL.toJson = function (ch, withPictures) {
     var o = JSON.parse(JSON.stringify(ch));
+    if (AL.format) o.format = AL.format.CHARACTER;                  // the shared format (al-format.js): one numbered set of landmarks per piece
     if (withPictures) {
       o.pictures = {};
       AL.walk(ch.root, function (n) { if (n.type === 'art' && n.img && !o.pictures[n.img]) { var im = AL.img.get(n.img); if (im) { o.pictures[n.img] = (im.hi || im.canvas).toDataURL('image/png'); if (im.hi) (o.fine = o.fine || {})[n.img] = [im.w, im.h]; } } });      // (fine: the size a finer picture takes up in the character)
@@ -153,6 +154,7 @@
     return bad;
   };
   AL.fromJson = function (o) {
+    if (AL.format) AL.format.upgrade(o, true);                       // an older file (joycreator.character/1) is read as /2: its landmark pairs become one set per piece
     var jobs = [], fine = o.fine || {}; delete o.fine;
     Object.keys(o.pictures || {}).forEach(function (id) {
       jobs.push(new Promise(function (res) {

@@ -33,28 +33,29 @@
   var VFALL = { S: ['Ee', 'D'], D: ['S', 'Ee'], F: ['M'], L: ['D', 'Ee'], R: ['W-Oo', 'Oh'], 'W-Oo': ['Oh'], Oh: ['W-Oo'], Ee: ['S'], Uh: ['Aa', 'Oh'], Surprised: ['Oh'], Smile: ['Ee'] };
 
   /**
-   * A BRIDGE is a handful of matched landmarks between two neighbouring head angles (the same crest spike in
-   * drawing A and in drawing B). As the head turns from A toward B, A is warped so its landmarks travel to
-   * the meeting point; B arrives already warped to the same point and relaxes. The eye sees one shape turn.
-   * Returned as seen from A: [{ from: where A has it, to: where it should be when B takes over }].
+   * MATCHED DRAWINGS. Each piece of a set has ONE numbered set of landmarks (set.marks, al-format.js; the owner's model of 11-23):
+   * every drawing places the same points, each "here", "behind" (a ghost round the back that still steers) or "not here" (takes no
+   * part). As the head turns from A toward B, A is warped so each point it shares with B travels toward where the two meet; B arrives
+   * already warped to the same point. Because a point has ONE place in each drawing, two neighbours can never pull it to two places.
+   * Returned as seen from A: [{ from: where A has it, to: where it should be when B takes over }], or null.
+   * full: all the way from A to B (two looks that cross-fade) instead of only as far as where they meet.
    */
   AL.bridgeFor = function (ch, set, A, B, part, full) {
-    var bs = set.bridges || [], ax = set.axisX == null ? ch.w / 2 : set.axisX, pk = part || '';
-    /* part: the landmarks of one PIECE of the drawing (a frill, a horn) that warps on its own; '' = the whole drawing.
-       full: all the way from A to B (two looks that cross-fade), instead of only as far as where they meet. */
-    function find(a, b) { for (var i = 0; i < bs.length; i++) { if ((bs[i].part || '') !== pk) continue; if (bs[i].a === a && bs[i].b === b) return { br: bs[i], rev: false }; if (bs[i].a === b && bs[i].b === a) return { br: bs[i], rev: true }; } return null; }
-    var hit = find(A.id, B.id), flip = false;
-    if (!hit && (A.type === 'mirror' || B.type === 'mirror')) {     // the far side of the face: the mirror image of a bridge matched by hand
+    var mk = set.marks && set.marks[part || '']; if (!mk || !mk.pts || !mk.pts.length) return null;
+    var ax = set.axisX == null ? ch.w / 2 : set.axisX, ra = mk.at[A.id], rb = mk.at[B.id], a = A.id, b = B.id, flip = false;
+    if ((!ra || !rb) && (A.type === 'mirror' || B.type === 'mirror')) {     // the far side of the face: the mirror image of what was matched by hand
       var a2 = A.type === 'mirror' ? A.of : (A.at && Math.abs(A.at[0]) < 0.05 ? A.id : null), b2 = B.type === 'mirror' ? B.of : (B.at && Math.abs(B.at[0]) < 0.05 ? B.id : null);
-      if (a2 && b2) { hit = find(a2, b2); flip = !!hit; }
+      if (a2 && b2 && mk.at[a2] && mk.at[b2]) { ra = mk.at[a2]; rb = mk.at[b2]; a = a2; b = b2; flip = true; }
     }
-    if (!hit || !hit.br.pts || !hit.br.pts.length) return null;
-    var meet = hit.br.meet == null ? 0.5 : hit.br.meet;
-    return hit.br.pts.map(function (q) {
-      var pa = hit.rev ? q.b : q.a, pb = hit.rev ? q.a : q.b, m = full ? 1 : hit.rev ? 1 - meet : meet, fx = pa[0], tx = pa[0] + (pb[0] - pa[0]) * m;
+    if (!ra || !rb) return null;
+    var m = full ? 1 : AL.marks.meet(mk, a, b), out = [];
+    mk.pts.forEach(function (p, i) {
+      var qa = ra[i], qb = rb[i]; if (AL.marks.off(qa) || AL.marks.off(qb)) return;            // "not here" in either drawing: no pull between them
+      var fx = qa[0], tx = qa[0] + (qb[0] - qa[0]) * m;
       if (flip) { fx = 2 * ax - fx; tx = 2 * ax - tx; }
-      return { from: [fx, pa[1]], to: [tx, pa[1] + (pb[1] - pa[1]) * m] };
+      out.push({ from: [fx, qa[1]], to: [tx, qa[1] + (qb[1] - qa[1]) * m] });
     });
+    return out.length ? out : null;
   };
 
   AL.restSignals = function () {
@@ -703,7 +704,7 @@
       /* a swap fades in over the old drawing, both solved to the same pose, so it reads as a turn and not a pop.
          Two LOOKS that have been matched with landmarks (a smile and a frown, an open eye and a shut one) do more: each bends
          into the other's shape while they cross-fade, so the change is one shape melting into the next. */
-      var fade = st.fade[n.id], looks = pk.by !== 'turn' && pk.by !== 'reach' && pk.by !== 'cycle' && n.bridges && n.bridges.length, fms = pk.fade == null ? (looks ? 170 : 110) : pk.fade;
+      var fade = st.fade[n.id], looks = pk.by !== 'turn' && pk.by !== 'reach' && pk.by !== 'cycle' && AL.marks.has(n), fms = pk.fade == null ? (looks ? 170 : 110) : pk.fade;
       if (live && prev && prev !== cur && fms > 0 && (looks ? !!AL.bridgeFor(ch, n, prev, cur, '', true) : ((pk.by === 'turn' || pk.by === 'reach') && !pk.loop))) fade = st.fade[n.id] = { from: prev.id, t: 0, morph: !!looks };
       st.pick[n.id] = cur.id; out.picks[n.id] = cur.id;
       if (fade) { fade.t += dt * 1000 / Math.max(1, fms); if (fade.t >= 1 || !live || fade.from === cur.id || !ix.n[fade.from]) { delete st.fade[n.id]; fade = null; } }
@@ -719,7 +720,7 @@
         if (pk.by === 'turn') extra.vs = n.id;
         if (pk.by === 'turn' && kid.at) { var dpx = pk.depth == null ? 14 : pk.depth; extra.P = [(tx - kid.at[0]) * dpx, (ty - kid.at[1]) * dpx]; extra.rel = [tx - kid.at[0], ty - kid.at[1]]; }
         var m2 = Mx, src = kid, ax = n.axisX;
-        if (pk.by === 'turn' && moving && !ghost && kid.at && n.bridges && n.bridges.length) {
+        if (pk.by === 'turn' && moving && !ghost && kid.at && AL.marks.has(n)) {
           /* warp this angle toward each neighbour it is turning to */
           /* HOW FAR TOWARD EACH NEIGHBOUR. The owner, 11-23: a turn from Left Quarter up to Upward popped at half way, the frill jumping,
              once both had also been matched to Frontal. Frontal sits beside that path: measured on its own, the way toward it was as long

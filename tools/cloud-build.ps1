@@ -8,6 +8,10 @@
 #   .\tools\cloud-build.ps1 run   <ref> [variant]   start + wait + fetch in one go
 #   .\tools\cloud-build.ps1 test  <ref> [suites]    runs tests on GitHub and prints a short summary (run it in the background);
 #                                                   suites: all (default) or any of jb-core,jb-androidkit,jb-android,studio,joybot
+#   .\tools\cloud-build.ps1 emulator <ref> <script> [phone|tablet|both]
+#                                                   builds the debug APK, boots cloud Android emulators (.github/workflows/emulator.yml),
+#                                                   runs tools/cloud/emulator/scripts/<script>.sh on them, waits (run it in the background)
+#                                                   and downloads screenshots and logs to build\cloud\emulator-<run>\<name>\
 # runId defaults to the last run started from this worktree (build\cloud\last-run.json); "latest" = the newest run anyone started.
 #
 # Then:  .\tools\phone.ps1 install build\cloud\<artifact>\app-default-arm64-v8a-debug.apk   (under the phone lock)
@@ -177,13 +181,17 @@ function Wait-Build([string] $id) {
     }
 }
 
-function Get-Build([string] $id) {
-    $arts = Api GET "/actions/runs/$id/artifacts"
-    $a = $arts.artifacts | Select-Object -First 1
+function Get-Build([string] $id, $art = $null, [string] $root = "") {
+    if ($art) { $a = $art }
+    else {
+        $arts = Api GET "/actions/runs/$id/artifacts"
+        $a = $arts.artifacts | Select-Object -First 1
+    }
     if (-not $a) { throw "run $id has no artifact (did it succeed? artifacts are kept 3 days)" }
-    New-Item -ItemType Directory -Force $outDir | Out-Null
-    $zip = Join-Path $outDir "$($a.name).zip"
-    $dest = Join-Path $outDir $a.name
+    if (-not $root) { $root = $outDir }
+    New-Item -ItemType Directory -Force $root | Out-Null
+    $zip = Join-Path $root "$($a.name).zip"
+    $dest = Join-Path $root $a.name
     $plain = New-Client $null   # the storage link is pre-signed: no login goes with it
     # Big downloads get cut off ("connection was forcibly closed"), most of all when this PC's line is busy: keep
     # resuming where it stopped for as long as each try gets further; give up after 5 tries in a row that get nowhere.
@@ -314,6 +322,43 @@ function Sign-Bundle([string] $aab) {
     Write-Host ("signed: {0} ({1:N1} MB); upload this one to Play" -f $signed, ((Get-Item $signed).Length / 1MB))
 }
 
+function Start-Emulator([string] $ref, [string] $script, [string] $profiles) {
+    if (-not $ref -or -not $script) { throw "usage: emulator <ref> <script> [phone|tablet|both]" }
+    if (-not $profiles) { $profiles = "phone" }
+    if ($profiles -notin @("phone", "tablet", "both")) { throw "profiles: phone, tablet or both" }
+    $rid = "em-" + [Guid]::NewGuid().ToString("N").Substring(0, 8)
+    $wf = "emulator.yml"
+    Api POST "/actions/workflows/$wf/dispatches" @{ ref = $WorkflowRef; inputs = @{ ref = $ref; script = $script; profiles = $profiles; request_id = $rid } } | Out-Null
+    for ($i = 0; $i -lt 24; $i++) {
+        Start-Sleep -Seconds 5
+        $runs = Api GET "/actions/workflows/$wf/runs?event=workflow_dispatch&per_page=30"
+        $run = $runs.workflow_runs | Where-Object { "$($_.display_title)".Contains("[$rid]") } | Select-Object -First 1
+        if ($run) {
+            Save-State ([ordered]@{ run_id = $run.id; ref = $ref; variant = "emulator $script $profiles"; request_id = $rid; url = $run.html_url; started = (Get-Date).ToString("s") })
+            Write-Host "started emulator run $($run.id): $script ($profiles) @ $ref"
+            Write-Host "  $($run.html_url)"
+            return $run.id
+        }
+    }
+    throw "the emulator run was requested but did not show up within 2 minutes; look at the Actions tab"
+}
+
+function Get-EmulatorResults([string] $id) {
+    # Per-job times, then every "emulator-*" artifact into build\cloud\emulator-<run>\<name>\ (resumes if cut off).
+    $jobs = Api GET "/actions/runs/$id/jobs"
+    foreach ($j in $jobs.jobs) {
+        if ($j.started_at -and $j.completed_at) {
+            $m = [Math]::Round(([DateTime]$j.completed_at - [DateTime]$j.started_at).TotalMinutes, 1)
+            Write-Host ("  job {0}: {1}, {2} min" -f $j.name, $j.conclusion, $m)
+        }
+    }
+    $arts = (Api GET "/actions/runs/$id/artifacts").artifacts | Where-Object { $_.name -like "emulator-*" }
+    if (-not $arts) { Write-Host "no emulator artifacts (did a job reach the upload step?)"; return }
+    $root = Join-Path $outDir "emulator-$id"
+    foreach ($a in $arts) { Get-Build $id $a $root }
+    Write-Host "screenshots and logs: build\cloud\emulator-$id\"
+}
+
 switch ($Cmd) {
     "start" { Start-Build $Rest[0] $(if ($Rest.Count -ge 2) { $Rest[1] } else { "" }) | Out-Null }
     "wait"  {
@@ -339,5 +384,11 @@ switch ($Cmd) {
         try { Get-Build $id } catch { Write-Host "no summary to fetch: $($_.Exception.Message)" }
         if (-not $ok) { exit 1 }
     }
-    default { Get-Content $PSCommandPath -TotalCount 14 | ForEach-Object { $_ -replace '^# ?', '' } }
+    "emulator" {
+        $id = Start-Emulator $Rest[0] $Rest[1] $(if ($Rest.Count -ge 3) { $Rest[2] } else { "" })
+        $ok = Wait-Build $id
+        try { Get-EmulatorResults $id } catch { Write-Host "no results to fetch: $($_.Exception.Message)" }
+        if (-not $ok) { exit 1 }
+    }
+    default { Get-Content $PSCommandPath -TotalCount 22 | ForEach-Object { $_ -replace '^# ?', '' } }
 }

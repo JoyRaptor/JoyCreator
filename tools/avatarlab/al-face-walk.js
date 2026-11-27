@@ -23,6 +23,8 @@
   fw.CURVE = 1.6;                       // gentle near the middle, quick toward the edge
   fw.TILT = 0.36;                       // the head tilted further than this (the face camera's |roll|) holds the sideways walk: a safety net, the face
                                         // engine takes the tilt's swing out of leanX itself. His Note 9 test (11-22): a lean rolled 0.23, a shoulder tilt 0.44
+  fw.TURN = 0.5;                        // the head turned further than this (|turnX|) holds it too: a turned head swings the face sideways. His take
+                                        // (11-27): turning his head right walked Topps right; his leans turned it 0.3 to 0.41, his turns 1.0
   var ROOM = fw.room = (function () { try { var v = JSON.parse(localStorage.getItem('al.facewalk') || 'null'); return v && typeof v === 'object' ? v : {}; } catch (e) { return {}; } })();
   function keep() { try { localStorage.setItem('al.facewalk', JSON.stringify({ lr: !!ROOM.lr, depth: !!ROOM.depth })); } catch (e) { } }
   fw.on = function (k) { return !!ROOM[k]; };
@@ -52,7 +54,8 @@
       /* left and right: a rate, like the joystick */
       if (lr && face && w.travels()) {
         K.roll = (K.roll || 0) + (Math.abs(face.roll || 0) - (K.roll || 0)) * (1 - Math.exp(-8 * dt));
-        var u = K.roll > fw.TILT ? 0 : past(K.lx, fw.DEAD.x);      // (a head tilted toward a shoulder swings sideways about the neck and reads as a lean: the owner's Note 9 test, 11-22. A tilt is not a walk)
+        K.turn = (K.turn || 0) + (Math.abs(face.turnX || 0) - (K.turn || 0)) * (1 - Math.exp(-8 * dt));
+        var u = K.roll > fw.TILT || K.turn > fw.TURN ? 0 : past(K.lx, fw.DEAD.x);      // (a head tilted toward a shoulder swings sideways about the neck and reads as a lean: the owner's Note 9 test, 11-22. A tilt is not a walk)
         if (u) { var b = AL.boundsOf(app.ch.root) || { y0: 0, y1: app.ch.h, x0: 0, x1: app.ch.w }, lim = w.lim || [-(b.x1 - b.x0) * 0.7, (b.x1 - b.x0) * 0.7];
           w.tx = clamp(w.tx + Math.sign(u) * Math.pow(Math.abs(u), fw.CURVE) * fw.SPEED * (b.y1 - b.y0) * dt, lim[0], lim[1]); drive = true; }
       }

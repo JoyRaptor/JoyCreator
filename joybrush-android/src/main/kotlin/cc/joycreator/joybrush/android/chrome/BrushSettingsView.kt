@@ -289,19 +289,7 @@ class BrushSettingsView(
         setTextColor(kit.p.drawerInk)
     }
 
-    private fun button(s: String, label: String, action: () -> Unit): TextView = text(s, 13f).apply {
-        gravity = Gravity.CENTER
-        minHeight = kit.dpi(ChromeKit.TOUCH_DP)
-        setPadding(kit.dpi(12f), 0, kit.dpi(12f), 0)
-        kit.label(this, label)
-        background = StateListDrawable().apply {
-            addState(intArrayOf(android.R.attr.state_pressed), GradientDrawable().apply {
-                cornerRadius = kit.dp(10f)
-                setColor(kit.ink(0.2f))
-            })
-        }
-        setOnClickListener { action() }
-    }
+    private fun button(s: String, label: String, action: () -> Unit): TextView = StageButton.make(kit, s, label, action)
 
     /** The chrome's slider: a drawer-ink thumb on a faint track, never the platform's accent. */
     private fun tint(s: SeekBar) {

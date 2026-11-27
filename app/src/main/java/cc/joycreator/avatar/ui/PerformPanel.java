@@ -82,6 +82,11 @@ public final class PerformPanel extends ScrollView {
         default void openStickGestures() {
         }
 
+        /** Walk with your face: its chip and tick boxes, or null (the character does not walk). */
+        default View faceWalkDrawer() {
+            return null;
+        }
+
         /** The part in hand (a node of the character), or null; Motion shows how it moves. */
         CharacterDoc.Node inHandNode();
 
@@ -113,6 +118,7 @@ public final class PerformPanel extends ScrollView {
     private final List<String> moodNames = new ArrayList<>();
     private TextView micChip, faceChip, recentreChip, mirrorChip;
     private LinearLayout faceRow;
+    private int faceWords = R.string.avatar_face;
     private final List<TextView> tickBoxes = new ArrayList<>();
     private final List<String[]> tickKeys = new ArrayList<>();   // {settings key, "t" when a missing key means on}
 
@@ -196,7 +202,8 @@ public final class PerformPanel extends ScrollView {
         LinearLayout.LayoutParams ml = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, px(36));
         ml.topMargin = px(8);
         side.addView(micChip, ml);
-        faceChip = chip(c, c.getString(R.string.avatar_face), c.getString(R.string.avatar_hover_face), v -> host.toggleFace());
+        faceChip = chip(c, c.getString(R.string.avatar_face), c.getString(R.string.avatar_hover_face_cycle), v -> host.toggleFace());
+        faceWords = R.string.avatar_face;                               // (a new chip: its words follow the mode from the next paint)
         side.addView(faceChip, ml);
         if (host.stick() != null) {
             stickChip = chip(c, c.getString(R.string.avatar_joystick), c.getString(R.string.avatar_hover_joystick), v -> {
@@ -229,6 +236,11 @@ public final class PerformPanel extends ScrollView {
         LinearLayout.LayoutParams fl = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
         fl.topMargin = px(6);
         side.addView(faceRow, fl);
+        View walkWithFace = host.faceWalkDrawer();
+        if (walkWithFace != null) {
+            if (walkWithFace.getParent() instanceof ViewGroup) ((ViewGroup) walkWithFace.getParent()).removeView(walkWithFace);
+            side.addView(walkWithFace);
+        }
         row.addView(side, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
         stickPad = null;
         if (host.stick() != null && host.stickOpen()) {                      // the second pad, for the other thumb
@@ -386,7 +398,15 @@ public final class PerformPanel extends ScrollView {
         for (int i = 0; i < buttonChips.size(); i++) paintChip(buttonChips.get(i), in.isOn(buttonIds.get(i)));
         for (int i = 0; i < moodChips.size(); i++) paintChip(moodChips.get(i), moodNames.get(i).equals(in.moodName()));
         if (micChip != null) paintChip(micChip, in.micOn());
-        if (faceChip != null) paintChip(faceChip, in.faceOn());
+        if (faceChip != null) {
+            paintChip(faceChip, in.faceOn());
+            int words = !in.faceOn() ? R.string.avatar_face : in.faceDrive().mode() == cc.joycreator.avatar.face.FaceDrive.Mode.TALK
+                    ? R.string.avatar_face_talk : R.string.avatar_face_always;
+            if (words != faceWords) {
+                faceWords = words;
+                faceChip.setText(words);
+            }
+        }
         if (faceRow != null) faceRow.setVisibility(in.faceOn() ? View.VISIBLE : View.GONE);
         if (mirrorChip != null) paintChip(mirrorChip, host.faceMirror());
     }

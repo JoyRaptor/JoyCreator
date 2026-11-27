@@ -50,12 +50,13 @@ import java.util.List;
  * Perform and recording are filled in by the later steps of slice 1; a control appears only when it works (a dead knob
  * is worse than a missing one).</p>
  */
-public final class AvatarRoomActivity extends Activity implements RoomMenu.Host, LayersView.Host, PartsView.Host, PerformPanel.Host, cc.joycreator.avatar.ui.LandmarksScreen.Host, cc.joycreator.avatar.ui.PinsLayer.Host, cc.joycreator.avatar.ui.BoxLayer.Host, cc.joycreator.avatar.ui.MotionSections.Host, cc.joycreator.avatar.ui.StanceCard.Host {
+public final class AvatarRoomActivity extends Activity implements RoomMenu.Host, LayersView.Host, PartsView.Host, PerformPanel.Host, cc.joycreator.avatar.ui.LandmarksScreen.Host, cc.joycreator.avatar.ui.PinsLayer.Host, cc.joycreator.avatar.ui.BoxLayer.Host, cc.joycreator.avatar.ui.MotionSections.Host, cc.joycreator.avatar.ui.StanceCard.Host, cc.joycreator.avatar.ui.ReshapeLayer.Host {
     private static final String TAG = "AvatarRoom";
     private static final int REQ_OPEN = 41;
     private static final int REQ_PICTURES = 42;
     private static final int REQ_PSD = 43;
     private static final int REQ_UPDATE = 46;
+    private static final int REQ_WHOLE = 47;
 
     /** The four stages, in the order the owner reads them (spec A2). The second one's word is one string. */
     private static final int[] STAGE_NAMES = {
@@ -93,11 +94,19 @@ public final class AvatarRoomActivity extends Activity implements RoomMenu.Host,
     private final java.util.Map<String, String> forced = new java.util.HashMap<>();
     private final cc.joycreator.avatar.ui.PinsLayer pins = new cc.joycreator.avatar.ui.PinsLayer(this);
     private final cc.joycreator.avatar.ui.BoxLayer box = new cc.joycreator.avatar.ui.BoxLayer(this);
+    private final cc.joycreator.avatar.ui.ReshapeLayer reshapeLayer = new cc.joycreator.avatar.ui.ReshapeLayer(this);
+    private boolean reshaping;
     private android.widget.FrameLayout panelBody;
     private com.fadcam.ui.faditor.avatar.MicVisemeSource mic;
     private static final int REQ_MIC = 44;
     private static final int REQ_CAMERA = 45;
     private com.fadcam.ui.faditor.avatar.face.FaceCapture faceCapture;
+    // walk with your face (FaceWalk, its drawer) and toward the camera and away (DepthWalk): the face session's spots
+    private final cc.joycreator.avatar.face.FaceWalk faceWalk = new cc.joycreator.avatar.face.FaceWalk();
+    private cc.joycreator.avatar.face.FaceWalkDrawer faceWalkDrawer;
+    private double[] bodyBox;                                   // the character's drawing at rest [x0, y0, x1, y1]
+    private cc.joycreator.avatar.face.WalkerLegs legs;
+    private cc.joycreator.avatar.perform.Walker legsOf;
     private final Inputs inputs = new Inputs();
     private boolean wasRecording;
     private boolean looping;
@@ -443,7 +452,103 @@ public final class AvatarRoomActivity extends Activity implements RoomMenu.Host,
     private void refreshPins() {
         if (stage == null || (landmarks != null && landmarks.isOpen())) return;
         boolean on = inHand != null && !showLayers;
-        stage.setLandmarks(on && stageIndex == 0 ? pins : on && stageIndex == 1 ? box : null);
+        stage.setLandmarks(on && stageIndex == 0 ? pins : on && stageIndex == 1 ? (reshaping ? reshapeLayer : box) : null);
+    }
+
+    // ── Arrange: reshape with pins ────────────────────────────────────────────────────────────────
+
+    @Override
+    public boolean reshaping() {
+        return reshaping && inHand != null;
+    }
+
+    /** The picture shows the shape being made (this stance's, or the standing one) at full while reshaping. */
+    private void pushShapes() {
+        java.util.Map<String, java.util.Map<String, Double>> m = new java.util.HashMap<>();
+        CharacterDoc.Node n = reshaping && inHand != null && character != null ? character.find(inHand) : null;
+        if (n != null) m.put(n.id, cc.joycreator.avatar.file.Reshape.weights(n.json, poseJson() == null ? null : poseEdit));
+        glStage.setShapes(m);
+    }
+
+    @Override
+    public void reshape(boolean on) {
+        if (on && inHand != null) {
+            CharacterDoc.Node n = character.find(inHand);
+            if (n == null) return;
+            final String pid = poseJson() == null ? null : poseEdit;
+            edit.apply(getString(R.string.avatar_step_reshape_on), d -> {
+                org.json.JSONObject nn = d.find(inHand).json;
+                cc.joycreator.avatar.file.Reshape.on(nn, pid == null ? null : cc.joycreator.avatar.file.Stances.find(d.json, pid));
+            });
+        }
+        reshaping = on;
+        pushShapes();
+        refreshPins();
+        parts.show(character, inHand, stageIndex);
+    }
+
+    /** Leave reshaping (the part in hand, the stance or the stage changed). */
+    private void stopReshape() {
+        if (!reshaping) return;
+        reshaping = false;
+        pushShapes();
+    }
+
+    @Override
+    public void reshapeAction(String what) {
+        if (inHand == null) return;
+        final String pid = poseJson() == null ? null : poseEdit;
+        final String id = inHand;
+        if (what.equals("removeLast")) edit.apply(getString(R.string.avatar_step_reshape_remove), d -> cc.joycreator.avatar.file.Reshape.removePin(d.find(id).json, pid));
+        else edit.apply(getString(R.string.avatar_step_reshape_again), d -> cc.joycreator.avatar.file.Reshape.startAgain(d.find(id).json, pid));
+    }
+
+    @Override
+    public String poseId() {
+        return poseJson() == null ? null : poseEdit;
+    }
+
+    @Override
+    public double[] matrix(String id) {
+        return glStage.matrix(id);
+    }
+
+    @Override
+    public void live(String nodeId, String pinId, double x, double y) {
+        try {
+            cc.joycreator.avatar.file.Reshape.dragTo(character.find(nodeId).json, poseId(), pinId, x, y);
+        } catch (org.json.JSONException e) {
+            Log.w(TAG, "live reshape refused", e);
+            return;
+        }
+        redraw();
+    }
+
+    @Override
+    public void commit(String nodeId, String pinId, double x, double y, org.json.JSONArray oldOffset) {
+        final String pid = poseId();
+        try {                                                    // put the live offset back so the step starts from what was there
+            org.json.JSONObject fs = cc.joycreator.avatar.file.Reshape.fixShape(character.find(nodeId).json, pid);
+            org.json.JSONObject dd = fs == null ? null : fs.optJSONObject("d");
+            if (dd != null) {
+                if (oldOffset == null) dd.remove(pinId);
+                else dd.put(pinId, oldOffset);
+            }
+        } catch (org.json.JSONException e) {
+            Log.w(TAG, "reshape put-back refused", e);
+        }
+        edit.apply(getString(R.string.avatar_step_reshape_pin), d -> cc.joycreator.avatar.file.Reshape.dragTo(d.find(nodeId).json, pid, pinId, x, y));
+    }
+
+    @Override
+    public void drop(String nodeId, double x, double y) {
+        final String pid = poseId();
+        edit.apply(getString(R.string.avatar_step_reshape_drop), d -> cc.joycreator.avatar.file.Reshape.dropPin(d.find(nodeId).json, pid, x, y, (nid, px, py, w) -> glStage.warpAt(nid, px, py, w)));
+    }
+
+    @Override
+    public void say(int string) {
+        Toast.makeText(this, string, Toast.LENGTH_SHORT).show();
     }
 
     // ── Motion: values of the part in hand and of the character ────────────────────────────────────
@@ -631,6 +736,7 @@ public final class AvatarRoomActivity extends Activity implements RoomMenu.Host,
 
     @Override
     public void editStance(String idOrNull) {
+        stopReshape();
         poseEdit = idOrNull;
         poseAmt = 1;
         pushPoses();
@@ -821,6 +927,7 @@ public final class AvatarRoomActivity extends Activity implements RoomMenu.Host,
         if (idx < 2 && inputs.micOn()) micOff();                     // the microphone listens only in Motion and Perform
         if (idx < 2 && inputs.faceOn()) faceOff();                   // and so does the camera
         stageIndex = idx;
+        if (idx != 1) stopReshape();
         for (int i = 0; i < 4; i++) {
             boolean on = i == idx;
             GradientDrawable g = new GradientDrawable();
@@ -902,6 +1009,8 @@ public final class AvatarRoomActivity extends Activity implements RoomMenu.Host,
             });
         } else walker.refresh();
         stickSize();
+        bodyBox = null;                                         // (walking with your face measures the drawing again)
+        if (inputs.faceOn()) watchFacePins();
         stage.setSelected(inHand);
         layers.show(d, inHand);
         parts.show(d, inHand, stageIndex);
@@ -979,7 +1088,12 @@ public final class AvatarRoomActivity extends Activity implements RoomMenu.Host,
 
     @Override
     public void toggleFace() {
-        if (inputs.faceOn()) {
+        if (inputs.faceOn()) {                                  // the pilot's chip: always, then only while talking, then off
+            if (inputs.faceDrive().mode() == cc.joycreator.avatar.face.FaceDrive.Mode.ALWAYS) {
+                inputs.faceDrive().setMode(cc.joycreator.avatar.face.FaceDrive.Mode.TALK);
+                performPanel.tick();
+                return;
+            }
             faceOff();
             return;
         }
@@ -996,18 +1110,78 @@ public final class AvatarRoomActivity extends Activity implements RoomMenu.Host,
     @Override
     public void recentreFace() {
         if (faceCapture != null) faceCapture.setNeutral();
+        inputs.faceDrive().recentre();                          // (and the head moves from where the pad is now)
+    }
+
+    /** The face camera watches the points the character's face pins follow (their lanes ride a take as the pilot's). */
+    private void watchFacePins() {
+        if (faceCapture == null || character == null) return;
+        org.json.JSONArray fp = character.json.optJSONArray("facePins");
+        java.util.LinkedHashSet<Integer> pts = new java.util.LinkedHashSet<>();
+        for (int i = 0; fp != null && i < fp.length(); i++) {
+            org.json.JSONObject p = fp.optJSONObject(i);
+            if (p != null && p.has("point")) pts.add(p.optInt("point"));
+        }
+        int[] a = new int[pts.size()];
+        int j = 0;
+        for (int v : pts) a[j++] = v;
+        faceCapture.watchPoints(a);
+    }
+
+    /** The drawer for walking with your face (null: this character does not walk). */
+    @Override
+    public View faceWalkDrawer() {
+        if (walker == null || !walker.canWalk()) return null;
+        if (faceWalkDrawer == null) faceWalkDrawer = new cc.joycreator.avatar.face.FaceWalkDrawer(this, faceWalk, new cc.joycreator.avatar.face.FaceWalkDrawer.Host() {
+            @Override
+            public boolean faceCameraOn() {
+                return inputs.faceOn();
+            }
+
+            @Override
+            public boolean walksInDepth() {
+                return walker != null && walker.canWalk();
+            }
+        });
+        else faceWalkDrawer.paint();
+        return faceWalkDrawer;
+    }
+
+    /**
+     * Once a frame in Perform, before the walker steps: the depth model while depth is in use (the face's Closer and further,
+     * Up close), then walking with your face (the pilot's al-face-walk.js and al-depth-walk.js).
+     */
+    private void faceWalkStep(double dt) {
+        if (character == null) return;
+        if (bodyBox == null || (frameNo & 31) == 0) {
+            org.json.JSONObject r = character.json.optJSONObject("root");
+            CharacterDoc.Node k = r == null ? null : character.find(r.optString("id"));
+            cc.joycreator.avatar.ui.PoseRenderer pr = stage.renderer();
+            double[] b = k == null || pr == null ? null : pr.restBounds(k);
+            if (b != null && b.length >= 4) bodyBox = b;
+        }
+        boolean depth = walker.canWalk() && (faceWalk.closer() || faceWalk.upClose());   // (+ the joystick in perspective: slice 1)
+        cc.joycreator.avatar.perform.DepthWalk.prep(walker, depth, character.json, bodyBox);
+        double h = bodyBox == null ? character.json.optDouble("h", 512) : bodyBox[3] - bodyBox[1];
+        double lim = 0.7 * (bodyBox == null ? character.json.optDouble("w", 512) : bodyBox[2] - bodyBox[0]);
+        boolean replay = inputs.recorder.playing() && !inputs.recorder.recording();
+        if (legsOf != walker) {
+            legs = new cc.joycreator.avatar.face.WalkerLegs(walker);
+            legsOf = walker;
+        }
+        faceWalk.step(dt, inputs.faceNow(), legs, h, lim, replay);
     }
 
     @Override
-    public boolean faceMirror() {
-        return faceCapture != null && faceCapture.tuning().mirror;
+    public boolean faceMirror() {                               // (on = like your reflection: the engine's flag is the opposite)
+        return cc.joycreator.avatar.face.MirrorChip.on(faceCapture == null ? null : faceCapture.tuning());
     }
 
     @Override
     public void setFaceMirror(boolean on) {
         if (faceCapture == null) return;
         com.fadcam.ui.faditor.avatar.face.FaceTuning t = faceCapture.tuning();
-        t.mirror = on;
+        cc.joycreator.avatar.face.MirrorChip.set(t, on);
         faceCapture.setTuning(t);
     }
 
@@ -1023,10 +1197,12 @@ public final class AvatarRoomActivity extends Activity implements RoomMenu.Host,
             faceCapture.setPreview(facePreview instanceof com.fadcam.ui.faditor.avatar.MediaPipeTrackingSource.PreviewSink ? (com.fadcam.ui.faditor.avatar.MediaPipeTrackingSource.PreviewSink) facePreview : null, false);
             faceCapture.start();
             inputs.face(true);
+            watchFacePins();
         } catch (RuntimeException e) {
             Log.w(TAG, "face camera did not start", e);
             Toast.makeText(this, R.string.avatar_face_failed, Toast.LENGTH_LONG).show();
         }
+        if (faceWalkDrawer != null) faceWalkDrawer.paint();
         performPanel.tick();
     }
 
@@ -1038,6 +1214,7 @@ public final class AvatarRoomActivity extends Activity implements RoomMenu.Host,
         }
         if (facePreview != null) facePreview.setCameraOn(false);
         inputs.face(false);
+        if (faceWalkDrawer != null) faceWalkDrawer.paint();
         performPanel.tick();
     }
 
@@ -1187,6 +1364,7 @@ public final class AvatarRoomActivity extends Activity implements RoomMenu.Host,
         cc.joycreator.avatar.solve.Signals S = cc.joycreator.avatar.ui.SignalMap.toSignals(sig, inputs.time(), inputs.breath());
         if ((frameNo++ & 31) == 0) stickSize();
         if (stick != null) stick.step(dt);
+        if (walker != null) faceWalkStep(dt);
         if (walker != null && (walker.canWalk() || walker.travels())) {
             walker.step(dt, S, glStage.anchors(), glStage.tips());
             S.flip = inputs.flip();
@@ -1221,6 +1399,7 @@ public final class AvatarRoomActivity extends Activity implements RoomMenu.Host,
 
     @Override
     public void inHand(String id) {
+        stopReshape();
         inHand = id.equals(inHand) ? null : id;
         stage.setSelected(inHand);
         layers.show(character, inHand);
@@ -1235,6 +1414,21 @@ public final class AvatarRoomActivity extends Activity implements RoomMenu.Host,
         if (kidId == null) forced.remove(setId);
         else forced.put(setId, kidId);
         glStage.setForce(new java.util.HashMap<>(forced));
+    }
+
+    @Override
+    public java.util.List<String> drawOrder() {
+        return glStage == null ? new java.util.ArrayList<>() : glStage.drawOrder();
+    }
+
+    @Override
+    public void stackEdit(String stepName, String nodeId, cc.joycreator.avatar.file.Stack.Step step) {
+        final String pid = poseJson() == null ? null : poseEdit;
+        final java.util.List<String> drawn = drawOrder();
+        edit.apply(stepName, doc -> {
+            CharacterDoc.Node k = doc.find(nodeId);
+            if (k != null) step.apply(doc.json, pid, k.json, drawn);
+        });
     }
 
     @Override
@@ -1487,6 +1681,116 @@ public final class AvatarRoomActivity extends Activity implements RoomMenu.Host,
     }
 
     @Override
+    public void newFromWholeDrawing() {
+        Intent i = new Intent(Intent.ACTION_OPEN_DOCUMENT).addCategory(Intent.CATEGORY_OPENABLE).setType("image/*");
+        try {
+            startActivityForResult(i, REQ_WHOLE);
+        } catch (Exception e) {
+            Log.w(TAG, "no file picker", e);
+        }
+    }
+
+    /** The whole drawing is read (down to a size the phone can pin on), its see-through edges trimmed, and the pin wizard opens over the room. */
+    private void wholeDoor(final Uri uri) {
+        JoyFolderHome.io().execute(() -> {
+            android.graphics.Bitmap b = null;
+            try (InputStream in = getContentResolver().openInputStream(uri)) {
+                if (in != null) {
+                    byte[] raw = readAll(in);
+                    android.graphics.BitmapFactory.Options o = new android.graphics.BitmapFactory.Options();
+                    o.inJustDecodeBounds = true;
+                    android.graphics.BitmapFactory.decodeByteArray(raw, 0, raw.length, o);
+                    int sample = 1;
+                    while (Math.max(o.outWidth, o.outHeight) / (sample * 2) >= 1400) sample *= 2;
+                    o.inJustDecodeBounds = false;
+                    o.inSampleSize = sample;
+                    b = trimmed(android.graphics.BitmapFactory.decodeByteArray(raw, 0, raw.length, o));
+                }
+            } catch (Exception | OutOfMemoryError e) {
+                Log.w(TAG, "drawing not read", e);
+            }
+            final android.graphics.Bitmap pic = b;
+            main.post(() -> {
+                if (isFinishing()) return;
+                if (pic == null) {
+                    Toast.makeText(this, R.string.avatar_no_pictures, Toast.LENGTH_LONG).show();
+                    return;
+                }
+                openPinWizard(pic);
+            });
+        });
+    }
+
+    /** The picture without its see-through edges, or null when nothing is drawn on it. */
+    private static android.graphics.Bitmap trimmed(android.graphics.Bitmap b) {
+        if (b == null) return null;
+        int w = b.getWidth(), h = b.getHeight(), x0 = w, y0 = h, x1 = -1, y1 = -1;
+        int[] px = new int[w];
+        for (int y = 0; y < h; y++) {
+            b.getPixels(px, 0, w, 0, y, w, 1);
+            for (int x = 0; x < w; x++) if ((px[x] >>> 24) > 10) {
+                if (x < x0) x0 = x;
+                if (x > x1) x1 = x;
+                if (y < y0) y0 = y;
+                if (y > y1) y1 = y;
+            }
+        }
+        if (x1 < 0) return null;
+        return android.graphics.Bitmap.createBitmap(b, x0, y0, x1 - x0 + 1, y1 - y0 + 1);
+    }
+
+    private void openPinWizard(final android.graphics.Bitmap pic) {
+        final String name = getString(R.string.avatar_untitled);
+        final cc.joycreator.avatar.ui.PinWizard[] wiz = new cc.joycreator.avatar.ui.PinWizard[1];
+        wiz[0] = new cc.joycreator.avatar.ui.PinWizard(this, pic, name, new cc.joycreator.avatar.ui.PinWizard.Listener() {
+            @Override
+            public void done(java.util.List<cc.joycreator.avatar.intake.WholeDrawing.Pin> pins) {
+                ((ViewGroup) wiz[0].getParent()).removeView(wiz[0]);
+                finishWhole(pic, name, pins);
+            }
+
+            @Override
+            public void cancel() {
+                ((ViewGroup) wiz[0].getParent()).removeView(wiz[0]);
+                pic.recycle();
+            }
+        });
+        addContentView(wiz[0], new ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
+    }
+
+    private void finishWhole(final android.graphics.Bitmap pic, final String name, final java.util.List<cc.joycreator.avatar.intake.WholeDrawing.Pin> pins) {
+        JoyFolderHome.io().execute(() -> {
+            CharacterDoc made = null;
+            try {
+                ByteArrayOutputStream png = new ByteArrayOutputStream();
+                pic.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, png);
+                String url = "data:image/png;base64," + android.util.Base64.encodeToString(png.toByteArray(), android.util.Base64.NO_WRAP);
+                org.json.JSONObject doc = cc.joycreator.avatar.intake.WholeDrawing.build(name, pic.getWidth(), pic.getHeight(), url);
+                cc.joycreator.avatar.intake.WholeDrawing.pin(doc, pins);
+                made = CharacterOpen.read(doc.toString());
+            } catch (Exception e) {
+                Log.w(TAG, "character not made", e);
+            }
+            pic.recycle();
+            final CharacterDoc result = made;
+            main.post(() -> {
+                if (isFinishing()) return;
+                if (result == null) {
+                    Toast.makeText(this, R.string.avatar_no_pictures, Toast.LENGTH_LONG).show();
+                    return;
+                }
+                character = result;
+                characterPath = null;
+                unsaved = true;
+                inHand = null;
+                showCharacter();
+                Toast.makeText(this, R.string.avatar_wizard_pinned, Toast.LENGTH_LONG).show();
+                main.postDelayed(autosave, 1500);
+            });
+        });
+    }
+
+    @Override
     public void updateTheArt() {
         Intent i = new Intent(Intent.ACTION_OPEN_DOCUMENT).addCategory(Intent.CATEGORY_OPENABLE).setType("*/*");
         try {
@@ -1665,6 +1969,10 @@ public final class AvatarRoomActivity extends Activity implements RoomMenu.Host,
         super.onActivityResult(req, res, data);
         if (req == REQ_UPDATE && res == RESULT_OK && data != null && data.getData() != null) {
             updateDoor(data.getData());
+            return;
+        }
+        if (req == REQ_WHOLE && res == RESULT_OK && data != null && data.getData() != null) {
+            wholeDoor(data.getData());
             return;
         }
         if (req == REQ_PSD && res == RESULT_OK && data != null && data.getData() != null) {

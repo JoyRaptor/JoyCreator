@@ -1,0 +1,216 @@
+# Cloud emulator: builds the debug APK, boots Android emulators on GitHub's free runners and drives them with a phone
+# script from the repo (adb input / am / uiautomator / screencap), so a check does not queue for the Note 9.
+# Started by tools/cloud-build.ps1 ("emulator <branch> <script> [phone|tablet|both]") or the Actions tab.
+#
+# Rules (tasks/AGENT_START.md, "Building"; same as build.yml):
+# - No secret is used or needed here, and none may be added. The repo is public, so these logs are public.
+# - The emulator is a stand-in for CHECKS A SCREEN CAN PROVE (layout, taps, dialogs, text). It cannot prove pen
+#   pressure or tilt, the real phone GPU's speed, camera or microphone: those still go to the Note 9.
+# - Profiles run in parallel (matrix). "phone" = 1080x2220 at density 315, API 29 (the Note 9 as the owner uses it);
+#   "tablet" = a 10 inch tablet image, API 29.
+name: Cloud emulator
+
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: Branch, tag or commit to build and test
+        required: true
+        default: joy-creator
+      script:
+        description: "A script name under tools/cloud/emulator/scripts/ (without .sh), e.g. brush_editor"
+        required: true
+        default: smoke
+      profiles:
+        description: phone, tablet or both
+        required: true
+        default: phone
+        type: choice
+        options:
+          - phone
+          - tablet
+          - both
+      apk_run:
+        description: "Optional: id of an earlier emulator run whose APK to reuse (skips the 6 minute build; script changes only)"
+        required: false
+        default: ""
+      request_id:
+        description: Tag that tools/cloud-build.ps1 uses to find its run (any short text)
+        required: false
+        default: manual
+
+run-name: "emulator ${{ inputs.script }} ${{ inputs.profiles }} @ ${{ inputs.ref }} [${{ inputs.request_id }}]"
+
+concurrency:
+  group: cloud-emulator-${{ inputs.ref }}-${{ inputs.script }}-${{ inputs.profiles }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+env:
+  NDK_VERSION: 27.2.12479018
+  CMAKE_VERSION: 3.22.1
+  WHISPER_REPO: https://github.com/ggml-org/whisper.cpp.git
+  WHISPER_SHA: df7638d8229a243af8a4b5a8ae557e0d74e0a0ae
+  MEDIA3_REPO: https://github.com/anonfaded/media3-patched.git
+  MEDIA3_SHA: 0bdf7e73051142f3d5dd5eb8fefce39178fe8a10
+
+jobs:
+  build:
+    if: inputs.apk_run == ''
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    outputs:
+      sha: ${{ steps.meta.outputs.sha }}
+    steps:
+      - name: Check out ${{ inputs.ref }}
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref }}
+
+      - name: Note the commit
+        id: meta
+        run: echo "sha=$(git rev-parse --short=9 HEAD)" >> "$GITHUB_OUTPUT"
+
+      - name: Free disk space
+        run: sudo rm -rf /usr/share/dotnet /opt/ghc /usr/local/.ghcup /usr/share/swift /opt/hostedtoolcache/CodeQL
+
+      - name: JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Android SDK parts (platform 36, NDK, CMake)
+        run: |
+          SDKM="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
+          yes | "$SDKM" --licenses > /dev/null || true
+          "$SDKM" --install "platforms;android-36" "ndk;${NDK_VERSION}" "cmake;${CMAKE_VERSION}" > /dev/null
+
+      - name: Outside sources (whisper.cpp, patched Media3)
+        run: |
+          fetch_at() { git init -q "$3"; git -C "$3" fetch -q --depth 1 "$1" "$2"; git -C "$3" checkout -q FETCH_HEAD; }
+          fetch_at "$WHISPER_REPO" "$WHISPER_SHA" "$RUNNER_TEMP/whisper.cpp"
+          fetch_at "$MEDIA3_REPO" "$MEDIA3_SHA" "$RUNNER_TEMP/media3-patched"
+          git -C "$RUNNER_TEMP/media3-patched" apply --whitespace=nowarn "$GITHUB_WORKSPACE/tools/cloud/media3-fadcam.patch"
+          {
+            echo "sdk.dir=$ANDROID_HOME"
+            echo "media3.patched.path=$RUNNER_TEMP/media3-patched"
+            echo "whisper.cpp.path=$RUNNER_TEMP/whisper.cpp"
+          } > local.properties
+
+      - name: Gradle (with caching)
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Gradle settings for this runner
+        run: |
+          mkdir -p ~/.gradle
+          {
+            echo "org.gradle.jvmargs=-Xmx6g -XX:MaxMetaspaceSize=1g -Dfile.encoding=UTF-8"
+            echo "org.gradle.parallel=true"
+            echo "org.gradle.workers.max=4"
+            echo "kotlin.daemon.jvmargs=-Xmx3g"
+          } >> ~/.gradle/gradle.properties
+
+      - name: Build the debug APK (x86_64 only, for the emulator; nothing is committed)
+        id: build
+        run: |
+          # The app ships arm64 native code only. The emulator is x86_64 (API 29 has no ARM translation), so for THIS
+          # run only the two ABI lines are switched to x86_64 in the runner's checkout.
+          sed -i 's/abiFilters += listOf("arm64-v8a")/abiFilters += listOf("x86_64")/; s/include("armeabi-v7a", "arm64-v8a")/include("x86_64")/' app/build.gradle.kts
+          git diff --stat -- app/build.gradle.kts | tail -1
+          START=$(date +%s)
+          ./gradlew :app:assembleDefaultDebug --stacktrace
+          echo "minutes=$(( ($(date +%s) - START + 59) / 60 ))" >> "$GITHUB_OUTPUT"
+          mkdir -p apk-out
+          # An x86_64 emulator cannot run the arm64 split: take the universal APK if the build made one, else x86_64.
+          find app/build/outputs/apk -name '*.apk' | sort
+          F=$(find app/build/outputs/apk -name '*universal*debug*.apk' | head -1)
+          [ -n "$F" ] || F=$(find app/build/outputs/apk -name '*x86_64*debug*.apk' | head -1)
+          [ -n "$F" ] || { echo "no APK an x86_64 emulator can run (need a universal or x86_64 debug APK)"; exit 1; }
+          cp "$F" apk-out/app-debug.apk
+          ls -l apk-out
+
+      - name: Keep the APK for the emulator jobs (1 day)
+        uses: actions/upload-artifact@v4
+        with:
+          name: emu-apk-${{ steps.meta.outputs.sha }}
+          path: apk-out/app-debug.apk
+          retention-days: 3
+          if-no-files-found: error
+
+  plan:
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.m.outputs.matrix }}
+    steps:
+      - id: m
+        run: |
+          case "${{ inputs.profiles }}" in
+            phone)  echo 'matrix={"profile":["phone"]}' >> "$GITHUB_OUTPUT" ;;
+            tablet) echo 'matrix={"profile":["tablet"]}' >> "$GITHUB_OUTPUT" ;;
+            *)      echo 'matrix={"profile":["phone","tablet"]}' >> "$GITHUB_OUTPUT" ;;
+          esac
+
+  emulator:
+    needs: [build, plan]
+    if: ${{ !cancelled() && needs.plan.result == 'success' && (needs.build.result == 'success' || needs.build.result == 'skipped') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.plan.outputs.matrix) }}
+    steps:
+      - name: Check out ${{ inputs.ref }} (for the phone scripts)
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref }}
+
+      - name: Scripts from this workflow's own commit
+        run: |
+          # The phone scripts come from the commit that holds this workflow, so a branch made before they
+          # existed can still be tested; the code under test is only the APK.
+          git fetch -q --depth 1 origin "$GITHUB_SHA"
+          git checkout -q FETCH_HEAD -- tools/cloud/emulator
+
+      - name: Get the APK (this run's build, or the earlier run named in apk_run)
+        uses: actions/download-artifact@v4
+        with:
+          pattern: emu-apk-*
+          merge-multiple: true
+          path: apk
+          run-id: ${{ inputs.apk_run || github.run_id }}
+          github-token: ${{ github.token }}
+
+      - name: Let the emulator use KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      - name: Boot the ${{ matrix.profile }} emulator and run the script
+        timeout-minutes: 20
+        uses: reactivecircus/android-emulator-runner@v2.34.0
+        env:
+          EMU_PROFILE: ${{ matrix.profile }}
+          EMU_SCRIPT: ${{ inputs.script }}
+        with:
+          api-level: 29
+          target: google_apis
+          arch: x86_64
+          profile: ${{ matrix.profile == 'tablet' && 'pixel_c' || 'pixel_3' }}
+          ram-size: 4096M
+          disable-animations: true
+          emulator-boot-timeout: 600
+          emulator-options: -no-window -gpu swangle_indirect -no-snapshot -noaudio -no-boot-anim
+          script: bash tools/cloud/emulator/run.sh
+
+      - name: Upload screenshots and logs (kept 3 days)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: emulator-${{ matrix.profile }}-${{ github.run_id }}
+          path: emu-out/
+          retention-days: 3
+          if-no-files-found: warn

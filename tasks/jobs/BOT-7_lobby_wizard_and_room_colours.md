@@ -101,3 +101,15 @@ colours); joybot bench 65/65 incl. `host-lobby-transition` (asks, changes nothin
 - Not checked: the image / tile / sprite / perspective landings and sprite-edit / find on a device;
   icons are placeholders until ICON-1; Joybot's own colours (his orb's purple) await the owner's OK.
 
+
+## 11-27 create-tree landings on the cloud emulator (website lane; no AI key, Android 1080x2220 at the Note 9's density)
+Script `tools/cloud/emulator/scripts/bot7_create_tree.sh`; runs 46051722601 and 46052578268 on `ec8c6e153`; shots in `tasks/screens/emulator-20261127/`. Each bubble answered by tapping the offered button, then the room reached was looked at.
+| Bubble | Result | Evidence |
+|---|---|---|
+| Drawing or painting (1:1) | ✅ PASS | JoyBrush opens with an image board 756 x 756, locked (`bot7_drawing_lands.jpg`) |
+| Drawing in perspective (1-point, 16:9) | ✅ PASS | JoyBrush with the 1-point guide on and a locked 756 x 425 board (`bot7_perspective_lands.jpg`). Note: the guide's vanishing point sits on the board's top edge |
+| Sprite, make one (4 x 4) | ✅ PASS | JoyBrush with a sprite board 256 x 256, grid 4 x 4, cell 64 x 64, locked (`bot7_sprite_lands.jpg`) |
+| Find and tidy ("recent") | ✅ PASS | Library opens with the three drawings just made, newest first (`bot7_find_lands_library.jpg`) |
+| Tile | ⏳ asks "How big should the tile be?" with 256 / 512 / 1024 px, Type your own, Never mind (`bot7_tile_asks_size.jpg`); the script answered with a wrong word, so the landing itself is not yet seen. Script fixed to answer "256 px"; re-run owed |
+| Hand animation, Video, Audio, Music visuals, Titles, Character, Sprite load-and-edit | not run yet (the sprite load needs a sprite file on the emulator) |
+Joybot also answered "I want to make something" with the bubbles in the person's own order, and the "Opening JoyBrush with a square board." line shows before the room opens. Pen, paint and camera checks are not part of this: the phone lane's.

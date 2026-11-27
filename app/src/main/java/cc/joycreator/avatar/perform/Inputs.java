@@ -53,7 +53,10 @@ public final class Inputs implements Walker.Body {
     private double[] moodNow = MOODS.get("Neutral");
     private boolean headHeld, talking, blinkHold, micOn, faceOn;
     private Map<String, Float> face;
-    private static final String[] SHAPES = {"Neutral", "Aa", "Ee", "Oh", "W-Oo", "M", "F", "L", "S", "D", "R", "Uh", "Smile", "Surprised"};
+    // the face camera (the pilot's face branch): its chip's modes, the hand-over from the head pad, its own lanes
+    private final cc.joycreator.avatar.face.FaceDrive faceDrive = new cc.joycreator.avatar.face.FaceDrive();
+    private final Set<String> faceLanes = new java.util.LinkedHashSet<>();   // the face's lanes (pt.*, face.*) so far, for a take
+    private boolean faceSeen;                                                 // the face drives and is seen this frame
     private double micOpen;
     private String micVis = "Neutral";
     private long moodUntil, windUntil, blinkUntil;
@@ -229,14 +232,29 @@ public final class Inputs implements Walker.Body {
         return micOn;
     }
 
-    /** The face camera is driving: head, eyes, brows and mouth are the face's while it is on. */
+    /**
+     * The face camera is on: head, eyes, brows and mouth are the face's while it drives (straight away when it starts; the
+     * Face chip's second tap, {@link #faceDrive()}{@code .setMode(TALK)}, only while Hold to talk is held).
+     */
     public void face(boolean on) {
         faceOn = on;
         if (!on) face = null;
+        if (on && faceDrive.mode() == cc.joycreator.avatar.face.FaceDrive.Mode.OFF) faceDrive.setMode(cc.joycreator.avatar.face.FaceDrive.Mode.ALWAYS);
+        if (!on) faceDrive.setMode(cc.joycreator.avatar.face.FaceDrive.Mode.OFF);
     }
 
     public boolean faceOn() {
         return faceOn;
+    }
+
+    /** The Face chip's modes and the hand-over from the head pad (the head moves from where the pad was: no jump in or out). */
+    public cc.joycreator.avatar.face.FaceDrive faceDrive() {
+        return faceDrive;
+    }
+
+    /** What the face camera saw this frame, as it came (null: none), for walking with your face. */
+    public Map<String, Float> faceNow() {
+        return faceOn ? face : null;
     }
 
     /** What the face camera saw this frame (the take's own lane names; null or empty when no face is seen). */
@@ -316,11 +334,12 @@ public final class Inputs implements Walker.Body {
         Set<String> o = new HashSet<>();
         if (headHeld) o.add("head");
         if (talking || micOn) o.add("mouth");
-        if (faceOn) {
+        if (faceSeen) {                                    // (the pilot's owned(): only while the face drives and is seen)
             o.add("head");
             o.add("mouth");
             o.add("mood");
             o.add("blink");
+            o.add("facepins");
         }
         if (nowMs < moodUntil) o.add("mood");
         if (blinkHold || nowMs < blinkUntil) o.add("blink");
@@ -333,6 +352,7 @@ public final class Inputs implements Walker.Body {
     public List<String> channels() {
         List<String> n = new ArrayList<>(BODY_NAMES);
         for (String id : buttonIds) n.add("g:" + id);
+        for (String k : faceLanes) if (!n.contains(k)) n.add(k);
         Take t = recorder.take();
         if (t != null) for (String k : t.ch.keySet()) if (!n.contains(k)) n.add(k);
         return n;
@@ -340,14 +360,22 @@ public final class Inputs implements Walker.Body {
 
     /** What the live hands say now (before a take is laid under them). */
     public Map<String, Object> live(long nowMs, double dt) {
-        if (talking) babble(dt);
+        // the face camera first (the pilot's face branch): it gives the targets the hands would, which then ease as theirs do
+        cc.joycreator.avatar.face.FaceDrive.Out fo = faceDrive.apply(faceOn ? face : null, talking, headHeld, nowMs < moodUntil, turnX, turnY, roll, dt);
+        boolean faceDrives = faceOn && faceDrive.drives(talking), faceEx = fo.expression;
+        faceSeen = fo.drives;
+        if (talking && !fo.drives) babble(dt);               // (a face seen while talking: the mouth is yours, not a babble)
         t += dt;
         boolean blink = blinkHold || nowMs < blinkUntil;
-        double lookX = 0, lookY = 0, sway = 0, bounce = 0, tx = turnX, ty = turnY, ro = roll, mo = micOn && !talking ? micOpen : mouth, bl = moodNow[3], bR = moodNow[3];
-        double lu = moodNow[0], ll = moodNow[2], lt = moodNow[1], wi = wind;
+        double lookX = fo.drives ? fo.lookX : 0, lookY = fo.drives ? fo.lookY : 0, sway = 0, bounce = 0;
+        double tx = fo.head ? fo.turnX : turnX, ty = fo.head ? fo.turnY : turnY, ro = fo.head ? fo.roll : roll;
+        double mo = faceEx ? fo.mouth : mouth;
+        if (micOn && !talking) mo = faceEx ? Math.max(mo, micOpen) : micOpen;
+        double bl = faceEx ? fo.browL : moodNow[3], bR = faceEx ? fo.browR : moodNow[3];
+        double lu = faceEx ? fo.lidUp : moodNow[0], ll = faceEx ? fo.lidLow : moodNow[2], lt = faceEx ? fo.lidTilt : moodNow[1], wi = wind;
         if (settings != null) {
-            // idle life: small movements even when nobody is touching it; eased so nothing snaps
-            double idle = settings.optBoolean("idle", true) && !faceOn ? 1 : 0;
+            // idle life: small movements even when nobody is touching it; eased so nothing snaps (resting while the face drives)
+            double idle = settings.optBoolean("idle", true) && !faceDrives ? 1 : 0;
             tx += idle * 0.035 * Math.sin(t * 0.43);
             ty += idle * 0.03 * Math.sin(t * 0.31 + 2);
             sway += idle * 0.07 * Math.sin(t * 0.52);
@@ -365,8 +393,10 @@ public final class Inputs implements Walker.Body {
                 dartY = (life.nextDouble() - 0.5) * 0.3;
             }
             boolean lead = settings.optBoolean("eyesLead", true);
-            lookX = (lead ? clamp((tx - smTurnX) * 2.6, -1, 1) : 0) + idle * dartX;
-            lookY = (lead ? clamp((ty - smTurnY) * 2.6, -1, 1) : 0) + idle * dartY;
+            if (!fo.drives) {                                // (a face seen: the eyes look where yours do)
+                lookX = (lead ? clamp((tx - smTurnX) * 2.6, -1, 1) : 0) + idle * dartX;
+                lookY = (lead ? clamp((ty - smTurnY) * 2.6, -1, 1) : 0) + idle * dartY;
+            }
             smLookX = ease(smLookX, clamp(lookX, -1, 1), 26, dt);
             smLookY = ease(smLookY, clamp(lookY, -1, 1), 26, dt);
             double lift = mo > 0.75 ? 0.25 : 0;
@@ -381,7 +411,7 @@ public final class Inputs implements Walker.Body {
                 blinkT += dt;
                 if (blinkT >= 0.11) blinkT = -1;
                 else blink = true;
-            } else if (settings.optBoolean("blinkAuto", true) && !faceOn) {
+            } else if (settings.optBoolean("blinkAuto", true) && !faceEx) {     // (your own blinks, while the face gives them)
                 nextBlink -= dt;
                 if (nextBlink <= 0) {
                     blinkT = 0;
@@ -414,27 +444,19 @@ public final class Inputs implements Walker.Body {
         m.put("lookX", lookX);
         m.put("lookY", lookY);
         boolean followMic = micOn && !talking;
-        m.put("mouth", settings != null ? mo : followMic ? micOpen : mouth);
-        m.put("vis", followMic ? micVis : vis);
-        m.put("browL", settings != null ? bl : moodNow[3]);
-        m.put("browR", settings != null ? bR : moodNow[3]);
-        m.put("blinkL", blink ? 1.0 : 0.0);
-        m.put("blinkR", blink ? 1.0 : 0.0);
-        m.put("lidUp", settings != null ? lu : moodNow[0]);
-        m.put("lidTilt", settings != null ? lt : moodNow[1]);
-        m.put("lidLow", settings != null ? ll : moodNow[2]);
-        m.put("wind", settings != null ? wi : wind);
+        m.put("mouth", mo);                                 // (without the character's settings these are the hands as they are)
+        m.put("vis", followMic ? micVis : faceEx ? fo.vis : vis);
+        m.put("browL", bl);
+        m.put("browR", bR);
+        m.put("blinkL", faceEx ? fo.blinkL : blink ? 1.0 : 0.0);
+        m.put("blinkR", faceEx ? fo.blinkR : blink ? 1.0 : 0.0);
+        m.put("lidUp", lu);
+        m.put("lidTilt", lt);
+        m.put("lidLow", ll);
+        m.put("wind", wi);
         for (String id : buttonIds) m.put("g:" + id, isOn(id) ? 1.0 : 0.0);
-        if (faceOn && face != null) {
-            for (Map.Entry<String, Float> e : face.entrySet()) {
-                String k = e.getKey();
-                if (e.getValue() == null || !m.containsKey(k)) continue;
-                if (k.equals("vis")) {
-                    int i = Math.round(e.getValue());
-                    m.put(k, i >= 0 && i < SHAPES.length ? SHAPES[i] : "Neutral");
-                } else if (!k.startsWith("g:")) m.put(k, (double) e.getValue());
-            }
-        }
+        m.putAll(fo.lanes);                                  // the face's own lanes: points pt.<i>.x/y, expressions face.<name>
+        faceLanes.addAll(fo.lanes.keySet());
         return m;
     }
 

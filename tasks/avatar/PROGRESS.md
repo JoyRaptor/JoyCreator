@@ -9,8 +9,8 @@ the phone until the final phone run. Every session ticks its own rows here when 
 
 | | Points |
 |---|---|
-| Earned | **109 of 175 (62%)** (11-27 night) |
-| Landed | 92 |
+| Earned | **119 of 180 (66%)** (11-27 night; the face session added its two rows, lead to re-check) |
+| Landed | 102 |
 | Built or partly landed (half) | 17 |
 
 Updated 11-27 by the lead.
@@ -37,11 +37,12 @@ Updated 11-27 by the lead.
 | Landscape and tablet layouts | 3 | 🟡 landscape split and tablet proportions landed; the two-column tablet layouts owed | slice 1 |
 | X2 the movement engine (the pilot's solver), matched to the pilot within half a pixel | 13 | ✅ landed (see the X2 commit on joy-creator, 11-27): every vertex within 0.005 px in 41 poses of Topps, Pip, the landmark squares and a feature "gadget" (+ the Joybot draft locally); cloud Studio 82/0; not run on a phone | spec session (Opus) |
 | X3 drawing on the GPU: masks, colour sets | 8 | ✅ landed (11-27): `CharacterGl` + `CharacterGlSource` (the pilot's shaders exactly, checked); on the Note 9 Topps and Pip in 5 poses each, no GL errors, 0.2 to 0.6% of pixels differ, every one over 32 levels on an outline (edge smoothing); masks and the Coral colour set match by eye; solve about 1 to 8 ms, draw 2 to 15 ms a frame | spec session (Opus) |
-| Set up card: pins, magnifier, pin wizard | 5 | 🟡 pins on the picture with a loupe, and pins guessed from the pixels (matches the pilot), landed; the pin wizard owed | slice 1 |
-| Arrange: the box, stances, all fours, reshape with pins, in front / behind | 8 | 🟡 the box, in front / behind, stances and all fours landed (checked against the pilot); reshape with pins and a stance's in-front/behind owed | slice 1 |
+| Set up card: pins, magnifier, pin wizard | 5 | 🟡 pins on the picture with a loupe, and pins guessed from the pixels (matches the pilot), landed; the pin wizard landed (Pin one whole drawing door, not tried on a phone) | slice 1 |
+| Arrange: the box, stances, all fours, reshape with pins, in front / behind | 8 | 🟡 the box, in front / behind (whole part and in a stance), stances and all fours landed (checked against the pilot, not tried on a phone); reshape with pins landed (matches the pilot's warpAt and dropPin; not tried on a phone) | slice 1 |
 | Motion: swinging parts, turning round, round heads | 5 | ✅ swinging, turning around, breathing and blinking, round heads landed (not tried on a phone) | slice 1 |
 | Walking, the joystick and its gestures | 5 | 🟡 walking by dragging the body (ground line, strides, jump, fall, all fours, hover) landed, 2 traces of the pilot matched frame by frame; the joystick (rate steer, speed curve, tap/flick gestures, six-slot sheet) landed, not tried on a phone; its depth walking rides on the depth port (face session) | slice 1 |
-| Face capture on the phone, walk with your face | 5 | ⬜ | slice 1 |
+| Face capture on the phone, walk with your face | 5 | ✅ landed (5d072ea78): the Face chip (always, then only while talking, then off), the head moved from where the pad was and as far as the pad goes, the expression and your own blinks, the idle sway resting while it drives, the face's lanes (face pins, expressions) in takes and on to the movement engine; Walk with your face (left and right, closer and further, Up close) under the Face controls for a character that walks. `run-avatar-face.sh` 28 checks, 29 planted faults caught (`--proof`); cloud build and `studio` green (run 46050047817, with slice 1's Stack). Not tried on a phone; the face mask (FACE-2) pass, Shoulders, Check directions and placing face pins on the phone are not ported | face session |
+| Walking toward and away from the camera | 5 | ✅ landed (8a1116e7e): `Walker` + `DepthWalk` (the pilot's al-depth-walk.js: grows coming close, shrinks going away, turns to the front drawing, the camera's angle, Home walks back, the plain stage untouched when off); Topps toward, away and Home, 220 frames within 0.0001 px of the pilot; Up close through the room's walker; `run-avatar-depth.sh` 8 checks, 12 planted faults caught; the two walking traces still 0 frames off. Not tried on a phone; owed: the joystick in perspective (slice 1: `Stick` and `StickSheet`), room below in the stage's framing while it comes close | face session |
 | Side-by-side pass against the pilot: every control, every word, polish | 8 | ⬜ | slice 1 + lead |
 | **Slice 2: characters inside Video Studio** | | | |
 | X4 voice recorder gives its sound to lip sync | 2 | ✅ landed (`PcmBlocks`; 18 checks, WAV bytes unchanged) | slice 2 (cloud) |

@@ -42,8 +42,8 @@ It replaces the stale October list (`SELECT_LINES_GAPS_20261023.md`): G2, G4, G5
 | Concepts can | JoyBrush today | Side |
 |---|---|---|
 | Stroke eraser: touch a stroke, the whole stroke goes | **Built 11-27:** the Whole lines eraser in the Erasers shelf, one undo step per stroke (log below) | UI (done) |
-| Slice / trim to intersections | **Core only** (`VectorEraser` `TO_INTERSECTION`, crossing search; spec D24). No Slice preset. | Engine: it replaces one line with pieces through the line commit path |
-| Erase part of a line, and it stays a line in pieces | **Not a split.** Erasing over a line today stacks an erase mark on top (`JbCanvasView` 2504-2512). It looks right, but the line underneath stays whole. Unsure whether moving the line later shows the erased part again. | Engine (`InkErase.PARTIAL` exists in core) |
+| Slice / trim to intersections | **Built 11-27:** the Trim to crossing eraser. A middle cut that would leave two pieces is not yet possible (log below). | UI and core, plus the one engine edit kind |
+| Erase part of a line, and it stays a line in pieces | **Built 11-27 for ends and whole short lines:** the Part of a line eraser. A middle cut is not yet possible (log below). The old note follows: **Not a split.** Erasing over a line today stacks an erase mark on top (`JbCanvasView` 2504-2512). It looks right, but the line underneath stays whole. Unsure whether moving the line later shows the erased part again. | Engine (`InkErase.PARTIAL` exists in core) |
 
 ## D. Pixels and lines
 
@@ -104,3 +104,42 @@ Fixes go to `joy-creator` in steps, each with host tests. Progress is logged bel
   - **Paint is untouched by this eraser;** the ordinary eraser rubs out paint. Erasing part of a line and keeping the pieces as lines is still engine work.
   - **Phone check owed:** on the Note 9, draw three crossing lines, pick Eraser, then Whole lines, and stroke across two of them. Both should go at once and one Undo should bring both back. SelectBench runs only on the phone, so it has not been run.
 - **UI step 5 is not done:** the "lines" tag on layer rows. The row subtitle shows only on wide-screen pulled-out rows, and keeping it current needs a refresh hook on every line edit. It is low value for the cost; listed for the layer-column owner.
+
+## Slice eraser and partial erase: read 11-27, engine-side (one small piece)
+
+**What exists:**
+- `core/vector/VectorEraser.erase(lines, eraserPath, mode)` finds the touched spans:
+  - `PARTIAL`: the span under the eraser;
+  - `TO_INTERSECTION`: out to the nearest crossing on each side;
+  - `WHOLE_STROKE`.
+- `core/vector/InkErase.run(...)` turns the surviving pieces into contiguous sublists of the line's own samples, so a piece stays a re-brushable line (LEAD_RULINGS R20). It refuses captured records in words.
+- The crossing search, the box pre-filter and the piece maths are written and tested.
+- The tool side would be the Whole lines eraser again: another mode of `StrokeEraserTool`, chosen by an eraser brush in the Erasers shelf.
+
+**Why it cannot land as one undo step today:**
+- Erasing the middle of a line leaves two pieces. One gesture must therefore remove one line and add two, and the owner's rule makes that one undo step.
+- Line edits are applied inside `GlPaintEngine.editLines` (androidkit `gl/`, around line 3606). It knows only Replace (same address), Add, Delete and Bake.
+- Replace for one piece plus Add for the rest is two edits, so two presses to undo.
+- Only an erase that trims a line's end, leaving one piece, fits in one Replace.
+
+**The engine piece needed (small):**
+- A new `LineEdit.Split(removed: Set<LineAddress>, added: List<AddressedStroke>, brushes, assets)`.
+- `editLines` applies it as its Delete loop followed by its Add loop in the same pass. The pass already gathers every tile, slab and line change of one edit into ONE `UndoLog` entry, so undo and redo stay one step.
+- `LineEdit.addresses()` returns both sets.
+- `CanvasSelectionHost`'s refusal and history mapping (around line 251) treats it as a delete plus an add.
+- About 30 lines in `GlPaintEngine.kt` and `LineTypes.kt`. The rest (the tool modes, the two eraser brushes, the tests with crossing lines) is UI and core.
+
+**Built 11-27** (the orchestrator approved the one engine change):
+- **The edit kind.** `LineEdit.Split` shortens lines IN PLACE (same address, same seq) and removes lines erased whole, in one edit, so one undo step.
+  - It never adds lines. A cel's seqs are one per line (LineRules D1), so a line cut in its middle (two pieces) would need a second seq.
+  - That case is left whole, and the person is told once: "Cutting a line in two isn't possible yet...".
+  - Giving pieces their own seqs needs a format decision: renumber everything above them (pixel slabs included), or a sub-order within a seq. That is for the engine owner or the owner.
+- **The engine change.** `GlPaintEngine.editLines` gained only the Split branch, 3 lines. Its list change is in the pure `lines/LineSplitApply`, which is JVM-tested; the other edit kinds' engine code is untouched.
+- **Two new erasers in the Erasers shelf.** Both cut with core's `InkErase`, so what is left is the line's own samples:
+  - **Trim to crossing** (`brushes/trimeraser`, Concepts' slice): cuts an overshoot back to the line it crosses.
+  - **Part of a line** (`brushes/parteraser`): rubs out the part under the eraser.
+- **Tests:** `LineSplitApplyTest` 3 (in place, seq kept, untouched lines identical, a gone line refused, every edit kind's addresses as before); `StrokeEraserToolTest` +3 with crossing lines (trim, end erase plus whole short line, middle cut left whole).
+- **Cloud:** jb-core 3026, jb-androidkit 1383, jb-android 637 and the app build all passed.
+- **Owed:**
+  - A phone check that one press of Undo puts a trimmed line back whole. That is one engine edit, so one undo entry, but it is not provable on the JVM, where the engine's tile work needs GL.
+  - These two erasers have no live preview while dragging: the cut shows on lift.

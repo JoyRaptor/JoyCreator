@@ -248,8 +248,15 @@ private const val WHEEL_DP = 176
 private const val SIZE_STEPS = 1000
 /** No brush reads a paint selection as a clip yet (SELECT_PIXELS P2+): a stroke then ends it, so the ants never lie. */
 private const val PAINT_CLIP_WIRED = false
-/** The shipped "Whole lines" eraser (brushes/lineeraser): with it in the hand, StrokeEraserTool takes the stroke. */
-private const val LINE_ERASER_ID = "joybrush.eraser.lines"
+/**
+ * The shipped line erasers, with what each takes: Whole lines (brushes/lineeraser), Trim to crossing (brushes/trimeraser,
+ * Concepts' slice) and Part of a line (brushes/parteraser). With one in the hand, StrokeEraserTool takes the stroke.
+ */
+private val LINE_ERASERS = mapOf(
+    "joybrush.eraser.lines" to cc.joycreator.joybrush.core.vector.InkEraseMode.WHOLE_STROKE,
+    "joybrush.eraser.trim" to cc.joycreator.joybrush.core.vector.InkEraseMode.TO_INTERSECTION,
+    "joybrush.eraser.part" to cc.joycreator.joybrush.core.vector.InkEraseMode.PARTIAL,
+)
 
 /** What "Open…" accepts: a Joy Brush drawing, and the two types a provider gives one it does not know. */
 private val OPENABLE_TYPES = arrayOf(JB_MIMETYPE, "application/zip", "application/octet-stream")
@@ -1105,6 +1112,17 @@ class JoyBrushActivity : Activity() {
                 catch (error: Exception) { tools = before; throw error }
             }, refusal = ::toast)
         unibrush = controller
+        // BRUSH-UI §L: Unibrush's test stroke on the same live stage as every other brush.
+        controller.stageFactory = { shown ->
+            val st = BrushStage(shown)
+            object : cc.joycreator.joybrush.android.chrome.UnibrushHostController.Stage {
+                override val view: View get() = st.view
+                override fun redrawSoon() = st.redrawSoon()
+                override fun clear() = st.clear()
+                override fun test() = drawTestSheet()
+                override fun penReading(cb: ((Float, Float, Float) -> Unit)?) { st.canvasView.onPenReading = cb }
+            }
+        }
         // TAB-1 K10: Unibrush's settings stand beside the brush panel too, when it stands open.
         controller.settingsHost = object : cc.joycreator.joybrush.android.chrome.UnibrushHostController.SettingsHost {
             override fun show(view: View, onClosed: () -> Unit): Boolean {
@@ -1558,17 +1576,25 @@ class JoyBrushActivity : Activity() {
         popovers.show(scrollingBelow(box, anchor), anchor, Popovers.Side.BELOW, widthDp = 240f)
     }
 
+    /** Test: a sheet of test strokes on the drawing with the brush in hand, above the sheet that covers the lower screen. */
+    private fun drawTestSheet() {
+        val w = canvas.width.toFloat()
+        val h = canvas.height.toFloat()
+        val left = w * 0.05f
+        val top = h * 0.06f
+        val strokes = TuftTestSheet.strokes(w * 0.9f, h * 0.36f)
+            .map { s -> s.map { it.copy(x = it.x + left, y = it.y + top) } }
+        canvas.drawStrokes(strokes)
+    }
+
     /**
-     * A brush's advanced settings (owner, 2026-09-30): a live preview, then every slider the brush has. The sheet does not
-     * catch the canvas. Each move re-applies the brush (the NEXT stroke uses it) and redraws the preview; the positions are
-     * saved when a finger lifts off a slider. [brush] is the brush as it SHIPS; its saved positions are laid over it here.
+     * The test-stroke stage every brush editor shares (BRUSH-UI §L, 11-27): a second live canvas on the drawing's paper,
+     * with the captions under it, redrawn with the sample sheet and whatever the owner drew there each time [redrawSoon]
+     * is called. [shown] is the brush as the editor has it now. Every brush uses it, picture-tip brushes included: the
+     * stage reads their pictures through the drawing's own lookup.
      */
-    private fun openSettings(brush: BrushPreset) {
-        if (unibrush?.isFamily(brush) == true) {
-            chooseDrawerBrush(brush, settings = true)
-            return
-        }
-        val preview = JbCanvasView(this).apply {
+    inner class BrushStage(private val shown: () -> BrushPreset) {
+        val preview = JbCanvasView(this@JoyBrushActivity).apply {
             // Above the drawing's own surface, below the chrome.
             setZOrderMediaOverlay(true)
             longPressEyedropper = false
@@ -1582,7 +1608,7 @@ class JoyBrushActivity : Activity() {
             onRefused = { why -> android.util.Log.w("JoyBrushSheet", "settings preview refused a stroke: $why") }
         }
         // The sheet's groups named under them (pressure, tilt, speed, turn): views over the preview's surface.
-        val framed = FrameLayout(this).apply {
+        val framed = FrameLayout(this@JoyBrushActivity).apply {
             addView(preview, FrameLayout.LayoutParams(MATCH, MATCH))
             for (c in BrushPreviewStrokes.captions) addView(drawerText(c.text, 10f).apply {
                 // On the preview's paper, not the drawer: dark on light paper, light on dark.
@@ -1597,16 +1623,16 @@ class JoyBrushActivity : Activity() {
                     t.translationX = (r - l) * c.centreX - t.width / 2f
                 }
             }
+            // Slightly round corners (BRUSH-UI §L addition 5): caps over the live surface, which Android 10 cannot clip.
+            addView(cc.joycreator.joybrush.android.chrome.StageCorners(this@JoyBrushActivity,
+                kit.dp(cc.joycreator.joybrush.android.chrome.UnibrushHostController.STAGE_CORNER_DP),
+                com.fadcam.ui.faditor.tools.DrawerFill.fill(this@JoyBrushActivity)), FrameLayout.LayoutParams(MATCH, MATCH))
         }
-        fun previewBrush(): BrushPreset {
-            val tuned = BrushTuning.apply(brush, tuning)
-            // At the size the tool in hand has for it, so the preview is the stroke the pen will make.
-            val size = tools.current?.takeIf { it.brushId == brush.id }?.sizePx ?: tuned.size.base
-            return cc.joycreator.joybrush.core.chrome.ToolMemory.sized(tuned, size, tuned.opacity.base)
-        }
+        val view: View get() = framed
+        val canvasView: JbCanvasView get() = preview
         val redraw = Runnable {
             if (preview.width > 0 && preview.height > 0) {
-                val shownBrush = previewBrush()
+                val shownBrush = shown()
                 // What lies under the test stroke, where this brush samples (owner, 11-16): plain paper for a brush that
                 // picks nothing up, a fine grey checkerboard for a smudge or an eraser, a blob of a second colour of the same
                 // paint for one that carries colour, laid by that paint's own brush (never this one: TestStroke.lineBrushId).
@@ -1635,7 +1661,36 @@ class JoyBrushActivity : Activity() {
             preview.removeCallbacks(redraw)
             preview.postDelayed(redraw, PREVIEW_DEBOUNCE_MS)
         }
-        preview.onReady = { redrawSoon() }
+        /** Wipe what the owner drew here; the sample strokes stay. */
+        fun clear() { preview.drawnStrokes.clear(); redrawSoon() }
+        init {
+            preview.onReady = { redrawSoon() }
+            // A brush with picture tips (an imported brush, a Unibrush image mode) finds its pictures where the drawing
+            // does: the stage asks the drawing's own lookup at each stroke, so its tips are the ones the pen will lay.
+            preview.brushPngs = { p -> canvas.brushPngs?.invoke(p) }
+        }
+    }
+
+    /**
+     * A brush's advanced settings (owner, 2026-09-30): a live preview, then every slider the brush has. The sheet does not
+     * catch the canvas. Each move re-applies the brush (the NEXT stroke uses it) and redraws the preview; the positions are
+     * saved when a finger lifts off a slider. [brush] is the brush as it SHIPS; its saved positions are laid over it here.
+     */
+    private fun openSettings(brush: BrushPreset) {
+        if (unibrush?.isFamily(brush) == true) {
+            chooseDrawerBrush(brush, settings = true)
+            return
+        }
+        fun previewBrush(): BrushPreset {
+            val tuned = BrushTuning.apply(brush, tuning)
+            // At the size the tool in hand has for it, so the preview is the stroke the pen will make.
+            val size = tools.current?.takeIf { it.brushId == brush.id }?.sizePx ?: tuned.size.base
+            return cc.joycreator.joybrush.core.chrome.ToolMemory.sized(tuned, size, tuned.opacity.base)
+        }
+        val stage = BrushStage { previewBrush() }
+        val preview = stage.canvasView
+        val framed = stage.view
+        fun redrawSoon() = stage.redrawSoon()
         fun save() = prefs.edit().putString(PREF_TUNING, BrushTuning.encode(tuning)).apply()
         val view = BrushSettingsView(kit, brush, tuning[brush.id] ?: emptyMap(), framed,
             onChange = { positions, done ->
@@ -1650,16 +1705,7 @@ class JoyBrushActivity : Activity() {
                 redrawSoon()
                 save()
             },
-            onTest = {
-                // Above the sheet, which covers the lower part of the screen.
-                val w = canvas.width.toFloat()
-                val h = canvas.height.toFloat()
-                val left = w * 0.05f
-                val top = h * 0.06f
-                val strokes = TuftTestSheet.strokes(w * 0.9f, h * 0.36f)
-                    .map { s -> s.map { it.copy(x = it.x + left, y = it.y + top) } }
-                canvas.drawStrokes(strokes)
-            },
+            onTest = { drawTestSheet() },
             onDone = { if (settingsDock != null) closeSettingsDock() else popovers.close() },
             onClear = { preview.drawnStrokes.clear(); redrawSoon() },
             editableLines = if (BrushLinePreferences.canSwitch(brush)) BrushLinePreferences(prefs).enabled(brush) else null,
@@ -3635,13 +3681,14 @@ class JoyBrushActivity : Activity() {
             next = { selection?.tool },
             fingersErase = { canvas.fingersDraw },
             say = { selectUi.say(it) },
+            mode = { LINE_ERASERS[tools.current?.brushId] ?: cc.joycreator.joybrush.core.vector.InkEraseMode.WHOLE_STROKE },
         )
         strip.showSelect(shown = true, chosen = false)
     }
 
     /** The "Whole lines" eraser is the tool in the hand: a stroke takes away whole editable lines, as one step. */
     private fun lineEraserInHand(): Boolean =
-        !selectInHand && tools.active == ToolSlot.ERASER && tools.current?.brushId == LINE_ERASER_ID
+        !selectInHand && tools.active == ToolSlot.ERASER && tools.current?.brushId in LINE_ERASERS
 
     /** What the host needs of this screen. */
     private val selectUi = object : HostUi {

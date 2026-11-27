@@ -47319,6 +47319,10 @@ public class FaditorEditorActivity extends AppCompatActivity {
                     || id == R.id.transcript_reopen_tab) {
                 continue;
             }
+            // The puppet helper strip is parked by parkPuppetHelper (setX/setY are its translation). Writing the picture's
+            // shift over it put it back at the container's origin whenever a drawer opened or changed: top left, over the
+            // drawer's first rows, whatever side it had been parked on (STU-4 11-27, found with a log on the Note 9).
+            if (child == puppetHelper) continue;
             if (animate) {
                 child.animate().translationX(dx).translationY(dy).setDuration(220)
                         .setInterpolator(new android.view.animation.DecelerateInterpolator())
@@ -47330,6 +47334,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
             }
         }
         if (canvasFrame != null) canvasFrame.setCanvasOffset(dx, dy);
+        if (puppetHelper != null && puppetHelper.getVisibility() == View.VISIBLE) parkPuppetHelper();
     }
 
     /**

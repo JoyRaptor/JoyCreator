@@ -77,6 +77,11 @@ object ArchiveCarrying {
      * before it writes anything, as before. The file made is the same either way. Off until measured on the Note 9.
      */
     @Volatile var streamTiles: Boolean = false
+    /**
+     * Whether opening a working drawing whose file is missing but whose `.tmp` opens whole finishes the save's last move
+     * and opens it (a kill between the save's two moves, JBX-36 S4, 11-27), or opens the `.bak` before it, as before.
+     */
+    @Volatile var finishInterruptedMove: Boolean = false
 }
 
 /** Thrown by every function here. The message is the whole error report, so it says what is wrong. */
@@ -369,7 +374,9 @@ object JbArchive {
         for (key in contents.tiles.keys.sortedWith(TILE_ORDER)) {
             val payload = payloadOf(contents.tiles, key)
             checkTile(key, payload.size, declared)
-            if (retainEntries) tileEntries.add(tilePath(key) to payload)
+            // The name is made even when nothing is kept: making it is what refuses an unsafe one.
+            val path = tilePath(key)
+            if (retainEntries) tileEntries.add(path to payload)
         }
 
         // Check the reverse direction too. Validating only the supplied payloads can otherwise
@@ -454,7 +461,8 @@ object JbArchive {
         for (key in contents.mediaTiles.keys.sortedWith(MEDIA_ORDER)) {
             val payload = payloadOf(contents.mediaTiles, key)
             checkMediaTile(key, payload.size, mediaDeclared)
-            if (retainEntries) mediaEntries.add(mediaPath(key) to payload)
+            val path = mediaPath(key)
+            if (retainEntries) mediaEntries.add(path to payload)
         }
         val given = contents.mediaTiles.keys.mapTo(HashSet()) { Triple(it.layerId, it.celId, it.key) }
         for ((cel, keys) in mediaDeclared) for (key in keys) {

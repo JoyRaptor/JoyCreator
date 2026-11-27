@@ -87,7 +87,12 @@ class JbArchiveStreamTest {
         assertEquals(count, t.made, "each picture tile made once")
         assertEquals(2 * count, m.made, "each store tile made once")
         val want = ByteArrayOutputStream().also { JbArchive.write(it, inMemory()) }.toByteArray()
-        assertContentEquals(want, got, "the same file as a save of the same tiles held in memory")
+        // Entry for entry the same names and bytes (the zip headers also hold the time each was written).
+        fun entries(zip: ByteArray) = java.util.zip.ZipInputStream(zip.inputStream()).use { z ->
+            generateSequence { z.nextEntry }.map { it.name to z.readBytes() }.toList() }
+        val a = entries(want); val b = entries(got)
+        assertEquals(a.map { it.first }, b.map { it.first }, "the same entries in the same order")
+        for (i in a.indices) assertContentEquals(a[i].second, b[i].second, a[i].first)
     }
 
     @Test fun aSaveThatRewritesOnlyWhatChangedAlsoHoldsOneTileAtATime() {

@@ -30,8 +30,8 @@ class KillMidSaveTest {
     private val cel = "c"
     private val names = (0 until 40).map { "${it % 8}_${it / 8}" }
 
-    @BeforeTest fun on() { ArchiveCarrying.streamTiles = true }
-    @AfterTest fun off() { ArchiveCarrying.streamTiles = false }
+    @BeforeTest fun on() { ArchiveCarrying.streamTiles = true; ArchiveCarrying.finishInterruptedMove = true }
+    @AfterTest fun off() { ArchiveCarrying.streamTiles = false; ArchiveCarrying.finishInterruptedMove = false }
 
     private fun doc(name: String) = JbDocument(
         id = "doc-kill", name = name,

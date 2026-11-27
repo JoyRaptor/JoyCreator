@@ -6,6 +6,8 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import org.robolectric.Shadows.shadowOf
+import android.os.Looper
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.RuntimeEnvironment
@@ -26,6 +28,7 @@ class PopoversSheetTopTest {
         host.measure(View.MeasureSpec.makeMeasureSpec(1080, View.MeasureSpec.EXACTLY),
             View.MeasureSpec.makeMeasureSpec(height, View.MeasureSpec.EXACTLY))
         host.layout(0, 0, 1080, height)
+        shadowOf(Looper.getMainLooper()).idle()
     }
 
     @Test fun aSheetSaysWhereItsTopIsAndTellsWhenItOpensMovesAndCloses() {
@@ -34,14 +37,15 @@ class PopoversSheetTopTest {
         var told = 0
         popovers.onSheetMoved = { told++ }
         assertNull(popovers.sheetTopPx())
-        val content = View(context).apply { minimumHeight = 900 }
+        shadowOf(Looper.getMainLooper()).idle()
+        val content = View(context).apply { layoutParams = FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, 900) }
         popovers.showSheet(content, maxWidthDp = 600f, alignEnd = false, modal = false)
         layout(2000)
         val top = popovers.sheetTopPx()!!
         assertTrue("the sheet stands on the bottom edge, about its height up: $top", top in 1000..1100)
         assertTrue("opening it told the strip", told >= 1)
         val afterOpen = told
-        content.minimumHeight = 1200
+        content.layoutParams = FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, 1200)
         content.requestLayout()
         layout(2000)
         assertTrue("a taller sheet moved its top up", popovers.sheetTopPx()!! < top)
@@ -49,6 +53,7 @@ class PopoversSheetTopTest {
         val beforeClose = told
         popovers.close()
         assertNull(popovers.sheetTopPx())
+        shadowOf(Looper.getMainLooper()).idle()
         assertEquals("closing it told the strip once", beforeClose + 1, told)
     }
 
@@ -63,6 +68,7 @@ class PopoversSheetTopTest {
         popovers.show(View(context).apply { minimumHeight = 300 }, anchor)
         layout(2000)
         assertNull(popovers.sheetTopPx())
+        shadowOf(Looper.getMainLooper()).idle()
         popovers.close()
         assertEquals(0, told)
     }

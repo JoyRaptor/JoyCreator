@@ -1,0 +1,65 @@
+# Avatar Studio on the phone: progress in points
+
+The owner's goal (11-27): the phone room at least as good as the web pilot, with maximum polish, before he tries it on
+the phone. Each piece has difficulty points (1 = small, 13 = the hardest). **Landed** = on `joy-creator` and its tests
+pass; it earns its points. **Built** = on a session's branch, not landed: half its points. Nothing counts as done on
+the phone until the final phone run. Every session ticks its own rows here when it lands; the lead re-adds the totals.
+
+## Totals
+
+| | Points |
+|---|---|
+| Earned | **40 of 175 (23%)** |
+| Landed | 35 |
+| Built, not landed (half) | 5 |
+
+Updated 11-27 by the lead.
+
+## The pieces
+
+| Piece | Points | State | Who |
+|---|---|---|---|
+| **Plan and pilot** | | | |
+| Phone spec, shared file format, format tests | 5 | ✅ landed (31277d386) | spec session |
+| Step 0: pilot reads and writes the shared file; landmarks (Here / Behind / Not here); golden files | 8 | ✅ landed (253bde071, pilot v31); checked by script, owner's look owed | spec session |
+| **Slice 1: the character room** | | | |
+| X1 character file reader and checker (Java) | 3 | ✅ landed (8d4ab2daa) | slice 1 |
+| Room skeleton: top bar, stage, panel, four stages | 3 | ✅ landed (fe069fb68) | slice 1 |
+| Menu, open, save into the Joy Creator folder, autosave | 3 | ✅ landed (4a2d01f22, 81dfbc6f1) | slice 1 |
+| Layers, parts, named undo / redo | 3 | ✅ landed (81dfbc6f1) | slice 1 |
+| The doors: layered file, loose pictures, a sheet, one drawing, Update the art | 5 | ✅ 3 of 5 landed (81dfbc6f1) | slice 1 |
+| Joybot tools for the room | 2 | ✅ landed (81dfbc6f1) | slice 1 |
+| Takes and voice engines | 3 | ✅ landed (81dfbc6f1) | slice 1 |
+| Studio's Undo names the step | 1 | ✅ landed (81dfbc6f1) | slice 1 |
+| Topps and Pip built in | 1 | ✅ landed | slice 1 |
+| Perform panel: head pad, Hold to talk, Blink, moods, buttons, Breeze, take bar, Mic, Face | 5 | 🟡 built, not landed | slice 1 |
+| Landmarks screen on the phone | 3 | 🟡 built, not landed | slice 1 |
+| Landscape and tablet layouts | 3 | 🟡 tablet proportions built | slice 1 |
+| X2 the movement engine (the pilot's solver), matched to the pilot within half a pixel | 13 | ⬜ in progress | spec session (Opus) |
+| X3 drawing on the GPU: masks, colour sets | 8 | ⬜ after X2 | spec session (Opus) |
+| Set up card: pins, magnifier, pin wizard | 5 | ⬜ | slice 1 |
+| Arrange: the box, stances, all fours, reshape with pins, in front / behind | 8 | ⬜ | slice 1 |
+| Motion: swinging parts, turning round, round heads | 5 | ⬜ | slice 1 |
+| Walking, the joystick and its gestures | 5 | ⬜ | slice 1 |
+| Face capture on the phone, walk with your face | 5 | ⬜ | slice 1 |
+| Side-by-side pass against the pilot: every control, every word, polish | 8 | ⬜ | slice 1 + lead |
+| **Slice 2: characters inside Video Studio** | | | |
+| X4 voice recorder gives its sound to lip sync | 2 | ⬜ | slice 2 (cloud) |
+| X5 export sheet parts shared with Studio | 3 | ⬜ | slice 2 (cloud) |
+| A solid colour clip in Studio (key colour) | 2 | ⬜ | slice 2 (cloud) |
+| A character drawn in Studio's preview and export | 5 | ⬜ | slice 2 (cloud) |
+| Add a character to a project with its take and voice | 3 | ⬜ | slice 2 (cloud) |
+| Still draggable; record a pass in Studio | 3 | ⬜ | slice 2 (cloud) |
+| Send to Studio, the room's export sheet, video with a key colour | 5 | ⬜ | slice 2 (cloud) |
+| **Slice 2b: acting from a video** | | | |
+| Act from a video: pick layers, what it follows, read into keyframes, Bake / Keep as driver, lips from a sound layer | 8 | ⬜ | slice 2 (cloud) |
+| The performing pop-up on the timeline | 5 | ⬜ | slice 2 (cloud) |
+| **Slice 3: scenes** | | | |
+| Scene file and clock, the camera lane | 3 | ⬜ | after slice 1 |
+| Path tabs, the chair, the frame, the strip | 5 | ⬜ | after slice 1 |
+| The scene on the four stages; the empty scene | 3 | ⬜ | after slice 1 |
+| Several characters, shots, walking on and off, the joystick in a scene | 8 | ⬜ | after slice 1 |
+| Exporting a scene; Send to Studio not flattened | 5 | ⬜ | after slice 1 |
+| **Finishing** | | | |
+| Second audit (Codex) and its fixes | 5 | ⬜ | Codex + lead |
+| The phone run: everything on the Note 9, then the owner's look | 5 | ⬜ | lead |

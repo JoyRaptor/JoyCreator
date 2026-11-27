@@ -85,3 +85,11 @@ The signed `f4fc6ad3cbb02a30f0657b2d2ed2c7a36832960f` fixture from [Android Acti
 | Low-light hand | 333,333 | 2.358 | 1.719 | 1.817 |
 
 All six corrected High samples improved whole-frame accuracy against the sharp baseline. These are measured exports from two independent shots. Preview parity, broader scene coverage and sustained Android profiling are open. Evidence is in `D:/Temp/stu7-owner-media-intake-20261127/native-nearest-sony/native-reference-device-060321/` and `native-nearest-low-light/native-reference-device-060432/`. The prior APK was verified by SHA-256 after each run and the device lock was released.
+
+### In-file boxing cut and preceding-shot control
+
+The replacement boxing file decodes at 1920×1080 SDR, encoded 25 fps. The marked 7–12 and 187–196 second ranges supply rope occlusion footage. The latter contains the hard cut at source 194.76 s. Its 640×360 probe starts at 193.56 s, so the cut lands at editor 1,200,000 µs. The downloaded cadence does not establish the original camera rate. This is a private stress fixture.
+
+The control replaces all 30 decoded frames before the cut with the alternate ring shot and keeps the 30 decoded frames after it byte-identical, verified by frame checksums. The signed `f4fc6ad3c` Snapdragon export captured exact raw frames at 1,160,000, 1,200,000 and 1,240,000 µs in High and sharp for both files. Both sharp post-cut samples matched bit-for-bit. The first High post-cut frame changed with the preceding shot, with peak 128/255 and 27,200 channels differing by more than 1/255. The next High frame matched bit-for-bit. This reproduces forbidden cross-cut donation on the first frame inside a single file.
+
+Host luma analysis found mean absolute change of 0.248 and 0.211 with 4.8% and 4.3% trusted cells across the two hard-cut pairs. Their adjacent same-shot pairs kept 84–96% trusted cells. The early moving-rope range retained at least 83% across the sampled large frame change. These diagnostics guide a conservative fence and do not establish general cut thresholds. Both original APK restorations were verified and the phone lock is free. Raw media and captures stay under `D:/Temp/stu7-owner-media-intake-20261127/boxing/`.

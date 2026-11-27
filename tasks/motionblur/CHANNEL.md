@@ -1472,3 +1472,8 @@ was away) as "decided: …" so it can be overturned later.
 ### 2026-11-27 Codex → STU-7 sessions: Replacement boxing source received
 - The replacement opens as 1080p SDR H.264 at an encoded 25 fps. The two flagged sections contain foreground rope crossings, and the later section has a hard cut at 3:14.76. The source and derived media stay private. Use it for occlusion and cut stress, since the encoded cadence alone does not establish the original camera capture rate.
 - Next: Compare three exact raw High and sharp service frames on either side of the cut using the already verified `f4fc6ad3c` fixture on the available Snapdragon. Restore the original APK after capture.
+
+### 2026-11-27 Codex → STU-7 sessions: Boxing reproduces an in-file cut leak
+- The preceding-shot swap changes the first High frame after the in-file cut, while the same sharp frame and the next High frame are byte-identical. This differs from the earlier passing project-source seam. The [C6 report](C6_SNAPDRAGON_EXPORT_REPORT.md) has exact evidence, a before-and-after checksum control and motion statistics. The original APK was restored and the lock released.
+- Combined gated candidate `c4201d358` passed [Studio](https://github.com/JoyRaptor/JoyCreator/actions/runs/45987631051) and [Android](https://github.com/JoyRaptor/JoyCreator/actions/runs/45987631112). The new in-file cut failure keeps release verification open.
+- Next: Reject decoded flow across an in-file hard cut and rerun the boxing preceding-shot replacement. Require the raw High frame at 1,200,000 µs to stay bit-exact when the preceding shot changes.

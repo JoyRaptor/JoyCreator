@@ -16,7 +16,7 @@ import com.fadcam.ui.faditor.Studio;
 /**
  * Walk with your face, in Perform (the pilot's drawer in {@code al-face-walk.js}): a chip under Walking opens three tick
  * boxes. Left and right, and Closer and further, are the room's (kept on this phone); Up close belongs to the character in
- * hand (not kept). The two depth boxes say they wait for walking toward the camera while the phone's walker cannot yet.
+ * hand (not kept). The two depth boxes are shown only on a walker that walks toward the camera (no dead controls: the lead, 11-27).
  */
 public final class FaceWalkDrawer extends LinearLayout {
     private static final String PREFS = "avatar_room", LR = "faceWalk.lr", DEPTH = "faceWalk.depth";
@@ -85,14 +85,15 @@ public final class FaceWalkDrawer extends LinearLayout {
 
     /** Repaint (the room calls it when the camera or the walker changes). */
     public void paint() {
-        paintChip(chip, open || walk.leftRight() || walk.closer() || walk.upClose());
-        boxes.setVisibility(open ? VISIBLE : GONE);
-        paintTick(lrBox, walk.leftRight(), true);
         boolean deep = host.walksInDepth();
-        paintTick(depthBox, walk.closer(), deep);
-        paintTick(upBox, walk.upClose(), deep);
-        String n = !deep ? getContext().getString(R.string.avatar_face_walk_wait_depth)
-                : (walk.leftRight() || walk.closer()) && !host.faceCameraOn() ? getContext().getString(R.string.avatar_face_walk_needs_face) : "";
+        paintChip(chip, open || walk.leftRight() || (deep && (walk.closer() || walk.upClose())));
+        boxes.setVisibility(open ? VISIBLE : GONE);
+        paintTick(lrBox, walk.leftRight());
+        paintTick(depthBox, walk.closer());
+        paintTick(upBox, walk.upClose());
+        ((View) depthBox.getParent()).setVisibility(deep ? VISIBLE : GONE);      // only where it can walk toward the camera
+        ((View) upBox.getParent()).setVisibility(deep ? VISIBLE : GONE);
+        String n = (walk.leftRight() || (deep && walk.closer())) && !host.faceCameraOn() ? getContext().getString(R.string.avatar_face_walk_needs_face) : "";
         note.setText(n);
         note.setVisibility(n.isEmpty() ? GONE : VISIBLE);
     }
@@ -124,7 +125,6 @@ public final class FaceWalkDrawer extends LinearLayout {
         words.addView(s);
         row.addView(words, new LayoutParams(0, LayoutParams.WRAP_CONTENT, 1f));
         row.setOnClickListener(v -> {
-            if (!v.isEnabled()) return;
             flip.run();
             paint();
         });
@@ -133,20 +133,15 @@ public final class FaceWalkDrawer extends LinearLayout {
         return box;
     }
 
-    /** ON = solid cyan with the tick cut out; off = a grey outline; waiting = dimmed. */
-    private void paintTick(TextView box, boolean on, boolean usable) {
+    /** ON = solid cyan with the tick cut out; off = a grey outline. */
+    private void paintTick(TextView box, boolean on) {
         GradientDrawable g = new GradientDrawable();
         g.setCornerRadius(px(6));
-        if (on && usable) g.setColor(Studio.ARMED);
+        if (on) g.setColor(Studio.ARMED);
         else g.setStroke(Math.max(1, px(1.5f)), 0xFF52525B);
         box.setBackground(g);
-        box.setText(on && usable ? "✓" : "");
+        box.setText(on ? "✓" : "");
         box.setTextColor(Studio.GROUND);
-        View row = (View) box.getParent();
-        if (row != null) {
-            row.setEnabled(usable);
-            row.setAlpha(usable ? 1f : 0.45f);
-        }
     }
 
     private void paintChip(TextView t, boolean on) {

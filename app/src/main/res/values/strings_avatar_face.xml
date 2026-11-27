@@ -14,6 +14,5 @@
     <string name="avatar_face_walk_up">Up close</string>
     <string name="avatar_face_walk_up_sub">It walks up to the camera; untick and it walks back</string>
     <string name="avatar_hover_face_walk_up">On: the character walks up to the camera and stays there. Off: it walks back to its place. No face needed.</string>
-    <string name="avatar_face_walk_wait_depth">Closer and further and Up close wait for walking toward the camera, coming to the phone.</string>
     <string name="avatar_face_walk_needs_face">Turn on Face above: these follow your face.</string>
 </resources>

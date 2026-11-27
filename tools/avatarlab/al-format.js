@@ -1,8 +1,8 @@
 /* AvatarLab: THE SHARED FILE FORMAT. One character file and one scene file, read and written the same way by this
  * pilot and by the phone room. Spec: tasks/avatar/AVA_PHONE_SPEC.md, part B. Round-trip tests: tasks/avatar/format-tests/.
  *
- * Not loaded by index.html (nothing in the pilot changes by having this file). Two ways to run it:
- *   in the page:  <script src="al-format.js"></script>, then AL.format.check(doc), AL.format.upgrade(doc) ...
+ * Loaded by index.html since step 0 (11-27): AL.fromJson upgrades every file it opens, AL.toJson writes /2. Two ways to run it:
+ *   in the page:  AL.format.check(doc), AL.format.upgrade(doc) ...
  *   on the PC:    node tasks/avatar/format-tests/run.mjs   (every test file, both ways round)
  *
  * WHAT IT DOES

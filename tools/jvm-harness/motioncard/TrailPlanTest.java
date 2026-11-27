@@ -41,7 +41,7 @@ public final class TrailPlanTest {
         RigidShutterPlan plan = RigidShutterPlan.prepareTrail(MOVER, NOW, trail, PERIOD,
                 MotionBreaks.none(), 4000, 4000);
         check(plan != null && plan.trail() != null, "a moving thing gets a trail plan");
-        eq(7, plan.taps().size(), "with every pose");
+        eq(RigidShutterPlan.MAX_TRAIL_POSES, plan.taps().size(), "a Smear carries the most key poses");
         double smear = RigidShutterPlan.smearTotal(weights(plan));
         check(smear * plan.trail().smearScale() > 1.5,
                 "a long trail is a stroke, not the object's light spread thin: " + smear * plan.trail().smearScale());
@@ -52,23 +52,39 @@ public final class TrailPlanTest {
                 "a camera-length smear is exposure: it sums to one");
         near(0.0, plan.trail().copyScale(), 0, "and draws no copies");
         near(0.0, plan.trail().sharp(), 0, "Mix 100: no extra sharp pose");
-        for (int i = 0; i < 7; i++) {
-            ItemMotionSampler.Affine truth = MOVER.at(poses.timesUs()[i]);
-            near(-truth.tx(), plan.taps().get(i).canvasToUv().tx(), 1e-6, "pose " + i + " is where it really was (x)");
-            near(-truth.ty(), plan.taps().get(i).canvasToUv().ty(), 1e-6, "pose " + i + " is where it really was (y)");
-        }
-        // The poses follow the curve: the middle pose is above the straight line between ends.
-        double ty3 = plan.taps().get(3).canvasToUv().ty();
-        double ty0 = plan.taps().get(0).canvasToUv().ty();
-        double ty6 = plan.taps().get(6).canvasToUv().ty();
-        check(Math.abs(ty3 - (ty0 + ty6) / 2) > 1, "real earlier poses: the trail bends with the path");
-        ItemMotionSampler square = t -> new ItemMotionSampler.Affine(32, 0, 0, 32,
-                500 + (t - NOW) / (double) PERIOD * 40, 300);
-        RigidShutterPlan sq = RigidShutterPlan.prepareTrail(square, NOW, trail, PERIOD,
+        near(NOW - 8 * PERIOD, timeOf(plan, 0), 1, "the oldest key pose is 8 frames back");
+        check(Math.abs(timeOf(plan, plan.taps().size() - 1) - NOW) <= 1, "the newest is now");
+        // A thing that accelerates hard (x grows with the cube of time): key poses crowd late.
+        ItemMotionSampler rocket = t -> {
+            double f = (t - (NOW - 8 * PERIOD)) / (double) (8 * PERIOD);
+            return new ItemMotionSampler.Affine(40, 0, 0, 40, 100 + 900 * f * f * f, 300);
+        };
+        RigidShutterPlan rp = RigidShutterPlan.prepareTrail(rocket, NOW, trail, PERIOD,
                 MotionBreaks.none(), 4000, 4000);
-        // 8 frames x 40 px over 6 x 6 steps = 8.9 px a step = 0.28 of a 32 px square
-        near(320.0 / 36 / 32, sq.trail().featherU(), 1e-6, "smear steps soften along the motion by one step");
-        near(0.0, sq.trail().featherV(), 1e-9, "and stay crisp across it");
+        int late = 0;
+        for (RigidShutterPlan.Tap tp : rp.taps()) if (-tp.canvasToUv().tx() * 40 > 100 + 900 * 0.125) late++;
+        check(late > rp.taps().size() / 2, "more key poses where it moves faster: " + late + " of " + rp.taps().size());
+        for (int i = 0; i < plan.taps().size(); i++) {
+            ItemMotionSampler.Affine truth = MOVER.at(Math.round(timeOf(plan, i)));
+            near(-truth.tx(), plan.taps().get(i).canvasToUv().tx(), 1e-6, "pose " + i + " is where it really was (x)");
+        }
+        swingFollowsTheArc(trail);
+        // A square spinning 90 degrees a frame about its middle: 8 frames back is two whole laps.
+        ItemMotionSampler spin = t -> {
+            double a = (t - NOW) / (double) PERIOD * Math.PI / 2, c = Math.cos(a), sn = Math.sin(a);
+            return new ItemMotionSampler.Affine(64 * c, -64 * sn, 64 * sn, 64 * c,
+                    300 - 32 * c + 32 * sn, 300 - 32 * sn - 32 * c);
+        };
+        RigidShutterPlan sp2 = RigidShutterPlan.prepareTrail(spin, NOW, trail, PERIOD,
+                MotionBreaks.none(), 4000, 4000);
+        double laps = 0;
+        for (RigidShutterPlan.Segment g : sp2.trail().segments()) {
+            laps += g.turn();
+            check(g.turn() > 0, "every segment turns the way it spins: " + g.turn());
+            near(300, g.x(), 1e-6, "about the square's middle (x)");
+            near(300, g.y(), 1e-6, "about the square's middle (y)");
+        }
+        near(4 * Math.PI, laps, 0.05, "two whole laps, counted, not folded into one turn");
         check(plan.bounds().left() == 0 && plan.bounds().right() >= 500,
                 "the swept box covers the whole trail (clipped at the canvas edge): " + plan.bounds());
 
@@ -102,6 +118,64 @@ public final class TrailPlanTest {
         near(NOW - PERIOD / 4.0, fp.timesUs()[0], 1, "a faded 180 centred opens a quarter frame back");
         near(0.0, fp.weights()[0], 1e-9, "Fade 100 %: the oldest edge vanishes");
         System.out.println("TrailPlanTest: " + checks + " checks passed");
+    }
+
+    /** The time a key pose belongs to, read back from MOVER's x (x = 500 + frames * 100). */
+    private static double timeOf(RigidShutterPlan plan, int i) {
+        double x = -plan.taps().get(i).canvasToUv().tx();
+        return NOW + (x - 500) / 100.0 * PERIOD;
+    }
+
+    /**
+     * A 200 x 20 bar swinging about its left end, 30 degrees a frame. Halfway between two key
+     * poses the trail's step must be where the bar really was (on the arc), not on the straight
+     * line between the two poses: at the bar's tip that line cuts inside the arc by many pixels.
+     */
+    private static void swingFollowsTheArc(Controls trail) {
+        double pivotX = 600, pivotY = 400, step = Math.toRadians(30);
+        ItemMotionSampler swing = t -> {
+            double a = (t - NOW) / (double) PERIOD * step;
+            double c = Math.cos(a), sn = Math.sin(a);
+            // uv (0..1, 0..1) -> a 200 x 20 bar from the pivot, turned by a
+            return new ItemMotionSampler.Affine(200 * c, -20 * sn, 200 * sn, 20 * c,
+                    pivotX, pivotY);
+        };
+        RigidShutterPlan plan = RigidShutterPlan.prepareTrail(swing, NOW, trail, PERIOD,
+                MotionBreaks.none(), 4000, 4000);
+        check(plan != null && plan.trail().segments().size() == plan.taps().size() - 1,
+                "one arc segment between each pair of key poses");
+        double worstArc = 0, worstLine = 0;
+        for (int i = 0; i < plan.trail().segments().size(); i++) {
+            RigidShutterPlan.Segment seg = plan.trail().segments().get(i);
+            check(!seg.slide(), "a swing is a turn, not a slide");
+            ItemMotionSampler.Affine a = poseOf(plan.taps().get(i));
+            ItemMotionSampler.Affine b = poseOf(plan.taps().get(i + 1));
+            double angA = Math.atan2(a.yx(), a.xx()), angB = Math.atan2(b.yx(), b.xx());
+            double mid = angA + wrap(angB - angA) / 2;
+            double trueTipX = pivotX + 200 * Math.cos(mid), trueTipY = pivotY + 200 * Math.sin(mid);
+            ItemMotionSampler.Affine half = RigidShutterPlan.stepPose(a, seg, 0.5);
+            double arcX = half.xx() + half.tx(), arcY = half.yx() + half.ty();   // uv (1, 0) = the tip
+            double lineX = 0.5 * (a.xx() + a.tx() + b.xx() + b.tx());
+            double lineY = 0.5 * (a.yx() + a.ty() + b.yx() + b.ty());
+            worstArc = Math.max(worstArc, Math.hypot(arcX - trueTipX, arcY - trueTipY));
+            worstLine = Math.max(worstLine, Math.hypot(lineX - trueTipX, lineY - trueTipY));
+        }
+        System.out.println("swing: tip off the arc by " + worstArc + " px (a straight blend: " + worstLine + " px)");
+        check(worstArc < 0.01, "halfway steps sit on the true arc: " + worstArc);
+        check(worstLine > 2, "and a straight blend would not (so this test can fail): " + worstLine);
+    }
+
+    private static ItemMotionSampler.Affine poseOf(RigidShutterPlan.Tap tap) {
+        ItemMotionSampler.Affine i = tap.canvasToUv();
+        double det = i.xx() * i.yy() - i.xy() * i.yx();
+        double xx = i.yy() / det, xy = -i.xy() / det, yx = -i.yx() / det, yy = i.xx() / det;
+        return new ItemMotionSampler.Affine(xx, xy, yx, yy, -(xx * i.tx() + xy * i.ty()), -(yx * i.tx() + yy * i.ty()));
+    }
+
+    private static double wrap(double a) {
+        while (a > Math.PI) a -= 2 * Math.PI;
+        while (a < -Math.PI) a += 2 * Math.PI;
+        return a;
     }
 
     private static double[] weights(RigidShutterPlan plan) {

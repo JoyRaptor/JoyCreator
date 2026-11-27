@@ -59,7 +59,7 @@ public final class RigidTextureShutterPass {
     private final float[] sharpX = new float[4];
     private final float[] sharpY = new float[4];
     private final float[] scale = new float[3];
-    private final float[] feather = new float[2];
+    private final float[] segment = new float[4];
     private final boolean overlay;
     private final boolean pip;
     private final float[] frame;
@@ -163,12 +163,22 @@ public final class RigidTextureShutterPass {
         scale[1] = (float) trail.copyScale();
         scale[2] = (float) trail.sharp();
         p.setFloatsUniform("uScale", scale);
-        // Copies never smears, so its program has no uFeather (the compiler drops it, and
-        // setting a uniform that is not there throws).
+        // Copies never smears, so its program has no segments (the compiler drops unused
+        // uniforms, and setting one that is not there throws).
         if (trail.look() != MotionShutter.Look.COPIES) {
-            feather[0] = (float) trail.featherU();
-            feather[1] = (float) trail.featherV();
-            p.setFloatsUniform("uFeather", feather);
+            var segments = trail.segments();
+            for (int i = 0; i + 1 < RigidShutterPlan.MAX_TRAIL_POSES; i++) {
+                if (i < segments.size()) {
+                    var g = segments.get(i);
+                    segment[0] = (float) g.x();
+                    segment[1] = (float) g.y();
+                    segment[2] = (float) g.logScale();
+                    segment[3] = (float) g.turn();
+                } else {
+                    segment[0] = segment[1] = segment[2] = segment[3] = 0f;
+                }
+                p.setFloatsUniform("uSeg" + i, segment);
+            }
         }
         p.bindAttributesAndUniforms();
         GLES20.glDrawArrays(GLES20.GL_TRIANGLE_STRIP, 0, 4);
@@ -199,27 +209,54 @@ public final class RigidTextureShutterPass {
     }
 
     /**
-     * The trail program's {@code sampleSoft}: {@code samplePose} with its edges softened along the
-     * motion by {@code uFeather} (UV units) and its UV held inside the picture, so a smear's steps
-     * add up evenly. Built from the camera program's own text, which stays exactly as it was.
+     * The trail program's helpers, built from the camera program's own {@code samplePose} text
+     * (which stays exactly as it was):
+     * <ul>
+     *   <li>{@code sampleUvSoft(uv, f, w)}: samplePose at a given UV, its edges softened by
+     *   {@code f} (how far this pixel's UV moves between two smear steps), so overlapping steps
+     *   add up evenly whatever the direction of motion;</li>
+     *   <li>{@code arcBack(z, seg, t)}: canvas point z taken back by fraction t of a segment, a
+     *   turn and zoom about its fixed point (a slide when seg.zw is zero), so the steps between
+     *   two key poses trace the true arc (see RigidShutterPlan.Segment).</li>
+     * </ul>
      */
     static String withSoftSampler(String shader) {
         int start = shader.indexOf("vec4 samplePose(vec3 pixel, vec4 rowX, vec4 rowY) {");
         int end = shader.indexOf("void main() {");
         if (start < 0 || end < start) throw new IllegalStateException("samplePose not found");
         String soft = shader.substring(start, end)
-                .replace("vec4 samplePose(", "vec4 sampleSoft(")
+                .replace("vec4 samplePose(vec3 pixel, vec4 rowX, vec4 rowY) {",
+                        "vec4 sampleUvSoft(vec2 uv, vec2 f, float w) {")
+                .replace("  if (rowX.w == 0.0) return vec4(0.0);\n"
+                                + "  vec2 uv = vec2(dot(rowX.xyz, pixel), dot(rowY.xyz, pixel));\n",
+                        "  if (w == 0.0) return vec4(0.0);\n")
                 .replace("  if (any(lessThanEqual(uv, vec2(0.0))) || any(greaterThanEqual(uv, vec2(1.0))))\n"
                                 + "    return vec4(0.0);\n",
-                        "  vec2 soft = clamp((min(uv, 1.0 - uv) + 0.5 * uFeather)"
-                                + " / max(uFeather, vec2(0.0001)), 0.0, 1.0);\n"
+                        "  vec2 soft = clamp((min(uv, 1.0 - uv) + 0.5 * f)"
+                                + " / max(f, vec2(0.0001)), 0.0, 1.0);\n"
                                 + "  if (soft.x * soft.y <= 0.0) return vec4(0.0);\n"
                                 + "  uv = clamp(uv, vec2(0.0), vec2(1.0));\n")
-                .replace("* rowX.w;", "* rowX.w * soft.x * soft.y;");
-        if (!soft.contains("soft.x * soft.y;") || !soft.contains("vec2 soft =")) {
+                .replace("vec2 feather = max(vec2(length(rowX.xy), length(rowY.xy)), vec2(1e-5));",
+                        "vec2 feather = max(f, vec2(1e-5));")
+                .replace("* rowX.w;", "* w * soft.x * soft.y;");
+        if (soft.contains("rowX") || soft.contains("rowY") || !soft.contains("vec2 soft =")) {
             throw new IllegalStateException("soft sampler did not build");
         }
-        return shader.substring(0, end) + soft + shader.substring(end);
+        String arc = """
+                vec2 arcBack(vec2 z, vec4 seg, float t) {
+                  if (seg.z == 0.0 && seg.w == 0.0) return z - t * seg.xy;
+                  float k = exp(-t * seg.z);
+                  float a = -t * seg.w;
+                  float c = cos(a);
+                  float s = sin(a);
+                  vec2 d = z - seg.xy;
+                  return seg.xy + k * vec2(c * d.x - s * d.y, s * d.x + c * d.y);
+                }
+                vec2 uvAt(vec4 rx, vec4 ry, vec2 z) {
+                  return vec2(dot(rx.xyz, vec3(z, 1.0)), dot(ry.xyz, vec3(z, 1.0)));
+                }
+                """;
+        return shader.substring(0, end) + soft + arc + shader.substring(end);
     }
 
     private static String fragmentShaderText(Source kind, MotionShutter.Look trail) {
@@ -245,7 +282,10 @@ public final class RigidTextureShutterPass {
             source.append("uniform vec4 uTapX").append(i).append(", uTapY").append(i).append(";\n");
         }
         if (trail != null) {
-            source.append("uniform vec4 uSharpX, uSharpY;\nuniform vec3 uScale;\nuniform vec2 uFeather;\n");
+            source.append("uniform vec4 uSharpX, uSharpY;\nuniform vec3 uScale;\n");
+            for (int i = 0; i + 1 < RigidShutterPlan.MAX_TRAIL_POSES; i++) {
+                source.append("uniform vec4 uSeg").append(i).append(";\n");
+            }
         }
         if (bitmap) {
             source.append("""
@@ -349,24 +389,28 @@ public final class RigidTextureShutterPass {
         boolean smear = look != MotionShutter.Look.COPIES;
         boolean copies = look != MotionShutter.Look.SMEAR;
         if (smear) {
+            // Each live segment: steps along the arc from pose i toward pose i + 1. A step's
+            // softening is how far this pixel's UV moves to the next step, so neighbours blend.
+            source.append("  vec2 u; vec2 nu; vec2 endU = vec2(0.0); vec2 endF = vec2(0.0); float endW = 0.0;\n");
+            int steps = RigidShutterPlan.TRAIL_SUBSTEPS;
             for (int i = 0; i + 1 < n; i++) {
+                String rx = "uTapX" + i, ry = "uTapY" + i, seg = "uSeg" + i;
                 source.append("  if (uTapY").append(i + 1).append(".w > 0.0) {\n");
-                for (int j = 0; j < RigidShutterPlan.TRAIL_SUBSTEPS; j++) {
-                    String t = Float.toString((float) j / RigidShutterPlan.TRAIL_SUBSTEPS);
-                    source.append("    color += uScale.x * sampleSoft(pixel, mix(uTapX").append(i)
-                            .append(", uTapX").append(i + 1).append(", ").append(t)
-                            .append("), mix(uTapY").append(i).append(", uTapY").append(i + 1)
-                            .append(", ").append(t).append("));\n");
+                source.append("    u = uvAt(").append(rx).append(", ").append(ry).append(", pixel.xy);\n");
+                for (int j = 0; j < steps; j++) {
+                    String tNext = Float.toString((float) (j + 1) / steps);
+                    String tHere = Float.toString((float) j / steps);
+                    source.append("    nu = uvAt(").append(rx).append(", ").append(ry)
+                            .append(", arcBack(pixel.xy, ").append(seg).append(", ").append(tNext).append("));\n");
+                    source.append("    color += uScale.x * sampleUvSoft(u, abs(nu - u), mix(").append(rx)
+                            .append(".w, uTapX").append(i + 1).append(".w, ").append(tHere).append("));\n");
+                    if (j + 1 < steps) source.append("    u = nu;\n");
                 }
+                source.append("    endU = nu; endF = abs(nu - u); endW = uTapX").append(i + 1).append(".w;\n");
                 source.append("  }\n");
             }
-            // The newest live pose closes the smear (the last row, or the one before a dead row).
-            for (int i = 0; i < n; i++) {
-                source.append("  if (uTapY").append(i).append(".w > 0.0");
-                if (i + 1 < n) source.append(" && uTapY").append(i + 1).append(".w == 0.0");
-                source.append(") color += uScale.x * sampleSoft(pixel, uTapX").append(i)
-                        .append(", uTapY").append(i).append(");\n");
-            }
+            // The newest live pose closes the smear.
+            source.append("  if (endW > 0.0) color += uScale.x * sampleUvSoft(endU, endF, endW);\n");
         }
         if (copies) {
             for (int i = 0; i < n; i++) {

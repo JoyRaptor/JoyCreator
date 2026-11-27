@@ -502,9 +502,7 @@ public final class MotionBlurCard {
     @NonNull
     static State withShutter(@NonNull State s, @NonNull MotionShutter.Controls c, long at) {
         if (s.keys().hasShutterKeys()) return new State(s.base(), s.keys().withShutterKey(at, c));
-        MotionShutter.Controls b = s.base();
-        return new State(new MotionShutter.Controls(c.angle(), c.timing(), c.customPhase(),
-                b.mixPercent()), s.keys());
+        return new State(s.base().withWindow(c.angle(), c.timing(), c.customPhase()), s.keys());
     }
 
     /** A Mix edit, keyed at the playhead once Mix has keys. */
@@ -515,8 +513,7 @@ public final class MotionBlurCard {
             return new State(b, s.keys().withMixKey(at,
                     new MotionShutter.Controls(b.angle(), b.timing(), b.customPhase(), mix)));
         }
-        return new State(new MotionShutter.Controls(b.angle(), b.timing(), b.customPhase(), mix),
-                s.keys());
+        return new State(b.withMix(mix), s.keys());
     }
 
     /** The key within {@link #ON_KEY_MS} of {@code at}, or -1. */

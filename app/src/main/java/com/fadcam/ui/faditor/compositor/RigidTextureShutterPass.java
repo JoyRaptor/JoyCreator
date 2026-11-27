@@ -313,13 +313,20 @@ public final class RigidTextureShutterPass {
             for (int i = 0; i + 1 < n; i++) {
                 source.append("  if (uTapY").append(i + 1).append(".w > 0.0) {\n");
                 for (int j = 0; j < RigidShutterPlan.TRAIL_SUBSTEPS; j++) {
-                    String t = Float.toString((j + 0.5f) / RigidShutterPlan.TRAIL_SUBSTEPS);
+                    String t = Float.toString((float) j / RigidShutterPlan.TRAIL_SUBSTEPS);
                     source.append("    color += uScale.x * samplePose(pixel, mix(uTapX").append(i)
                             .append(", uTapX").append(i + 1).append(", ").append(t)
                             .append("), mix(uTapY").append(i).append(", uTapY").append(i + 1)
                             .append(", ").append(t).append("));\n");
                 }
                 source.append("  }\n");
+            }
+            // The newest live pose closes the smear (the last row, or the one before a dead row).
+            for (int i = 0; i < n; i++) {
+                source.append("  if (uTapY").append(i).append(".w > 0.0");
+                if (i + 1 < n) source.append(" && uTapY").append(i + 1).append(".w == 0.0");
+                source.append(") color += uScale.x * samplePose(pixel, uTapX").append(i)
+                        .append(", uTapY").append(i).append(");\n");
             }
         }
         if (copies) {
@@ -329,5 +336,7 @@ public final class RigidTextureShutterPass {
             }
         }
         source.append("  if (uScale.z > 0.0) color += uScale.z * samplePose(pixel, uSharpX, uSharpY);\n");
+        // A stroke's overlapping samples can sum past full coverage: keep it a coverage.
+        source.append("  if (color.a > 1.0) color /= color.a;\n");
     }
 }

@@ -43,7 +43,13 @@ public final class TrailPlanTest {
         check(plan != null && plan.trail() != null, "a moving thing gets a trail plan");
         eq(7, plan.taps().size(), "with every pose");
         double smear = RigidShutterPlan.smearTotal(weights(plan));
-        near(1.0, smear * plan.trail().smearScale(), 1e-9, "Smear sums to one");
+        check(smear * plan.trail().smearScale() > 1.5,
+                "a long trail is a stroke, not the object's light spread thin: " + smear * plan.trail().smearScale());
+        Controls shortSmear = Controls.NATURAL.withLook(50, Look.SMEAR, 4);
+        RigidShutterPlan sp = RigidShutterPlan.prepareTrail(MOVER, NOW, shortSmear, PERIOD,
+                MotionBreaks.none(), 4000, 4000);
+        near(1.0, RigidShutterPlan.smearTotal(weights(sp)) * sp.trail().smearScale(), 1e-9,
+                "a camera-length smear is exposure: it sums to one");
         near(0.0, plan.trail().copyScale(), 0, "and draws no copies");
         near(0.0, plan.trail().sharp(), 0, "Mix 100: no extra sharp pose");
         for (int i = 0; i < 7; i++) {
@@ -70,9 +76,9 @@ public final class TrailPlanTest {
         Controls both = trail.withLook(0, Look.BOTH, 4);
         RigidShutterPlan b = RigidShutterPlan.prepareTrail(MOVER, NOW, both, PERIOD,
                 MotionBreaks.none(), 4000, 4000);
-        double total = RigidShutterPlan.smearTotal(weights(b)) * b.trail().smearScale()
-                + sum(weights(b)) * b.trail().copyScale();
-        near(1.0, total, 1e-9, "Both: smear and copies together sum to one");
+        near(0.5, sum(weights(b)) * b.trail().copyScale(), 1e-9, "Both: the copies weigh one half");
+        check(RigidShutterPlan.smearTotal(weights(b)) * b.trail().smearScale() >= 0.5 - 1e-9,
+                "and the stroke at least the other half");
 
         // A cut two frames back stops the trail there, never reaching across it.
         MotionBreaks cut = new MotionBreaks.Builder().add(NOW - 2 * PERIOD).build();

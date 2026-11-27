@@ -1527,6 +1527,9 @@ class JbCanvasView(context: Context) : GLSurfaceView(context), UnibrushCanvasPor
             if (v) context.getSharedPreferences(PEN_PREFS, android.content.Context.MODE_PRIVATE).edit().putBoolean(PREF_PEN_SEEN, true).apply()
         }
     private var penSeenNow: Boolean? = null
+
+    /** One finger still draws (no pen has been seen yet), so a canvas tool that draws, the whole-line eraser, takes it too. */
+    val fingersDraw: Boolean get() = !penSeen
     private var penHovering = false
     /** The pen hovering over the canvas: this view's px, tilt from upright and Android's orientation (rad); false when it leaves or lands. UI thread. */
     var onPenHover: ((x: Float, y: Float, tilt: Float, orientation: Float, hovering: Boolean) -> Unit)? = null

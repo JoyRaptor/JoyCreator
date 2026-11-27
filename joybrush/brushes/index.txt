@@ -11,6 +11,7 @@ marker
 softair
 smudge
 eraser
+lineeraser
 fill
 watercolour
 # lines/ is the staged line preset catalogue, not a drawer brush folder.

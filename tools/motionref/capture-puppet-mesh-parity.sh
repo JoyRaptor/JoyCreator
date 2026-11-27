@@ -5,7 +5,6 @@ out=$1
 python=$2
 pkg=com.fadcam.beta
 activity="$pkg/com.fadcam.ui.faditor.export.ExportDebugActivity"
-wanted=(1233333 1366666 2566666)
 times=()
 variants=(blur sharp master-off)
 adb() { timeout --kill-after=5s 30s adb "$@"; }
@@ -47,9 +46,11 @@ sys.exit(1)'); then
 }
 
 await_log() {
-    local log=$1 pattern=$2 attempts=$3 attempt
+    local log=$1 pattern=$2 attempts=$3 process=$4 attempt pid
     for ((attempt = 0; attempt < attempts; attempt++)); do
-        adb -e logcat -d -s ExportDebug MotionPreviewReadback LaneReadback PuppetMeshParity \
+        pid=$(adb -e shell pidof -s "$process" | tr -d '\r' || true)
+        if [[ ! "$pid" =~ ^[0-9]+$ ]]; then sleep 1; continue; fi
+        adb -e logcat -d --pid="$pid" -s ExportDebug MotionPreviewReadback LaneReadback PuppetMeshParity \
             FxLivePreview FxPreviewGl SpriteBlend ExportManager ExportService AndroidRuntime > "$log"
         if grep -qiE 'FATAL EXCEPTION|debug export failed|Export failed|authored mesh shutter failed' "$log"; then
             cat "$log"
@@ -58,9 +59,38 @@ await_log() {
         if grep -qE "$pattern" "$log"; then return 0; fi
         sleep 1
     done
-    cat "$log"
+    if [[ -f "$log" ]]; then cat "$log"; fi
     return 1
 }
+
+mkdir -p "$out/blur"
+# Let the emulator pick the frame it actually presented. SwiftShader can skip seconds while
+# warming up the mesh shader. Only keep real, distinct shutter draws and reuse their exact PTS.
+for requested in 150000 500000 1000000 1500000 1900000 2300000 2500000 2700000 2900000; do
+    for attempt in 1 2 3; do
+        prefix="$out/blur/attempt-$requested-$attempt"
+        launch "$prefix-start.log" --ez motion_puppet_mesh_fixture true \
+            --ez open_preview true --el motion_preview_readback_us "$requested"
+        play
+        if ! await_log "$prefix.log" 'frame=motion_preview_[0-9]+\.png' 12 "$pkg" ||
+            ! grep -q 'LANE_PREVIEW ordered' "$prefix.log"; then continue; fi
+        actual=$(sed -nE 's/.*frame=motion_preview_[0-9]+\.png editorUs=([0-9]+) .*/\1/p' "$prefix.log" | tail -1)
+        if [[ ! "$actual" =~ ^[0-9]+$ ]] || (( actual < requested || actual >= 3500000 )) ||
+            [[ -e "$out/blur/preview-$actual.png" ]] ||
+            ! grep -q "PuppetMeshParity: preview editorUs=$actual " "$prefix.log"; then continue; fi
+        cp "$prefix.log" "$out/blur/preview-$actual.log"
+        adb -e exec-out run-as "$pkg" cat "cache/motion_preview_$actual.png" > "$out/blur/preview-$actual.png"
+        test -s "$out/blur/preview-$actual.png"
+        times+=("$actual")
+        break
+    done
+    if (( ${#times[@]} >= 3 )); then break; fi
+done
+if (( ${#times[@]} != 3 )); then
+    echo "Captured only ${#times[@]} distinct authored mesh preview frames" >&2
+    exit 1
+fi
+mapfile -t times < <(printf '%s\n' "${times[@]}" | sort -n)
 
 for variant in "${variants[@]}"; do
     folder="$out/$variant"
@@ -69,57 +99,19 @@ for variant in "${variants[@]}"; do
     master_off=false
     if [[ "$variant" == sharp ]]; then enabled=false; fi
     if [[ "$variant" == master-off ]]; then master_off=true; fi
-    for index in "${!wanted[@]}"; do
-        if [[ "$variant" == blur ]]; then pts=${wanted[index]}; else pts=${times[index]}; fi
-        matched=false
-        for attempt in {1..5}; do
-            prefix="$folder/preview-$pts-$attempt"
-            launch "$prefix-start.log" --ez motion_puppet_mesh_fixture true \
-                --ez motion_enabled "$enabled" --ez motion_master_off "$master_off" \
-                --ez open_preview true --el motion_preview_readback_us "$pts"
-            play
-            if await_log "$prefix.log" 'frame=motion_preview_[0-9]+\.png' 10 &&
-                grep -q 'LANE_PREVIEW ordered' "$prefix.log"; then
-                actual=$(sed -nE 's/.*frame=motion_preview_[0-9]+\.png editorUs=([0-9]+) .*/\1/p' "$prefix.log" | tail -1)
-                if [[ ! "$actual" =~ ^[0-9]+$ ]]; then continue; fi
-                # Select the Android decoder's real microsecond timestamp once, then match it
-                # exactly in both controls and every export. Allow floor or nearest rounding
-                # only while selecting the nominal 30fps frame.
-                if [[ "$variant" == blur ]]; then
-                    if (( actual < pts || actual > pts + 1 )) ||
-                        ! grep -q "PuppetMeshParity: preview editorUs=$actual " "$prefix.log"; then
-                        continue
-                    fi
-                    times+=("$actual")
-                elif [[ "$actual" != "$pts" ]]; then
-                    continue
-                fi
-                if [[ "$variant" != blur ]] && grep -q 'PuppetMeshParity: preview' "$prefix.log"; then
-                    echo "$variant unexpectedly ran the authored shutter in preview"
-                    exit 1
-                fi
-                cp "$prefix.log" "$folder/preview-$actual.log"
-                adb -e exec-out run-as "$pkg" cat "cache/motion_preview_$actual.png" > "$folder/preview-$actual.png"
-                test -s "$folder/preview-$actual.png"
-                matched=true
-                break
-            fi
-        done
-        if [[ "$matched" != true ]]; then
-            echo "No $variant preview at exact editor PTS $pts" >&2
-            exit 1
-        fi
-    done
-
-    project=$(sed -nE 's/.*C5 puppet mesh fixture project_id=([^ ]+) .*/\1/p' "$folder/preview-${times[-1]}.log" | tail -1)
-    test -n "$project"
+    fixture=(--ez motion_puppet_mesh_fixture true --ez motion_enabled "$enabled" --ez motion_master_off "$master_off")
+    if [[ "$variant" == blur ]]; then
+        project=$(sed -nE 's/.*C5 puppet mesh fixture project_id=([^ ]+) .*/\1/p' "$folder/preview-${times[-1]}.log" | tail -1)
+        test -n "$project"
+        fixture=(--es project_id "$project")
+    fi
     for pts in "${times[@]}"; do
         adb -e shell run-as "$pkg" rm -f "cache/lane_frame_$pts.rgba"
     done
     sample_arg=$(IFS=,; echo "${times[*]}")
-    launch "$folder/export-start.log" --es project_id "$project" \
+    launch "$folder/export-start.log" "${fixture[@]}" \
         --ez motion_lane_project_order true --ela motion_lane_sample_us "$sample_arg"
-    await_log "$folder/export.log" 'ExportService: Export completed' 90
+    await_log "$folder/export.log" 'ExportService: Export completed' 90 "$pkg:export"
     grep -q 'LANE_EXPORT' "$folder/export.log"
     for pts in "${times[@]}"; do
         grep -q "frame=lane_frame_$pts.rgba editorUs=$pts " "$folder/export.log"
@@ -144,24 +136,28 @@ from pathlib import Path
 from PIL import Image
 
 root = Path(sys.argv[1])
+previews = []
+for photo in sorted((root / "blur").glob("preview-*.png")):
+    pts = int(photo.stem.removeprefix("preview-"))
+    with Image.open(photo) as image:
+        w, h = image.size
+        photo.with_suffix(".rgba").write_bytes(
+            image.convert("RGBA").transpose(Image.Transpose.FLIP_TOP_BOTTOM).tobytes()
+        )
+    previews.append(dict(file=photo.with_suffix(".rgba").name, requestUs=pts, editorUs=pts, width=w, height=h))
+(root / "blur/preview.json").write_text(json.dumps({"samples": previews}))
+
 for variant in ("blur", "sharp", "master-off"):
     directory = root / variant
-    previews, exports = [], []
+    exports = []
     export_log = (directory / "export.log").read_text()
-    for photo in sorted(directory.glob("preview-*.png")):
-        pts = int(photo.stem.removeprefix("preview-"))
-        with Image.open(photo) as image:
-            w, h = image.size
-            photo.with_suffix(".rgba").write_bytes(
-                image.convert("RGBA").transpose(Image.Transpose.FLIP_TOP_BOTTOM).tobytes()
-            )
+    for preview in previews:
+        pts, w, h = preview["editorUs"], preview["width"], preview["height"]
         export = re.search(rf"frame=lane_frame_{pts}\.rgba editorUs={pts} size=(\d+)x(\d+)", export_log)
         if export is None or tuple(map(int, export.groups())) != (w, h):
             raise SystemExit(f"Mismatched preview/export dimensions at {variant} {pts}")
         sample = dict(requestUs=pts, editorUs=pts, width=w, height=h)
-        previews.append(dict(file=photo.with_suffix(".rgba").name, **sample))
         exports.append(dict(file=f"export-{pts}.rgba", **sample))
-    (directory / "preview.json").write_text(json.dumps({"samples": previews}))
     (directory / "export.json").write_text(json.dumps({"samples": exports}))
 PY
 
@@ -172,11 +168,8 @@ compare() {
     node tools/motionref/compare-lanes.mjs "$out/$first" "$out/$second" "$@" \
         | tee "$out/$label.json" || result=1
 }
-for variant in "${variants[@]}"; do
-    compare "$variant-parity" "$variant/preview.json" "$variant/export.json"
-done
-for route in preview export; do
-    compare "$route-blur-vs-sharp" "blur/$route.json" "sharp/$route.json" --expect-different
-    compare "$route-sharp-vs-off" "sharp/$route.json" "master-off/$route.json"
-done
+compare "blur-parity" "blur/preview.json" "blur/export.json"
+compare "preview-vs-sharp" "blur/preview.json" "sharp/export.json" --expect-different
+compare "export-blur-vs-sharp" "blur/export.json" "sharp/export.json" --expect-different
+compare "export-sharp-vs-off" "sharp/export.json" "master-off/export.json"
 exit "$result"

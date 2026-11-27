@@ -38,6 +38,7 @@ Top level (the pilot's `/1` fields, unchanged, plus what `/2` means):
 | `settings` | facing, blink, breathing, idle, `axisX`, `walk` (ground, stride, step, bob ...), `stick` (joystick gestures, depth tick), `floorAngle` |
 | `poses` | Stances: `[{ id, name, trig, time, d: { <node id>: { x, y, rot, sc, orbit, z: { how, of, at, tip } } } }]` |
 | `palettes` | Colour sets: `[{ id, name, trig, time, soft, blotch, stops: [{ from, to, sat, val, width }] }]` |
+| `facePins` | Face pins (FACE-1): `[{ id, point, node, pin, amt, made }]`: a pin on `node` (its mesh pin `pin`) follows the face camera's point `point` (a MediaPipe face mesh index, 0..477) by `amt` (its two Shapes, `fp:<id>:x` and `:y`, follow `pt.<point>.x` and `.y`); `made`: placed by hand. The face camera watches every pinned `point` |
 | `take` | The take kept with the character (B4) |
 | `pictures` | `{ <img id>: data URL or relative path }` |
 | `fine` | `{ <img id>: [w, h] }`: a picture painted finer than the character; `[w, h]` is the size it takes up (round 19) |
@@ -79,6 +80,13 @@ in `/2`, a piece has ONE numbered set of landmarks and every angle places the SA
   angles (0.5 = half way, the default; absent = 0.5).
 - **Blend two looks** uses the same `marks` on a set of looks (a smile and a frown): the row of each look.
 - The pilot's `set.warpWith` (a piece that warps by its own landmarks, or with another piece) is unchanged.
+- **The face mask (FACE-2, 11-27)** is the whole drawing's landmarks of a head set (`marks['']`): a mask point is an
+  ordinary numbered landmark whose `pts` entry also carries `key` (`"eyeL"`), `face` (the face mesh index it follows)
+  and `handle: true` for the big ones; both checkers keep extra fields. The set gains
+  `face: { turn: { <angle id>: [yaw, pitch] }, mine: { <angle id>: [point index, ...] }, hid, ok, fit, gain, direct, poses, posed, swapped }`:
+  each drawing's real turn, the places put by hand (the rest are guessed and rewritten), and the poses. `fit`, `posed`
+  and `swapped` are written at edit time; a reader only reads them. A head with no `face` is untouched. The solver's
+  pass and the full shape: [FACE-2, "For the phone room"](../jobs/FACE-2_face_mask_and_poses.md).
 
 ### B2.2 How the pilot's pairs convert (`AL.format.upgrade`)
 
@@ -143,6 +151,13 @@ settings, not in either file.
   Values are numbers, a mouth shape's name (`vis`), 0/1 steps (`flip`, `hLw`, `hRw`), or `null` (not driven).
   The lane names and who owns each are `OWN` in `al-inputs.js` (head, mouth, mood, blink, each hand and foot, body, wind,
   shoulders, each button `trig:<id>`, each pin `p:<pin>:<axis>`, face pins `face.*`).
+- **The face camera's own lanes** (agreed 11-27 by the pilot and the phone room, `FaceDrive.ownerOf` = the pilot's
+  `ownerOf`), all owned by `facepins` except the shoulders: `pt.<mesh index>.x` / `.y` (each watched face point, from
+  its place in the neutral face), `face.<name>` (the expressions any part can follow: `cheekPuff`, `smile`, `jaw`,
+  `mouthWide`, `pucker`, `wide`, `squint`, `browInner`, `frown`, `sneer`; 0..1), `mk.<point n>.x` / `.y` (the face
+  mask's points, FACE-2) and `mp.<pose id>` (how strong each mask pose is, 0..1); `shrugL`, `shrugR`, `shrug` are
+  the `shoulders`'. A take that has them plays them back even where the face camera is off; a reader that does not
+  use a lane keeps it.
 - `voice`: a mono 16-bit WAV exactly as long as the take (within one frame: rule `voice-len`), starting with it. Any rate
   reads back (the pilot writes 24 000; the phone's recorder writes 44 100).
 - In Studio a character item carries the take as it is (call 5 of the spec), so a later pass made in Studio is the same

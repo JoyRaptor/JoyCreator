@@ -98,6 +98,12 @@ public final class AvatarRoomActivity extends Activity implements RoomMenu.Host,
     private static final int REQ_MIC = 44;
     private static final int REQ_CAMERA = 45;
     private com.fadcam.ui.faditor.avatar.face.FaceCapture faceCapture;
+    // walk with your face (FaceWalk, its drawer) and toward the camera and away (DepthWalk): the face session's spots
+    private final cc.joycreator.avatar.face.FaceWalk faceWalk = new cc.joycreator.avatar.face.FaceWalk();
+    private cc.joycreator.avatar.face.FaceWalkDrawer faceWalkDrawer;
+    private double[] bodyBox;                                   // the character's drawing at rest [x0, y0, x1, y1]
+    private cc.joycreator.avatar.face.WalkerLegs legs;
+    private cc.joycreator.avatar.perform.Walker legsOf;
     private final Inputs inputs = new Inputs();
     private boolean wasRecording;
     private boolean looping;
@@ -902,6 +908,8 @@ public final class AvatarRoomActivity extends Activity implements RoomMenu.Host,
             });
         } else walker.refresh();
         stickSize();
+        bodyBox = null;                                         // (walking with your face measures the drawing again)
+        if (inputs.faceOn()) watchFacePins();
         stage.setSelected(inHand);
         layers.show(d, inHand);
         parts.show(d, inHand, stageIndex);
@@ -979,7 +987,12 @@ public final class AvatarRoomActivity extends Activity implements RoomMenu.Host,
 
     @Override
     public void toggleFace() {
-        if (inputs.faceOn()) {
+        if (inputs.faceOn()) {                                  // the pilot's chip: always, then only while talking, then off
+            if (inputs.faceDrive().mode() == cc.joycreator.avatar.face.FaceDrive.Mode.ALWAYS) {
+                inputs.faceDrive().setMode(cc.joycreator.avatar.face.FaceDrive.Mode.TALK);
+                performPanel.tick();
+                return;
+            }
             faceOff();
             return;
         }
@@ -996,6 +1009,66 @@ public final class AvatarRoomActivity extends Activity implements RoomMenu.Host,
     @Override
     public void recentreFace() {
         if (faceCapture != null) faceCapture.setNeutral();
+        inputs.faceDrive().recentre();                          // (and the head moves from where the pad is now)
+    }
+
+    /** The face camera watches the points the character's face pins follow (their lanes ride a take as the pilot's). */
+    private void watchFacePins() {
+        if (faceCapture == null || character == null) return;
+        org.json.JSONArray fp = character.json.optJSONArray("facePins");
+        java.util.LinkedHashSet<Integer> pts = new java.util.LinkedHashSet<>();
+        for (int i = 0; fp != null && i < fp.length(); i++) {
+            org.json.JSONObject p = fp.optJSONObject(i);
+            if (p != null && p.has("point")) pts.add(p.optInt("point"));
+        }
+        int[] a = new int[pts.size()];
+        int j = 0;
+        for (int v : pts) a[j++] = v;
+        faceCapture.watchPoints(a);
+    }
+
+    /** The drawer for walking with your face (null: this character does not walk). */
+    @Override
+    public View faceWalkDrawer() {
+        if (walker == null || !walker.canWalk()) return null;
+        if (faceWalkDrawer == null) faceWalkDrawer = new cc.joycreator.avatar.face.FaceWalkDrawer(this, faceWalk, new cc.joycreator.avatar.face.FaceWalkDrawer.Host() {
+            @Override
+            public boolean faceCameraOn() {
+                return inputs.faceOn();
+            }
+
+            @Override
+            public boolean walksInDepth() {
+                return walker != null && walker.canWalk();
+            }
+        });
+        else faceWalkDrawer.paint();
+        return faceWalkDrawer;
+    }
+
+    /**
+     * Once a frame in Perform, before the walker steps: the depth model while depth is in use (the face's Closer and further,
+     * Up close), then walking with your face (the pilot's al-face-walk.js and al-depth-walk.js).
+     */
+    private void faceWalkStep(double dt) {
+        if (character == null) return;
+        if (bodyBox == null || (frameNo & 31) == 0) {
+            org.json.JSONObject r = character.json.optJSONObject("root");
+            CharacterDoc.Node k = r == null ? null : character.find(r.optString("id"));
+            cc.joycreator.avatar.ui.PoseRenderer pr = stage.renderer();
+            double[] b = k == null || pr == null ? null : pr.restBounds(k);
+            if (b != null && b.length >= 4) bodyBox = b;
+        }
+        boolean depth = walker.canWalk() && (faceWalk.closer() || faceWalk.upClose());   // (+ the joystick in perspective: slice 1)
+        cc.joycreator.avatar.perform.DepthWalk.prep(walker, depth, character.json, bodyBox);
+        double h = bodyBox == null ? character.json.optDouble("h", 512) : bodyBox[3] - bodyBox[1];
+        double lim = 0.7 * (bodyBox == null ? character.json.optDouble("w", 512) : bodyBox[2] - bodyBox[0]);
+        boolean replay = inputs.recorder.playing() && !inputs.recorder.recording();
+        if (legsOf != walker) {
+            legs = new cc.joycreator.avatar.face.WalkerLegs(walker);
+            legsOf = walker;
+        }
+        faceWalk.step(dt, inputs.faceNow(), legs, h, lim, replay);
     }
 
     @Override
@@ -1023,10 +1096,12 @@ public final class AvatarRoomActivity extends Activity implements RoomMenu.Host,
             faceCapture.setPreview(facePreview instanceof com.fadcam.ui.faditor.avatar.MediaPipeTrackingSource.PreviewSink ? (com.fadcam.ui.faditor.avatar.MediaPipeTrackingSource.PreviewSink) facePreview : null, false);
             faceCapture.start();
             inputs.face(true);
+            watchFacePins();
         } catch (RuntimeException e) {
             Log.w(TAG, "face camera did not start", e);
             Toast.makeText(this, R.string.avatar_face_failed, Toast.LENGTH_LONG).show();
         }
+        if (faceWalkDrawer != null) faceWalkDrawer.paint();
         performPanel.tick();
     }
 
@@ -1038,6 +1113,7 @@ public final class AvatarRoomActivity extends Activity implements RoomMenu.Host,
         }
         if (facePreview != null) facePreview.setCameraOn(false);
         inputs.face(false);
+        if (faceWalkDrawer != null) faceWalkDrawer.paint();
         performPanel.tick();
     }
 
@@ -1187,6 +1263,7 @@ public final class AvatarRoomActivity extends Activity implements RoomMenu.Host,
         cc.joycreator.avatar.solve.Signals S = cc.joycreator.avatar.ui.SignalMap.toSignals(sig, inputs.time(), inputs.breath());
         if ((frameNo++ & 31) == 0) stickSize();
         if (stick != null) stick.step(dt);
+        if (walker != null) faceWalkStep(dt);
         if (walker != null && (walker.canWalk() || walker.travels())) {
             walker.step(dt, S, glStage.anchors(), glStage.tips());
             S.flip = inputs.flip();

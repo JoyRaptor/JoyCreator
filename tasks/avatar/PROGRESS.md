@@ -40,7 +40,7 @@ Updated 11-27 by the lead.
 | Set up card: pins, magnifier, pin wizard | 5 | 🟡 pins on the picture with a loupe, and pins guessed from the pixels (matches the pilot), landed; the pin wizard owed | slice 1 |
 | Arrange: the box, stances, all fours, reshape with pins, in front / behind | 8 | 🟡 the box, in front / behind, stances and all fours landed (checked against the pilot); reshape with pins and a stance's in-front/behind owed | slice 1 |
 | Motion: swinging parts, turning round, round heads | 5 | ✅ swinging, turning around, breathing and blinking, round heads landed (not tried on a phone) | slice 1 |
-| Walking, the joystick and its gestures | 5 | ⬜ | slice 1 |
+| Walking, the joystick and its gestures | 5 | 🟡 walking by dragging the body (ground line, strides, jump, fall, all fours, hover) landed, 2 traces of the pilot matched frame by frame; the joystick, its gestures and walk with your face owed | slice 1 |
 | Face capture on the phone, walk with your face | 5 | ⬜ | slice 1 |
 | Side-by-side pass against the pilot: every control, every word, polish | 8 | ⬜ | slice 1 + lead |
 | **Slice 2: characters inside Video Studio** | | | |
@@ -50,7 +50,7 @@ Updated 11-27 by the lead.
 | A character drawn in Studio's preview and export | 5 | 🟡 built: seam, `CharacterItemPuppet`, `ItemPuppets`; draws its standing picture until X3 installs and STU-7 answers on the 3 draw sites | slice 2 (cloud) |
 | Add a character to a project with its take and voice | 3 | ✅ landed (Add › Character; one undo step) | slice 2 (cloud) |
 | Still draggable; record a pass in Studio | 3 | 🟡 drag as a sprite; a pass via the Perform pop-up; finger-on-a-hand driving not built | slice 2 (cloud) |
-| Send to Studio, the room's export sheet, video with a key colour | 5 | 🟡 built (`RoomExportSheet`, Studio drop-on-open); the room's button is slice 1's file | slice 2 (cloud) |
+| Send to Studio, the room's export sheet, video with a key colour | 5 | 🟡 built (`RoomExportSheet`, Studio drop-on-open); the room's button is wired (export mark at the bar's right end, saves first); not tried on a phone | slice 2 (cloud) |
 | **Slice 2b: acting from a video** | | | |
 | Act from a video: pick layers, what it follows, read into keyframes, Bake / Keep as driver, lips from a sound layer | 8 | ✅ landed (cloud-compiled; engine 50 checks); no phone run | slice 2 (cloud) |
 | The performing pop-up on the timeline | 5 | ✅ landed (room's PerformPanel + Mic via X4); no joystick yet (the room has none) | slice 2 (cloud) |

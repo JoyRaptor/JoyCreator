@@ -7,10 +7,10 @@
   "tip": {
     "corner": 2,
     "aspect": 0,
-    "hardness": { "base": 0.5 },
+    "hardness": { "base": 1 },
     "minPx": 1
   },
-  "size": { "base": 40 },
+  "size": { "base": 24 },
   "opacity": { "base": 1 },
   "flow": { "base": 1 },
   "spacing": 0.05,

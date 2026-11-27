@@ -296,11 +296,13 @@ class SelectBench(private val canvas: JbCanvasView, private val runId: String, p
                             undoDepth { d1 ->
                                 val gone = source !in all()
                                 canvas.undo()
-                                ui.postDelayed({
+                                // Undo and Redo reach the line list a little after the call: a slow device (the cloud emulator)
+                                // needs well over the old fixed 700 ms, so wait for the change, up to 8 s, then judge.
+                                waitFor(700, 8_000, { source in all() }) {
                                     val back = source in all()
                                     val reselected = lines() == setOf(source)
                                     canvas.redo()
-                                    ui.postDelayed({
+                                    waitFor(700, 8_000, { source !in all() }) {
                                         val goneAgain = source !in all()
                                         report("cutUndoRedo", gone && d1 == d0 + 1 && back && reselected && goneAgain &&
                                             cc.joycreator.joybrush.android.select.LineSelectionClipboard.hasLines,
@@ -309,8 +311,8 @@ class SelectBench(private val canvas: JbCanvasView, private val runId: String, p
                                         shot("09b_cut")
                                         canvas.undo()   // put the line back for the steps that follow
                                         ui.postDelayed(next, 650)
-                                    }, 700)
-                                }, 700)
+                                    }
+                                }
                             }
                         }, 900)
                     }
@@ -550,6 +552,17 @@ class SelectBench(private val canvas: JbCanvasView, private val runId: String, p
         report("screenshotAck", false, JSONObject().put("why", why))
         steps.clear()
         done() // Resolved cleanup, but missing/failed reports make host validation fail.
+    }
+
+    /** Wait at least [minMs], then until [cond] holds or [maxMs] has passed in all, then run [then]. */
+    private fun waitFor(minMs: Long, maxMs: Long, cond: () -> Boolean, then: () -> Unit) {
+        val started = android.os.SystemClock.uptimeMillis()
+        fun poll() {
+            if (!active) return
+            if (cond() || android.os.SystemClock.uptimeMillis() - started >= maxMs) { then(); return }
+            ui.postDelayed({ poll() }, 150L)
+        }
+        ui.postDelayed({ poll() }, minMs)
     }
 
     private fun undoDepth(then: (Int) -> Unit) = canvas.benchState(readPixels = false) { s, _ -> if (active) then(s?.undoDepth ?: -1) }

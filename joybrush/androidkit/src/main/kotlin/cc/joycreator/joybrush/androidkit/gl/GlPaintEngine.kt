@@ -14,6 +14,7 @@ import cc.joycreator.joybrush.core.vector.RecordedCel
 import cc.joycreator.joybrush.core.vector.RecordedEdits
 import cc.joycreator.joybrush.core.stroke.LineAddress
 import cc.joycreator.joybrush.androidkit.gl.lines.RecordedScene
+import cc.joycreator.joybrush.androidkit.gl.lines.NativeBaseTransferProof
 import cc.joycreator.joybrush.androidkit.gl.watercolour.WatercolourPass
 import cc.joycreator.joybrush.androidkit.gl.media.GlUniformSink
 import cc.joycreator.joybrush.androidkit.io.PaperResources
@@ -1750,6 +1751,183 @@ class GlPaintEngine(
         addAll(paperBackground.heldTextureHandles())
         addAll(wcPass?.heldTextureHandles().orEmpty())
         remove(0)
+    }
+
+    /** Borrowed identities plus detached contents; inspection never transfers or releases names. */
+    internal class PlainPromotionInventory internal constructor(
+        val physical: Map<Pair<String, String?>, NativeBaseTransferProof.Physical>,
+        val contents: Map<Pair<String, String?>, Map<Long, Int>>,
+        val occurrences: List<NativeBaseTransferProof.Occurrence>,
+        val rgba8Bases: Set<Int>,
+        val cursor: UndoLog.Cursor<Int>,
+        val context: NativeBaseTransferProof.Context,
+    )
+
+    /**
+     * GL-thread dry inspection only. Native paint stores have an RGBA8 contract, including
+     * caller-produced names accepted by replacement APIs. This checks current native ownership
+     * and the float registry under that contract; it does NOT establish complete allocation
+     * lineage or prove a driver's texture format from an integer. A future ticket must refresh
+     * the inventory around providers and independently validate the complete metadata/history basis.
+     */
+    internal fun inspectPlainPromotionInventory(ownerId: String): PlainPromotionInventory {
+        check(publishedPaint == null && !resettingJointPaint && !forgettingGraphicsContext && ready) {
+            "Plain source inspection needs a current local paint context"
+        }
+        check(!strokeInProgress && !wcFading && !mediaStrokeInProgress && framePreviews.isEmpty() && tileBoardId == null) {
+            "Finish paint/media, playback and periodic painting before inspecting plain sources"
+        }
+        undo.checkCursorBindingAllowed()
+        // A local scene may hold other caches/sources. Exclude outstanding untracked local leases
+        // without calling its renderer or changing registration; actual first promotion still
+        // needs the separate no-prior-scene gate.
+        recordedScene?.checkStateBindingAllowed()
+        val physical = plainPromotionPhysical(ownerId)
+        val cursor = undo.snapshotCursor()
+        val occurrences = plainPromotionOwnershipOccurrences(cursor)
+        val grouped = occurrences.groupBy { it.texture }
+        val rgba8 = LinkedHashSet<Int>()
+        for ((plane, value) in physical) for ((key, texture) in value.store) {
+            require(texture != 0 && texture !in floatNames) { "A plain base needs a current native RGBA8 source" }
+            val owners = grouped[texture].orEmpty()
+            require(owners.size == 1 && owners.single().physical == NativeBaseTransferProof.Slot(plane, key)) {
+                "A plain base texture has another physical, history, pool, cache or global owner"
+            }
+            rgba8.add(texture)
+        }
+        return PlainPromotionInventory(physical.toMap(), physical.mapValues { it.value.store.toMap() },
+            occurrences.toList(), rgba8.toSet(), cursor,
+            NativeBaseTransferProof.Context(boardDocument, documentPaper, resolvedPaper, graphicsEpoch, physicalContextEpoch))
+    }
+
+    /** Existing canonical stores only: never call planeTiles/getOrPut during refusal checks. */
+    private fun plainPromotionPhysical(ownerId: String): Map<Pair<String, String?>, NativeBaseTransferProof.Physical> {
+        val document = checkNotNull(boardDocument) { "Plain source inspection needs the actual document" }
+        require(DocOps.validate(document).isEmpty()) { "The plain source document is not valid" }
+        val meta = document.layers.singleOrNull { it.id == ownerId }
+            ?: throw IllegalArgumentException("The selected paint owner is missing from the document")
+        val owner = layers[ownerId] ?: throw IllegalArgumentException("The selected native owner is missing")
+        require(owner.id == ownerId && !owner.isMask && !ownerId.endsWith(MASK_SUFFIX) && meta.kind.hasPixels && meta.animatedIn == null)
+        require(owner.mask == null && meta.mask == null && !owner.clip && !meta.clip) {
+            "Selected masks and clipping need their source adapter"
+        }
+        require(owner.planes().all { (_, stores) -> stores.values.all { it.isEmpty() } } &&
+            agreedLook.keys.none { it.first == ownerId }) { "Selected media payload/agreement state cannot become plain slabs" }
+        require(meta.cels.all { it.strokesFile == null && it.slabs.isEmpty() && it.looks.isEmpty() }) {
+            "Selected recorded metadata needs its existing physical sources"
+        }
+        val shared = meta.sharedCelId ?: meta.cels.singleOrNull()?.id
+            ?: throw IllegalArgumentException("The selected document has no canonical shared cel")
+        require(owner.sharedCel == shared && owner.cels.keys == meta.cels.map { it.id }.toSet() &&
+            owner.cels[shared] === owner.tiles) { "Native shared/frame stores do not match the document" }
+        require(owner.celFloats.keys.all { it != shared && it in owner.cels }) {
+            "Selected payload metadata names a noncanonical frame cel"
+        }
+        val plan = checkNotNull(owner.plan) { "The selected paint owner has no physical region plan" }
+        val expectedPlan = RegionDocumentOps.paintPlan(document, ownerId)
+        require(plan.shared == expectedPlan.shared && plan.frames == expectedPlan.frames) {
+            "The selected physical plan does not match saved document frames"
+        }
+        val physical = LinkedHashMap<Pair<String, String?>, NativeBaseTransferProof.Physical>()
+        physical[ownerId to null] = NativeBaseTransferProof.Physical(owner, owner.ownershipIdentity, plan, owner.tiles, owner.cels[shared])
+        for (cel in meta.cels) if (cel.id != shared) {
+            val store = owner.cels.getValue(cel.id)
+            require(physical.values.none { it.store === store }) { "Distinct physical frame cels share a store" }
+            physical[ownerId to cel.id] = NativeBaseTransferProof.Physical(owner, owner.ownershipIdentity, plan, store)
+        }
+        return physical
+    }
+
+    /** Allocation occurrences and non-base protections, never subtraction from cold-upload protection. */
+    private fun plainPromotionOwnershipOccurrences(cursor: UndoLog.Cursor<Int>): List<NativeBaseTransferProof.Occurrence> {
+        val result = ArrayList<NativeBaseTransferProof.Occurrence>()
+        val visited = IdentityHashMap<Layer, Boolean>()
+        fun nonbase(texture: Int) { if (texture != 0) result.add(NativeBaseTransferProof.Occurrence(texture, null)) }
+        fun include(owner: Layer, mask: Boolean = false) {
+            require(visited.put(owner, true) == null) { "Native paint/mask ownership contains a repeated owner" }
+            fun base(cel: String?, store: Map<Long, Int>) = store.forEach { (key, texture) ->
+                if (texture != 0) result.add(NativeBaseTransferProof.Occurrence(texture,
+                    if (mask) null else NativeBaseTransferProof.Slot(owner.id to cel, key)))
+            }
+            base(null, owner.tiles)
+            val meta = boardDocument?.layers?.singleOrNull { it.id == owner.id }
+            val shared = meta?.let { it.sharedCelId ?: it.cels.singleOrNull()?.id }
+            for ((cel, store) in owner.cels) {
+                // Deduplicate ONLY the real document shared alias of this same canonical map.
+                if (!mask && cel == shared && cel == owner.sharedCel && store === owner.tiles) continue
+                base(cel, store)
+            }
+            owner.projected.values.forEach(::nonbase)
+            owner.planes().forEach { (_, stores) -> stores.values.forEach { it.values.forEach(::nonbase) } }
+            validatePlainPromotionProjection(owner)
+            owner.mask?.let { include(it, true) }
+        }
+        layers.values.forEach { include(it) }
+        // Agreements are borrowed references to exact CURRENT look endpoints, not allocations.
+        for ((at, texture) in agreedLook) {
+            val owner = layers[at.first] ?: throw IllegalArgumentException("A media agreement has no paint owner")
+            require(at.second == null || (at.second != owner.sharedCel && at.second in owner.cels)) {
+                "A media agreement needs a canonical physical cel"
+            }
+            val pixels = if (at.second == null) owner.tiles else owner.cels.getValue(at.second!!)
+            val stores = if (at.second == null) owner.floats else owner.celFloats[at.second]
+            require(stores?.values?.any { at.third in it } == true && texture == (pixels[at.third] ?: NO_LOOK)) {
+                "A media agreement no longer borrows its current physical look"
+            }
+        }
+        strokeTiles.values.forEach(::nonbase)
+        mediaStroke?.forEach { change -> change.before?.let(::nonbase); change.after?.let(::nonbase) }
+        cursor.undoSteps.forEach { step ->
+            step.changes.forEach { it.before?.let(::nonbase) }; step.slabs.forEach { it.before?.texture?.let(::nonbase) }
+        }
+        cursor.redoSteps.forEach { step ->
+            step.changes.forEach { it.after?.let(::nonbase) }; step.slabs.forEach { it.after?.texture?.let(::nonbase) }
+        }
+        recordedScene?.let { scene ->
+            val state = scene.snapshotState()
+            state.units.values.forEach { it.unit.tiles.values.forEach(::nonbase) }
+            state.looks.values.forEach { it.values.forEach(::nonbase) }
+            state.planes.values.forEach { cel -> cel.slabs.values.forEach { stack -> stack.forEach { nonbase(it.value.texture) } } }
+        }
+        freeLayerTex.forEach(::nonbase); freeStrokeTex.forEach(::nonbase)
+        freeSmudgeTex.forEach(::nonbase); freeFloatTex.forEach(::nonbase)
+        listOf(clearTex, whiteTex, thumbTex, tuftPaperTex, compositor.target, compositor.backdrop,
+            boardCompositor.target, boardCompositor.backdrop).forEach(::nonbase)
+        listOfNotNull(lookTexture, surfaceTexture, fluidTexture).forEach(::nonbase)
+        // Frozen stamp bindings are additional protected non-base references, not transfer aliases.
+        nonbase(look.tipGrainTex); nonbase(look.paperGrainTex); look.fluidTexture?.let(::nonbase)
+        grains.heldTextureHandles().forEach(::nonbase)
+        boardPreview.heldTextureHandles().forEach(::nonbase)
+        paperBackground.heldTextureHandles().forEach(::nonbase)
+        wcPass?.heldTextureHandles()?.forEach(::nonbase)
+        return result
+    }
+
+    /** Validate a borrowed display index without calling visibleTiles/projectedTiles or GL. */
+    private fun validatePlainPromotionProjection(owner: Layer) {
+        val visible = owner.visibleProjection ?: return
+        val plan = owner.plan
+        if (plan == null || plan.frames.isEmpty()) {
+            require(visible == owner.tiles && visible.values.all { it != 0 }) {
+                "A plain display index no longer borrows its nonzero native sources"
+            }
+            return
+        }
+        val keys = LinkedHashSet(owner.tiles.keys)
+        plan.frames.forEach { keys.addAll(owner.cels[it.celId]?.keys.orEmpty()) }
+        val expected = LinkedHashMap<Long, Int>()
+        for (key in keys) {
+            val slices = plan.tileSlices(key)
+            if (slices.size == 1) {
+                owner.cels[slices.single().plane.celId]?.get(key)?.let { expected[key] = it }
+            } else if (slices.any { owner.cels[it.plane.celId]?.containsKey(key) == true }) {
+                expected[key] = owner.projected[key]
+                    ?: throw IllegalArgumentException("A sliced display index has no owned projection")
+            }
+        }
+        require(visible == expected && visible.values.all { it != 0 }) {
+            "A display index borrows an unproven source/slice or stale projection"
+        }
     }
 
     /** Concrete paper/clipping renderer shared by eager replay and no-replay cold adoption. */

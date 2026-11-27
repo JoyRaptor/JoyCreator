@@ -84,6 +84,14 @@ internal class RecordedScene<T : Any> private constructor(
         val protectedTextures: Set<T>
     }
 
+    /** Actual engine root metadata installed only by its accepted native-base transfer ticket. */
+    internal interface PromotedPublication<T : Any> : Publication<T> {
+        val promotedBases: Set<Pair<String, String?>>
+        val legacyBaseSteps: Set<UndoLog.Step<T>>
+        /** Null for ordinary/reset roots; not a caller-supplied alias permission flag. */
+        val baseTransferIdentity: Any?
+    }
+
     private val sceneIdentity = Any()
     private var localState = State<T>(sceneIdentity, emptyMap(), emptyMap(), emptyMap(), emptyMap(), emptyMap(), emptyMap())
     private var localGeneration = 0L
@@ -465,23 +473,55 @@ internal class RecordedScene<T : Any> private constructor(
         try { return stageJointPrepared(step, direction, frozen) } finally { jointPreparations-- }
     }
 
+    /**
+     * Engine-only route: the bound reader must return this exact immutable promoted root. Project
+     * proven old native TileChanges onto seq0, but prepare history from the COMPLETE original Step.
+     * Native/disjoint target validation and the one artwork assignment remain engine-owned.
+     */
+    internal fun stageJointProjected(expected: PromotedPublication<T>, fullStep: UndoLog.Step<T>,
+                                    direction: Direction = Direction.NEW,
+                                    frozen: Map<String, BrushPreset>? = null): JointStaged {
+        require(fullStep.stackBefore == null && fullStep.stackAfter == null && fullStep.paperBefore == null &&
+            fullStep.paperAfter == null && fullStep.documentBefore == null && fullStep.documentAfter == null) {
+            "Joint recorded staging does not yet support structural, paper or document metadata"
+        }
+        require(fullStep.changes.isNotEmpty() || fullStep.lines.isNotEmpty() || fullStep.slabs.isNotEmpty()) {
+            "An empty edit cannot publish a joint undo step"
+        }
+        check(!resetPreparing) { "Cannot stage recorded work during reset preflight" }
+        jointPreparations++
+        try { return stageJointPrepared(fullStep, direction, frozen, expected) } finally { jointPreparations-- }
+    }
+
     private fun stageJointPrepared(step: UndoLog.Step<T>, direction: Direction,
-                                   frozen: Map<String, BrushPreset>?): JointStaged {
+                                   frozen: Map<String, BrushPreset>?,
+                                   expectedPromotion: PromotedPublication<T>? = null): JointStaged {
         val read = boundRead ?: error("Joint recorded staging requires an engine publication binding")
         check(history.isCursorBound) { "Joint recorded staging requires history bound to the same root" }
         val publication = read()
         val before = publication.recorded
         require(before.belongsTo(sceneIdentity)) { "Recorded state belongs to a different scene" }
-        require(step.changes.none {
-            val owner = MediaStores.parse(it.layerId)?.first ?: it.layerId
-            (owner to it.celId) in before.planes
-        }) {
-            "Legacy tile edits on recorded planes need a physical-source adapter"
+        val projectedEdit = if (expectedPromotion == null) {
+            // The public route keeps its existing native-disjoint refusal and callback ordering.
+            require(step.changes.none {
+                val owner = MediaStores.parse(it.layerId)?.first ?: it.layerId
+                (owner to it.celId) in before.planes
+            }) { "Legacy tile edits on recorded planes need a physical-source adapter" }
+            require(step.lines.all { (it.layerId to it.celId) in before.planes }) {
+                "Every recorded line change needs a known physical cel"
+            }
+            null
+        } else {
+            check(publication === expectedPromotion) { "The expected promoted root is no longer current" }
+            require(expectedPromotion.baseTransferIdentity != null && expectedPromotion.promotedBases.isNotEmpty()) {
+                "A projected joint step needs the engine root's accepted native-base transfer"
+            }
+            // Never trust a caller's Prepared or replace the actual root with a wrapper. The pure
+            // adapter verifies exact eligible Step identity, actual cursor endpoint and seq0 source.
+            PromotedBaseProjection.prepare(before.planes, step, direction, publication.cursor,
+                expectedPromotion.legacyBaseSteps, expectedPromotion.promotedBases).recordedEdit
         }
-        require(step.lines.all { (it.layerId to it.celId) in before.planes }) {
-            "Every recorded line change needs a known physical cel"
-        }
-        val endpoints = stepTextures(step)
+        val endpoints = stepTextures(step) + projectedEdit?.let { stepTextures(it.step) }.orEmpty()
         val cacheOwned = before.cacheTextures()
         require(endpoints.none { it in cacheOwned }) {
             "Joint source/history endpoints cannot take ownership of recorded cache textures"
@@ -497,9 +537,12 @@ internal class RecordedScene<T : Any> private constructor(
             Direction.REDO -> history.prepareRedo(publication.cursor, step)
         } ?: error("This joint history step is no longer current")
         checkEpoch(basis.epoch, publication)
-        val projection = UndoLog.Step<T>(emptyList(), lines = step.lines,
-            slabs = step.slabs.filter { (it.layerId to it.celId) in before.planes })
-        val edit = RecordedEdits.prepare(before.planes, projection, direction != Direction.UNDO)
+        val edit = projectedEdit ?: RecordedEdits.prepare(before.planes,
+            UndoLog.Step<T>(emptyList(), lines = step.lines,
+                slabs = step.slabs.filter { (it.layerId to it.celId) in before.planes }), direction != Direction.UNDO)
+        if (projectedEdit != null) check(edit.isCurrent(before.planes)) {
+            "The projected recorded sources changed during preparation"
+        }
         val presets = frozen ?: before.brushes.mapValues { BrushJson.decodeChecked(it.value) }
         val saved = validateRender(before, edit.after, presets)
         if (edit.changedPlanes.isEmpty()) {

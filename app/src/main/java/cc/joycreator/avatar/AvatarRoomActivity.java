@@ -1772,10 +1772,10 @@ public final class AvatarRoomActivity extends Activity implements RoomMenu.Host,
         final cc.joycreator.avatar.ui.SheetCutterView[] cv = new cc.joycreator.avatar.ui.SheetCutterView[1];
         cv[0] = new cc.joycreator.avatar.ui.SheetCutterView(this, sheet, pic, new cc.joycreator.avatar.ui.SheetCutterView.Listener() {
             @Override
-            public void make(java.util.List<cc.joycreator.avatar.intake.SheetCutter.Piece> pieces) {
+            public void make(java.util.List<cc.joycreator.avatar.intake.SheetCutter.Piece> pieces, String zone, String group) {
                 ((ViewGroup) cv[0].getParent()).removeView(cv[0]);
                 pic.recycle();
-                finishSheet(pieces);
+                finishSheet(pieces, zone, group);
             }
 
             @Override
@@ -1788,7 +1788,7 @@ public final class AvatarRoomActivity extends Activity implements RoomMenu.Host,
     }
 
     /** The cut drawings become a new character: each a picture, laid out in Extras, ready to be told what it is. */
-    private void finishSheet(final java.util.List<cc.joycreator.avatar.intake.SheetCutter.Piece> pieces) {
+    private void finishSheet(final java.util.List<cc.joycreator.avatar.intake.SheetCutter.Piece> pieces, final String zone, final String group) {
         JoyFolderHome.io().execute(() -> {
             CharacterDoc made = null;
             try {
@@ -1803,7 +1803,7 @@ public final class AvatarRoomActivity extends Activity implements RoomMenu.Host,
                     pics.add(new cc.joycreator.avatar.file.LooseCharacter.Pic(getString(R.string.avatar_part_n, n), p.w, p.h,
                             "data:image/png;base64," + android.util.Base64.encodeToString(png.toByteArray(), android.util.Base64.NO_WRAP)));
                 }
-                made = CharacterOpen.read(cc.joycreator.avatar.file.LooseCharacter.build(getString(R.string.avatar_untitled), pics).toString());
+                made = CharacterOpen.read(cc.joycreator.avatar.intake.SheetParts.build(getString(R.string.avatar_untitled), pics, zone, group).toString());
             } catch (Exception | OutOfMemoryError e) {
                 Log.w(TAG, "character not made", e);
             }

@@ -20,17 +20,21 @@ on:
         required: true
         default: joy-creator
       tests:
-        description: "all, draw (AvatarDrawParityTest) or room (AvatarRoomSmokeTest)"
+        description: "all, draw (AvatarDrawParityTest), room (AvatarRoomSmokeTest), studio (AvatarStudioDrawTest), or a test class name"
         required: false
         default: all
       fault:
-        description: "Planted fault to prove the tests can fail: none, or shift (one piece drawn 2 px off)"
+        description: "Planted fault to prove the tests can fail: none, shift (one piece drawn 2 px off) or rest (Studio draws only the standing picture)"
         required: false
         default: none
       device:
         description: "Emulator profile (avdmanager device id): pixel_4 (phone) or pixel_tablet"
         required: false
         default: pixel_4
+      orientation:
+        description: "portrait or landscape (the emulator's screen is turned; the app follows)"
+        required: false
+        default: portrait
       gpu:
         description: "Emulator GL: guest (ANGLE on SwiftShader Vulkan inside the emulator; the steady one), swiftshader_indirect or swiftshader (host SwiftShader: froze the emulator in 2 of 4 runs)"
         required: false
@@ -51,10 +55,10 @@ on:
       - app/src/main/assets/avatar/**
       - app/src/main/res/values/strings_avatar*.xml
 
-run-name: "avatar emulator ${{ inputs.tests || 'all' }} fault=${{ inputs.fault || 'none' }} @ ${{ inputs.ref || github.ref_name }} [${{ inputs.request_id || 'push' }}]"
+run-name: "avatar emulator ${{ inputs.tests || 'all' }} fault=${{ inputs.fault || 'none' }} ${{ inputs.device || 'pixel_4' }} ${{ inputs.orientation || 'portrait' }} @ ${{ inputs.ref || github.ref_name }} [${{ inputs.request_id || 'push' }}]"
 
 concurrency:
-  group: avatar-emulator-${{ inputs.ref || github.ref }}-${{ inputs.fault || 'none' }}-${{ inputs.device || 'pixel_4' }}-${{ inputs.gpu || 'guest' }}-${{ inputs.msaa || '4' }}
+  group: avatar-emulator-${{ inputs.ref || github.ref }}-${{ inputs.fault || 'none' }}-${{ inputs.device || 'pixel_4' }}-${{ inputs.orientation || 'portrait' }}-${{ inputs.gpu || 'guest' }}-${{ inputs.msaa || '4' }}
   cancel-in-progress: ${{ github.event_name == 'push' }}
 
 permissions:
@@ -82,8 +86,14 @@ jobs:
 
       - name: Note the commit
         id: meta
+        env:
+          DEVICE: ${{ inputs.device || 'pixel_4' }}
+          ORIENT: ${{ inputs.orientation || 'portrait' }}
         run: |
           echo "sha=$(git rev-parse --short=9 HEAD)" >> "$GITHUB_OUTPUT"
+          # the artifact's name: <sha>-<fault>, plus the screen when it is not the default phone upright
+          shape="$DEVICE"; [ "$ORIENT" != portrait ] && shape="$shape-$ORIENT"
+          if [ "$shape" = pixel_4 ]; then echo "shape=" >> "$GITHUB_OUTPUT"; else echo "shape=-$shape" >> "$GITHUB_OUTPUT"; fi
           echo "Testing $(git rev-parse HEAD)"
 
       - name: Free disk space
@@ -146,6 +156,7 @@ jobs:
         env:
           DEVICE: ${{ inputs.device || 'pixel_4' }}
           GPU: ${{ inputs.gpu || 'guest' }}
+          ORIENT: ${{ inputs.orientation || 'portrait' }}
         run: |
           set -euo pipefail
           sudo chmod a+rw /dev/kvm
@@ -173,7 +184,8 @@ jobs:
           adb -e shell svc power stayon true
           adb -e shell input keyevent 82 || true
           echo "abi: $(adb -e shell getprop ro.product.cpu.abilist | tr -d '\r')"
-          adb -e shell wm size
+          # the screen is turned by the tests themselves (Emu.turn, -e orientation): adb user_rotation did not turn API 30
+          adb -e shell wm size; adb -e shell wm density
 
       - name: Install the app and the tests from this run
         run: |
@@ -190,6 +202,7 @@ jobs:
         timeout-minutes: 35
         env:
           MSAA: ${{ inputs.msaa || '4' }}
+          ORIENT: ${{ inputs.orientation || 'portrait' }}
           TESTS: ${{ inputs.tests || 'all' }}
           FAULT: ${{ inputs.fault || 'none' }}
         run: |
@@ -197,9 +210,12 @@ jobs:
           case "$TESTS" in
             draw) CLASSES=cc.joycreator.avatar.emu.AvatarDrawParityTest ;;
             room) CLASSES=cc.joycreator.avatar.emu.AvatarRoomSmokeTest ;;
-            *)    CLASSES=cc.joycreator.avatar.emu.AvatarDrawParityTest,cc.joycreator.avatar.emu.AvatarRoomSmokeTest ;;
+            studio) CLASSES=cc.joycreator.avatar.emu.AvatarStudioDrawTest ;;
+            all)  CLASSES=cc.joycreator.avatar.emu.AvatarDrawParityTest,cc.joycreator.avatar.emu.AvatarRoomSmokeTest,cc.joycreator.avatar.emu.AvatarStudioDrawTest ;;
+            *)    [[ "$TESTS" =~ ^[A-Za-z]+$ ]] || { echo "tests: all, draw, room, studio or one test class name"; exit 1; }
+                  CLASSES="cc.joycreator.avatar.emu.$TESTS" ;;
           esac
-          ARGS=(-e class "$CLASSES" -e msaa "$MSAA")
+          ARGS=(-e class "$CLASSES" -e msaa "$MSAA" -e orientation "$ORIENT")
           [ "$FAULT" != none ] && ARGS+=(-e fault "$FAULT")
           mkdir -p emu-out
           timeout 30 adb -e logcat -c
@@ -218,10 +234,10 @@ jobs:
           if grep -q '^OK (' emu-out/instrument.txt; then result=pass; else result=fail; fi
           echo "result=$result" >> "$GITHUB_OUTPUT"
           {
-            echo "### Avatar emulator: $result (tests=$TESTS, fault=$FAULT, msaa=$MSAA, ${{ inputs.device || 'pixel_4' }}, ${{ inputs.gpu || 'guest' }}) @ ${{ steps.meta.outputs.sha }}"
+            echo "### Avatar emulator: $result (tests=$TESTS, fault=$FAULT, msaa=$MSAA, ${{ inputs.device || 'pixel_4' }} ${{ inputs.orientation || 'portrait' }}, ${{ inputs.gpu || 'guest' }}) @ ${{ steps.meta.outputs.sha }}"
             echo '```'
             grep -E '^(OK|FAILURES|Tests run|INSTRUMENTATION_|Error)' emu-out/instrument.txt | head -20
-            sed -n '/draw parity/,/^$/p;/room smoke/,/^$/p' emu-out/avatar-log.txt | sed 's/^[^:]*: //' | head -60
+            sed -n '/draw parity/,/^$/p;/room smoke/,/^$/p;/studio draw/,/^$/p' emu-out/avatar-log.txt | sed 's/^[^:]*: //' | head -60
             echo '```'
             if [ "$result" = fail ]; then
               echo 'Failure:'; echo '```'; cat emu-out/device.txt
@@ -230,13 +246,13 @@ jobs:
             fi
           } >> "$GITHUB_STEP_SUMMARY"
           git rev-parse HEAD > emu-out/COMMIT.txt
-          { echo "result=$result"; echo "tests=$TESTS"; echo "fault=$FAULT"; } > emu-out/RESULT.txt
+          { echo "result=$result"; echo "tests=$TESTS"; echo "fault=$FAULT"; echo "screen=${{ inputs.device || 'pixel_4' }} ${{ inputs.orientation || 'portrait' }}"; } > emu-out/RESULT.txt
 
       - name: Upload pictures and logs (kept 3 days)
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: avatar-emulator-${{ steps.meta.outputs.sha }}-${{ inputs.fault || 'none' }}
+          name: avatar-emulator-${{ steps.meta.outputs.sha }}-${{ inputs.fault || 'none' }}${{ steps.meta.outputs.shape }}
           path: emu-out/
           retention-days: 3
           if-no-files-found: warn

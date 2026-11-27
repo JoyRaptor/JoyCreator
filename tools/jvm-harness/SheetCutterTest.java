@@ -1,4 +1,9 @@
+import cc.joycreator.avatar.file.CharacterFile;
+import cc.joycreator.avatar.file.LooseCharacter;
 import cc.joycreator.avatar.intake.SheetCutter;
+import cc.joycreator.avatar.intake.SheetParts;
+import org.json.JSONArray;
+import org.json.JSONObject;
 
 import java.util.List;
 
@@ -59,6 +64,29 @@ public class SheetCutterTest {
         ok(g.size() == 12 && g.get(5).cell[0] == 100 && g.get(5).cell[1] == 100 && g.get(5).cell[2] == 100 && g.get(5).cell[3] == 100, "a 4 by 3 grid has twelve cells in reading order");
         SheetCutter.Piece cellPiece = SheetCutter.extract(s, g.get(6));          // the cell holding part of the blue part? (cell 6 = column 2, row 1: x 200-300, y 100-200)
         ok(cellPiece != null && cellPiece.w == 60 && cellPiece.h == 50, "a cell is cut to the paint inside it (" + (cellPiece == null ? "-" : cellPiece.w + "x" + cellPiece.h) + ")");
+        // frames of a loop stay in register: every frame in the one box that holds them all
+        List<SheetCutter.Piece> fr = new java.util.ArrayList<>();
+        fr.add(pr);
+        fr.add(pb);
+        List<SheetCutter.Piece> al = SheetCutter.align(fr);
+        ok(al.get(0).w == al.get(1).w && al.get(0).h == al.get(1).h && al.get(0).w >= 100 + 60, "aligned frames share one box (" + al.get(0).w + "x" + al.get(0).h + ")");
+        int px0 = (pr.sx - al.get(0).sx), py0 = (pr.sy - al.get(0).sy);
+        ok((al.get(0).px[(py0 + 10) * al.get(0).w + px0 + 10] >>> 24) == 255 && (al.get(1).px[(py0 + 10) * al.get(1).w + px0 + 10] >>> 24) == 0, "each frame keeps its own place inside the shared box");
+        // what the cut drawings become
+        List<LooseCharacter.Pic> pics = new java.util.ArrayList<>();
+        for (int i = 0; i < 3; i++) pics.add(new LooseCharacter.Pic("P" + i, 20, 30, "data:image/png;base64,AAAA"));
+        JSONObject sw = SheetParts.build("T", pics, "armL", SheetParts.SWAP);
+        JSONObject set = sw.getJSONObject("root").getJSONArray("kids").getJSONObject(0).getJSONArray("kids").getJSONObject(0);
+        ok("set".equals(set.optString("type")) && "armL".equals(set.optString("role")) && set.getJSONArray("kids").length() == 3 && "default".equals(set.getJSONObject("pick").optString("by")), "one part that swaps: a set with its looks");
+        ok(sw.getJSONArray("triggers").length() == 2 && !set.getJSONArray("kids").getJSONObject(0).has("trig") && set.getJSONArray("kids").getJSONObject(2).has("trig"), "a button for each look after the first");
+        ok(set.getJSONArray("kids").getJSONObject(1).getDouble("x") == set.getJSONArray("kids").getJSONObject(0).getDouble("x"), "the looks sit where the first does");
+        JSONObject lp = SheetParts.build("T", pics, "extra", SheetParts.LOOP);
+        JSONObject lset = lp.getJSONObject("root").getJSONArray("kids").getJSONObject(0).getJSONArray("kids").getJSONObject(0);
+        ok("cycle".equals(lset.getJSONObject("pick").optString("by")) && lp.getJSONArray("triggers").length() == 0 && "prop".equals(lset.optString("role")), "frames of a loop cycle, with no buttons");
+        JSONObject sep = SheetParts.build("T", pics, "legR", SheetParts.PARTS);
+        JSONArray sk = sep.getJSONObject("root").getJSONArray("kids").getJSONObject(0).getJSONArray("kids");
+        ok(sk.length() == 3 && "legR".equals(sk.getJSONObject(0).optString("role")) && "Right leg 2".equals(sk.getJSONObject(1).optString("name")), "separate drawings are each told what they are");
+        ok(CharacterFile.upgrade(new JSONObject(sw.toString())) != null && CharacterFile.upgrade(new JSONObject(lp.toString())) != null, "the files it makes open");
         System.out.println((fail > 0 ? "FAILED " : "PASSED ") + pass + " checks, " + fail + " failures");
         System.exit(fail > 0 ? 1 : 0);
     }

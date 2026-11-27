@@ -41,6 +41,7 @@ public class AvatarRoomSmokeTest {
         File out = Emu.dir("room");
         StringBuilder log = new StringBuilder();
         empty.setLength(0);
+        Emu.turn();                                            // -e orientation: tablet and landscape screens
         try (ActivityScenario<AvatarRoomActivity> sc = ActivityScenario.launch(AvatarRoomActivity.class)) {
             Emu.sleep(4000);                                   // the stage's first frames (SwiftShader compiles slowly)
             AvatarRoomActivity[] a = new AvatarRoomActivity[1];
@@ -105,7 +106,9 @@ public class AvatarRoomSmokeTest {
             if (d > 24) drawn++;
         }
         double share = drawn / (double) px.length;
-        log.append(String.format(Locale.ROOT, "%-28s stage %dx%d, %.1f%% drawn; %s\n", name, w, h, share * 100, where(a)));
+        android.content.res.Configuration cf = a.getResources().getConfiguration();
+        log.append(String.format(Locale.ROOT, "%-28s screen %dx%d (%dx%d dp, sw%d), stage %dx%d, %.1f%% drawn; %s\n", name,
+            s.getWidth(), s.getHeight(), cf.screenWidthDp, cf.screenHeightDp, cf.smallestScreenWidthDp, w, h, share * 100, where(a)));
         s.recycle();
         if (share < MIN_DRAWN) empty.append(empty.length() == 0 ? "" : ", ").append(name);
     }

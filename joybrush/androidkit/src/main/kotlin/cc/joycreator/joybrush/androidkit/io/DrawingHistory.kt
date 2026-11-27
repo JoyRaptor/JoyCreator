@@ -45,6 +45,7 @@ object DrawingHistory {
     // working drawing is the one opened most often, and the one whose size ran the heap out.
     fun readWorking(file: File, open: (File) -> JbContents = { JbArchive.openDeferringMedia(it) }): Working? {
         var failure: Throwable? = null
+        if (!file.isFile && ArchiveCarrying.finishInterruptedMove) finishInterruptedMove(file, open)
         if (file.isFile) {
             try { return Working(open(file), false) }
             catch (e: Throwable) { failure = e }
@@ -56,5 +57,24 @@ object DrawingHistory {
         }
         if (failure != null) throw JbArchiveException("the working drawing and its backup could not be read: ${failure.message}")
         return null
+    }
+
+    /**
+     * The app was killed in the middle of a save, between its last two moves (JBX-36 S4): the new file was written whole
+     * and synced as `.tmp`, the drawing was moved aside to `.bak`, and the move of `.tmp` onto it never ran. `.tmp` is the
+     * newest save, so it is opened, once it opens whole, and the move is finished. A `.tmp` that does not open (a save
+     * killed while writing it, the first save of a drawing) is left where it is and never moved into place; `.bak` is
+     * never touched here.
+     */
+    private fun finishInterruptedMove(file: File, open: (File) -> JbContents) {
+        val tmp = File(file.path + ".tmp")
+        if (!tmp.isFile) return
+        try {
+            val checked = open(tmp)
+            DeferredMedia.release(checked)
+        } catch (e: Throwable) {
+            return
+        }
+        tmp.renameTo(file)
     }
 }

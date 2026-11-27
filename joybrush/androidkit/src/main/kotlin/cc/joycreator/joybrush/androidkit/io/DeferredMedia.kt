@@ -22,7 +22,7 @@ import java.util.zip.ZipFile
 internal class DeferredMedia<K>(
     private val source: Source,
     private val noted: Map<K, Entry>,
-) : AbstractMap<K, ByteArray>(), Closeable {
+) : AbstractMap<K, ByteArray>(), Closeable, TileStream<K> {
 
     /** One tile as the checking pass met it: where it is in the zip, how long it was and the CRC of its bytes. */
     class Entry(val name: String, val size: Int, val crc: Long)
@@ -69,7 +69,10 @@ internal class DeferredMedia<K>(
     val file: File get() = source.file
 
     /** How long [key]'s tile is, as the checking pass read it, without reading it again; null when there is none. */
-    fun sizeOf(key: K): Int? = noted[key]?.size
+    override fun sizeOf(key: K): Int? = noted[key]?.size
+
+    /** A save of the drawing reads each tile from the file when it writes it, and keeps none (JBX-36). */
+    override fun take(key: K): ByteArray = get(key) ?: throw JbArchiveException("a tile listed for this save is not in ${source.file.name}")
 
     override val size: Int get() = noted.size
     override val keys: Set<K> get() = noted.keys

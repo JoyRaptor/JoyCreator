@@ -153,6 +153,9 @@ public class SpriteOverlayView extends View {
     // doesn't retry every frame. Pruned in setData, released on detach.
     private final java.util.Map<String, com.fadcam.ui.faditor.avatar.AvatarItemPuppet>
             puppets = new java.util.HashMap<>();
+    /** A new-format character's puppet (Avatar Studio), keyed by item id and character; old avatars stay above. */
+    private final java.util.Map<String, cc.joycreator.avatar.studio.ItemPuppet> characterPuppets =
+            new java.util.HashMap<>();
 
     /** Z3: false = draw-only (the below-video instance). See SPEC_CROSSTYPE_Z. */
     private boolean interactive = true;
@@ -177,6 +180,17 @@ public class SpriteOverlayView extends View {
                 it.remove();
             }
         }
+        java.util.Set<String> liveCharacters = new java.util.HashSet<>();
+        for (SpriteOverlayItem o : items) if (o.isCharacter()) liveCharacters.add(characterKey(o));
+        java.util.Iterator<java.util.Map.Entry<String, cc.joycreator.avatar.studio.ItemPuppet>> ci =
+                characterPuppets.entrySet().iterator();
+        while (ci.hasNext()) {
+            java.util.Map.Entry<String, cc.joycreator.avatar.studio.ItemPuppet> e = ci.next();
+            if (!liveCharacters.contains(e.getKey())) {
+                if (e.getValue() != null) e.getValue().release();
+                ci.remove();
+            }
+        }
         invalidate();
     }
 
@@ -195,6 +209,22 @@ public class SpriteOverlayView extends View {
                         id -> callback.lookupRenderer(id),
                         id -> callback.lookupSheet(id));
         puppets.put(o.getId(), p);
+        return p;
+    }
+
+    private static String characterKey(@NonNull SpriteOverlayItem o) {
+        return o.getId() + "|" + o.getCharacterRef();
+    }
+
+    /** The character's puppet (its take, posed by the solver, drawn by the GPU); null = draw its standing picture. */
+    @Nullable
+    private cc.joycreator.avatar.studio.ItemPuppet characterPuppetFor(@NonNull SpriteOverlayItem o) {
+        if (!o.isCharacter()) return null;
+        String key = characterKey(o);
+        if (characterPuppets.containsKey(key)) return characterPuppets.get(key);
+        cc.joycreator.avatar.studio.ItemPuppet p = cc.joycreator.avatar.studio.ItemPuppets.forItem(
+                getContext(), o, null, null, null);
+        characterPuppets.put(key, p);
         return p;
     }
 
@@ -429,6 +459,11 @@ public class SpriteOverlayView extends View {
                                    @Nullable SpriteSheet sheet,
                                    @Nullable com.fadcam.ui.faditor.avatar.AvatarItemPuppet puppet,
                                    float alpha) {
+        cc.joycreator.avatar.studio.ItemPuppet character = characterPuppetFor(o);
+        if (character != null) {
+            character.draw(canvas, into, o, Math.max(0, o.toLocalMs(currentTimeMs)), alpha);
+            return;
+        }
         if (puppet != null && o.getAvatarTrack() != null) {
             // Live puppet replay (bake-to-keyframes): resolver-driven, replaces
             // the static neutral cell. Rotate/flip above apply; workRect is the
@@ -605,6 +640,15 @@ public class SpriteOverlayView extends View {
         }
         com.fadcam.ui.faditor.avatar.AvatarItemPuppet p = puppets.remove(itemId);
         if (p != null) p.release();
+        java.util.Iterator<java.util.Map.Entry<String, cc.joycreator.avatar.studio.ItemPuppet>> ci =
+                characterPuppets.entrySet().iterator();
+        while (ci.hasNext()) {
+            java.util.Map.Entry<String, cc.joycreator.avatar.studio.ItemPuppet> e = ci.next();
+            if (e.getKey().startsWith(itemId + "|")) {
+                if (e.getValue() != null) e.getValue().release();
+                ci.remove();
+            }
+        }
         invalidate();
     }
 
@@ -618,5 +662,9 @@ public class SpriteOverlayView extends View {
             if (p != null) p.release();
         }
         puppets.clear();
+        for (cc.joycreator.avatar.studio.ItemPuppet p : characterPuppets.values()) {
+            if (p != null) p.release();
+        }
+        characterPuppets.clear();
     }
 }

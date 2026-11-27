@@ -52,6 +52,29 @@ final class Emu {
         Log.i(TAG, "saved " + f.getName());
     }
 
+    /**
+     * Turns the screen the way the run asked ({@code -e orientation portrait|landscape}; none = leave it) and holds it
+     * there. A tablet's natural way up is landscape, a phone's upright, so a quarter turn is chosen from the screen's
+     * shape. Settings through adb (user_rotation) did not turn the API 30 emulator; UiAutomation does.
+     */
+    static void turn() {
+        String want = arg("orientation", "");
+        if (want.isEmpty()) return;
+        android.view.Display d = ((android.view.WindowManager) ins().getTargetContext()
+            .getSystemService(android.content.Context.WINDOW_SERVICE)).getDefaultDisplay();
+        android.graphics.Point p = new android.graphics.Point();
+        d.getRealSize(p);
+        boolean wide = p.x > p.y, wantWide = "landscape".equals(want);
+        int rot;
+        if (wide == wantWide) rot = android.app.UiAutomation.ROTATION_FREEZE_CURRENT;
+        else if (d.getRotation() == android.view.Surface.ROTATION_0) rot = android.app.UiAutomation.ROTATION_FREEZE_90;
+        else rot = android.app.UiAutomation.ROTATION_FREEZE_0;
+        ins().getUiAutomation().setRotation(rot);
+        sleep(2500);
+        d.getRealSize(p);
+        Log.i(TAG, "asked " + want + ": screen now " + p.x + "x" + p.y);
+    }
+
     /** The whole screen as the person sees it (the GL stage included). */
     static Bitmap screen() { return ins().getUiAutomation().takeScreenshot(); }
 

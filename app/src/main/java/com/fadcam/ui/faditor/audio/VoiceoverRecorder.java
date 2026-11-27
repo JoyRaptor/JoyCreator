@@ -17,6 +17,7 @@ import com.fadcam.FLog;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.OutputStream;
 import java.io.RandomAccessFile;
 
 /**
@@ -63,6 +64,30 @@ public class VoiceoverRecorder {
     private FileOutputStream outputStream;
     private long totalSamples = 0; // mono samples written
     private long startPlayheadMs = 0;
+    @Nullable private volatile PcmBlocks.PcmListener pcmListener;
+    @Nullable private volatile PcmBlocks pump;
+
+    /**
+     * X4 (Avatar build): hear every block of samples while recording, on the recorder's thread (Avatar Studio's lip
+     * sync reads the one microphone stream instead of opening a second one). Null stops listening. May be set before
+     * {@link #start} or during a recording.
+     */
+    public void setPcmListener(@Nullable PcmBlocks.PcmListener listener) {
+        pcmListener = listener;
+        PcmBlocks p = pump;
+        if (p != null) p.setListener(listener);
+    }
+
+    /** X4: the loudness of the last block heard, 0 to 1 (0 when not recording). */
+    public float getLevel() {
+        PcmBlocks p = pump;
+        return isRecording && p != null ? p.level() : 0f;
+    }
+
+    /** Samples a second of the recording (and of what the listener hears). */
+    public static int sampleRate() {
+        return SAMPLE_RATE;
+    }
 
     public synchronized boolean start(@NonNull Context context, long playheadMs) {
         if (isRecording) return true;
@@ -105,29 +130,30 @@ public class VoiceoverRecorder {
             isRecording = true;
             totalSamples = 0;
             final int localBufferSize = bufferSize;
+            final AudioRecord rec = audioRecord;
+            // X4 (Avatar build): the block handling lives in PcmBlocks so a listener (lip sync) and a level can
+            // ride the same stream; the bytes still reach the file first, exactly as before.
+            final PcmBlocks blocks = new PcmBlocks(rec::read, new OutputStream() {
+                @Override public void write(int b) throws IOException {
+                    if (outputStream != null) outputStream.write(b);
+                }
+                @Override public void write(@NonNull byte[] b, int off, int len) throws IOException {
+                    if (outputStream != null) outputStream.write(b, off, len);
+                }
+            }, VoiceoverRecorder.this, SAMPLE_RATE, localBufferSize / 2);
+            blocks.setListener(pcmListener);
+            pump = blocks;
             recordingThread = new Thread(() -> {
-                // Buffer in shorts, write as bytes (little-endian PCM)
-                short[] shortBuf = new short[localBufferSize / 2];
-                byte[] byteBuf = new byte[shortBuf.length * 2];
                 while (isRecording) {
-                    int read = audioRecord.read(shortBuf, 0, shortBuf.length);
+                    int read;
+                    try {
+                        read = blocks.step();
+                    } catch (IOException e) {
+                        FLog.e(TAG, "Write failed", e);
+                        break;
+                    }
                     if (read > 0) {
-                        // Convert shorts to little-endian bytes
-                        for (int i = 0; i < read; i++) {
-                            byteBuf[i * 2] = (byte) (shortBuf[i] & 0xFF);
-                            byteBuf[i * 2 + 1] = (byte) ((shortBuf[i] >> 8) & 0xFF);
-                        }
-                        try {
-                            synchronized (VoiceoverRecorder.this) {
-                                if (outputStream != null) {
-                                    outputStream.write(byteBuf, 0, read * 2);
-                                }
-                            }
-                            totalSamples += read;
-                        } catch (IOException e) {
-                            FLog.e(TAG, "Write failed", e);
-                            break;
-                        }
+                        totalSamples += read;
                     } else if (read == AudioRecord.ERROR_INVALID_OPERATION
                             || read == AudioRecord.ERROR_BAD_VALUE) {
                         FLog.e(TAG, "AudioRecord read error: " + read);
@@ -154,6 +180,7 @@ public class VoiceoverRecorder {
     public synchronized File stop() {
         if (!isRecording) return null;
         isRecording = false;
+        pump = null;
         if (recordingThread != null) {
             try {
                 recordingThread.join(1000);

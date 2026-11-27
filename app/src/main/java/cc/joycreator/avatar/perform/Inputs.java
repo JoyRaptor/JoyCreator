@@ -61,6 +61,7 @@ public final class Inputs implements Walker.Body {
     private final List<String[]> stances = new ArrayList<>(), palettes = new ArrayList<>();   // {id, trig, time, bounce}
     private final Map<String, double[]> poseLevel = new LinkedHashMap<>();                    // id -> {level, velocity}
     private final Map<String, Double> toneLevel = new LinkedHashMap<>();
+    private double leanX, leanY;                                                               // the joystick on a character that does not walk
     private boolean flipped;                                                                  // the character is turned round (walking the other way)
     private final Map<String, Double> poseBefore = new LinkedHashMap<>();                     // the stance levels as they were at the start of this frame
     private double babbleAt, babbleHold;
@@ -68,6 +69,12 @@ public final class Inputs implements Walker.Body {
 
     /** The buttons this character has (ids), so their lanes exist in a take. */
     // ── what the walker asks of the hands ──────────────────────────────────────────────────────────
+
+    /** The joystick on a character that does not walk: it leans the way the knob is pushed (0, 0 stands it up). */
+    public void lean(double x, double y) {
+        leanX = x;
+        leanY = y;
+    }
 
     @Override
     public boolean flip() {
@@ -388,8 +395,8 @@ public final class Inputs implements Walker.Body {
             mo = smMouth < 0.015 ? 0 : smMouth;
             lookX = smLookX;
             lookY = smLookY;
-            sway = smSway;
-            bounce = smBounce;
+            sway = smSway + leanX;
+            bounce = smBounce + leanY;
             bl = smBrowL;
             bR = smBrowR;
             lu = smLidUp;

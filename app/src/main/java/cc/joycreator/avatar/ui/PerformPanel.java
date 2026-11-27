@@ -66,6 +66,22 @@ public final class PerformPanel extends ScrollView {
             return null;
         }
 
+        /** The joystick for the character in hand (null: none). */
+        default cc.joycreator.avatar.perform.Stick stick() {
+            return null;
+        }
+
+        default boolean stickOpen() {
+            return false;
+        }
+
+        default void setStickOpen(boolean on) {
+        }
+
+        /** The gestures sheet from the pad's corner button. */
+        default void openStickGestures() {
+        }
+
         /** The part in hand (a node of the character), or null; Motion shows how it moves. */
         CharacterDoc.Node inHandNode();
 
@@ -87,6 +103,8 @@ public final class PerformPanel extends ScrollView {
     private final float dp;
     private final LinearLayout column;
     private HeadPad pad;
+    private StickPad stickPad;
+    private TextView stickChip;
     private TextView rec, play, back, clear;
     private TakeStrip strip;
     private final List<TextView> buttonChips = new ArrayList<>();
@@ -180,6 +198,14 @@ public final class PerformPanel extends ScrollView {
         side.addView(micChip, ml);
         faceChip = chip(c, c.getString(R.string.avatar_face), c.getString(R.string.avatar_hover_face), v -> host.toggleFace());
         side.addView(faceChip, ml);
+        if (host.stick() != null) {
+            stickChip = chip(c, c.getString(R.string.avatar_joystick), c.getString(R.string.avatar_hover_joystick), v -> {
+                host.setStickOpen(!host.stickOpen());
+                show(doc);
+            });
+            paintChip(stickChip, host.stickOpen());
+            side.addView(stickChip, ml);
+        }
         // the face's own controls, there only while the camera is on: a private preview, Re-centre, Mirror
         faceRow = new LinearLayout(c);
         faceRow.setGravity(Gravity.CENTER_VERTICAL);
@@ -204,6 +230,13 @@ public final class PerformPanel extends ScrollView {
         fl.topMargin = px(6);
         side.addView(faceRow, fl);
         row.addView(side, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
+        stickPad = null;
+        if (host.stick() != null && host.stickOpen()) {                      // the second pad, for the other thumb
+            stickPad = new StickPad(c, host.stick(), host::openStickGestures);
+            TooltipCompat.setTooltipText(stickPad, c.getString(R.string.avatar_hover_stick_pad));
+            stickPad.setContentDescription(c.getString(R.string.avatar_hover_stick_pad));
+            row.addView(stickPad);
+        }
         column.addView(row);
 
         // moods: only for a character that has eyelids
@@ -338,6 +371,7 @@ public final class PerformPanel extends ScrollView {
     public void tick() {
         Inputs in = host.inputs();
         if (strip != null) strip.invalidate();
+        if (stickPad != null) stickPad.tick();
         if (rec != null) paintTakeBar();
         paintChips();
     }

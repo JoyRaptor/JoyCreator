@@ -154,14 +154,22 @@ public class AvatarFaceReplayTest {
             assertNotNull("Check directions is running", dp);
             shot(out, "16-check-directions");
             double[][] moves = {{1.9, 3.1}, {14.5, 15.3}, {0.5, 1.5}, {12.5, 13.2}, {3.8, 4.7}};
+            String[] moveNames = {"turn right", "look down", "tilt right", "lean right", "right eye"};
+            StringBuilder dirs = new StringBuilder();
             long t0 = SystemClock.uptimeMillis();
-            for (double[] mv : moves) {
-                if (field(a, "dirPrompts") == null) break;
-                play(a, replay, mv[0], mv[1], new String[0][], out);
-                Emu.sleep(300);
+            for (int i = 0; i < moves.length; i++) {
+                long w0 = SystemClock.uptimeMillis();
+                while (dp.running() && dp.prompt() < i && SystemClock.uptimeMillis() - w0 < 12000) Emu.sleep(50);   // (its prompt showing)
+                if (!dp.running()) break;
+                int before = dp.answered();
+                play(a, replay, moves[i][0], moves[i][1], new String[0][], out);
+                long w1 = SystemClock.uptimeMillis();
+                while (dp.running() && dp.prompt() == i && dp.answered() == before && SystemClock.uptimeMillis() - w1 < 2500) Emu.sleep(50);
+                dirs.append(moveNames[i]).append(dp.answered() > before ? " read" : " NOT read").append(i < moves.length - 1 ? ", " : "");
             }
             long took = SystemClock.uptimeMillis() - t0;
-            check(field(a, "dirPrompts") == null && dp.answered() == 5, "Check directions with his own five moves: all read as he made them (" + dp.answered() + " of 5, " + took / 1000 + " s)");
+            Emu.sleep(600);
+            check(field(a, "dirPrompts") == null && dp.answered() == 5, "Check directions with his own five moves: all read as he made them (" + dp.answered() + " of 5: " + dirs + "; " + took / 1000 + " s)");
             Trace turnAfter = play(a, replay, 1.8, 3.6, new String[][]{{"2.6", "17-turn-right-after-directions"}}, out);
             check(turnAfter.max("turnX", 2.0, 3.6) > 0.6, "...and afterwards his right turn still turns Topps to the screen's right (" + f(turnAfter.max("turnX", 2.0, 3.6)) + ")");
             Trace leanAfter = play(a, replay, 11.5, 13.9, new String[0][], out);

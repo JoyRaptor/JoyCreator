@@ -14,6 +14,9 @@ import com.fadcam.ui.faditor.motion.RigidShutterPlan;
 public final class RigidTextureShutterPass {
     private static final int SAMPLE_COUNT = 6;
 
+    /** A camera tap gap past this many canvas pixels would show as separate copies. */
+    static final double CAMERA_STEP_PX = 6.0;
+
     public static final String VERTEX_SHADER =
             "#version 100\n"
             + "attribute vec4 aFramePosition;\n"
@@ -44,6 +47,13 @@ public final class RigidTextureShutterPass {
                     width, height);
         }
         var schedule = controls.schedule(timeUs, periodUs, SAMPLE_COUNT, breaks, sourceBreaks);
+        // A fast move inside one shutter would show the six taps as copies: draw the same
+        // exposure with the smooth trail program (steps along the true path) instead.
+        if (RigidShutterPlan.tapsWouldStep(sampler, schedule, CAMERA_STEP_PX)) {
+            RigidShutterPlan smooth = RigidShutterPlan.prepareTrail(sampler, timeUs, controls,
+                    periodUs, breaks, sourceBreaks, width, height);
+            if (smooth != null) return smooth;
+        }
         return RigidShutterPlan.prepare(sampler, timeUs, schedule, width, height, 1.0);
     }
 
@@ -391,7 +401,7 @@ public final class RigidTextureShutterPass {
         if (smear) {
             // Each live segment: steps along the arc from pose i toward pose i + 1. A step's
             // softening is how far this pixel's UV moves to the next step, so neighbours blend.
-            source.append("  vec2 u; vec2 nu; vec2 endU = vec2(0.0); vec2 endF = vec2(0.0); float endW = 0.0;\n");
+            source.append("  vec2 u; vec2 nu; vec2 d; float ww; vec2 endU = vec2(0.0); vec2 endF = vec2(0.0); float endW = 0.0;\n");
             int steps = RigidShutterPlan.TRAIL_SUBSTEPS;
             for (int i = 0; i + 1 < n; i++) {
                 String rx = "uTapX" + i, ry = "uTapY" + i, seg = "uSeg" + i;
@@ -402,11 +412,16 @@ public final class RigidTextureShutterPass {
                     String tHere = Float.toString((float) j / steps);
                     source.append("    nu = uvAt(").append(rx).append(", ").append(ry)
                             .append(", arcBack(pixel.xy, ").append(seg).append(", ").append(tNext).append("));\n");
-                    source.append("    color += uScale.x * sampleUvSoft(u, abs(nu - u), mix(").append(rx)
-                            .append(".w, uTapX").append(i + 1).append(".w, ").append(tHere).append("));\n");
+                    // two taps a step (at the step and halfway to the next), each softened by
+                    // its half step, capped so a huge step cannot smear past the thing's edge
+                    source.append("    d = min(abs(nu - u), vec2(0.35)) * 0.5;\n");
+                    source.append("    ww = mix(").append(rx).append(".w, uTapX").append(i + 1)
+                            .append(".w, ").append(tHere).append(");\n");
+                    source.append("    color += uScale.x * 0.5 * (sampleUvSoft(u, d, ww)"
+                            + " + sampleUvSoft(0.5 * (u + nu), d, ww));\n");
                     if (j + 1 < steps) source.append("    u = nu;\n");
                 }
-                source.append("    endU = nu; endF = abs(nu - u); endW = uTapX").append(i + 1).append(".w;\n");
+                source.append("    endU = nu; endF = d; endW = uTapX").append(i + 1).append(".w;\n");
                 source.append("  }\n");
             }
             // The newest live pose closes the smear.

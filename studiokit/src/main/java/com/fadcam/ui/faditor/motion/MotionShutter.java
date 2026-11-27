@@ -124,11 +124,21 @@ public final class MotionShutter {
          * trail pass smears between neighbours for Smear and draws them alone for Copies.
          */
         public Schedule trailPoses(long centerUs, long periodUs, int poses, MotionBreaks breaks) {
+            return trailPoses(centerUs, periodUs, poses, breaks, MotionBreaks.none());
+        }
+
+        /** {@link #trailPoses} also fenced by changes local to the source (as {@link #schedule}). */
+        public Schedule trailPoses(long centerUs, long periodUs, int poses, MotionBreaks breaks,
+                                   MotionBreaks source) {
             if (periodUs <= 0 || mixPercent == 0 || angle == 0 || poses < 2) return center(centerUs);
             double openUs = centerUs + phase() * periodUs / 360.0;
             double closeUs = openUs + angle * (double) periodUs / 360.0;
             MotionBreaks.Window window = breaks.splitWindow(centerUs, openUs, closeUs);
             if (!window.hasSamples()) return center(centerUs);
+            if (source != MotionBreaks.none()) {
+                window = source.splitWindow(centerUs, window.openUs(), window.closeUs());
+                if (!window.hasSamples()) return center(centerUs);
+            }
             double span = window.closeUs() - window.openUs();
             long[] times = new long[poses];
             double[] weights = new double[poses];

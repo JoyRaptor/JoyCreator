@@ -70,8 +70,18 @@ public record RigidShutterPlan(SweptBounds bounds, List<Tap> taps, Trail trail) 
     public static RigidShutterPlan prepareTrail(ItemMotionSampler sampler, long centerUs,
                                                 MotionShutter.Controls controls, long periodUs,
                                                 MotionBreaks breaks, int width, int height) {
+        return prepareTrail(sampler, centerUs, controls, periodUs, breaks, MotionBreaks.none(),
+                width, height);
+    }
+
+    /** {@link #prepareTrail} with the source's own fences (a camera window on a sprite). */
+    public static RigidShutterPlan prepareTrail(ItemMotionSampler sampler, long centerUs,
+                                                MotionShutter.Controls controls, long periodUs,
+                                                MotionBreaks breaks, MotionBreaks sourceBreaks,
+                                                int width, int height) {
         boolean smearOnly = controls.look() == MotionShutter.Look.SMEAR;
-        MotionShutter.Schedule dense = controls.trailPoses(centerUs, periodUs, PATH_PROBES, breaks);
+        MotionShutter.Schedule dense = controls.trailPoses(centerUs, periodUs, PATH_PROBES, breaks,
+                sourceBreaks);
         if (dense.timesUs().length < 2) return null;
         ItemMotionSampler.Affine sharp = sampler.at(centerUs);
         if (!finite(sharp)) return null;
@@ -83,7 +93,9 @@ public record RigidShutterPlan(SweptBounds bounds, List<Tap> taps, Trail trail) 
             probe[i] = sampler.at(dense.timesUs()[i]);
             if (!finite(probe[i])) return null;
         }
-        int[] pick = smearOnly ? byTravel(probe, MAX_TRAIL_POSES)
+        // Key poses at exact places along the probes (fractional probe positions), so equal
+        // travel gives equal gaps: snapping to whole probes made a steady slide lumpy.
+        double[] at = smearOnly ? byTravel(probe, MAX_TRAIL_POSES)
                 : evenly(probe.length, Math.min(MAX_TRAIL_POSES, controls.copies()));
         // The turn so far at each probe, laps included: neighbouring probes are close enough
         // that each one's own turn is under half a circle, so a fast spin keeps its direction.
@@ -92,25 +104,27 @@ public record RigidShutterPlan(SweptBounds bounds, List<Tap> taps, Trail trail) 
             turned[i] = turned[i - 1] + segment(probe[i - 1], probe[i], Double.NaN).turn();
         }
 
-        var all = new ArrayList<ItemMotionSampler.Affine>(pick.length + 1);
-        var taps = new ArrayList<Tap>(pick.length);
-        double[] w = new double[pick.length];
+        var all = new ArrayList<ItemMotionSampler.Affine>(at.length + 1);
+        var taps = new ArrayList<Tap>(at.length);
+        double[] w = new double[at.length];
+        double[] turnAt = new double[at.length];
         boolean differs = false;
-        for (int i = 0; i < pick.length; i++) {
-            long t = dense.timesUs()[pick[i]];
+        for (int i = 0; i < at.length; i++) {
+            long t = Math.round(lerp(dense.timesUs(), at[i]));
             ItemMotionSampler.Affine pose = t == centerUs ? sharp : sampler.at(t);
             if (!finite(pose)) return null;
             ItemMotionSampler.Affine inverse = invert(pose);
             if (inverse == null) return null;   // a vanished pose would break the smear chain
             differs |= !pose.equals(sharp);
             all.add(pose);
-            w[i] = dense.weights()[pick[i]];
+            w[i] = lerp(dense.weights(), at[i]);
+            turnAt[i] = lerp(turned, at[i]);
             taps.add(new Tap(inverse, w[i]));
         }
         if (!differs) return null;
-        var segments = new ArrayList<Segment>(pick.length - 1);
+        var segments = new ArrayList<Segment>(at.length - 1);
         for (int i = 0; i + 1 < all.size(); i++) {
-            segments.add(segment(all.get(i), all.get(i + 1), turned[pick[i + 1]] - turned[pick[i]]));
+            segments.add(segment(all.get(i), all.get(i + 1), turnAt[i + 1] - turnAt[i]));
         }
         all.add(sharp);
 
@@ -190,33 +204,65 @@ public record RigidShutterPlan(SweptBounds bounds, List<Tap> taps, Trail trail) 
         return new Segment(px, py, logScale, turn);
     }
 
-    /** {@code n} of {@code count} indices, first and last included, by how far corners travel. */
-    static int[] byTravel(ItemMotionSampler.Affine[] probe, int n) {
+    /**
+     * {@code n} positions along the probes (fractional probe indices, first 0 and last
+     * {@code count - 1}) at equal shares of how far the corners travel: dense where it moves fast.
+     */
+    static double[] byTravel(ItemMotionSampler.Affine[] probe, int n) {
         int m = probe.length;
-        double[] at = new double[m];
-        for (int i = 1; i < m; i++) at[i] = at[i - 1] + travel(probe[i - 1], probe[i]);
-        double total = at[m - 1];
-        if (total <= 1e-9) return evenly(m, Math.min(n, m));
-        int[] pick = new int[Math.min(n, m)];
+        double[] run = new double[m];
+        for (int i = 1; i < m; i++) run[i] = run[i - 1] + travel(probe[i - 1], probe[i]);
+        double total = run[m - 1];
+        if (total <= 1e-9) return evenly(m, n);
+        double[] at = new double[Math.max(2, n)];
         int j = 0;
-        for (int k = 0; k < pick.length; k++) {
-            double target = total * k / (pick.length - 1);
-            while (j < m - 1 && at[j] < target) j++;
-            int lo = Math.max(k == 0 ? 0 : pick[k - 1] + 1, 0);
-            int hi = m - (pick.length - k);
-            pick[k] = Math.max(lo, Math.min(hi, j));
+        for (int k = 0; k < at.length; k++) {
+            double target = total * k / (at.length - 1);
+            while (j < m - 2 && run[j + 1] < target) j++;
+            double span = run[j + 1] - run[j];
+            at[k] = j + (span <= 1e-12 ? 0 : Math.max(0, Math.min(1, (target - run[j]) / span)));
         }
-        pick[0] = 0;
-        pick[pick.length - 1] = m - 1;
-        return pick;
+        at[0] = 0;
+        at[at.length - 1] = m - 1;
+        return at;
     }
 
-    static int[] evenly(int count, int n) {
-        int[] pick = new int[Math.max(2, Math.min(n, count))];
-        for (int k = 0; k < pick.length; k++) {
-            pick[k] = (int) Math.round((count - 1) * (double) k / (pick.length - 1));
+    /** {@code n} evenly spread probe positions, first and last included. */
+    static double[] evenly(int count, int n) {
+        double[] at = new double[Math.max(2, n)];
+        for (int k = 0; k < at.length; k++) at[k] = (count - 1) * (double) k / (at.length - 1);
+        return at;
+    }
+
+    /** {@code v} at fractional index {@code x}. */
+    static double lerp(double[] v, double x) {
+        int i = (int) Math.max(0, Math.min(v.length - 2, Math.floor(x)));
+        double f = x - i;
+        return v[i] + (v[i + 1] - v[i]) * f;
+    }
+
+    static double lerp(long[] v, double x) {
+        int i = (int) Math.max(0, Math.min(v.length - 2, Math.floor(x)));
+        double f = x - i;
+        return v[i] + (v[i + 1] - v[i]) * f;
+    }
+
+    /**
+     * Whether a camera shutter's own taps would show as separate copies: some corner moves more
+     * than {@code px} canvas pixels between two of its taps. The pass then draws the camera
+     * window with the smooth trail program instead (same exposure, no copies).
+     */
+    public static boolean tapsWouldStep(ItemMotionSampler sampler, MotionShutter.Schedule schedule,
+                                        double px) {
+        long[] t = schedule.timesUs();
+        ItemMotionSampler.Affine prev = null;
+        for (long time : t) {
+            ItemMotionSampler.Affine pose = sampler.at(time);
+            if (!finite(pose)) return false;
+            if (prev != null && travel(prev, pose) > px) return true;
+            prev = pose;
         }
-        return pick;
+        return false;
     }
 
     /** How far the thing's farthest corner moved between two poses, in canvas pixels. */

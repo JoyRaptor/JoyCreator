@@ -50,7 +50,7 @@ import java.util.List;
  * Perform and recording are filled in by the later steps of slice 1; a control appears only when it works (a dead knob
  * is worse than a missing one).</p>
  */
-public final class AvatarRoomActivity extends Activity implements RoomMenu.Host, LayersView.Host, PartsView.Host, PerformPanel.Host {
+public final class AvatarRoomActivity extends Activity implements RoomMenu.Host, LayersView.Host, PartsView.Host, PerformPanel.Host, cc.joycreator.avatar.ui.LandmarksScreen.Host {
     private static final String TAG = "AvatarRoom";
     private static final int REQ_OPEN = 41;
     private static final int REQ_PICTURES = 42;
@@ -80,6 +80,8 @@ public final class AvatarRoomActivity extends Activity implements RoomMenu.Host,
     private TextView pathName;
     private PartsView parts;
     private PerformPanel performPanel;
+    private cc.joycreator.avatar.ui.LandmarksScreen landmarks;
+    private android.widget.FrameLayout panelBody;
     private com.fadcam.ui.faditor.avatar.MicVisemeSource mic;
     private static final int REQ_MIC = 44;
     private static final int REQ_CAMERA = 45;
@@ -146,6 +148,7 @@ public final class AvatarRoomActivity extends Activity implements RoomMenu.Host,
         parts = new PartsView(this, this);
         layers = new LayersView(this, this);
         android.widget.FrameLayout body = new android.widget.FrameLayout(this);
+        panelBody = body;
         body.addView(parts, new android.widget.FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
         performPanel = new PerformPanel(this, this);
         body.addView(performPanel, new android.widget.FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
@@ -260,10 +263,12 @@ public final class AvatarRoomActivity extends Activity implements RoomMenu.Host,
     /** Layers when asked for; otherwise the performer's panel on Motion and Perform, the parts card on the first two. */
     private void applyPanels() {
         if (layers == null || parts == null || performPanel == null) return;
-        boolean perform = !showLayers && stageIndex >= 2;
-        layers.setVisibility(showLayers ? View.VISIBLE : View.GONE);
-        parts.setVisibility(!showLayers && !perform ? View.VISIBLE : View.GONE);
+        boolean matching = landmarks != null && landmarks.isOpen();
+        boolean perform = !showLayers && !matching && stageIndex >= 2;
+        layers.setVisibility(showLayers && !matching ? View.VISIBLE : View.GONE);
+        parts.setVisibility(!showLayers && !matching && !perform ? View.VISIBLE : View.GONE);
         performPanel.setVisibility(perform ? View.VISIBLE : View.GONE);
+        if (landmarks != null) landmarks.view().setVisibility(matching ? View.VISIBLE : View.GONE);
     }
 
     private LinearLayout buildStageRow() {
@@ -285,7 +290,28 @@ public final class AvatarRoomActivity extends Activity implements RoomMenu.Host,
     }
 
     /** Chosen = solid cyan with the label punched out to the ground colour; the rest grey (rule: ON = solid cyan). */
+    @Override
+    public void openLandmarks(String setId) {
+        if (character == null || landmarks == null) return;
+        landmarks.open(character, setId);
+        applyPanels();
+    }
+
+    @Override
+    public void closeLandmarks() {
+        if (landmarks != null) landmarks.close();
+        applyPanels();
+        if (character != null) parts.show(character, inHand, stageIndex);
+    }
+
+    @Override
+    public void onBackPressed() {
+        if (landmarks != null && landmarks.isOpen()) closeLandmarks();
+        else super.onBackPressed();
+    }
+
     private void selectStage(int idx) {
+        if (landmarks != null && landmarks.isOpen()) closeLandmarks();
         if (inputs.recorder.recording() && idx < 2) endRecord();     // a pass belongs to Motion and Perform
         if (idx < 2 && inputs.micOn()) micOff();                     // the microphone listens only in Motion and Perform
         if (idx < 2 && inputs.faceOn()) faceOff();                   // and so does the camera
@@ -325,6 +351,12 @@ public final class AvatarRoomActivity extends Activity implements RoomMenu.Host,
         if (character == null) return;
         fromEdit = false;
         if (edit == null) edit = new RoomEdit(character, this::edited);
+        if (landmarks == null) {
+            landmarks = new cc.joycreator.avatar.ui.LandmarksScreen(this, stage, edit, this);
+            panelBody.addView(landmarks.view(), new android.widget.FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
+            landmarks.view().setVisibility(View.GONE);
+        }
+        if (landmarks.isOpen()) landmarks.close();
         edit.reset(character);
         feedInputs(character);
         pathName.setText(character.name.isEmpty() ? getString(R.string.avatar_untitled) : character.name);
@@ -339,6 +371,7 @@ public final class AvatarRoomActivity extends Activity implements RoomMenu.Host,
         layers.show(d, inHand);
         parts.show(d, inHand, stageIndex);
         paintUndo();
+        if (landmarks != null) landmarks.refresh(d);
         syncTake(d);
         performPanel.refreshSettings(d);
         if (fromEdit) {

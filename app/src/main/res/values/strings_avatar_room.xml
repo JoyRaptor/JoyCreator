@@ -118,5 +118,40 @@
     <string name="avatar_face">Face</string>
     <string name="avatar_hover_face">Your face drives the character</string>
     <string name="avatar_face_failed">The face camera could not start just now.</string>
+    <string name="avatar_marks_title">Landmarks</string>
+    <string name="avatar_marks_hint">Tap + Add, then the picture, to place a landmark. Drag any dot to move it.</string>
+    <plurals name="avatar_marks_count">
+        <item quantity="one">%d numbered landmark, the same in every angle</item>
+        <item quantity="other">%d numbered landmarks, the same in every angle</item>
+    </plurals>
+    <string name="avatar_marks_solid">Solid</string>
+    <string name="avatar_marks_ghost">Ghost</string>
+    <string name="avatar_marks_add">+ Add a landmark</string>
+    <string name="avatar_marks_remove">Remove landmark %1$d</string>
+    <string name="avatar_marks_adding">Tap the picture where the landmark goes. It appears in every angle, ready to drag.</string>
+    <string name="avatar_marks_in">Landmark %1$d in %2$s</string>
+    <string name="avatar_marks_here">Here</string>
+    <string name="avatar_marks_behind">Behind</string>
+    <string name="avatar_marks_off">Not here</string>
+    <string name="avatar_marks_drag">Drag a dot to the same spot in each drawing. A grey dot with a line is not here in that drawing; a ring is round the back.</string>
+    <string name="avatar_marks_none">No landmarks yet. Tap + Add, then the picture.</string>
+    <string name="avatar_marks_meet">They meet</string>
+    <string name="avatar_marks_done">Done</string>
+    <string name="avatar_marks_last_one">Each drawing needs at least one landmark that is here or behind.</string>
+    <string name="avatar_hover_marks_open">Match the angles of this head: put the same points in every drawing</string>
+    <string name="avatar_hover_marks_add">Add a landmark here: it appears in every angle, ready to drag</string>
+    <string name="avatar_hover_marks_remove">Take landmark %1$d out of every angle</string>
+    <string name="avatar_hover_marks_here">Here: this spot is seen in this drawing</string>
+    <string name="avatar_hover_marks_behind">Behind: this spot is round the back here, but still steers the turn</string>
+    <string name="avatar_hover_marks_off">Not here: this spot does not exist in this drawing</string>
+    <string name="avatar_hover_marks_meet">Where the two drawings meet on the way between them</string>
+    <string name="avatar_hover_marks_done">Done matching</string>
+    <string name="avatar_hover_marks_solid">Show %1$s in full colour</string>
+    <string name="avatar_hover_marks_ghost">Show %1$s as the ghost over it</string>
+    <string name="avatar_step_add_mark">Add a landmark</string>
+    <string name="avatar_step_move_mark">Move landmark %1$d</string>
+    <string name="avatar_step_mark_state">Landmark %1$d: %2$s</string>
+    <string name="avatar_step_remove_mark">Remove landmark %1$d</string>
+    <string name="avatar_step_meet">Change where two angles meet</string>
 </resources>
 

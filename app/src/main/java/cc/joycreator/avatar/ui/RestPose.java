@@ -38,6 +38,15 @@ final class RestPose {
         return doc.pictures == d.pictures || doc.pictures.size() == d.pictures.size() && doc.name.equals(d.name) && doc.pictures.keySet().equals(d.pictures.keySet());
     }
 
+    /** One part drawn on its own, optionally tinted and see-through (the ghost of a neighbouring drawing while matching). */
+    void drawSubtree(Canvas c, CharacterDoc.Node n, int tint, int alpha) {
+        paint.setAlpha(alpha);
+        if (tint != 0) paint.setColorFilter(new android.graphics.PorterDuffColorFilter(tint, android.graphics.PorterDuff.Mode.SRC_ATOP));
+        drawNode(c, n);
+        paint.setColorFilter(null);
+        paint.setAlpha(255);
+    }
+
     /** Draws into the rectangle at the origin of the canvas, sized doc.w x doc.h (the caller scales). */
     void draw(Canvas c) {
         drawNode(c, doc.root);

@@ -214,17 +214,22 @@ public final class PerformPanel extends ScrollView {
         micChip = chip(c, c.getString(R.string.avatar_mic), c.getString(R.string.avatar_hover_mic), v -> host.toggleMic());
         LinearLayout.LayoutParams ml = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, px(36));
         ml.topMargin = px(8);
-        side.addView(micChip, ml);
+        HorizontalScrollView chipScroll = new HorizontalScrollView(c);                     // Mic, Face and Joystick in one row, as the pilot has them
+        chipScroll.setHorizontalScrollBarEnabled(false);
+        LinearLayout chipRow = new LinearLayout(c);
+        chipScroll.addView(chipRow);
+        side.addView(chipScroll, ml);
+        chipRow.addView(micChip);
         faceChip = chip(c, c.getString(R.string.avatar_face), c.getString(R.string.avatar_hover_face_cycle), v -> host.toggleFace());
         faceWords = R.string.avatar_face;                               // (a new chip: its words follow the mode from the next paint)
-        side.addView(faceChip, ml);
+        chipRow.addView(faceChip);
         if (host.stick() != null) {
             stickChip = chip(c, c.getString(R.string.avatar_joystick), c.getString(R.string.avatar_hover_joystick), v -> {
                 host.setStickOpen(!host.stickOpen());
                 bind(doc, takeBar);
             });
             paintChip(stickChip, host.stickOpen());
-            side.addView(stickChip, ml);
+            chipRow.addView(stickChip);
         }
         // the face's own controls, there only while the camera is on: a private preview, Re-centre, Mirror
         faceRow = new LinearLayout(c);

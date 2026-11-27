@@ -47,6 +47,10 @@ public final class RoomMenu {
         /** The "layered file" door: pick a .psd or .psb, get a new character. */
         void newFromLayeredFile();
 
+        /** "Pin one whole drawing": pick a finished drawing in one piece, tap its head, hands and feet. */
+        default void newFromWholeDrawing() {
+        }
+
         /** "Update the art": bring in the repainted layered file; every pin and setting stays. */
         void updateTheArt();
     }
@@ -83,6 +87,7 @@ public final class RoomMenu {
 
         box.addView(action(c, dp, c.getString(R.string.avatar_update_art), c.getString(R.string.avatar_hover_update_art), v -> { d.dismiss(); host.updateTheArt(); }));
         box.addView(action(c, dp, c.getString(R.string.avatar_new_from_psd), c.getString(R.string.avatar_hover_new_from_psd), v -> { d.dismiss(); host.newFromLayeredFile(); }));
+        box.addView(action(c, dp, c.getString(R.string.avatar_new_whole), c.getString(R.string.avatar_hover_new_whole), v -> { d.dismiss(); host.newFromWholeDrawing(); }));
         box.addView(action(c, dp, c.getString(R.string.avatar_new_from_pictures), c.getString(R.string.avatar_hover_new_from_pictures), v -> { d.dismiss(); host.newFromPictures(); }));
         box.addView(action(c, dp, c.getString(R.string.avatar_open), c.getString(R.string.avatar_hover_open), v -> { d.dismiss(); host.openFromPicker(); }));
         box.addView(action(c, dp, c.getString(R.string.avatar_save), c.getString(R.string.avatar_hover_save), v -> { d.dismiss(); host.saveNow(); }));

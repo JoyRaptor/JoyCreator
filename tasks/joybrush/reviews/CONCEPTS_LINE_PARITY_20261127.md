@@ -42,8 +42,8 @@ It replaces the stale October list (`SELECT_LINES_GAPS_20261023.md`): G2, G4, G5
 | Concepts can | JoyBrush today | Side |
 |---|---|---|
 | Stroke eraser: touch a stroke, the whole stroke goes | **Built 11-27:** the Whole lines eraser in the Erasers shelf, one undo step per stroke (log below) | UI (done) |
-| Slice / trim to intersections | **Core only** (`VectorEraser` `TO_INTERSECTION`, crossing search; spec D24). No Slice preset. | Engine: it replaces one line with pieces through the line commit path |
-| Erase part of a line, and it stays a line in pieces | **Not a split.** Erasing over a line today stacks an erase mark on top (`JbCanvasView` 2504-2512). It looks right, but the line underneath stays whole. Unsure whether moving the line later shows the erased part again. | Engine (`InkErase.PARTIAL` exists in core) |
+| Slice / trim to intersections | **Built 11-27:** the Trim to crossing eraser. A middle cut that would leave two pieces is not yet possible (log below). | UI and core, plus the one engine edit kind |
+| Erase part of a line, and it stays a line in pieces | **Built 11-27 for ends and whole short lines:** the Part of a line eraser. A middle cut is not yet possible (log below). The old note follows: **Not a split.** Erasing over a line today stacks an erase mark on top (`JbCanvasView` 2504-2512). It looks right, but the line underneath stays whole. Unsure whether moving the line later shows the erased part again. | Engine (`InkErase.PARTIAL` exists in core) |
 
 ## D. Pixels and lines
 
@@ -129,4 +129,17 @@ Fixes go to `joy-creator` in steps, each with host tests. Progress is logged bel
 - `CanvasSelectionHost`'s refusal and history mapping (around line 251) treats it as a delete plus an add.
 - About 30 lines in `GlPaintEngine.kt` and `LineTypes.kt`. The rest (the tool modes, the two eraser brushes, the tests with crossing lines) is UI and core.
 
-**Status:** not built. `GlPaintEngine` is the paint engine's file, outside this lane. The orchestrator was asked whether this lane may make that one change, as it did for the eraser routing in `JbCanvasView`.
+**Built 11-27** (the orchestrator approved the one engine change):
+- **The edit kind.** `LineEdit.Split` shortens lines IN PLACE (same address, same seq) and removes lines erased whole, in one edit, so one undo step.
+  - It never adds lines. A cel's seqs are one per line (LineRules D1), so a line cut in its middle (two pieces) would need a second seq.
+  - That case is left whole, and the person is told once: "Cutting a line in two isn't possible yet...".
+  - Giving pieces their own seqs needs a format decision: renumber everything above them (pixel slabs included), or a sub-order within a seq. That is for the engine owner or the owner.
+- **The engine change.** `GlPaintEngine.editLines` gained only the Split branch, 3 lines. Its list change is in the pure `lines/LineSplitApply`, which is JVM-tested; the other edit kinds' engine code is untouched.
+- **Two new erasers in the Erasers shelf.** Both cut with core's `InkErase`, so what is left is the line's own samples:
+  - **Trim to crossing** (`brushes/trimeraser`, Concepts' slice): cuts an overshoot back to the line it crosses.
+  - **Part of a line** (`brushes/parteraser`): rubs out the part under the eraser.
+- **Tests:** `LineSplitApplyTest` 3 (in place, seq kept, untouched lines identical, a gone line refused, every edit kind's addresses as before); `StrokeEraserToolTest` +3 with crossing lines (trim, end erase plus whole short line, middle cut left whole).
+- **Cloud:** jb-core 3026, jb-androidkit 1383, jb-android 637 and the app build all passed.
+- **Owed:**
+  - A phone check that one press of Undo puts a trimmed line back whole. That is one engine edit, so one undo entry, but it is not provable on the JVM, where the engine's tile work needs GL.
+  - These two erasers have no live preview while dragging: the cut shows on lift.

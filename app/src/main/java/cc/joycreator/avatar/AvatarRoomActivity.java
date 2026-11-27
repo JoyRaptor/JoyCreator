@@ -56,6 +56,7 @@ public final class AvatarRoomActivity extends Activity implements RoomMenu.Host,
     private static final int REQ_PICTURES = 42;
     private static final int REQ_PSD = 43;
     private static final int REQ_UPDATE = 46;
+    private static final int REQ_WHOLE = 47;
 
     /** The four stages, in the order the owner reads them (spec A2). The second one's word is one string. */
     private static final int[] STAGE_NAMES = {
@@ -1172,15 +1173,15 @@ public final class AvatarRoomActivity extends Activity implements RoomMenu.Host,
     }
 
     @Override
-    public boolean faceMirror() {
-        return faceCapture != null && faceCapture.tuning().mirror;
+    public boolean faceMirror() {                               // (on = like your reflection: the engine's flag is the opposite)
+        return cc.joycreator.avatar.face.MirrorChip.on(faceCapture == null ? null : faceCapture.tuning());
     }
 
     @Override
     public void setFaceMirror(boolean on) {
         if (faceCapture == null) return;
         com.fadcam.ui.faditor.avatar.face.FaceTuning t = faceCapture.tuning();
-        t.mirror = on;
+        cc.joycreator.avatar.face.MirrorChip.set(t, on);
         faceCapture.setTuning(t);
     }
 
@@ -1680,6 +1681,116 @@ public final class AvatarRoomActivity extends Activity implements RoomMenu.Host,
     }
 
     @Override
+    public void newFromWholeDrawing() {
+        Intent i = new Intent(Intent.ACTION_OPEN_DOCUMENT).addCategory(Intent.CATEGORY_OPENABLE).setType("image/*");
+        try {
+            startActivityForResult(i, REQ_WHOLE);
+        } catch (Exception e) {
+            Log.w(TAG, "no file picker", e);
+        }
+    }
+
+    /** The whole drawing is read (down to a size the phone can pin on), its see-through edges trimmed, and the pin wizard opens over the room. */
+    private void wholeDoor(final Uri uri) {
+        JoyFolderHome.io().execute(() -> {
+            android.graphics.Bitmap b = null;
+            try (InputStream in = getContentResolver().openInputStream(uri)) {
+                if (in != null) {
+                    byte[] raw = readAll(in);
+                    android.graphics.BitmapFactory.Options o = new android.graphics.BitmapFactory.Options();
+                    o.inJustDecodeBounds = true;
+                    android.graphics.BitmapFactory.decodeByteArray(raw, 0, raw.length, o);
+                    int sample = 1;
+                    while (Math.max(o.outWidth, o.outHeight) / (sample * 2) >= 1400) sample *= 2;
+                    o.inJustDecodeBounds = false;
+                    o.inSampleSize = sample;
+                    b = trimmed(android.graphics.BitmapFactory.decodeByteArray(raw, 0, raw.length, o));
+                }
+            } catch (Exception | OutOfMemoryError e) {
+                Log.w(TAG, "drawing not read", e);
+            }
+            final android.graphics.Bitmap pic = b;
+            main.post(() -> {
+                if (isFinishing()) return;
+                if (pic == null) {
+                    Toast.makeText(this, R.string.avatar_no_pictures, Toast.LENGTH_LONG).show();
+                    return;
+                }
+                openPinWizard(pic);
+            });
+        });
+    }
+
+    /** The picture without its see-through edges, or null when nothing is drawn on it. */
+    private static android.graphics.Bitmap trimmed(android.graphics.Bitmap b) {
+        if (b == null) return null;
+        int w = b.getWidth(), h = b.getHeight(), x0 = w, y0 = h, x1 = -1, y1 = -1;
+        int[] px = new int[w];
+        for (int y = 0; y < h; y++) {
+            b.getPixels(px, 0, w, 0, y, w, 1);
+            for (int x = 0; x < w; x++) if ((px[x] >>> 24) > 10) {
+                if (x < x0) x0 = x;
+                if (x > x1) x1 = x;
+                if (y < y0) y0 = y;
+                if (y > y1) y1 = y;
+            }
+        }
+        if (x1 < 0) return null;
+        return android.graphics.Bitmap.createBitmap(b, x0, y0, x1 - x0 + 1, y1 - y0 + 1);
+    }
+
+    private void openPinWizard(final android.graphics.Bitmap pic) {
+        final String name = getString(R.string.avatar_untitled);
+        final cc.joycreator.avatar.ui.PinWizard[] wiz = new cc.joycreator.avatar.ui.PinWizard[1];
+        wiz[0] = new cc.joycreator.avatar.ui.PinWizard(this, pic, name, new cc.joycreator.avatar.ui.PinWizard.Listener() {
+            @Override
+            public void done(java.util.List<cc.joycreator.avatar.intake.WholeDrawing.Pin> pins) {
+                ((ViewGroup) wiz[0].getParent()).removeView(wiz[0]);
+                finishWhole(pic, name, pins);
+            }
+
+            @Override
+            public void cancel() {
+                ((ViewGroup) wiz[0].getParent()).removeView(wiz[0]);
+                pic.recycle();
+            }
+        });
+        addContentView(wiz[0], new ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
+    }
+
+    private void finishWhole(final android.graphics.Bitmap pic, final String name, final java.util.List<cc.joycreator.avatar.intake.WholeDrawing.Pin> pins) {
+        JoyFolderHome.io().execute(() -> {
+            CharacterDoc made = null;
+            try {
+                ByteArrayOutputStream png = new ByteArrayOutputStream();
+                pic.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, png);
+                String url = "data:image/png;base64," + android.util.Base64.encodeToString(png.toByteArray(), android.util.Base64.NO_WRAP);
+                org.json.JSONObject doc = cc.joycreator.avatar.intake.WholeDrawing.build(name, pic.getWidth(), pic.getHeight(), url);
+                cc.joycreator.avatar.intake.WholeDrawing.pin(doc, pins);
+                made = CharacterOpen.read(doc.toString());
+            } catch (Exception e) {
+                Log.w(TAG, "character not made", e);
+            }
+            pic.recycle();
+            final CharacterDoc result = made;
+            main.post(() -> {
+                if (isFinishing()) return;
+                if (result == null) {
+                    Toast.makeText(this, R.string.avatar_no_pictures, Toast.LENGTH_LONG).show();
+                    return;
+                }
+                character = result;
+                characterPath = null;
+                unsaved = true;
+                inHand = null;
+                showCharacter();
+                Toast.makeText(this, R.string.avatar_wizard_pinned, Toast.LENGTH_LONG).show();
+                main.postDelayed(autosave, 1500);
+            });
+        });
+    }
+
+    @Override
     public void updateTheArt() {
         Intent i = new Intent(Intent.ACTION_OPEN_DOCUMENT).addCategory(Intent.CATEGORY_OPENABLE).setType("*/*");
         try {
@@ -1858,6 +1969,10 @@ public final class AvatarRoomActivity extends Activity implements RoomMenu.Host,
         super.onActivityResult(req, res, data);
         if (req == REQ_UPDATE && res == RESULT_OK && data != null && data.getData() != null) {
             updateDoor(data.getData());
+            return;
+        }
+        if (req == REQ_WHOLE && res == RESULT_OK && data != null && data.getData() != null) {
+            wholeDoor(data.getData());
             return;
         }
         if (req == REQ_PSD && res == RESULT_OK && data != null && data.getData() != null) {

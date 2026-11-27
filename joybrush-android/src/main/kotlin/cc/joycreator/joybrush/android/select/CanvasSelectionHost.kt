@@ -248,6 +248,14 @@ class CanvasSelectionHost(
                 list += a.record.copy(seq = (list.maxOfOrNull { it.seq } ?: 0L) + 1L)
             }
             // A baked line leaves the lines (it stays as pixels), exactly like a delete as far as Select can see.
+            is LineEdit.Split -> {
+                for (a in edit.after) if (planeOf(a.address) == plane) {
+                    val i = list.indexOfFirst { it.id == a.address.recordId }
+                    if (i >= 0) list[i] = a.record.copy(seq = list[i].seq)
+                }
+                val gone = edit.removed.filter { planeOf(it) == plane }.map { it.recordId }.toSet()
+                if (gone.isNotEmpty()) list.removeAll { it.id in gone }
+            }
             is LineEdit.Delete, is LineEdit.Bake -> {
                 val ids = if (edit is LineEdit.Delete) edit.ids else (edit as LineEdit.Bake).ids
                 val gone = ids.filter { planeOf(it) == plane }.map { it.recordId }.toSet()
@@ -355,6 +363,15 @@ class CanvasSelectionHost(
         if (records.any { find(it.address) != null }) return refuse("A line with that name is already there.")
         checkDrawable(records)?.let { return refuse(it) }
         return submit(LineEdit.Add(records, brushesFor(records.map { it.record }), assetsFor(records.map { it.record })))
+    }
+
+    override fun eraseParts(shortened: List<AddressedStroke>, removed: Set<LineAddress>): Boolean {
+        if (shortened.isEmpty() && removed.isEmpty()) return false
+        val all = shortened.map { it.address } + removed
+        if (all.toSet().size != all.size) return refuse("Those lines can't be changed together.")
+        if (all.any { find(it) == null }) return refuse(GONE)
+        checkDrawable(shortened)?.let { return refuse(it) }
+        return submit(LineEdit.Split(shortened, removed.toSet()))
     }
 
     override fun deleteLines(ids: Set<LineAddress>): Boolean {

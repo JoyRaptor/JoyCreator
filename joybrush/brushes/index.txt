@@ -12,6 +12,8 @@ softair
 smudge
 eraser
 lineeraser
+trimeraser
+parteraser
 fill
 watercolour
 # lines/ is the staged line preset catalogue, not a drawer brush folder.

@@ -182,6 +182,46 @@ public class FaceParityDump {
         }
         root.add("shoulders", sframes);
         root.addProperty("tall", FaceEngineTest.TALL);
+
+        // the owner's real face take (11-27, tasks/avatar/golden/face-take-20261127.track.json): every frame through a fresh stage, Mirror on
+        java.nio.file.Path tp = java.nio.file.Paths.get("tasks/avatar/golden/face-take-20261127.track.json");
+        if (java.nio.file.Files.exists(tp)) {
+            JsonObject tr = com.google.gson.JsonParser.parseString(new String(java.nio.file.Files.readAllBytes(tp), StandardCharsets.UTF_8)).getAsJsonObject();
+            JsonArray keys = tr.getAsJsonArray("rawKeys"), scale = tr.getAsJsonArray("rawScale"), keep = tr.getAsJsonArray("keep");
+            double fps = tr.get("fps").getAsDouble(), pscale = tr.get("pointScale").getAsDouble();
+            FaceStage rs = new FaceStage();
+            JsonArray rframes = new JsonArray();
+            for (com.google.gson.JsonElement e : tr.getAsJsonArray("frames")) {
+                JsonArray fa = e.getAsJsonArray();
+                double ft = fa.get(0).getAsInt() / fps;
+                Map<String, Float> raw = null;
+                float[] xyz = null;
+                JsonArray pts = null;
+                if (!fa.get(1).isJsonNull()) {
+                    raw = new java.util.HashMap<>();
+                    JsonArray rv = fa.get(1).getAsJsonArray();
+                    for (int i = 0; i < keys.size(); i++) raw.put(keys.get(i).getAsString(), (float) (rv.get(i).getAsDouble() / scale.get(i).getAsDouble()));
+                }
+                if (!fa.get(2).isJsonNull()) {
+                    JsonArray pv = fa.get(2).getAsJsonArray();
+                    xyz = new float[478 * 3];
+                    pts = new JsonArray();
+                    for (int k = 0; k < keep.size(); k++) for (int c = 0; c < 3; c++) {
+                        float v = (float) (pv.get(k * 3 + c).getAsDouble() / pscale);
+                        xyz[keep.get(k).getAsInt() * 3 + c] = v;
+                        pts.add(v);
+                    }
+                }
+                JsonObject fr = new JsonObject();
+                fr.addProperty("t", ft);
+                fr.add("raw", raw == null ? null : gson.toJsonTree(raw));
+                fr.add("pts", pts);
+                fr.add("out", gson.toJsonTree(rs.process(raw, xyz, ft)));
+                rframes.add(fr);
+            }
+            root.add("realKeep", keep);
+            root.add("real", rframes);
+        }
         try (Writer w = new OutputStreamWriter(new FileOutputStream(a[0]), StandardCharsets.UTF_8)) {
             gson.toJson(root, w);
         }

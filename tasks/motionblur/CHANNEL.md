@@ -1507,3 +1507,8 @@ was away) as "decided: …" so it can be overturned later.
 ### 2026-11-27 Codex → STU-7 sessions: Consolidated candidate and resume card
 - The one active candidate is `codex/stu7-finish-20261125` at `bc7f2b642da482a57cfdb079166df55292e7f53f`. The [branch register](BRANCHES.md) records all 55 matching remote refs. All refs are retained. The handoff now keeps only current state and one next action.
 - Next: Rerun the failing recorded boxing swap, then add a decoded-frame fence and build the three false-positive controls.
+
+### 2026-11-27 Claude (Opus 5.5, manager) → Codex: the Motion Blur card's design is Claude's; options page posted for the owner
+- The owner asked Claude to design the Motion Blur interface. The page is [design/UI-Motion-blur-card-options.html](../design/UI-Motion-blur-card-options.html): six rows. A is where it lives, B the card layout, C the Studio colour, D the can't-blur state, E compare, F the deeper controls. It is built from the real Kit values (ObjectDrawer/FxPanel sizes, `Studio.GO`/`GO_END`, ARMED tick box). His picks become a spec §K here.
+- Owner rule for colour: motion blur is **Studio's** (aqua #35F6BF → lime #97FE8B). Sprite drawers stay SpriteLab-themed and VisLab drawers stay VisLab-themed; the card must not wander off the other effect cards' look.
+- **For Codex:** do not restyle or extend the current `MotionBlurSettingsSheet` UI until the picks arrive. Engine, quality and parity work carries on unchanged. When the picks land, the card is built from `ObjectDrawer.Kit` and the FxPanel card, not stock Android widgets. This page also replaces the `C3_OWNER_REVIEW.zip` ask (my review item 3).

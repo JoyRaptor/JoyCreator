@@ -61,6 +61,10 @@ public final class PerformPanel extends ScrollView {
         default void setFaceMirror(boolean on) {
         }
 
+        /** Check directions: five short moves that settle which way is which on this phone. */
+        default void checkDirections() {
+        }
+
         /** The small private preview of the face (never kept): the view to give the camera, or null. */
         default View facePreview() {
             return null;
@@ -250,6 +254,7 @@ public final class PerformPanel extends ScrollView {
         faceChips.setPadding(px(8), 0, 0, 0);
         faceChips.addView(recentreChip);
         faceChips.addView(mirrorChip);
+        faceChips.addView(chip(c, c.getString(R.string.avatar_face_dirs), c.getString(R.string.avatar_hover_face_dirs), v -> host.checkDirections()));
         faceRow.addView(faceChips);
         LinearLayout.LayoutParams fl = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
         fl.topMargin = px(6);

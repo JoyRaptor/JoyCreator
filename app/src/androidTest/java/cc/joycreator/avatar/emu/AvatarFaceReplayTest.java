@@ -42,6 +42,7 @@ import java.util.Locale;
 import java.util.Map;
 
 import cc.joycreator.avatar.AvatarRoomActivity;
+import cc.joycreator.avatar.face.DirectionPrompts;
 import cc.joycreator.avatar.face.FaceDrive;
 import cc.joycreator.avatar.face.FaceWalk;
 import cc.joycreator.avatar.perform.Inputs;
@@ -65,7 +66,8 @@ public class AvatarFaceReplayTest {
     @Test
     public void hisFaceTakeDrivesToppsInTheRoom() throws Exception {
         File out = Emu.dir("face");
-        Replay replay = new Replay(load(), "flip".equals(Emu.fault()));
+        // (played slower than he moved: the emulator draws a few frames a second, and every move must reach the stage)
+        Replay replay = new Replay(load(), "flip".equals(Emu.fault()), Double.parseDouble(Emu.arg("faceSpeed", "0.25")));
         try (ActivityScenario<AvatarRoomActivity> sc = ActivityScenario.launch(AvatarRoomActivity.class)) {
             Emu.sleep(4000);
             AvatarRoomActivity[] ar = new AvatarRoomActivity[1];
@@ -143,6 +145,27 @@ public class AvatarFaceReplayTest {
             Emu.tap(mirror);
             Emu.sleep(400);
             assertTrue("Mirror on again", (Boolean) a.getClass().getMethod("faceMirror").invoke(a));
+
+            // Check directions with his own moves, in its order (turn right, look down, tilt right, lean right, right eye): his
+            // camera is not mirrored, so every direction must stay as it was
+            tapText(a, a.getString(R.string.avatar_face_dirs));
+            Emu.sleep(500);
+            DirectionPrompts dp = (DirectionPrompts) field(a, "dirPrompts");
+            assertNotNull("Check directions is running", dp);
+            shot(out, "16-check-directions");
+            double[][] moves = {{1.9, 3.1}, {14.5, 15.3}, {0.5, 1.5}, {12.5, 13.2}, {3.8, 4.7}};
+            long t0 = SystemClock.uptimeMillis();
+            for (double[] mv : moves) {
+                if (field(a, "dirPrompts") == null) break;
+                play(a, replay, mv[0], mv[1], new String[0][], out);
+                Emu.sleep(300);
+            }
+            long took = SystemClock.uptimeMillis() - t0;
+            check(field(a, "dirPrompts") == null && dp.answered() == 5, "Check directions with his own five moves: all read as he made them (" + dp.answered() + " of 5, " + took / 1000 + " s)");
+            Trace after = play(a, replay, 1.8, 3.6, new String[][]{{"2.6", "17-turn-right-after-directions"}}, out);
+            check(after.max("turnX", 2.0, 3.6) > 0.6, "...and afterwards his right turn still turns Topps to the screen's right (" + f(after.max("turnX", 2.0, 3.6)) + ")");
+            Trace leanAfter = play(a, replay, 11.5, 13.9, new String[0][], out);
+            check(leanAfter.walked(11.5, 12.6) < -30 && leanAfter.walked(12.6, 13.9) > 30, "...and his leans still walk him the right way (" + f(leanAfter.walked(11.5, 12.6)) + ", " + f(leanAfter.walked(12.6, 13.9)) + ")");
 
             // the Puff button: not there while no part follows the cheek puff; a Link on the head makes it appear and work
             assertNull("no Puff button where nothing follows the cheek puff", find(a, a.getString(R.string.avatar_puff)));
@@ -222,15 +245,17 @@ public class AvatarFaceReplayTest {
     static final class Replay implements TrackingSource {
         final List<Frame> frames;
         final boolean flip;
+        final double speed;
         volatile double from = -1, to = -1, now = -1;
         volatile boolean playing;
         private volatile boolean run;
         private Thread th;
         private final long t0 = System.nanoTime();
 
-        Replay(List<Frame> frames, boolean flip) {
+        Replay(List<Frame> frames, boolean flip, double speed) {
             this.frames = frames;
             this.flip = flip;
+            this.speed = speed;
         }
 
         void play(double a, double b) {
@@ -248,7 +273,7 @@ public class AvatarFaceReplayTest {
                     for (Frame f : frames) {
                         if (!run) return;
                         if (f.t < from || f.t > to) continue;
-                        long due = System.nanoTime() + 66_666_667L;
+                        long due = System.nanoTime() + (long) (66_666_667L / speed);
                         now = f.t;
                         Map<String, Float> raw = f.raw == null ? new HashMap<>() : new HashMap<>(f.raw);
                         if (flip && f.raw != null) {
@@ -294,19 +319,31 @@ public class AvatarFaceReplayTest {
         Trace tr = new Trace();
         int next = 0;
         rp.play(from, to);
-        long until = SystemClock.uptimeMillis() + (long) ((to - from) * 1000) + 15000;
+        long until = SystemClock.uptimeMillis() + (long) ((to - from) * 1000 / rp.speed) + 20000;
         Emu.sleep(100);
+        Field fSig = findField(a.getClass(), "lastSignals"), fWalker = findField(a.getClass(), "walker");
         while ((rp.playing || rp.now < to - 0.1) && SystemClock.uptimeMillis() < until) {
             double t = rp.now;
-            Object w = field(a, "walker");
-            double[] r = {t, sig(a, "turnX"), sig(a, "turnY"), sig(a, "roll"), sig(a, "blinkL"), sig(a, "blinkR"), sig(a, "browL"), sig(a, "browR"), sig(a, "mouth"),
-                    w == null ? 0 : w.getClass().getField("tx").getDouble(w), tz(w)};
+            double[] r = new double[11];
+            Emu.ins().runOnMainSync(() -> {                     // (one trip to the room a sample: it draws slowly here)
+                try {
+                    @SuppressWarnings("unchecked") Map<String, Object> m = (Map<String, Object>) fSig.get(a);
+                    Object w = fWalker.get(a);
+                    String[] ks = {"turnX", "turnY", "roll", "blinkL", "blinkR", "browL", "browR", "mouth"};
+                    r[0] = t;
+                    for (int i = 0; i < ks.length; i++) { Object v = m == null ? null : m.get(ks[i]); r[i + 1] = v instanceof Number ? ((Number) v).doubleValue() : 0; }
+                    r[9] = w == null ? 0 : w.getClass().getField("tx").getDouble(w);
+                    r[10] = tz(w);
+                } catch (Exception e) {
+                    throw new RuntimeException(e);
+                }
+            });
             tr.rows.add(r);
             if (next < shots.length && t >= Double.parseDouble(shots[next][0])) shot(out, shots[next++][1]);
             Emu.sleep(50);
             if (!rp.playing && rp.now >= to - 0.1) break;
         }
-        log.append(String.format(Locale.ROOT, "played %.1f-%.1f s: %d samples\n", from, to, tr.rows.size()));
+        log.append(String.format(Locale.ROOT, "played %.1f-%.1f s at %.2fx: %d samples\n", from, to, rp.speed, tr.rows.size()));
         return tr;
     }
 

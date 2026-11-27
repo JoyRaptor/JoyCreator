@@ -1129,6 +1129,58 @@ public final class AvatarRoomActivity extends Activity implements RoomMenu.Host,
         inputs.faceDrive().recentre();                          // (and the head moves from where the pad is now)
     }
 
+    private cc.joycreator.avatar.face.DirectionPrompts dirPrompts;
+    private android.app.AlertDialog dirDialog;
+    private int dirShown = -1;
+    private static final int[] DIR_WORDS = {R.string.avatar_face_dir_yaw, R.string.avatar_face_dir_pitch, R.string.avatar_face_dir_roll,
+            R.string.avatar_face_dir_lean, R.string.avatar_face_dir_eye};
+
+    /** Check directions (the pilot's): five short moves, each read by itself; the frame loop moves them on. */
+    @Override
+    public void checkDirections() {
+        if (faceCapture == null || !inputs.faceOn()) return;
+        final com.fadcam.ui.faditor.avatar.face.FaceCapture fc = faceCapture;
+        dirPrompts = new cc.joycreator.avatar.face.DirectionPrompts(new cc.joycreator.avatar.face.DirectionPrompts.Face() {
+            @Override
+            public void check(String what) {
+                fc.checkDirection(what);
+            }
+
+            @Override
+            public com.fadcam.ui.faditor.avatar.face.FaceCalibration.DirectionCheck last() {
+                return fc.lastDirectionCheck();
+            }
+        });
+        dirShown = -1;
+        dirDialog = new android.app.AlertDialog.Builder(this, android.R.style.Theme_DeviceDefault_Dialog_Alert)
+                .setTitle(R.string.avatar_face_dirs_title)
+                .setMessage("")
+                .setNegativeButton(R.string.avatar_face_dirs_stop, (d, w) -> finishDirections())
+                .setCancelable(false)
+                .create();
+        dirDialog.show();
+        dirPrompts.start(System.nanoTime());
+        showDirection();
+    }
+
+    private void showDirection() {
+        if (dirDialog == null || dirPrompts == null || dirPrompts.prompt() < 0 || dirPrompts.prompt() == dirShown) return;
+        dirShown = dirPrompts.prompt();
+        dirDialog.setMessage(getString(R.string.avatar_face_dirs_step, dirShown + 1, DIR_WORDS.length, getString(DIR_WORDS[dirShown]))
+                + "\n\n" + getString(R.string.avatar_face_dirs_note));
+    }
+
+    private void finishDirections() {
+        if (dirPrompts == null) return;
+        int n = dirPrompts.answered();
+        dirPrompts.stop();
+        dirPrompts = null;
+        if (dirDialog != null && dirDialog.isShowing()) dirDialog.dismiss();
+        dirDialog = null;
+        Toast.makeText(this, n == 0 ? getString(R.string.avatar_face_dirs_none) : n == DIR_WORDS.length ? getString(R.string.avatar_face_dirs_all)
+                : getString(R.string.avatar_face_dirs_some, n, DIR_WORDS.length), Toast.LENGTH_LONG).show();
+    }
+
     /** The face camera watches the points the character's face pins follow (their lanes ride a take as the pilot's). */
     private void watchFacePins() {
         if (faceCapture == null || character == null) return;
@@ -1381,6 +1433,10 @@ public final class AvatarRoomActivity extends Activity implements RoomMenu.Host,
         if ((frameNo++ & 31) == 0) stickSize();
         if (stick != null) stick.step(dt);
         if (walker != null) faceWalkStep(dt);
+        if (dirPrompts != null) {                              // Check directions moves on as each move is read
+            if (dirPrompts.step(System.nanoTime()) || !inputs.faceOn()) finishDirections();
+            else showDirection();
+        }
         if (walker != null && (walker.canWalk() || walker.travels())) {
             walker.step(dt, S, glStage.anchors(), glStage.tips());
             S.flip = inputs.flip();

@@ -49,6 +49,13 @@ public final class PerformPanel extends ScrollView {
 
         void clearTake();
 
+        /** The part in hand (a node of the character), or null; Motion shows how it moves. */
+        CharacterDoc.Node inHandNode();
+
+        PoseRenderer renderer();
+
+        MotionSections.Host motion();
+
         /** The Mic chip: lip-sync to the microphone (asks for the permission the first time). */
         void toggleMic();
 
@@ -100,6 +107,7 @@ public final class PerformPanel extends ScrollView {
         Context c = getContext();
 
         if (takeBar) column.addView(takeBar(c));
+        else MotionSections.add(c, column, doc, host.inHandNode(), host.renderer(), host.motion());
 
         // the head pad, and Hold to talk and Blink beside it
         LinearLayout row = new LinearLayout(c);

@@ -50,7 +50,7 @@ import java.util.List;
  * Perform and recording are filled in by the later steps of slice 1; a control appears only when it works (a dead knob
  * is worse than a missing one).</p>
  */
-public final class AvatarRoomActivity extends Activity implements RoomMenu.Host, LayersView.Host, PartsView.Host, PerformPanel.Host, cc.joycreator.avatar.ui.LandmarksScreen.Host, cc.joycreator.avatar.ui.PinsLayer.Host, cc.joycreator.avatar.ui.BoxLayer.Host {
+public final class AvatarRoomActivity extends Activity implements RoomMenu.Host, LayersView.Host, PartsView.Host, PerformPanel.Host, cc.joycreator.avatar.ui.LandmarksScreen.Host, cc.joycreator.avatar.ui.PinsLayer.Host, cc.joycreator.avatar.ui.BoxLayer.Host, cc.joycreator.avatar.ui.MotionSections.Host {
     private static final String TAG = "AvatarRoom";
     private static final int REQ_OPEN = 41;
     private static final int REQ_PICTURES = 42;
@@ -330,6 +330,51 @@ public final class AvatarRoomActivity extends Activity implements RoomMenu.Host,
         if (stage == null || (landmarks != null && landmarks.isOpen())) return;
         boolean on = inHand != null && !showLayers;
         stage.setLandmarks(on && stageIndex == 0 ? pins : on && stageIndex == 1 ? box : null);
+    }
+
+    // ── Motion: values of the part in hand and of the character ────────────────────────────────────
+
+    @Override
+    public CharacterDoc.Node inHandNode() {
+        return character == null || inHand == null ? null : character.find(inHand);
+    }
+
+    @Override
+    public cc.joycreator.avatar.ui.MotionSections.Host motion() {
+        return this;
+    }
+
+    private static org.json.JSONObject walkTo(org.json.JSONObject root, String[] parts, int upTo) throws org.json.JSONException {
+        org.json.JSONObject o = root;
+        for (int i = 0; i < upTo; i++) {
+            org.json.JSONObject next = o.optJSONObject(parts[i]);
+            if (next == null) {
+                next = new org.json.JSONObject();
+                o.put(parts[i], next);
+            }
+            o = next;
+        }
+        return o;
+    }
+
+    @Override
+    public void setValue(String nodeId, String path, Object value, String stepName) {
+        edit.apply(stepName, d -> {
+            org.json.JSONObject root = nodeId == null ? d.json : d.find(nodeId).json;
+            String[] parts = path.split("\\.");
+            walkTo(root, parts, parts.length - 1).put(parts[parts.length - 1], value);
+        });
+        if (stageIndex == 2) performPanel.bind(character, false);
+    }
+
+    @Override
+    public void remove(String nodeId, String path, String stepName) {
+        edit.apply(stepName, d -> {
+            org.json.JSONObject root = nodeId == null ? d.json : d.find(nodeId).json;
+            String[] parts = path.split("\\.");
+            walkTo(root, parts, parts.length - 1).remove(parts[parts.length - 1]);
+        });
+        if (stageIndex == 2) performPanel.bind(character, false);
     }
 
     // ── Arrange: the box on the part in hand ──────────────────────────────────────────────────────
@@ -686,6 +731,7 @@ public final class AvatarRoomActivity extends Activity implements RoomMenu.Host,
         layers.show(character, inHand);
         parts.show(character, inHand, stageIndex);
         refreshPins();
+        if (stageIndex == 2) performPanel.bind(character, false);
     }
 
     @Override

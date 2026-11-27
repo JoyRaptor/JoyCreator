@@ -261,3 +261,15 @@ darkness, buttons and order. Make them **one editor**, with Unibrush adding its 
 8. **One close button:** Done or ×, never both. (Recommendation: keep ×, and let Done-style behaviour be the default
    on close, because changes already apply live.)
 All other brush properties follow below, as now. Owner's design: build to the mockup; ask before changing it.
+**Owner additions, 11-27 (later the same day):**
+- **Pen monitor size:** the same size as paint's today. It only needs to grow compared with Unibrush's current small one.
+  The two must look like one thing.
+- **Expand button:** a small, discreet grey button in the monitor's corner toggles it large, taking over the space
+  where the Pressure and Tilt boxes sit. Toggling back returns it to its normal size and the boxes reappear. This is
+  for anyone who wants it bigger (eyesight, fine shape work).
+- **Unibrush on the shared stage:** the owner doesn't expect this to need the paint engine. Unibrush can draw its own
+  test stroke with its own renderer into the same stage frame, on the same paper. Only call it engine work if that is
+  proven impossible.
+- **The drawer is a real drawer on the phone:** no rounded bottom corners and no enclosed pop-up look. It slides up
+  from the bottom edge and uses those 10–15 px for content.
+- **Test stroke area:** round its hard corners a little.

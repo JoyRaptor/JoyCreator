@@ -1,0 +1,392 @@
+<title>Joy Brush Lines</title>
+<meta name="description" content="JB-5.20e: three design directions for editing lines on any layer in Joy Brush, every part swappable, at true size.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;700;800;900&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap">
+<style>
+/* Layout: the app's own dark ground (same tokens as the boards options page); every scene is a sheet of paper drawn at
+   true size, 1 CSS px = 1 dp, with Joy Brush's chrome on it. Single dark look on purpose: it is the app's own. */
+:root{
+  color-scheme:dark;
+  --ground:#000;--surface:#0d0d10;--panel:#111114;--raised:#1c1c22;--pressed:#26262e;--line:#2c2c35;
+  --ink:#e4e4e7;--dim:#a1a1aa;--faint:#71717a;--off:#4b4b55;
+  --sel:#22d3ee;--sel28:rgba(34,211,238,.28);--sel12:rgba(34,211,238,.12);--guide:#a78bfa;
+  --g-jb:linear-gradient(90deg,#5C43FD,#4397FD);
+  --chrome:rgba(12,12,15,.9);--glass:rgba(17,17,20,.86);--glass-ring:rgba(242,242,245,.13);
+  --f-disp:"Archivo","Arial Narrow",system-ui,sans-serif;
+  --f-body:"IBM Plex Sans",system-ui,"Segoe UI",sans-serif;
+  --f-mono:"IBM Plex Mono",ui-monospace,"Cascadia Mono",Consolas,monospace;
+  --paper:#070709;--art:#E8E3D8;--wash:rgba(92,67,253,.30);--wash2:rgba(244,63,142,.22);--dimmer:rgba(0,0,0,.5);
+}
+html[data-paper="white"]{--paper:#F6F5F1;--art:#1E1B18;--wash:rgba(92,67,253,.20);--wash2:rgba(244,63,142,.18);--dimmer:rgba(246,245,241,.62)}
+html[data-paper="grey"]{--paper:#8B8B90;--art:#121214;--wash:rgba(40,20,160,.30);--wash2:rgba(160,20,80,.25);--dimmer:rgba(60,60,64,.5)}
+html[data-paper="tan"]{--paper:#D8C59F;--art:#2B2013;--wash:rgba(70,50,200,.22);--wash2:rgba(190,40,90,.2);--dimmer:rgba(216,197,159,.6)}
+
+*{box-sizing:border-box}
+html,body{background:var(--ground)}
+body{margin:0;color:var(--ink);font:14px/1.55 var(--f-body);-webkit-font-smoothing:antialiased}
+button{font:inherit;color:inherit;background:none;border:0;padding:0;margin:0;cursor:pointer}
+button:focus-visible{outline:2px solid var(--sel);outline-offset:2px}
+.wrap{max-width:1180px;margin:0 auto;padding-inline:16px;padding-block:0 72px}
+h1,h2,h3{font-family:var(--f-disp);text-wrap:balance;margin:0}
+p{margin:0}
+.eyebrow{font:500 10px/1 var(--f-mono);letter-spacing:.14em;text-transform:uppercase;color:var(--faint)}
+.lede{max-width:66ch;color:var(--dim);font-size:15px}
+.lede b{color:var(--ink);font-weight:600}
+blockquote{margin:0;padding:12px 16px;border-left:2px solid var(--guide);background:var(--panel);border-radius:0 12px 12px 0;color:var(--dim);max-width:72ch;font-size:13.5px}
+blockquote cite{display:block;margin-top:6px;font:500 10px/1 var(--f-mono);letter-spacing:.1em;text-transform:uppercase;color:var(--faint);font-style:normal}
+
+.bar{position:sticky;top:env(safe-area-inset-top,0px);z-index:60;background:rgba(0,0,0,.76);-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);border-bottom:1px solid var(--line)}
+.bar-in{max-width:1180px;margin:0 auto;padding:8px 16px;display:flex;flex-wrap:wrap;gap:8px 18px;align-items:center}
+.ctl{display:flex;align-items:center;gap:8px}
+.sw{width:30px;height:30px;border-radius:50%;box-shadow:inset 0 0 0 1px rgba(242,242,245,.25)}
+.sw[aria-pressed="true"]{box-shadow:inset 0 0 0 1px rgba(242,242,245,.25),0 0 0 2px var(--ground),0 0 0 3.5px var(--sel),0 0 0 6.5px var(--sel28)}
+.seg{display:inline-flex;flex-wrap:wrap;background:var(--raised);border-radius:999px;padding:2px;gap:2px;box-shadow:inset 0 0 0 1px var(--line)}
+.seg button{min-width:34px;height:30px;border-radius:999px;font:700 12px/1 var(--f-disp);color:var(--dim);padding:0 11px}
+.seg button[aria-pressed="true"]{color:var(--ink);box-shadow:inset 0 0 0 1.5px var(--sel),0 0 0 2px var(--sel28)}
+
+header.top{padding-top:34px;display:flex;flex-direction:column;gap:14px}
+header.top h1{font-size:52px;font-weight:900;letter-spacing:-.045em;line-height:.95}
+header.top h1 span{background:var(--g-jb);-webkit-background-clip:text;background-clip:text;color:transparent}
+section{padding-top:44px}
+.sh{display:flex;flex-direction:column;gap:8px;margin-bottom:18px}
+.sh h2{font-size:24px;font-weight:800;letter-spacing:-.02em}
+.sh p{color:var(--dim);max-width:70ch}
+
+.dirs{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:14px}
+.dir{background:var(--panel);border-radius:16px;padding:14px;display:flex;flex-direction:column;gap:8px;box-shadow:inset 0 0 0 1px var(--line);text-align:left;min-width:0}
+.dir[aria-pressed="true"]{box-shadow:inset 0 0 0 1.5px var(--sel),0 0 0 3px var(--sel28)}
+.dir .nm{display:flex;align-items:baseline;gap:8px}
+.dir .nm b{font:900 22px/1 var(--f-disp)}
+.dir .nm span{font:800 15px/1 var(--f-disp)}
+.dir .tg{font-size:12.5px;color:var(--dim)}
+.dir .tr{font-size:12px;color:var(--faint)}
+.dir .tr em{font-style:normal;color:var(--ink);font-weight:600}
+.dir.lead .nm span{background:var(--g-jb);-webkit-background-clip:text;background-clip:text;color:transparent}
+
+.gal{display:grid;grid-template-columns:repeat(auto-fill,minmax(352px,1fr));gap:26px 22px;justify-items:center}
+figure{margin:0;display:flex;flex-direction:column;gap:9px;width:352px;max-width:100%}
+figure svg{width:352px;max-width:100%;height:auto;border-radius:22px;display:block;box-shadow:0 0 0 1px var(--line)}
+figcaption{display:flex;flex-direction:column;gap:3px}
+figcaption b{font:800 14px/1.25 var(--f-disp)}
+figcaption span{font-size:12.5px;color:var(--dim)}
+
+.parts{display:flex;flex-direction:column;gap:12px}
+.part{background:var(--panel);border-radius:16px;padding:14px;box-shadow:inset 0 0 0 1px var(--line);display:grid;grid-template-columns:minmax(0,220px) minmax(0,1fr);gap:12px 18px;align-items:start}
+.part h3{font-size:16px;font-weight:800}
+.part .why{font-size:12.5px;color:var(--faint);margin-top:4px}
+.opts{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:8px}
+.opt{border-radius:12px;padding:10px 12px;background:var(--surface);box-shadow:inset 0 0 0 1px var(--line);text-align:left;display:flex;flex-direction:column;gap:4px;min-width:0}
+.opt[aria-pressed="true"]{box-shadow:inset 0 0 0 1.5px var(--sel),0 0 0 2px var(--sel28)}
+.opt b{font:700 13px/1.2 var(--f-disp)}
+.opt b i{font:500 11px/1 var(--f-mono);font-style:normal;color:var(--faint);margin-right:6px}
+.opt span{font-size:12px;color:var(--dim)}
+.opt .lp{font:500 9.5px/1 var(--f-mono);letter-spacing:.1em;text-transform:uppercase;color:var(--sel)}
+@media (max-width:640px){.part{grid-template-columns:minmax(0,1fr)}}
+
+.picks{position:sticky;bottom:0;z-index:50;background:rgba(0,0,0,.82);-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);border-top:1px solid var(--line);padding-bottom:env(safe-area-inset-bottom,0px)}
+.picks-in{max-width:1180px;margin:0 auto;padding:10px 16px;display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+.picks code{font:500 12.5px/1.4 var(--f-mono);color:var(--ink);flex:1 1 280px;min-width:0;overflow-wrap:anywhere}
+.copy{height:34px;padding:0 16px;border-radius:999px;font:700 13px/1 var(--f-disp);background:var(--raised);box-shadow:inset 0 0 0 1.5px var(--sel)}
+.note{font-size:12px;color:var(--faint)}
+@media (prefers-reduced-motion:no-preference){figure svg{transition:opacity .15s}}
+</style>
+
+<div class="bar"><div class="bar-in">
+  <div class="ctl"><span class="eyebrow">Paper</span>
+    <button class="sw" id="pp-black" data-paper="black" style="background:#070709" aria-pressed="true" aria-label="Black paper"></button>
+    <button class="sw" id="pp-white" data-paper="white" style="background:#F6F5F1" aria-pressed="false" aria-label="White paper"></button>
+    <button class="sw" id="pp-grey" data-paper="grey" style="background:#8B8B90" aria-pressed="false" aria-label="Grey paper"></button>
+    <button class="sw" id="pp-tan" data-paper="tan" style="background:#D8C59F" aria-pressed="false" aria-label="Tan paper"></button>
+  </div>
+  <div class="ctl"><span class="eyebrow">Direction</span>
+    <div class="seg" id="dirseg">
+      <button data-dir="A" aria-pressed="false">A</button><button data-dir="B" aria-pressed="false">B</button>
+      <button data-dir="C" aria-pressed="false">C</button><button data-dir="L" aria-pressed="true">Lead's mix</button>
+    </div>
+  </div>
+</div></div>
+
+<div class="wrap">
+<header class="top">
+  <span class="eyebrow">JB-5.20e · editing lines on any layer · R51</span>
+  <h1>Lines that stay <span>lines</span></h1>
+  <p class="lede">Pens, inks, markers, plain pencils and fills will stay <b>editable lines</b> on any layer, beside paint that
+  turns into pixels. This page decides how you <b>select, nudge, reshape, slice and recolour</b> a line, and where the two
+  "to pixels" buttons live. Pick a whole direction, or mix parts below. Every scene is drawn at true size. When you're
+  happy, press <b>Copy picks</b> and paste the line back to me.</p>
+  <blockquote>"I can select a line, I can nudge any part of it with my little finger to nudge it, and it doesn't smudge the
+  pixels, it actually moves the underlying vector line while keeping all the pressure, velocity, and tilt."
+  <cite>The owner, on Concepts (brief §3, Q13)</cite></blockquote>
+</header>
+
+<section>
+  <div class="sh"><span class="eyebrow">Directions</span><h2>Three ways to hold a line</h2>
+  <p>They differ most in where the line's actions appear. You draw one-handed, so reach matters: a popup sits where the line is,
+  and a shelf sits where your thumb is.</p></div>
+  <div class="dirs" id="dirs"></div>
+</section>
+
+<section>
+  <div class="sh"><span class="eyebrow">Scenes · true size</span><h2>How it looks with your picks</h2>
+  <p>A face inked with a pen on Layer 1, with violet and pink paint washed over it on the same layer. The nose is the line being edited.</p></div>
+  <div class="gal" id="gal"></div>
+</section>
+
+<section>
+  <div class="sh"><span class="eyebrow">Parts · mix and match</span><h2>Every part, swappable</h2>
+  <p>Changing a part changes the scenes above. "Lead's pick" marks what I would build.</p></div>
+  <div class="parts" id="parts"></div>
+</section>
+
+<section>
+  <div class="sh"><span class="eyebrow">Two questions from the design</span><h2>Answer in the same line</h2>
+  <p>These two are in JB-5.20 as Q1 and Q2. Your answer goes into the picks line too.</p></div>
+  <div class="parts" id="qs"></div>
+</section>
+</div>
+
+<div class="picks"><div class="picks-in">
+  <code id="pickline"></code>
+  <button class="copy" id="copybtn">Copy picks</button>
+  <span class="note" id="copynote"></span>
+</div></div>
+
+<script>
+(function(){
+const PARTS = [
+ {id:"P1", name:"A selected line", why:"How you can tell which line is in your hand.", opts:[
+   {k:"a", n:"Cyan halo", d:"A soft cyan glow runs along the line itself."},
+   {k:"b", n:"Dashed box", d:"A cyan dashed box around the line; the line keeps its look."},
+   {k:"c", n:"Spotlight", d:"Everything else dims, so the line stands alone."}]},
+ {id:"P2", name:"Where its actions are", why:"Nudge, colour, brush, weight, to pixels, delete.", opts:[
+   {k:"a", n:"Floating pill", d:"Above the line, like Concepts. Close to the line, can cover art."},
+   {k:"b", n:"Strip swap", d:"The tool strip turns into the line's tools; a Done pill at the top."},
+   {k:"c", n:"Thumb shelf", d:"A shelf along the bottom edge, in reach of one thumb."}]},
+ {id:"P3", name:"Moving a tip", why:"Drag the end of a line to lengthen, shorten or swing it.", opts:[
+   {k:"a", n:"Dots at the ends", d:"Two cyan dots you can grab."},
+   {k:"b", n:"Arrow nubs", d:"Small arrows pointing along the line."},
+   {k:"c", n:"Hold an end", d:"Nothing shown; hold near an end to grab it."}]},
+ {id:"P4", name:"Nudging", why:"Push part of a line like a piece of string; the pixels never move.", opts:[
+   {k:"a", n:"Soft ring", d:"A ring with a soft centre showing how far the push spreads; its size in the top bar."},
+   {k:"b", n:"Ring and ghost", d:"The ring, plus a dashed ghost of where the line will land."},
+   {k:"c", n:"Ring only", d:"Just the ring; pinch to change its size."}]},
+ {id:"P5", name:"Slicing", why:"Cut a line in two without removing any of it.", opts:[
+   {k:"a", n:"Eraser chip", d:"The eraser gets Erase · Slice at the top. Slice is the eraser at zero width."},
+   {k:"b", n:"Scissors tool", d:"A scissors tool of its own in the strip."},
+   {k:"c", n:"Hold the line", d:"Hold a line, then Slice here."}]},
+ {id:"P6", name:"“Bakes to pixels” badge", why:"In the brush drawer, on brushes whose strokes become pixels.", opts:[
+   {k:"a", n:"Pixel square", d:"A tiny 2×2 square of pixels on pixel brushes."},
+   {k:"b", n:"px tag", d:"The letters px on pixel brushes."},
+   {k:"c", n:"Dot and ring", d:"Every brush shows one: a filled dot for pixels, a ring for lines."}]},
+ {id:"P7", name:"Rasterize down · Flatten lower", why:"Your two buttons, the only place lines and pixels meet.", opts:[
+   {k:"a", n:"Two rows", d:"Both buttons as rows in the layer's menu."},
+   {k:"b", n:"One row, two choices", d:"A single To pixels row that opens the two."},
+   {k:"c", n:"In the ⋯ menu", d:"In the top bar's ⋯ menu, beside Export."}]},
+];
+const QS = [
+ {id:"Q1", name:"Flatten lower", why:"“collapse it and below to raster”", opts:[
+   {k:"all", n:"Everything below", d:"This layer and every layer under it become one pixel layer."},
+   {k:"one", n:"Just the one below", d:"This layer and the layer directly under it."}]},
+ {id:"Q2", name:"Paint and Airbrush brushes", why:"What their strokes become by default.", opts:[
+   {k:"px", n:"Pixels", d:"Painting stays light and fast; each brush's settings have an Editable lines switch."},
+   {k:"lines", n:"Editable lines", d:"Every stroke stays a line; files get bigger and edits slower on big paintings."}]},
+];
+const DIRS = {
+ A:{n:"Float", t:"Concepts' own feel: the actions float above the line you touched.", p:{P1:"a",P2:"a",P3:"a",P4:"a",P5:"a",P6:"a",P7:"a"}},
+ B:{n:"Strip", t:"Nothing floats over the art: the tool strip becomes the line's tools.", p:{P1:"b",P2:"b",P3:"a",P4:"b",P5:"b",P6:"c",P7:"b"}},
+ C:{n:"Thumb", t:"Built for one hand: everything is along the bottom edge.", p:{P1:"c",P2:"c",P3:"c",P4:"a",P5:"c",P6:"b",P7:"c"}},
+ L:{n:"Lead's mix", t:"Halo, the thumb shelf, tip dots, a ghost when nudging, slice on the eraser.", p:{P1:"a",P2:"c",P3:"a",P4:"b",P5:"a",P6:"a",P7:"a"}},
+};
+const LEAD = DIRS.L.p;
+let picks = Object.assign({}, LEAD, {Q1:"all", Q2:"px"});
+let dir = "L";
+try{ const s = JSON.parse(localStorage.getItem("jb-lines-picks")||"null"); if(s){ picks = Object.assign(picks, s.picks||{}); dir = s.dir||dir; } }catch(e){}
+
+// ── drawing ──
+const W=352,H=440;
+const I = { // 24-unit icons, stroked
+ nudge:'<path d="M4 16c4-7 9-8 16-8"/><path d="M15 4l4 4-4 4"/>',
+ colour:'<circle cx="12" cy="12" r="6.5" style="fill:currentColor;stroke:none"/>',
+ brush:'<path d="M15 4l5 5-9 9H6v-5z"/><path d="M13 6l5 5"/>',
+ weight:'<path d="M4 8h16" style="stroke-width:1.2"/><path d="M4 15h16" style="stroke-width:4"/>',
+ pixels:'<path d="M5 5h6v6H5zM13 5h6v6h-6zM5 13h6v6H5zM13 13h6v6h-6z" style="fill:currentColor;stroke:none"/>',
+ del:'<path d="M5 7h14M9 7V5h6v2M7 7l1 12h8l1-12"/>',
+ slice:'<circle cx="7" cy="17" r="3"/><circle cx="17" cy="17" r="3"/><path d="M9 15L18 4M15 15L6 4"/>',
+ tip:'<path d="M4 19C9 9 13 8 17 7"/><circle cx="18" cy="6.5" r="2.6" style="fill:currentColor"/>',
+ check:'<path d="M5 12.5l4.5 4.5L19 7"/>',
+ lasso:'<path d="M7 14c-3-5 1-10 7-9s7 7 1 9-8 0-8 0"/><path d="M8 15l-2 5"/>',
+ pen:'<path d="M4 20l3-1 11-11-2-2L5 17z"/><path d="M14 6l2 2"/>',
+ eraser:'<path d="M8 19h11M5 15l8-9 6 6-7 7H9z"/>',
+ smudge:'<path d="M6 18c2-1 3-4 5-4s3 3 7 1"/><path d="M10 10c1-3 3-5 6-6"/>',
+ fill:'<path d="M5 12l7-7 7 7-7 7z"/><path d="M19 15c0 2-1 3-1.5 3S16 17 16 15s1.5-3 1.5-3S19 13 19 15z"/>',
+ drop:'<path d="M12 4s5 6 5 10a5 5 0 0 1-10 0c0-4 5-10 5-10z"/>',
+ undo:'<path d="M9 7L5 11l4 4"/><path d="M5 11h9a5 5 0 0 1 0 10h-3"/>',
+ redo:'<path d="M15 7l4 4-4 4"/><path d="M19 11h-9a5 5 0 0 0 0 10h3"/>',
+ layers:'<path d="M12 4l8 4-8 4-8-4z"/><path d="M4 12l8 4 8-4M4 16l8 4 8-4"/>',
+ more:'<circle cx="6" cy="12" r="1.6" style="fill:currentColor"/><circle cx="12" cy="12" r="1.6" style="fill:currentColor"/><circle cx="18" cy="12" r="1.6" style="fill:currentColor"/>',
+};
+function icon(name,x,y,size,col,extra){ const s=size/24;
+  return `<g transform="translate(${x},${y}) scale(${s})" style="fill:none;stroke:${col||'var(--ink)'};stroke-width:${1.8};stroke-linecap:round;stroke-linejoin:round;color:${col||'var(--ink)'}" ${extra||''}>${I[name]}</g>`; }
+function btn(name,cx,cy,on,col){ // a 40 dp touch target, icon 22
+  return (on?`<circle cx="${cx}" cy="${cy}" r="18" style="fill:var(--sel12);stroke:var(--sel);stroke-width:1.5"/>`:'')+icon(name,cx-11,cy-11,22,col); }
+
+const NOSE="M190 205 C 184 228, 180 244, 196 250";
+const NOSE_BENT="M190 205 C 170 224, 168 246, 196 250";
+function art(){ return `
+ <rect width="${W}" height="${H}" style="fill:var(--paper)"/>
+ <ellipse cx="168" cy="250" rx="92" ry="76" style="fill:var(--wash)"/>
+ <ellipse cx="236" cy="226" rx="44" ry="36" style="fill:var(--wash2)"/>
+ <g style="fill:none;stroke:var(--art);stroke-width:3;stroke-linecap:round;stroke-linejoin:round">
+  <path d="M190 115 C 245 115, 272 160, 272 215 C 272 278, 236 318, 190 318 C 144 318, 108 278, 108 215 C 108 160, 135 115, 190 115 Z"/>
+  <path d="M120 165 C 142 122, 204 98, 262 152"/>
+  <path d="M150 198 q13 -10 26 0"/><path d="M204 198 q13 -10 26 0"/>
+  <path d="M160 278 q30 18 60 0"/>
+ </g>`; }
+function nose(look){ // P1
+  let s='';
+  if(look==="a") s+=`<path d="${NOSE}" style="fill:none;stroke:var(--sel);stroke-width:10;stroke-linecap:round;opacity:.38"/>`;
+  s+=`<path d="${NOSE}" style="fill:none;stroke:var(--art);stroke-width:3;stroke-linecap:round"/>`;
+  if(look==="b") s+=`<rect x="168" y="193" width="40" height="69" rx="6" style="fill:none;stroke:var(--sel);stroke-width:1.5;stroke-dasharray:5 4"/>`;
+  return s; }
+function spot(look){ return look==="c" ? `<rect width="${W}" height="${H}" style="fill:var(--dimmer)"/>` : ''; }
+function tips(p3){
+  if(p3==="a") return `<circle cx="190" cy="205" r="6" style="fill:var(--sel);stroke:#000;stroke-width:2"/><circle cx="196" cy="250" r="6" style="fill:var(--sel);stroke:#000;stroke-width:2"/>`;
+  if(p3==="b") return `<path d="M184 199 l6 -8 l6 8" style="fill:none;stroke:var(--sel);stroke-width:2.5;stroke-linecap:round;stroke-linejoin:round"/><path d="M200 246 l8 5 l-8 5" style="fill:none;stroke:var(--sel);stroke-width:2.5;stroke-linecap:round;stroke-linejoin:round"/>`;
+  return ''; }
+function topbar(extra){ return `
+ <g>${btn("undo",230,30)}${btn("redo",270,30)}${btn("layers",310,30)}${extra||''}</g>`; }
+function strip(tools,active){ const h=tools.length*44+8;
+  let s=`<rect x="8" y="78" width="44" height="${h}" rx="22" style="fill:var(--chrome);stroke:var(--glass-ring);stroke-width:1"/>`;
+  tools.forEach((t,i)=>{ s+=btn(t,30,104+i*44,t===active); }); return s; }
+const BASE_TOOLS=["pen","eraser","smudge","fill","lasso","drop"];
+const LINE_TOOLS=["nudge","tip","slice","colour","brush","weight","pixels","del"];
+function actions(p2){
+  if(p2==="a"){ // floating pill above the line
+    const items=["nudge","colour","brush","weight","pixels","del"]; const w=items.length*42+12, x=188-w/2, y=136;
+    let s=`<rect x="${x}" y="${y}" width="${w}" height="46" rx="23" style="fill:var(--glass);stroke:var(--glass-ring)"/>`;
+    s+=`<path d="M${188-7} ${y+46} l7 8 l7 -8z" style="fill:var(--glass)"/>`;
+    items.forEach((t,i)=>{ s+=btn(t,x+27+i*42,y+23,false,t==="colour"?"var(--art)":null); }); return s+strip(BASE_TOOLS,"lasso"); }
+  if(p2==="b"){ // strip swap + Done pill
+    let s=strip(LINE_TOOLS,null);
+    s+=`<rect x="136" y="14" width="80" height="32" rx="16" style="fill:var(--chrome);stroke:var(--sel);stroke-width:1.5"/>`;
+    s+=icon("check",146,19,22,"var(--sel)")+`<text x="174" y="35" style="font:700 13px var(--f-disp);fill:var(--ink)">Done</text>`; return s; }
+  // thumb shelf
+  const items=["nudge","tip","slice","colour","brush","weight","pixels","del"];
+  let s=strip(BASE_TOOLS,"lasso");
+  s+=`<rect x="8" y="${H-72}" width="${W-16}" height="62" rx="20" style="fill:var(--glass);stroke:var(--glass-ring)"/>`;
+  items.forEach((t,i)=>{ s+=btn(t,34+i*35.5,H-41,false,t==="colour"?"var(--art)":null); });
+  s+=`<circle cx="${W-36}" cy="${H-41}" r="18" style="fill:var(--sel12);stroke:var(--sel);stroke-width:1.5"/>`+icon("check",W-47,H-52,22,"var(--sel)");
+  return s; }
+function svg(inner,label){ return `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${label}" xmlns="http://www.w3.org/2000/svg">${inner}</svg>`; }
+
+function sceneSelected(p){ return svg(art()+spot(p.P1)+nose(p.P1)+tips(p.P3)+topbar()+actions(p.P2), "A selected line"); }
+function sceneNudge(p){
+  let s=art()+spot(p.P1)+`<path d="${p.P4==="b"?NOSE:NOSE_BENT}" style="fill:none;stroke:var(--art);stroke-width:3;stroke-linecap:round"/>`;
+  s+=`<defs><radialGradient id="fall"><stop offset="0" stop-color="#22d3ee" stop-opacity=".32"/><stop offset="1" stop-color="#22d3ee" stop-opacity="0"/></radialGradient></defs>`;
+  if(p.P4==="a") s+=`<circle cx="180" cy="230" r="32" style="fill:url(#fall);stroke:var(--sel);stroke-width:1.5"/>`;
+  else s+=`<circle cx="180" cy="230" r="32" style="fill:none;stroke:var(--sel);stroke-width:1.5"/>`;
+  if(p.P4==="b") s+=`<path d="${NOSE_BENT}" style="fill:none;stroke:var(--sel);stroke-width:2.5;stroke-dasharray:6 5;stroke-linecap:round"/>`;
+  if(p.P4==="c") s+=`<text x="${180-44}" y="284" style="font:500 11px var(--f-mono);fill:var(--sel)">pinch to resize</text>`;
+  const hud = p.P4==="c" ? '' : `<rect x="122" y="14" width="108" height="32" rx="16" style="fill:var(--chrome);stroke:var(--glass-ring)"/>`+icon("nudge",132,19,22,"var(--sel)")+`<text x="160" y="35" style="font:600 13px var(--f-mono);fill:var(--ink)">32 dp</text>`;
+  s+=hud+topbar()+actions(p.P2);
+  return svg(s,"Nudging a line"); }
+function sceneSlice(p){
+  let s=art().replace('<path d="M160 278 q30 18 60 0"/>','<path d="M160 278 q13 9 25 9"/><path d="M192 287 q14 -1 28 -9"/>');
+  s+=`<path d="M185 287 L192 287" style="stroke:var(--sel);stroke-width:2;stroke-linecap:round"/>`;
+  s+=`<path d="M188 266 L188 306" style="stroke:var(--sel);stroke-width:1.2;stroke-dasharray:3 3"/>`;
+  if(p.P5==="a"){ s+=`<rect x="104" y="14" width="144" height="32" rx="16" style="fill:var(--chrome);stroke:var(--glass-ring)"/>`+
+    `<text x="126" y="35" style="font:700 13px var(--f-disp);fill:var(--dim)">Erase</text>`+
+    `<rect x="172" y="17" width="72" height="26" rx="13" style="fill:var(--sel12);stroke:var(--sel);stroke-width:1.5"/>`+
+    `<text x="188" y="35" style="font:700 13px var(--f-disp);fill:var(--ink)">Slice</text>`+topbar()+strip(BASE_TOOLS,"eraser"); }
+  else if(p.P5==="b"){ s+=topbar()+strip(["pen","eraser","slice","smudge","fill","lasso","drop"],"slice"); }
+  else { s+=`<rect x="196" y="236" width="118" height="38" rx="19" style="fill:var(--glass);stroke:var(--glass-ring)"/>`+icon("slice",208,244,22,"var(--sel)")+
+    `<text x="238" y="260" style="font:700 13px var(--f-disp);fill:var(--ink)">Slice here</text>`+
+    `<circle cx="188" cy="287" r="14" style="fill:none;stroke:var(--sel);stroke-width:1.5"/>`+topbar()+strip(BASE_TOOLS,"lasso"); }
+  return svg(s,"Slicing a line"); }
+function badge(p6,pixels,x,y){
+  if(p6==="a") return pixels ? `<path d="M${x} ${y}h5v5h-5zM${x+6} ${y}h5v5h-5zM${x} ${y+6}h5v5h-5zM${x+6} ${y+6}h5v5h-5z" style="fill:var(--dim)"/>` : '';
+  if(p6==="b") return pixels ? `<rect x="${x-4}" y="${y-1}" width="22" height="14" rx="4" style="fill:var(--raised);stroke:var(--line)"/><text x="${x+1}" y="${y+10}" style="font:600 9.5px var(--f-mono);fill:var(--dim)">px</text>` : '';
+  return pixels ? `<circle cx="${x+6}" cy="${y+6}" r="5" style="fill:var(--dim)"/>` : `<circle cx="${x+6}" cy="${y+6}" r="4.5" style="fill:none;stroke:var(--dim);stroke-width:1.5"/>`; }
+function sceneDrawer(p){
+  let s=art()+topbar()+strip(BASE_TOOLS,"pen");
+  const x=62,y=110,w=W-70,h=300;
+  s+=`<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="18" style="fill:var(--glass);stroke:var(--glass-ring)"/>`;
+  const kinds=["All","Pencils","Inks & pens","Markers","Paint","Watercolour","Oils","Airbrush","Smudge","Fill"];
+  kinds.forEach((k,i)=>{ const on=k==="All"; s+= (on?`<rect x="${x+6}" y="${y+8+i*28}" width="84" height="24" rx="10" style="fill:var(--sel12);stroke:var(--sel);stroke-width:1.2"/>`:'')+
+    `<text x="${x+14}" y="${y+24+i*28}" style="font:500 11.5px var(--f-body);fill:${on?'var(--ink)':'var(--dim)'}">${k}</text>`; });
+  const rows=[["Ink pen",0,2.6],["Fine liner",0,1.4],["Plain pencil",0,1.8],["Soft round",1,9],["Watercolour wash",1,12],["HB pencil (realistic)",1,2.2]];
+  rows.forEach(([n,px,sw],i)=>{ const ry=y+10+i*48, rx=x+98;
+    s+=`<text x="${rx+6}" y="${ry+10}" style="font:500 10px var(--f-body);fill:var(--faint)">${n}</text>`;
+    s+=`<path d="M${rx+8} ${ry+30} C ${rx+50} ${ry+14}, ${rx+90} ${ry+42}, ${rx+150} ${ry+24}" style="fill:none;stroke:var(--ink);stroke-width:${sw};stroke-linecap:round;opacity:${px&&sw>8?0.45:0.9}"/>`;
+    s+=badge(p.P6,!!px,rx+160,ry+18); });
+  return svg(s,"The brush drawer"); }
+function sceneLayers(p){
+  let s=art()+topbar(p.P7==="c"?btn("more",190,30,true):'')+strip(BASE_TOOLS,"pen");
+  // layer column
+  s+=`<rect x="${W-64}" y="70" width="56" height="128" rx="14" style="fill:var(--chrome);stroke:var(--glass-ring)"/>`;
+  for(let i=0;i<2;i++){ const yy=78+i*58; s+=`<rect x="${W-58}" y="${yy}" width="44" height="52" rx="8" style="fill:var(--paper);stroke:${i===0?'var(--sel)':'var(--line)'};stroke-width:${i===0?1.8:1}"/>`;
+    s+=`<path d="M${W-50} ${yy+36} q10 -18 28 -10" style="fill:none;stroke:var(--art);stroke-width:1.6"/>`; }
+  const rowsBase=["Duplicate","Merge down","Clip to layer below","Add a mask"];
+  let rows=rowsBase.map(r=>[r,null]);
+  if(p.P7==="a") rows=rows.concat([["Rasterize down","Lines on this layer become pixels"],["Flatten lower", picks.Q1==="one"?"This layer and the one below become pixels":"This layer and all below become one pixel layer"]]);
+  if(p.P7==="b") rows=rows.concat([["To pixels  ›",null],["   Rasterize down",null],["   Flatten lower",null]]);
+  if(p.P7!=="c"){ const px=W-64-214, py=78, ph=rows.length*38+12;
+    s+=`<rect x="${px}" y="${py}" width="206" height="${ph}" rx="16" style="fill:var(--glass);stroke:var(--glass-ring)"/>`;
+    rows.forEach(([r,sub],i)=>{ const yy=py+28+i*38; const ours=/Rasterize|Flatten|To pixels/.test(r);
+      s+=`<text x="${px+16}" y="${yy}" style="font:600 13px var(--f-body);fill:${ours?'var(--ink)':'var(--dim)'}">${r.trim()===r?r:'· '+r.trim()}</text>`;
+      if(sub) s+=`<text x="${px+16}" y="${yy+13}" style="font:400 9.5px var(--f-body);fill:var(--faint)">${sub}</text>`;
+      if(ours && p.P7==="a") s+=icon("pixels",px+180,yy-13,14,"var(--dim)"); }); }
+  else { const px=128, py=50;
+    s+=`<rect x="${px}" y="${py}" width="190" height="126" rx="16" style="fill:var(--glass);stroke:var(--glass-ring)"/>`;
+    [["Export",0],["Rasterize down",1],["Flatten lower",1],["Paper",0]].forEach(([r,o],i)=>{
+      s+=`<text x="${px+16}" y="${py+30+i*28}" style="font:600 13px var(--f-body);fill:${o?'var(--ink)':'var(--dim)'}">${r}</text>`; }); }
+  return svg(s,"The layer menu"); }
+function sceneToast(){
+  let s=art()+topbar()+strip(BASE_TOOLS,"pen");
+  s+=`<path d="M120 330 C 170 300, 230 345, 280 312" style="fill:none;stroke:var(--wash2);stroke-width:22;stroke-linecap:round"/>`;
+  s+=`<rect x="20" y="${H-104}" width="${W-40}" height="78" rx="18" style="fill:var(--glass);stroke:var(--glass-ring)"/>`;
+  s+=icon("pixels",36,H-88,18,"var(--dim)");
+  s+=`<text x="64" y="${H-74}" style="font:600 12.5px var(--f-body);fill:var(--ink)">Brushes that blend with what's underneath</text>`;
+  s+=`<text x="64" y="${H-57}" style="font:600 12.5px var(--f-body);fill:var(--ink)">become pixels. Everything else stays editable.</text>`;
+  s+=`<text x="${W-82}" y="${H-38}" style="font:700 13px var(--f-disp);fill:var(--sel)">Got it</text>`;
+  return svg(s,"The first time a pixel brush is used"); }
+
+const SCENES=[
+ [sceneSelected,"A line selected","Tap the nose: it is selected, its tips can be grabbed, its actions appear."],
+ [sceneNudge,"Nudging the nose","Push the line like string. The paint underneath does not move."],
+ [sceneSlice,"Slicing the mouth","Cut a line in two; both halves stay editable lines."],
+ [sceneDrawer,"The brush drawer","Which brushes make lines and which make pixels."],
+ [sceneLayers,"The layer menu","Where Rasterize down and Flatten lower live."],
+ [()=>sceneToast(),"The first pixel brush","Shown once, the first time a brush bakes to pixels."],
+];
+
+// ── page ──
+const $=id=>document.getElementById(id);
+function renderDirs(){ $("dirs").innerHTML = Object.entries(DIRS).map(([k,d])=>`
+  <button class="dir ${k==="L"?"lead":""}" id="dir-${k}" data-dir="${k}" aria-pressed="${dir===k}">
+   <div class="nm"><b>${k==="L"?"★":k}</b><span>${d.n}</span></div><div class="tg">${d.t}</div>
+   <div class="tr">${PARTS.map(p=>`${p.id}${d.p[p.id]}`).join(" · ")}</div></button>`).join(""); }
+function renderParts(list,host){ host.innerHTML = list.map(p=>`
+  <div class="part"><div><h3>${p.id} · ${p.name}</h3><p class="why">${p.why}</p></div>
+  <div class="opts">${p.opts.map(o=>`<button class="opt" id="opt-${p.id}-${o.k}" data-part="${p.id}" data-k="${o.k}" aria-pressed="${picks[p.id]===o.k}">
+   <b><i>${p.id}${o.k}</i>${o.n}</b><span>${o.d}</span>${(LEAD[p.id]===o.k||(p.id==="Q1"&&o.k==="all")||(p.id==="Q2"&&o.k==="px"))?'<span class="lp">Lead\'s pick</span>':''}</button>`).join("")}</div></div>`).join(""); }
+function renderScenes(){ $("gal").innerHTML = SCENES.map(([f,t,d])=>`<figure>${f(picks)}<figcaption><b>${t}</b><span>${d}</span></figcaption></figure>`).join(""); }
+function line(){ return "Lines picks: "+PARTS.map(p=>p.id+picks[p.id]).join(" ")+" · Q1 "+(picks.Q1==="all"?"everything below":"just the one below")+" · Q2 "+(picks.Q2==="px"?"pixels":"editable lines")+" · paper "+(document.documentElement.dataset.paper||"black"); }
+function save(){ try{ localStorage.setItem("jb-lines-picks", JSON.stringify({picks,dir})); }catch(e){} }
+function refresh(){ renderDirs(); renderParts(PARTS,$("parts")); renderParts(QS,$("qs")); renderScenes(); $("pickline").textContent=line();
+  document.querySelectorAll("#dirseg button").forEach(b=>b.setAttribute("aria-pressed", String(b.dataset.dir===dir))); save(); }
+function matchDir(){ const m=Object.entries(DIRS).find(([k,d])=>PARTS.every(p=>d.p[p.id]===picks[p.id])); dir = m?m[0]:"-"; }
+document.addEventListener("click",e=>{
+  const d=e.target.closest("[data-dir]"); if(d){ dir=d.dataset.dir; Object.assign(picks,DIRS[dir].p); refresh(); return; }
+  const o=e.target.closest("[data-part]"); if(o){ picks[o.dataset.part]=o.dataset.k; matchDir(); refresh(); return; }
+  const pp=e.target.closest("[data-paper]"); if(pp){ const v=pp.dataset.paper; if(v==="black") delete document.documentElement.dataset.paper; else document.documentElement.dataset.paper=v;
+    document.querySelectorAll("[data-paper]").forEach(b=>b.setAttribute("aria-pressed",String(b===pp))); $("pickline").textContent=line(); }
+});
+$("copybtn").addEventListener("click",()=>{ const t=line();
+  const done=()=>{$("copynote").textContent="Copied. Paste it back to me.";};
+  try{ navigator.clipboard.writeText(t).then(done,()=>{ selectLine(); }); }catch(e){ selectLine(); } });
+function selectLine(){ const r=document.createRange(); r.selectNodeContents($("pickline")); const s=getSelection(); s.removeAllRanges(); s.addRange(r); $("copynote").textContent="Selected: copy it with your keyboard or a long-press."; }
+refresh();
+})();
+</script>

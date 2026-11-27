@@ -298,6 +298,11 @@ public final class Walker {
         ty = g0[3] + (cy - g0[1]);
     }
 
+    /** Where the body was taken, and where it was: {gx, gy, tx, ty}; null when nothing holds it. */
+    public double[] grabbed() {
+        return g0;
+    }
+
     public void release() {
         held = false;
         g0 = null;

@@ -84,6 +84,8 @@ public final class AvatarRoomActivity extends Activity implements RoomMenu.Host,
     private volatile java.util.Map<String, Object> lastSignals;
     private cc.joycreator.avatar.perform.Walker walker;
     private org.json.JSONObject walkerDoc;
+    private cc.joycreator.avatar.perform.Stick stick;
+    private int frameNo;
     private cc.joycreator.avatar.ui.LandmarksScreen landmarks;
     private cc.joycreator.avatar.ui.SolverStage glStage;
     private boolean glWorks = true;
@@ -887,7 +889,19 @@ public final class AvatarRoomActivity extends Activity implements RoomMenu.Host,
         if (walker == null || walkerDoc != d.json) {
             walker = new cc.joycreator.avatar.perform.Walker(d.json, inputs);
             walkerDoc = d.json;
+            stick = new cc.joycreator.avatar.perform.Stick(d.json, inputs, walker, new cc.joycreator.avatar.perform.Stick.Later() {
+                @Override
+                public void after(long ms, Runnable r) {
+                    main.postDelayed(r, ms);
+                }
+
+                @Override
+                public void cancel(Object tag) {
+                    main.removeCallbacksAndMessages(null);
+                }
+            });
         } else walker.refresh();
+        stickSize();
         stage.setSelected(inHand);
         layers.show(d, inHand);
         parts.show(d, inHand, stageIndex);
@@ -1039,6 +1053,38 @@ public final class AvatarRoomActivity extends Activity implements RoomMenu.Host,
     /** The microphone's shape names as the character's mouth shapes. */
     private static final String[] MIC_SHAPES = {"Neutral", "Aa", "Ee", "W-Oo", "M", "S"};
 
+    /** How big the character is, for the joystick's speed (a body height a second at the rim). */
+    private void stickSize() {
+        if (stick == null || character == null) return;
+        org.json.JSONObject r = character.json.optJSONObject("root");
+        CharacterDoc.Node k = r == null ? null : character.find(r.optString("id"));
+        cc.joycreator.avatar.ui.PoseRenderer pr = stage.renderer();
+        double[] b = k == null || pr == null ? null : pr.restBounds(k);
+        if (b != null && b.length >= 4) stick.setBodySize(b[2] - b[0], b[3] - b[1]);
+    }
+
+    @Override
+    public cc.joycreator.avatar.perform.Stick stick() {
+        return stick;
+    }
+
+    @Override
+    public boolean stickOpen() {
+        return getSharedPreferences("avatar_room", MODE_PRIVATE).getBoolean("stick", false);
+    }
+
+    @Override
+    public void setStickOpen(boolean on) {
+        if (!on && stick != null) stick.release();
+        getSharedPreferences("avatar_room", MODE_PRIVATE).edit().putBoolean("stick", on).apply();
+    }
+
+    @Override
+    public void openStickGestures() {
+        if (stick == null) return;
+        cc.joycreator.avatar.ui.StickSheet.show(this, stick, characterName(), (slot, key, step) -> edit.apply(step, doc -> cc.joycreator.avatar.perform.Stick.setSlot(doc.json, slot, key)));
+    }
+
     @Override
     public void setSetting(String key, boolean on, String stepName) {
         edit.apply(stepName, doc -> {
@@ -1139,6 +1185,8 @@ public final class AvatarRoomActivity extends Activity implements RoomMenu.Host,
         lastSignals = sig;
         stage.setSignals(sig);
         cc.joycreator.avatar.solve.Signals S = cc.joycreator.avatar.ui.SignalMap.toSignals(sig, inputs.time(), inputs.breath());
+        if ((frameNo++ & 31) == 0) stickSize();
+        if (stick != null) stick.step(dt);
         if (walker != null && (walker.canWalk() || walker.travels())) {
             walker.step(dt, S, glStage.anchors(), glStage.tips());
             S.flip = inputs.flip();

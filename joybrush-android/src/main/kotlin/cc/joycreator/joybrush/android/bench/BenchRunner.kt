@@ -583,8 +583,14 @@ class BenchRunner(private val canvas: JbCanvasView, private val spec: Spec,
         if ("keep" in words) Log.i(TAG, "then: savestream keep: before this save ${file.name} is ${file.length()} bytes, .tmp ${java.io.File(file.path + ".tmp").exists()}, .bak ${java.io.File(file.path + ".bak").length()} bytes")
         // The truth, read the old way and kept as checksums only; the streamed snapshot is asked for right behind it on the
         // graphics thread, so nothing can change between the two.
-        canvas.snapshot({ a ->
-            val want = SaveSums(a)
+        // "heap": no truth is read (it would sit in the heap beside the measurement); the file is not checked.
+        if ("heap" in words) { benchStreamAfterTruth(file, words, change, null); return }
+        canvas.snapshot({ a -> benchStreamAfterTruth(file, words, change, SaveSums(a)) },
+            { why -> Log.w(TAG, "then: savestream: truth snapshot failed: $why") })
+    }
+
+    private fun benchStreamAfterTruth(file: java.io.File, words: List<String>, change: String, want: SaveSums?) {
+        run {
             System.gc()
             val asked = benchHeapMb()
             val t0 = android.os.SystemClock.elapsedRealtime()
@@ -610,8 +616,9 @@ class BenchRunner(private val canvas: JbCanvasView, private val spec: Spec,
                         "written ${android.os.SystemClock.elapsedRealtime() - t2} ms, ${memo.carried} carried and ${memo.fresh} compressed, ${file.length() shr 10} KB"
                     } catch (x: Throwable) { "SAVE REFUSED: ${x.javaClass.simpleName}: ${x.message}" }
                     sampling.set(false); sampler.join()
-                    val back = try { SaveSums(cc.joycreator.joybrush.androidkit.io.JbArchive.open(file)) } catch (x: Throwable) { null }
+                    val back = if (want == null) null else try { SaveSums(cc.joycreator.joybrush.androidkit.io.JbArchive.open(file)) } catch (x: Throwable) { null }
                     val verdict = when {
+                        want == null -> "not checked (heap run)"
                         back == null -> "THE FILE COULD NOT BE READ"
                         want.storesDiffering(back) == 0 && want.looksDiffering(back) == 0 -> "EXACT"
                         else -> "WRONG: ${want.looksDiffering(back)} of ${want.looks.size} picture tiles and ${want.storesDiffering(back)} of ${want.stores.size} paint store tiles differ"
@@ -622,7 +629,7 @@ class BenchRunner(private val canvas: JbCanvasView, private val spec: Spec,
                     }
                 }, "bench-savestream").start()
             }, { why -> Log.w(TAG, "then: savestream: snapshot failed: $why") })
-        }, { why -> Log.w(TAG, "then: savestream: truth snapshot failed: $why") })
+        }
     }
 
     /** What a snapshot held, small enough to keep: a checksum a tile, the counts and the stores' raw size. */

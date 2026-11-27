@@ -62,7 +62,8 @@ public final class ShutterKeys {
             }
         }
         int m = mixMs.length > 0 ? (int) Math.round(sample(mixMs, mix, timelineMs)) : base.mixPercent();
-        return new MotionShutter.Controls(a, timing, phase, m);
+        return new MotionShutter.Controls(a, timing, phase, m, base.fadePercent(), base.look(),
+                base.copies());
     }
 
     /**
@@ -177,7 +178,7 @@ public final class ShutterKeys {
             i = -i - 1;
             t = insert(shutterMs, i, ms); an = insert(angle, i, 0); o = insert(open, i, 0);
         }
-        an[i] = Math.max(0, Math.min(720, ang));
+        an[i] = Math.max(0, Math.min(MotionShutter.MAX_TRAIL_ANGLE, ang));
         o[i] = Math.max(-720, Math.min(720, op));
         return new ShutterKeys(t, an, o, mixMs, mix);
     }

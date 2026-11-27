@@ -1,4 +1,5 @@
 import com.fadcam.ui.faditor.motion.MotionShutter;
+import com.fadcam.ui.faditor.motion.MotionShutter;
 import com.fadcam.ui.faditor.motion.MotionShutter.Controls;
 import com.fadcam.ui.faditor.motion.MotionShutter.Preset;
 import com.fadcam.ui.faditor.motion.MotionShutter.Timing;
@@ -89,8 +90,29 @@ public final class ShutterStripModelTest {
 
     private static void reachLimit() {
         Controls far = ShutterStripModel.dragOpen(Controls.NATURAL, -5000, 4);
-        check(far.phase() >= -ShutterStripModel.REACH, "the open end stops at two frames back");
-        check(far.angle() <= ShutterStripModel.REACH, "the angle stops at 720");
+        eq(5040, far.angle(), "past the last frame the open end makes a long trail (quarter frames)");
+        eq(Timing.TRAILING, far.timing(), "a long trail always ends at this frame");
+        near(-5040, far.phase(), "so it opens that far back");
+        Controls longest = ShutterStripModel.dragOpen(Controls.NATURAL, -1e9, 40);
+        eq(MotionShutter.MAX_TRAIL_ANGLE, longest.angle(), "and stops at 32 frames back");
+        Controls inside = ShutterStripModel.dragOpen(far, -300, 2);
+        check(!inside.isLongTrail(), "pulled back inside two frames it is a camera shutter again");
+        near(0, inside.phase() + inside.angle(), "still ending at this frame");
+        eq(far, ShutterStripModel.dragClose(far, 200, 8), "a long trail's close end stays at this frame");
+        eq(far, ShutterStripModel.slide(far, 500, 8), "and it does not slide");
+        Controls styled = Controls.NATURAL.withLook(60, MotionShutter.Look.COPIES, 5);
+        Controls kept = ShutterStripModel.dragOpen(styled, -2000, 8);
+        eq(60, kept.fadePercent(), "dragging keeps Fade");
+        eq(MotionShutter.Look.COPIES, kept.look(), "and Look");
+        eq(5, kept.copies(), "and Copies");
+        eq(MotionShutter.Look.COPIES, ShutterStripModel.withPreset(kept, Preset.CRISP).look(),
+                "a preset sets the window, not the look");
+        eq(new ShutterStripModel.View(14, 0), ShutterStripModel.viewFor(
+                ShutterStripModel.dragOpen(Controls.NATURAL, -4900, 14)),
+                "a long trail's view shows only frames back");
+        eq(new ShutterStripModel.View(1, 1), ShutterStripModel.viewFor(Controls.NATURAL),
+                "a camera shutter is shown both sides");
+        near(1.0, new ShutterStripModel.View(8, 0).fraction(0), "this frame is the right edge of a trail view");
         Controls slid = ShutterStripModel.slide(new Controls(360, Timing.CENTERED, 0, 100), -5000, 2);
         near(-720, slid.phase(), "a slide stops at the reach limit");
         Controls slidOut = ShutterStripModel.slide(new Controls(360, Timing.CENTERED, 0, 100), 5000, 2);

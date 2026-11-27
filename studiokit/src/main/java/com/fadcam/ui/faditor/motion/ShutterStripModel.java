@@ -35,6 +35,28 @@ public final class ShutterStripModel {
         return Math.max(1, (int) Math.ceil(far / 360.0 - 1e-9));
     }
 
+    /**
+     * The strip's view: whole frames shown before and after the playhead. A long trail ends at
+     * this frame, so its view has nothing after the playhead (the mock's "8 frames back ...
+     * this frame"); every camera shutter is shown the same number of frames each side.
+     */
+    public record View(int back, int ahead) {
+        public double fraction(double deg) {
+            return (deg + 360.0 * back) / (360.0 * (back + ahead));
+        }
+        public double degrees(double fraction) {
+            return fraction * 360.0 * (back + ahead) - 360.0 * back;
+        }
+        /** The larger side, for snap distances. */
+        public int frames() { return Math.max(back, ahead); }
+    }
+
+    public static View viewFor(MotionShutter.Controls c) {
+        if (c.isLongTrail()) return new View((int) Math.ceil(c.angle() / 360.0 - 1e-9), 0);
+        int n = viewFramesFor(c);
+        return new View(n, n);
+    }
+
     /** Degrees to a position in [0, 1] across a view of {@code frames} each side. */
     public static double fraction(double deg, int frames) {
         double span = 360.0 * frames;
@@ -65,28 +87,38 @@ public final class ShutterStripModel {
         return dOpen <= dClose ? Grab.OPEN : Grab.CLOSE;
     }
 
-    /** Move the opening edge to {@code deg}; the closing edge stays. */
+    /**
+     * Move the opening edge to {@code deg}; the closing edge stays. Pulled further back than the
+     * last frame, the window becomes a long trail ending at this frame (STU-7 §K.2), up to
+     * {@link MotionShutter#MAX_TRAIL_ANGLE}, in whole quarter frames.
+     */
     public static MotionShutter.Controls dragOpen(MotionShutter.Controls c, double deg, int frames) {
-        double close = c.phase() + c.angle();
+        if (deg < -REACH - 1e-9) {
+            int angle = (int) Math.round(Math.min(MotionShutter.MAX_TRAIL_ANGLE, -deg) / 90.0) * 90;
+            if (angle > REACH) return c.withWindow(angle, MotionShutter.Timing.TRAILING, 0);
+        }
+        double close = c.isLongTrail() ? 0 : c.phase() + c.angle();
         double open = clamp(deg, Math.max(-REACH, close - REACH), close);
         int angle = snapAngle((int) Math.round(close - open), frames);
-        return fromWindow(close - angle, angle, c.mixPercent(), frames);
+        return fromWindow(c, close - angle, angle, frames);
     }
 
     /** Move the closing edge to {@code deg}; the opening edge stays. */
     public static MotionShutter.Controls dragClose(MotionShutter.Controls c, double deg, int frames) {
+        if (c.isLongTrail()) return c;   // a long trail always ends at this frame
         double open = c.phase();
         double close = clamp(deg, open, Math.min(REACH, open + REACH));
         int angle = snapAngle((int) Math.round(close - open), frames);
-        return fromWindow(open, angle, c.mixPercent(), frames);
+        return fromWindow(c, open, angle, frames);
     }
 
     /** Slide the whole window by {@code deltaDeg}, keeping its angle and the reach limit. */
     public static MotionShutter.Controls slide(MotionShutter.Controls start, double deltaDeg,
                                                int frames) {
+        if (start.isLongTrail()) return start;   // it only grows backwards from this frame
         int angle = start.angle();
         double open = clamp(start.phase() + deltaDeg, -REACH, REACH - angle);
-        return fromWindow(open, angle, start.mixPercent(), frames);
+        return fromWindow(start, open, angle, frames);
     }
 
     /**
@@ -94,17 +126,21 @@ public final class ShutterStripModel {
      * positions when it is within the snap distance of one, and the timing is named after it.
      */
     public static MotionShutter.Controls fromWindow(double open, int angle, int mix, int frames) {
+        return fromWindow(new MotionShutter.Controls(180, MotionShutter.Timing.CENTERED, 0, mix),
+                open, angle, frames);
+    }
+
+    /** {@link #fromWindow(double, int, int, int)} keeping {@code like}'s Mix, Fade and Look. */
+    public static MotionShutter.Controls fromWindow(MotionShutter.Controls like, double open,
+                                                    int angle, int frames) {
         double tol = SNAP_PER_FRAME * Math.max(1, frames);
         MotionShutter.Timing[] named = {
                 MotionShutter.Timing.CENTERED, MotionShutter.Timing.TRAILING,
                 MotionShutter.Timing.LEADING};
         for (MotionShutter.Timing t : named) {
-            if (Math.abs(open - t.phase(angle, 0)) <= tol) {
-                return new MotionShutter.Controls(angle, t, 0, mix);
-            }
+            if (Math.abs(open - t.phase(angle, 0)) <= tol) return like.withWindow(angle, t, 0);
         }
-        return new MotionShutter.Controls(angle, MotionShutter.Timing.CUSTOM,
-                (int) Math.round(open), mix);
+        return like.withWindow(angle, MotionShutter.Timing.CUSTOM, (int) Math.round(open));
     }
 
     /** The angle, pulled onto a stop when within the snap distance of one. */
@@ -126,7 +162,7 @@ public final class ShutterStripModel {
     public static MotionShutter.Controls withPreset(MotionShutter.Controls c,
                                                     MotionShutter.Preset preset) {
         Objects.requireNonNull(preset);
-        return new MotionShutter.Controls(preset.angle, preset.timing, 0, c.mixPercent());
+        return c.withWindow(preset.angle, preset.timing, 0);
     }
 
     private static double clamp(double v, double lo, double hi) {

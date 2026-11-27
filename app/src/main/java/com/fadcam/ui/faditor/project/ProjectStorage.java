@@ -2033,6 +2033,10 @@ public class ProjectStorage {
         shutter.addProperty("timing", controls.timing().name());
         shutter.addProperty("phase", controls.customPhase());
         shutter.addProperty("mix", controls.mixPercent());
+        // STU-7 §K.2: written only when not the camera default, so older files stay byte-identical.
+        if (controls.fadePercent() != 0) shutter.addProperty("fade", controls.fadePercent());
+        if (controls.look() != MotionShutter.Look.SMEAR) shutter.addProperty("look", controls.look().name());
+        if (controls.copies() != 4) shutter.addProperty("copies", controls.copies());
         item.add("rigidMotionShutter", shutter);
     }
 
@@ -2107,15 +2111,31 @@ public class ProjectStorage {
                 // An older editor may encounter a timing mode from a newer project.
             }
         }
-        return new MotionShutter.Controls(readShutterNumber(shutter, "angle", 180), timing,
-                readShutterNumber(shutter, "phase", 0), readShutterNumber(shutter, "mix", 100));
+        MotionShutter.Look look = MotionShutter.Look.SMEAR;
+        JsonElement lookValue = shutter.get("look");
+        if (lookValue != null && lookValue.isJsonPrimitive() && lookValue.getAsJsonPrimitive().isString()) {
+            try {
+                look = MotionShutter.Look.valueOf(lookValue.getAsString());
+            } catch (IllegalArgumentException ignored) {
+                // A look from a newer editor: keep the camera's smear.
+            }
+        }
+        return new MotionShutter.Controls(
+                readShutterNumber(shutter, "angle", 180, 0, MotionShutter.MAX_TRAIL_ANGLE), timing,
+                readShutterNumber(shutter, "phase", 0), readShutterNumber(shutter, "mix", 100),
+                readShutterNumber(shutter, "fade", 0, 0, 100), look,
+                readShutterNumber(shutter, "copies", 4, 2, 7));
     }
 
     private static int readShutterNumber(JsonObject shutter, String field, int fallback) {
+        return readShutterNumber(shutter, field, fallback, -720, 720);
+    }
+
+    private static int readShutterNumber(JsonObject shutter, String field, int fallback, int min, int max) {
         JsonElement entry = shutter.get(field);
         if (entry == null || !entry.isJsonPrimitive() || !entry.getAsJsonPrimitive().isNumber()) return fallback;
         double value = entry.getAsDouble();
-        return Double.isFinite(value) ? (int) Math.max(-720, Math.min(720, Math.round(value))) : fallback;
+        return Double.isFinite(value) ? (int) Math.max(min, Math.min(max, Math.round(value))) : fallback;
     }
 
     private Clip deserializeClipObject(@NonNull File projectDir, @NonNull JsonObject clipObj) {

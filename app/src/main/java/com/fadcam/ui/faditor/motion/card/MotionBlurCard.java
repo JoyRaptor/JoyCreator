@@ -66,7 +66,25 @@ public final class MotionBlurCard {
          * or 0 when the preview shows its blur.
          */
         @StringRes int cannotBlurReason();
+        /**
+         * §K.2: the one plain line when {@code c} asks for more than this object can draw yet
+         * (a long trail on filmed video or a puppet), or 0.
+         */
+        default @StringRes int cannotTrailReason(@NonNull MotionShutter.Controls c) { return 0; }
     }
+
+    /** The Streak preset (§K.2): eight frames back, fading out, one long smear. */
+    public static MotionShutter.Controls streak(@NonNull MotionShutter.Controls like) {
+        return like.withWindow(8 * 360, MotionShutter.Timing.TRAILING, 0)
+                .withLook(60, MotionShutter.Look.SMEAR, like.copies());
+    }
+
+    static boolean isStreak(@NonNull MotionShutter.Controls c) {
+        return c.angle() == 8 * 360 && c.fadePercent() == 60 && c.look() == MotionShutter.Look.SMEAR;
+    }
+
+    /** Folds opened this session, by object id. */
+    private static final Set<String> MORE_OPEN = new HashSet<>();
 
     /** A key this close to the playhead counts as "on the key" (about two frames, as FxPanel). */
     private static final long ON_KEY_MS = 40;
@@ -169,6 +187,9 @@ public final class MotionBlurCard {
         int[] names = {R.string.studio_motion_preset_natural, R.string.studio_motion_preset_crisp,
                 R.string.studio_motion_preset_heavy, R.string.studio_motion_preset_trailing};
         TextView[] chipViews = new TextView[presets.length];
+        TextView streakChip = ObjectDrawer.Kit.chip(ctx, ctx.getString(R.string.studio_motion_preset_streak));
+        ObjectDrawer.Kit.pressable(streakChip);
+        ObjectDrawer.Kit.describe(streakChip, ctx.getString(R.string.studio_motion_preset_streak_hint));
 
         // ── shutter row: label + value over each other, the strip, its ‹◆› ──
         LinearLayout shutterRow = ObjectDrawer.Kit.row(ctx);
@@ -206,12 +227,77 @@ public final class MotionBlurCard {
         KeyControl mixKeys = new KeyControl(ctx, d, ctx.getString(R.string.studio_motion_mix));
         mixRow.addView(mixKeys.root);
 
+        TextView trailNote = ObjectDrawer.Kit.note(ctx, "");
+        trailNote.setTextColor(Studio.CAREFUL);
+        trailNote.setPadding(Math.round(2 * d), 0, 0, Math.round(2 * d));
+
+        // ── More: Fade and Look (every blur, long or short), folded shut by default ──
+        LinearLayout more = new LinearLayout(ctx);
+        more.setOrientation(LinearLayout.VERTICAL);
+        more.setVisibility(MORE_OPEN.contains(objectId) ? View.VISIBLE : View.GONE);
+        LinearLayout fadeRow = ObjectDrawer.Kit.row(ctx);
+        fadeRow.addView(ObjectDrawer.Kit.rowLabel(ctx, ctx.getString(R.string.studio_motion_fade), 86));
+        FineSeekBar fade = new FineSeekBar(ctx);
+        fade.setMax(100);
+        ObjectDrawer.Kit.styleSlider(fade, ObjectDrawer.Kit.onFill(Studio.GO));
+        fade.setContentDescription(ctx.getString(R.string.studio_motion_fade_hint));
+        fadeRow.addView(fade, new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
+        TextView fadeValue = ObjectDrawer.Kit.value(ctx, 44);
+        fadeRow.addView(fadeValue);
+        more.addView(fadeRow);
+        LinearLayout lookRow = ObjectDrawer.Kit.row(ctx);
+        lookRow.addView(ObjectDrawer.Kit.rowLabel(ctx, ctx.getString(R.string.studio_motion_look), 86));
+        MotionShutter.Look[] looks = MotionShutter.Look.values();
+        int[] lookNames = {R.string.studio_motion_look_smear, R.string.studio_motion_look_copies,
+                R.string.studio_motion_look_both};
+        int[] lookHints = {R.string.studio_motion_look_smear_hint, R.string.studio_motion_look_copies_hint,
+                R.string.studio_motion_look_both_hint};
+        TextView[] lookChips = new TextView[looks.length];
+        for (int i = 0; i < looks.length; i++) {
+            lookChips[i] = ObjectDrawer.Kit.chip(ctx, ctx.getString(lookNames[i]));
+            ObjectDrawer.Kit.pressable(lookChips[i]);
+            ObjectDrawer.Kit.describe(lookChips[i], ctx.getString(lookHints[i]));
+            lookRow.addView(lookChips[i], ObjectDrawer.Kit.chipLp(ctx));
+        }
+        View lookGap = new View(ctx);
+        lookRow.addView(lookGap, new LinearLayout.LayoutParams(0, 1, 1f));
+        TextView fewer = ObjectDrawer.Kit.stepper(ctx, "−", ctx.getString(R.string.studio_motion_copies_fewer));
+        TextView copiesValue = ObjectDrawer.Kit.value(ctx, 18);
+        copiesValue.setGravity(Gravity.CENTER);
+        TextView moreCopies = ObjectDrawer.Kit.stepper(ctx, "+", ctx.getString(R.string.studio_motion_copies_more));
+        lookRow.addView(fewer);
+        lookRow.addView(copiesValue);
+        lookRow.addView(moreCopies);
+        more.addView(lookRow);
+
+        Runnable showLook = () -> {
+            MotionShutter.Controls b = st[0].base();
+            fade.setProgress(b.fadePercent());
+            fadeValue.setText(ctx.getString(R.string.studio_motion_percent, b.fadePercent()));
+            for (int i = 0; i < looks.length; i++) {
+                ObjectDrawer.Kit.setChipOn(lookChips[i], looks[i] == b.look(), Studio.GO);
+            }
+            boolean counted = b.look() != MotionShutter.Look.SMEAR;
+            copiesValue.setText(String.valueOf(b.copies()));
+            float a = counted ? 1f : 0.35f;
+            fewer.setAlpha(a);
+            moreCopies.setAlpha(a);
+            copiesValue.setAlpha(a);
+            fewer.setEnabled(counted && b.copies() > 2);
+            moreCopies.setEnabled(counted && b.copies() < 7);
+        };
+
         Runnable show = () -> {
             MotionShutter.Controls now = st[0].keys().at(at[0], st[0].base());
-            MotionShutter.Preset current = ShutterStripModel.presetOf(now);
+            MotionShutter.Preset current = now.isLongTrail() ? null : ShutterStripModel.presetOf(now);
             for (int i = 0; i < chipViews.length; i++) {
                 ObjectDrawer.Kit.setChipOn(chipViews[i], presets[i] == current, Studio.GO);
             }
+            ObjectDrawer.Kit.setChipOn(streakChip, isStreak(now), Studio.GO);
+            @StringRes int trailWhy = host.cannotTrailReason(now);
+            trailNote.setVisibility(trailWhy == 0 ? View.GONE : View.VISIBLE);
+            if (trailWhy != 0) trailNote.setText(trailWhy);
+            showLook.run();
             String v = value(ctx, now);
             shutterValue.setText(v);
             strip.setControls(now);
@@ -239,7 +325,22 @@ public final class MotionBlurCard {
             chipViews[i] = chip;
             chips.addView(chip, ObjectDrawer.Kit.chipLp(ctx));
         }
-        card.addView(chips);
+        streakChip.setOnClickListener(v -> {
+            State before = st[0];
+            MotionShutter.Controls now = before.keys().at(at[0], before.base());
+            State after = new State(streak(before.base()), before.keys().hasShutterKeys()
+                    ? before.keys().withShutterKey(at[0], streak(now)) : before.keys());
+            if (after.equals(before)) return;
+            st[0] = after;
+            show.run();
+            host.commit(before, after);
+        });
+        chips.addView(streakChip, ObjectDrawer.Kit.chipLp(ctx));
+        // Five chips: they scroll sideways on a narrow phone rather than wrap to a second line.
+        android.widget.HorizontalScrollView chipScroll = new android.widget.HorizontalScrollView(ctx);
+        chipScroll.setHorizontalScrollBarEnabled(false);
+        chipScroll.addView(chips);
+        card.addView(chipScroll);
 
         final State[] dragFrom = {null};
         strip.setListener((c, done) -> {
@@ -313,10 +414,65 @@ public final class MotionBlurCard {
             card.addView(why);
         }
 
-        // ── slim footer: the exact-frame action, right-aligned ──
+        card.addView(trailNote);
+
+        java.util.function.Consumer<MotionShutter.Controls> commitLook = next -> {
+            State before = st[0];
+            State after = new State(next, before.keys());
+            if (after.equals(before)) return;
+            st[0] = after;
+            show.run();
+            host.commit(before, after);
+        };
+        fade.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
+            State before;
+            @Override public void onStartTrackingTouch(SeekBar sb) { before = st[0]; }
+            @Override public void onProgressChanged(SeekBar sb, int value, boolean user) {
+                if (!user || before == null) return;
+                MotionShutter.Controls b = before.base();
+                st[0] = new State(b.withLook(value, b.look(), b.copies()), before.keys());
+                fadeValue.setText(ctx.getString(R.string.studio_motion_percent, value));
+                host.preview(st[0]);
+            }
+            @Override public void onStopTrackingTouch(SeekBar sb) {
+                if (before != null && !before.equals(st[0])) host.commit(before, st[0]);
+                before = null;
+                show.run();
+            }
+        });
+        for (int i = 0; i < looks.length; i++) {
+            MotionShutter.Look look = looks[i];
+            lookChips[i].setOnClickListener(v -> {
+                MotionShutter.Controls b = st[0].base();
+                commitLook.accept(b.withLook(b.fadePercent(), look, b.copies()));
+            });
+        }
+        fewer.setOnClickListener(v -> {
+            MotionShutter.Controls b = st[0].base();
+            commitLook.accept(b.withLook(b.fadePercent(), b.look(), b.copies() - 1));
+        });
+        moreCopies.setOnClickListener(v -> {
+            MotionShutter.Controls b = st[0].base();
+            commitLook.accept(b.withLook(b.fadePercent(), b.look(), b.copies() + 1));
+        });
+        card.addView(more);
+
+        // ── slim footer: "More" on the left, the exact-frame action on the right, one line ──
         LinearLayout foot = new LinearLayout(ctx);
         foot.setOrientation(LinearLayout.HORIZONTAL);
-        foot.setGravity(Gravity.END | Gravity.CENTER_VERTICAL);
+        foot.setGravity(Gravity.CENTER_VERTICAL);
+        TextView moreTab = ObjectDrawer.Kit.sectionLabel(ctx,
+                (more.getVisibility() == View.VISIBLE ? "▾ " : "▸ ") + ctx.getString(R.string.studio_motion_more));
+        ObjectDrawer.Kit.describe(moreTab, ctx.getString(R.string.studio_motion_more_hint));
+        moreTab.setPadding(Math.round(2 * d), Math.round(6 * d), Math.round(16 * d), Math.round(6 * d));
+        moreTab.setOnClickListener(v -> {
+            boolean open = more.getVisibility() != View.VISIBLE;
+            more.setVisibility(open ? View.VISIBLE : View.GONE);
+            if (open) MORE_OPEN.add(objectId); else MORE_OPEN.remove(objectId);
+            moreTab.setText((open ? "▾ " : "▸ ") + ctx.getString(R.string.studio_motion_more));
+        });
+        foot.addView(moreTab);
+        foot.addView(new View(ctx), new LinearLayout.LayoutParams(0, 1, 1f));
         TextView exact = new TextView(ctx);
         exact.setText(R.string.studio_motion_show_exact);
         exact.setTextColor(Studio.ON_GO);
@@ -483,6 +639,9 @@ public final class MotionBlurCard {
     /** "180° · centred", "90° · behind", "270° · ahead", "200° · custom" */
     @NonNull
     static String value(@NonNull Context ctx, @NonNull MotionShutter.Controls c) {
+        if (c.isLongTrail()) {
+            return ctx.getString(R.string.studio_motion_strip_back, Math.round(c.angle() / 360f));
+        }
         @StringRes int timing = switch (c.timing()) {
             case CENTERED -> R.string.studio_motion_timing_centred;
             case TRAILING -> R.string.studio_motion_timing_behind;

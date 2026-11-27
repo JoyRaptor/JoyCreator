@@ -1175,6 +1175,19 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 MotionBlurItem item = findMotionBlurItem(id);
                 return item == null ? 0 : motionBlurCannotReason(item);
             }
+            @Override public int cannotTrailReason(@NonNull MotionShutter.Controls c) {
+                MotionBlurItem item = findMotionBlurItem(id);
+                if (item instanceof Clip clip && !clip.isOverlayClip() && !clip.hasSpineTransform()
+                        && c.angle() > 360) {
+                    return R.string.studio_motion_trail_footage;   // filmed motion: one frame at most
+                }
+                if (item instanceof SpriteOverlayItem sprite && c.isLongTrail()
+                        && (sprite.hasAvatarPerformance()
+                        || com.fadcam.ui.faditor.compositor.AuthoredSpriteMeshExposure.supportsDirectMesh(sprite))) {
+                    return R.string.studio_motion_trail_puppet;
+                }
+                return 0;
+            }
         };
     }
 

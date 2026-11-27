@@ -1,0 +1,1 @@
+Board ops helper: owns BoardDocumentOps.kt, BoardSession.kt, RegionDocumentOps.kt and two new core test suites. No DocOps/model/GPU/Activity edits. No build run; root owns validation. Current bounded-copy metadata is renderer-independent. Animation movement/resize/duplication/removal explicitly deferred pending pixel transaction adapter.

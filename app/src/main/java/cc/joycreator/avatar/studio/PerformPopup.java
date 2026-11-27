@@ -83,12 +83,16 @@ public final class PerformPopup implements PerformPanel.Host {
     private long passAtMs;
     @Nullable private com.fadcam.ui.faditor.avatar.face.FaceCapture face;
 
-    private PerformPopup(Activity a, SpriteOverlayItem item, CharacterDoc doc, Host host) {
+    private PerformPopup(Activity a, SpriteOverlayItem item, CharacterDoc doc, CharacterPictures.Beside beside, Host host) {
         this.a = a;
         this.item = item;
         this.doc = doc;
+        this.beside = beside;
         this.host = host;
     }
+
+    private final CharacterPictures.Beside beside;
+    @Nullable private SolvedStageRenderer solved;
 
     /** Opens it for a character item; says one plain sentence when the character cannot be found. */
     public static void show(@NonNull Activity a, @NonNull SpriteOverlayItem item, @NonNull Host host) {
@@ -97,7 +101,7 @@ public final class PerformPopup implements PerformPanel.Host {
             Toast.makeText(a, R.string.ava_studio_character_failed, Toast.LENGTH_SHORT).show();
             return;
         }
-        new PerformPopup(a, item, l.doc, host).open();
+        new PerformPopup(a, item, l.doc, l.beside, host).open();
     }
 
     private void open() {
@@ -111,7 +115,19 @@ public final class PerformPopup implements PerformPanel.Host {
         col.setPadding(pad, pad, pad, 0);
 
         stage = new StageView(a);
+        // the real solver draws the little stage (as Studio's preview will), and a finger on a hand takes it (slice 2 item 4)
+        stage.setRendererFactory(d -> {
+            solved = new SolvedStageRenderer(d, beside);
+            return solved;
+        });
         stage.setCharacter(doc);
+        stage.setBodyDrag(new cc.joycreator.avatar.ui.HandGrab(stage, () -> solved == null ? null : solved.tips(),
+                p -> solved == null ? p : solved.toInner(p),
+                new cc.joycreator.avatar.ui.HandGrab.Hands() {
+                    @Override public void hold(String side, double x, double y) { inputs.holdHand(side, x, y); }
+
+                    @Override public void letGo(String side) { inputs.letGoHand(side); }
+                }, null));
         col.addView(stage, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, SheetKit.dp(a, 170)));
 
         LinearLayout bar = new LinearLayout(a);

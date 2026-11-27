@@ -1,6 +1,6 @@
 # FACE-2: a face mask and expression poses, so your face drives any creature's head at every angle
 
-**Milestone:** M?  ·  **State:** 🔨  ·  **Owner:** "face capture scout" (side session of the Avatar lead)  ·  **Checked:** 2026-11-27 against `c841e4711`
+**Milestone:** M?  ·  **State:** ✅ pilot (owner: "Works well", 11-27); phone room to build  ·  **Owner:** "face capture scout" (side session of the Avatar lead)  ·  **Checked:** 2026-11-27 against `c841e4711`
 
 ## Why it matters (for the user)
 Pinning points of your face to a painted, sliced head one by one tears it apart (Topps, 11-22) and has to be redone for
@@ -111,7 +111,7 @@ Which places are the user's and which are guessed, each drawing's real turn, and
    face and poses carry smoothly from Frontal to Left Quarter, Upward, the profiles.
 
 ## What is left
-- [x] Stage 1 · [x] Stage 2 · [x] Stage 3 · [x] Stage 4 (in the pilot) · [ ] format addition agreed in the channel · [x] phone spec addition (above) · [x] timing on the Note 9 · [ ] his verdict on the Note 9
+- [x] Stage 1 · [x] Stage 2 · [x] Stage 3 · [x] Stage 4 (in the pilot) · [ ] format addition agreed in the channel · [x] phone spec addition (above) · [x] timing on the Note 9 · [x] his verdict on the Note 9 (11-27: **"Works well"**) · [ ] the phone room builds its half
 
 ## Specs, handoffs and evidence
 - FACE-1 card (rounds 1-6, his words), `tasks/avatar/AVA_FORMAT.md` B2.1 (landmarks), `tasks/avatar/CHANNEL.md` (claims).

@@ -54,11 +54,11 @@
 | `codex/stu7-c7-current-review-20261124` | `575a72b11` | Landed. Tip `575a72b11` is in `joy-creator`. |
 | `codex/stu7-c7-gated-help-20261126` | `51b838070` | Landed. Tip `51b838070` is in `joy-creator`. |
 | `codex/stu7-c7-help-copy-20261124` | `2c88fb752` | Landed via `8c17ae74f`. Registration landed via `51b838070`. |
-| `codex/stu7-finish-20261125` | `57a9e272b` | Active candidate. Latest main baseline plus decoded-cut fence and flash control. |
+| `codex/stu7-finish-20261125` | `ea236f311` | Active candidate. Latest main baseline plus decoded-cut fence and flash control. |
 | `codex/stu7-flow-luma-20261123` | `20cee01f7` | Superseded by integrated source indexing and flow analysis in `c4201d358`. |
 | `codex/stu7-flow-verify-20261123` | `24d26bc81` | Proof archive. Older rooted-emulator retrieval superseded by exact service readbacks. |
 | `codex/stu7-footage-reference-20261126` | `a9334c439` | Proof archive. Centered reference fixture later instrumented in `f4fc6ad3c`. |
 | `codex/stu7-gated-fixtures-20261126` | `c317f9c35` | Dead end. Forced codec recreation did not produce the matched preview. Keep the receipt. |
 | `codex/stu7-live-flow-gl-20261124` | `0e3aa6142` | Superseded by integrated Fast preview and the shared GL harness in `c4201d358`. |
 | `codex/stu7-pose-sampling-20261123` | `96e9637ba` | Superseded by ordered mesh integration and exact-time pose in `775331431`. |
-| `codex/stu7-c6-cut-proof-20261127` | `dfef8d1f7` | Sole temporary side branch. Product bytes match `57a9e272b`; debug-only launcher opens the cut proof APK. |
+| `codex/stu7-c6-cut-proof-20261127` | `9674eec06` | Sole temporary side branch. Pinned APK `dfef8d1f7` uses the current candidate product bytes. Tip adds only synthetic Android proof workflow. |

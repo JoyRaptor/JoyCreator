@@ -342,6 +342,41 @@ at the top of that file: add `<script src="al-face.js"></script>` before `al-inp
 `c.face = AL.face.pilotFace(r, c, now / 1000);` (optional second line for two-sided brows in `P.step`).
 `AL.face.neutral(cam)` is the one-tap neutral there.
 
+## His face take (11-27): every move through the pilot and the phone
+
+He recorded a 45.6 s take on the Note 9 for testing (the video stays on the PC, git-ignored, never sent anywhere). It ran
+through the pilot's own tracker frame by frame (15 a second, off-screen Edge, numbers only) and on into Topps, Mirror on (the
+default). The numbers are kept as [`tasks/avatar/golden/face-take-20261127.track.json`](../avatar/golden/face-take-20261127.track.json)
+(the raw face and 58 face points a frame, no picture) and are now the fixture for the phone room's tests. The recording is not
+mirrored: his right turn, right eye and left lean come first in the numbers, as in his words.
+
+| | His move (his words) | What Topps did before | After |
+|---|---|---|---|
+| ✅ | Look to the right (2.0-3.1 s, 55 degrees) | turned to the screen's right like his reflection, **and walked 95 to the right** (the turn swings the face sideways about the neck, read as a lean) | turns, no walk (0) |
+| ✅ | Look to the left (9.6-10.6 s, 53 degrees) | turned to the screen's left, walked 11 | turns, no walk (0) |
+| ✅ | Head to the right, later tilt to the left | tilts with him (0.59, -0.38) | the same |
+| ✅ | Right eye, then left eye | each on its own, on the reflection's side; winking his left he half-shut his right too, and Topps shows that | the same |
+| ✅ | Lean to the left, then the right | walks to the screen's left (93), then its right (141) | the same |
+| ✅ | Forward and back | comes toward the camera and grows to 1.44 (29.2-30 s); no clear lean back in the take | the same |
+| ✅ | Nods (not in his list, in the take) | looks down at 16 degrees down (0.84), up at 13 up (-0.35) | the same |
+| ✅ | Brows up, mouth open, pucker, smile | brows 0.88-1.0, mouth 1.0 (Aa), pucker lane 1.0, smile lane 0.91 | the same |
+| ❌ | **Puff face** | **nothing**: the tracker's own puff value never passed 0.003 in the whole take, and the mesh does not show it either (the cheek outline stays within 1% of his neutral, where a smile moves it 7-16%). What the tracker does see is the lips rolled in and sealed, which he also did at 8-9.5 s without a puff, and it lost his face twice (35.5-38 s, 40-41.5 s) | not readable by this tracker (the phone uses the same model). Needs his call: a Puff button, or "lips pressed in = puff" as an opt-in |
+
+**The fix** (`FaceWalk.TURN` 0.5, the pilot's `fw.TURN`): walking with your face holds the sideways walk while the head is turned
+well to a side, as it already did for a tilt. A swing taken out of the lean (as for the tilt) was tried first and dropped: his
+left turn swung the face a third as far as his right, so a fixed swing walked him on the other turns. His leans turned his head
+0.3 to 0.41, his turns 1.0.
+
+**Also found:** the phone room's **Mirror** chip showed the engine's flag the wrong way round (the engine's `mirror` means "like
+someone facing you"): it read OFF while the character moved like a reflection, and ON switched it to facing. Now
+`FaceDrive.mirrorChip` / `setMirrorChip` (ON = reflection, the default, as the pilot's tick).
+
+**Proof:** `run-avatar-face.sh` runs `AvatarFaceTakeTest` (15 checks on his take through the phone's face engine, the room's
+hands and walking with your face; the turn check failed first on the old code), plants 33 of 33 caught; `run-face.sh`: the pilot
+reads every frame of his take as the phone does (683 frames within 0.0001); the pilot's face-walk suite with a new turn check, its
+two new plants caught. Possibly worth a look: nodding down also lowered the brows (-0.7 to -0.9) in all three of his nods, which
+may be the tracker's view from below rather than a frown; not changed.
+
 ## What is left
 - [x] Engine (`app/src/main/java/com/fadcam/ui/faditor/avatar/face/`), pure Java where it can be, each piece
       harness-tested with its planted faults caught first.

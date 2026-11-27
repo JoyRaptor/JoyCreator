@@ -68,9 +68,9 @@
   part.lr = async function (X, F, plant, app) {
     await rest(app); var w = app.inp.walker, on0 = fw.on;
     if (plant === 'lroff') fw.on = function (k) { return k === 'lr' ? false : on0(k); };
-    if (plant === 'nodead') fw.DEAD.x = 0; if (plant === 'tight') fw.TILT = 0.2;
+    if (plant === 'nodead') fw.DEAD.x = 0; if (plant === 'tight') fw.TILT = 0.2; if (plant === 'tightturn') fw.TURN = 0.2;
     try {
-      fw.room.lr = true; FACE.roll = 0.23; face(0.6, 0); await K.raf(60); var right = w.tx; FACE.roll = 0;      // (his real lean tilts the head a little: 0.23 on the Note 9)
+      fw.room.lr = true; FACE.roll = 0.23; FACE.turnX = 0.38; face(0.6, 0); await K.raf(60); var right = w.tx; FACE.roll = 0; FACE.turnX = 0;      // (his real lean tilts the head a little, 0.23 on the Note 9, and turns it: 0.3 to 0.41 in his take)
       face(-0.6, 0); await K.raf(120); var left = w.tx;
       F('lr: your face to the right walks it right, to the left walks it left', right > 40 && left < right - 60, { right: Math.round(right), left: Math.round(left) });
       face(0, 0); await K.raf(30); face(0.1, 0); await K.raf(30); var t0 = w.tx; await K.raf(90);      // (the face settles first: the walk eases off on its way back to the middle)
@@ -78,7 +78,10 @@
       if (plant === 'tilt') fw.TILT = 9;
       face(0, 0); await K.raf(30); FACE.roll = 0.44; face(0.38, 0); await K.raf(30); var t1 = w.tx; await K.raf(60); FACE.roll = 0;
       F('lr: tilting the head toward a shoulder (which swings the face sideways) walks nothing', Math.abs(w.tx - t1) < 0.5, { moved: r1(w.tx - t1) });
-    } finally { fw.on = on0; fw.DEAD.x = 0.18; }
+      if (plant === 'turn') fw.TURN = 9;
+      face(0, 0); await K.raf(30); FACE.turnX = 1; face(0.6, 0); await K.raf(30); var t2 = w.tx; await K.raf(60); FACE.turnX = 0;      // (his take, 11-27: a full turn read as a 0.67 lean)
+      F('lr: turning the head well to a side (which swings the face sideways) walks nothing', Math.abs(w.tx - t2) < 0.5, { moved: r1(w.tx - t2) });
+    } finally { fw.on = on0; fw.DEAD.x = 0.18; fw.TILT = 0.36; fw.TURN = 0.5; FACE.roll = 0; FACE.turnX = 0; }
   };
   part.deep = async function (X, F, plant, app) {
     await rest(app); var inp = app.inp, w = inp.walker, b0 = box(app), keys = legKeys(w), slid = 0, behind = 0, fr = 0, s1 = 1, stride = w.cfg().stride || 60, plain0 = dw.plain;
@@ -273,7 +276,7 @@
       }
       F('99 nothing thrown by the end', !scene._err);
     } catch (e) { X.fails.push({ label: 'THROWN', info: String(e && e.stack || e).slice(0, 700) }); }
-    fw.source = src0; dw.plain = KEEP.plain; dw.front = KEEP.front; dw.footY = KEEP.footY; dw.scene = KEEP.scene; fw.drawer = KEEP.drawer; fw.step = KEEP.step; fw.on = KEEP.on; AL.stickDepth.on = KEEP.sdOn; AL.stickDepth.grid = KEEP.sdGrid; AL.stickDepth.setAngle = KEEP.sdSet; fw.DEAD.x = 0.18; fw.DEAD.z = 0.15; fw.TILT = 0.36; fw.yields = true; FACE.roll = 0;      // (whatever a planted fault replaced, back)
+    fw.source = src0; dw.plain = KEEP.plain; dw.front = KEEP.front; dw.footY = KEEP.footY; dw.scene = KEEP.scene; fw.drawer = KEEP.drawer; fw.step = KEEP.step; fw.on = KEEP.on; AL.stickDepth.on = KEEP.sdOn; AL.stickDepth.grid = KEEP.sdGrid; AL.stickDepth.setAngle = KEEP.sdSet; fw.DEAD.x = 0.18; fw.DEAD.z = 0.15; fw.TILT = 0.36; fw.TURN = 0.5; fw.yields = true; FACE.roll = 0; FACE.turnX = 0;      // (whatever a planted fault replaced, back)
     try { var r0 = JSON.parse(room0); fw.room.lr = r0.lr; fw.room.depth = r0.depth; } catch (e) { }
     try { if (AL.app.scene) await scene.close(AL.app, true); } catch (e2) { }
     try { var mine = (await scene.list(AL.app)).filter(function (e) { return e.name === 'Face walk test'; }); for (var m = 0; m < mine.length; m++) await scene.forget(AL.app, mine[m].uid); } catch (e4) { }
@@ -281,7 +284,7 @@
     try { AL.app.inp._close = false; AL.app.inp._depth = false; } catch (e5) { }
     return { n: X.n, fails: X.fails, note: X.note };
   };
-  FWT.WANT = { lroff: ['lr', /^lr: your face to the right/], tilt: ['lr', /^lr: tilting the head/], tight: ['lr', /^lr: your face to the right/], nodead: ['lr', /^lr: a little drift/], float: ['deep', /^deep: \.\.\.growing from its eye line/], slide: ['deep', /^deep: \.\.\.with real steps/], nostep: ['deep', /^deep: \.\.\.with real steps/],
+  FWT.WANT = { lroff: ['lr', /^lr: your face to the right/], tilt: ['lr', /^lr: tilting the head/], tight: ['lr', /^lr: your face to the right/], turn: ['lr', /^lr: turning the head/], tightturn: ['lr', /^lr: your face to the right/], nodead: ['lr', /^lr: a little drift/], float: ['deep', /^deep: \.\.\.growing from its eye line/], slide: ['deep', /^deep: \.\.\.with real steps/], nostep: ['deep', /^deep: \.\.\.with real steps/],
     front: ['front', /^front: walking toward/], stuck: ['close', /^close: /], drawer: ['drawer', /^drawer: /], order: ['scene', /^scene: \.\.\.and once/], flat: ['scene', /^scene: coming closer/], shrink: ['take', /^take: /],
     unowned: ['own', /^own: /], keepown: ['take', /^take: /], always: ['plain', /^plain: /], leg: ['fours', /^fours: /], nodeadz: ['deadz', /^deadz: /],
     stickflat: ['stick', /^stick: pushed up/], nogrid: ['stick', /^stick: in the joystick/], stickundo: ['stick', /^stick: in the joystick/], noflick: ['stick', /^stick: in perspective a flick/],

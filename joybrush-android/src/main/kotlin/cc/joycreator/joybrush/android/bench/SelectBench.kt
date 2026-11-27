@@ -46,6 +46,13 @@ class SelectBench(private val canvas: JbCanvasView, private val runId: String, p
     private var event = 0
     private var active = true
     private var shotGate: SelectBenchShotGate? = null
+    /**
+     * `--ez jb_no_shots true` (the cloud emulator): skip the screenshot protocol. Each step still runs and reports;
+     * the held-state screenshot requests and their ACK wait are left out, so a slow software GPU that cannot present a
+     * held state in time no longer ends the run at the first screenshot (11-27: swapList). Real-phone acceptance keeps
+     * the shots (the default).
+     */
+    private val noShots: Boolean = (canvas.context as? android.app.Activity)?.intent?.getBooleanExtra("jb_no_shots", false) == true
     /** A captured predicate belongs to this exact bench session and exposes no mutable bench state. */
     internal val acceptsCopyResult: () -> Boolean = { active }
 
@@ -510,7 +517,7 @@ class SelectBench(private val canvas: JbCanvasView, private val runId: String, p
 
     private fun emit(row: JSONObject) { if (active) Log.i(TAG, row.put("runId", runId).put("event", event++).toString()) }
     private fun shot(name: String) {
-        if (!active) return
+        if (!active || noShots) return
         val gate = shotGate ?: SelectBenchShotGate(canvas.context.cacheDir, runId, ui).also { shotGate = it }
         if (!gate.expect(event)) { screenshotFailed("invalid or stale screenshot expectation"); return }
         // Queue behind current GL metadata work, then two UI vsyncs before advertising the stable held state.
@@ -533,6 +540,7 @@ class SelectBench(private val canvas: JbCanvasView, private val runId: String, p
     }
     private fun hold(next: () -> Unit) {
         if (!active) return
+        if (noShots) { next(); return }
         val gate = shotGate ?: run { screenshotFailed("no screenshot expectation"); return }
         gate.await(onReady = { if (active) next() }, onTimeout = { screenshotFailed("screenshot ACK timed out or could not be consumed") })
     }

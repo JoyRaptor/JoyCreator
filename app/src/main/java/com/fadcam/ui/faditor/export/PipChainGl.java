@@ -45,15 +45,27 @@ final class PipChainGl {
 
     /** (Re)size the ping-pong targets. */
     void configure(int width, int height) throws GlUtil.GlException {
+        configure(width, height, true);
+    }
+
+    /** A single scoped producer writes directly to its caller’s framebuffer. */
+    void configure(int width, int height, boolean allocateScratch) throws GlUtil.GlException {
         int nw = Math.max(1, width), nh = Math.max(1, height);
-        if (nw == w && nh == h && pingFbo[0] != 0) return;
-        releasePing();
-        w = nw;
-        h = nh;
-        for (int i = 0; i < 2; i++) {
-            pingTex[i] = GlUtil.createTexture(w, h, false);
-            pingFbo[i] = GlUtil.createFboForTexture(pingTex[i]);
+        if (nw != w || nh != h) {
+            releasePing();
+            w = nw;
+            h = nh;
         }
+        if (allocateScratch) {
+            ensureScratch(0);
+            ensureScratch(1);
+        }
+    }
+
+    private void ensureScratch(int slot) throws GlUtil.GlException {
+        if (pingFbo[slot] != 0) return;
+        if (pingTex[slot] == 0) pingTex[slot] = GlUtil.createTexture(w, h, false);
+        pingFbo[slot] = GlUtil.createFboForTexture(pingTex[slot]);
     }
 
     /** The FBO Media3 bound for this frame's output. */
@@ -97,6 +109,7 @@ final class PipChainGl {
             int src = inputTexId;
             for (int i = 0; i < n; i++) {
                 boolean last = i == n - 1;
+                if (!last) ensureScratch(i % 2);
                 int dstFbo = last ? outFbo : pingFbo[i % 2];
                 boolean oes = external != null && Boolean.TRUE.equals(external.get(i));
                 RigidTextureShutterPass.Exposure blur = blurs == null ? null : blurs.get(i);

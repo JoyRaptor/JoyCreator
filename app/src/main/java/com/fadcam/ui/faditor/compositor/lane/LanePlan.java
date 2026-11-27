@@ -9,6 +9,8 @@ import com.fadcam.ui.faditor.layers.TimedItem;
 import com.fadcam.ui.faditor.model.Clip;
 import com.fadcam.ui.faditor.model.TextOverlayItem;
 import com.fadcam.ui.faditor.model.Timeline;
+import com.fadcam.ui.faditor.sprite.SpriteOverlayItem;
+import com.fadcam.ui.faditor.transcript.CaptionAnimator;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -121,6 +123,62 @@ public final class LanePlan {
             if (!plain(e)) return false;                                       // rules 3, 4
         }
         return true;
+    }
+
+    /**
+     * Project-policy gate for the ordered export path. The compositor still checks its own
+     * supported item and piece types after this. The legacy allow-list follows the C4b pixel corpus.
+     */
+    @Nullable
+    public String projectExportFallback(boolean trueLayerOrder) {
+        if (entries.isEmpty()) return "no ordered lane items";
+        if (trueLayerOrder) return null;
+        if (!legacyLooksTheSame()) return "legacy lane order differs";
+        for (Entry entry : entries) {
+            if (entry.kind != Kind.IMAGE && entry.kind != Kind.ADJUSTMENT) {
+                return "legacy pixel equivalence unverified: " + entry.kind;
+            }
+        }
+        return null;
+    }
+
+    /** Both hosts draw this picture with the same isolated texture/placement path. */
+    public static boolean supportsOrderedPicture(@Nullable TextOverlayItem picture) {
+        return picture != null && picture.isImage() && !picture.hasMesh() && !picture.isLinked()
+                && !picture.wantsGlExport()
+                && CaptionAnimator.parsePreset(picture.getTextAnimPreset()) == CaptionAnimator.Preset.NONE;
+    }
+
+    /** The whole preview plan must fit the producer and decoder domains. */
+    public boolean supportsOrderedPreview(boolean trueLayerOrder) {
+        if (projectExportFallback(trueLayerOrder) != null) return false;
+        int pipCount = 0;
+        for (Entry entry : entries) {
+            if (entry.kind == Kind.IMAGE && supportsOrderedPicture(entry.item.getTextOverlay())) continue;
+            if (entry.kind == Kind.ADJUSTMENT && entry.item.getAdjustment() != null
+                    && !entry.item.getAdjustment().getFx().hearsMusic()) continue;
+            if (entry.kind == Kind.PIP && ++pipCount == 1 && supportsOrderedPreviewPip(entry.item.getClip())) continue;
+            if (entry.kind == Kind.TEXT && entry.item.getTextOverlay() != null) continue;
+            if (entry.kind == Kind.SPRITE && supportsOrderedSprite(entry.item.getSprite())) continue;
+            return false;
+        }
+        return true;
+    }
+
+    private static boolean supportsOrderedPreviewPip(@Nullable Clip clip) {
+        if (clip == null || clip.isImageClip() || clip.hasActiveFx() || clip.hasLoopExtension()
+                || clip.hasRemovedSpans() || clip.getSpeedMultiplier() != 1f
+                || com.fadcam.ui.faditor.model.BlendModes.modeCode(clip.getOverlayBlendMode()) != 0f) return false;
+        var compositing = clip.getCompositing();
+        return compositing == null || (!compositing.hasMasks() && compositing.mattePeerId == null
+                && !com.fadcam.ui.faditor.model.ChromaKey.isActive(compositing));
+    }
+
+    /** The host checks atlas metadata and can fall back if its cell source is missing. */
+    public static boolean supportsOrderedSprite(@Nullable SpriteOverlayItem sprite) {
+        return sprite != null && !sprite.isLinked() && !sprite.hasAvatarPerformance()
+                && !sprite.wantsGl() && !sprite.hasCornerPin()
+                && sprite.getFrameTrack().keys().stream().noneMatch(key -> key.presetId != null);
     }
 
     private static int surfaceRank(Kind kind) {

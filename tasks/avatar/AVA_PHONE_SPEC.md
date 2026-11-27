@@ -262,7 +262,7 @@ from a part's looks ("Blend two looks"). It replaces the pilot's pair-by-pair "M
 
 | Control | One press | Hover label |
 |---|---|---|
-| + Add a landmark | The next tap on the picture places point n+1 in this angle; every other angle gets it at a guessed place, marked "behind" until dragged | "Add a landmark here: it appears in every angle, ready to drag" |
+| + Add a landmark | Two taps: the spot on the solid drawing, then on the ghost (or "It is in the same place"). In every other angle it starts "not here", parked where it was tapped, ready to be dragged into place (built so in the pilot, 11-27: a guessed "behind" would bend the other angles toward a wrong spot) | "Add a landmark here: it appears in every angle, ready to drag" |
 | A point (numbered dot, 28 dp target) | Chooses it; drag moves it in this angle only | "Landmark <n>: drag it to the same spot in this drawing" |
 | Behind | The chosen point is folded round behind in this angle: a ghost dot that still has a place and still steers the bend | "Behind: this spot is round the back here, but still steers the turn" |
 | Not here | The chosen point takes no part in this angle: a small circle with a line through it, greyed | "Not here: this spot does not exist in this drawing" |
@@ -272,7 +272,9 @@ from a part's looks ("Blend two looks"). It replaces the pilot's pair-by-pair "M
 | Warps with | The whole head / By its own landmarks / With <another piece> | "How this piece bends when the head turns" |
 | Done | Back to the card | "Done matching" |
 
-Behind is the default guess for a point dragged off the drawing's pixels. Every change is one undo step.
+Behind is the default guess for a point dragged off the drawing's pixels. A point that is "not here" in both drawings on
+screen (it belongs to other angles) is not shown unless it is the chosen one. Every change is one undo step. Built and
+checked in the pilot (step 0, 11-27): `tools/avatarlab/al-bridge.js`.
 
 ## A10. Scenes, inside Perform
 

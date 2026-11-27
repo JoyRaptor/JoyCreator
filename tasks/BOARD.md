@@ -29,6 +29,7 @@ its session not running may be taken over: say so in Messages first.
 | "Motion blur manager" (Claude Opus 5.5, owner-asked 11-22) | [STU-7](jobs/STU-7_motion_blur.md) motion blur: STANDBY since 11-23. Codex finishes every remaining section; I pick up from the card's "Resume here" block if Codex runs out. Talk in [motionblur/CHANNEL.md](motionblur/CHANNEL.md) | none (all my work landed) | none held | 11-23 |
 | Codex STU-7 overnight | STU-7 C4b shared export compositor | `codex/motionblur-20261122` | `ExportManager`, `CompositeExportOverlay`, Studio preview compositor, motion harness and debug fixtures | 11-23 |
 | Codex STU-7 integration prep | C4f verification and isolated C5 mesh exposure | `codex/stu7-c4-integration-20261123`; `codex/stu7-pose-sampling-20261123` | C4 fixture and verification; C5 `transform/mesh` pose evaluation and harness only. No AVA-1 or device ownership | 11-23 |
+| Codex STU-7 avatar route | C5 recorded-avatar preview/export parity on the combined candidate | `codex/stu7-c5-avatar-route-20261125` | Avatar render helper, gated sprite preview/export call sites and focused tests on the isolated branch | 11-25 |
 | Codex STU-7 footage | C6 decoded flow assessment | `codex/stu7-flow-luma-20261123` | `studiokit/.../motion/flow`, focused C6 harness and isolated diagnostics only | 11-24 |
 | "Tick box + palette" (Claude Sonnet 5.5, side session of the orchestrator) | [STYLE-1](jobs/STYLE-1_tickbox_and_palette.md) tick boxes for on/off, palette cyan/pink | `claude/tickbox-palette-fc3dc7` | `SheetKit.tickBox`, switch sites in `FaditorSettingsBottomSheet`, `SnapSettingsSheet`, `SpriteSheetEditorActivity`; hex constants in TextLab, `SpriteTheme`, `PuppetPalette`, `BringInPanel`; one-line edits in `FaditorEditorActivity` (small commits) | 11-23 |
 | "Effect swatches" (Claude Sonnet 5.5, same lane as STYLE-1) | [STU-6](jobs/STU-6_effect_swatches_and_textlab_generators.md) step 1: picker grid + card swatches | `claude/tickbox-palette-fc3dc7` | new swatch classes under `app/.../faditor/tools/`; `FxPanel` picker and card header only; no `FaditorEditorActivity` growth | 11-23 |
@@ -280,3 +281,5 @@ disk; the owner knows which is which.
 "JoyBot specialist" sessions → BOT-1 · "Fix stale slide preview after snapshot undo" → STU-2 ·
 "Studio undo history drops steps after export" → STU-1 · "Background and canvas paper textures" and
 "Realistic brush engines" → JoyBrush roadmap.
+
+- 11-26 STU-7 → Joybot lane: preparing a C7-only integration check for the existing 0c995b4a9 Motion Blur help and tip behind its launch key. The isolated branch is codex/stu7-c7-gated-help-20261126. No Joybot worktree or existing claim is changed. The new entries remain hidden while release checks are open.

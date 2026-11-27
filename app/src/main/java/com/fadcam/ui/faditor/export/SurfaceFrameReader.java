@@ -10,6 +10,8 @@ import android.media.MediaFormat;
 import android.net.Uri;
 import android.opengl.GLES11Ext;
 import android.opengl.GLES20;
+import android.os.Handler;
+import android.os.Looper;
 import android.view.Surface;
 
 import androidx.annotation.NonNull;
@@ -17,7 +19,10 @@ import androidx.annotation.Nullable;
 
 import com.fadcam.FLog;
 
+import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 
 /**
  * Surface counterpart to {@link SequentialFrameReader}: one forward MediaCodec
@@ -46,6 +51,7 @@ final class SurfaceFrameReader {
 
     private static final String TAG = "SurfaceFrameReader";
     private static final long DEQUEUE_TIMEOUT_US = 10_000L;
+    private static final long SURFACE_LATCH_TIMEOUT_MS = 250L;
     private static final int MAX_STALLED_DRAINS = 2000;
     private static final int MAX_REWINDS = 8;
     private static final long SEEK_WORTH_IT_US = 1_500_000L;
@@ -56,7 +62,8 @@ final class SurfaceFrameReader {
     @Nullable private MediaExtractor extractor;
     @Nullable private MediaCodec codec;
     @Nullable private Surface surface;
-    @Nullable private SurfaceTexture surfaceTexture;
+    @Nullable private volatile SurfaceTexture surfaceTexture;
+    @Nullable private volatile CountDownLatch pendingSurfaceFrame;
     private int oesTexId = 0;
     private final float[] texMatrix = new float[16];
     private boolean texMatrixValid = false;
@@ -130,6 +137,7 @@ final class SurfaceFrameReader {
             }
             return decodeForwardTo(sourceUs);
         } catch (Exception e) {
+            if (e instanceof InterruptedException) Thread.currentThread().interrupt();
             FLog.w(TAG, "Surface read failed for " + uri + "; degrading", e);
             degraded = true;
             releaseDecoder();
@@ -191,6 +199,10 @@ final class SurfaceFrameReader {
 
             SurfaceTexture st = new SurfaceTexture(oesTexId);
             surfaceTexture = st;
+            st.setOnFrameAvailableListener(texture -> {
+                CountDownLatch pending = pendingSurfaceFrame;
+                if (texture == surfaceTexture && pending != null) pending.countDown();
+            }, new Handler(Looper.getMainLooper()));
             Surface s = new Surface(st);
             surface = s;
 
@@ -241,7 +253,7 @@ final class SurfaceFrameReader {
         }
     }
 
-    private boolean decodeForwardTo(long targetUs) {
+    private boolean decodeForwardTo(long targetUs) throws IOException, InterruptedException {
         MediaCodec c = codec;
         MediaExtractor ex = extractor;
         SurfaceTexture st = surfaceTexture;
@@ -289,37 +301,15 @@ final class SurfaceFrameReader {
             if (outIdx >= 0) {
                 boolean eos = (info.flags & MediaCodec.BUFFER_FLAG_END_OF_STREAM) != 0;
                 boolean isFrame = info.size > 0 && (info.flags & MediaCodec.BUFFER_FLAG_CODEC_CONFIG) == 0;
-                if (isFrame) decodedFrames++;
-                if (isFrame && info.presentationTimeUs >= targetUs) {
-                    c.releaseOutputBuffer(outIdx, true);
-                    // SurfaceTexture now has the frame; make it current
-                    try {
-                        st.updateTexImage();
-                        st.getTransformMatrix(texMatrix);
-                        texMatrixValid = true;
-                    } catch (Exception e) {
-                        FLog.w(TAG, "updateTexImage failed", e);
-                        return false;
+                if (isFrame) {
+                    decodedFrames++;
+                    latchSurfaceFrame(c, st, outIdx, info.presentationTimeUs);
+                    if (currentPtsUs >= targetUs) {
+                        pumpNanos += System.nanoTime() - pumpStart;
+                        return true;
                     }
-                    pumpNanos += System.nanoTime() - pumpStart;
-                    currentPtsUs = info.presentationTimeUs;
-                    return true;
                 } else {
-                    // Not yet the target — render to surface but don't expose? For surface,
-                    // every render advances the texture, but we only want target. However we
-                    // must still render to advance; the non-target frames will be overwritten.
-                    // So we still render and update, but keep pumping until target.
-                    if (isFrame) {
-                        c.releaseOutputBuffer(outIdx, true);
-                        try {
-                            st.updateTexImage();
-                            st.getTransformMatrix(texMatrix);
-                            texMatrixValid = true;
-                            currentPtsUs = info.presentationTimeUs;
-                        } catch (Exception ignored) {}
-                    } else {
-                        c.releaseOutputBuffer(outIdx, false);
-                    }
+                    c.releaseOutputBuffer(outIdx, false);
                 }
                 stalled = 0;
                 if (eos) {
@@ -335,6 +325,27 @@ final class SurfaceFrameReader {
                     return currentPtsUs != Long.MIN_VALUE;
                 }
             }
+        }
+    }
+
+    private void latchSurfaceFrame(MediaCodec decoder, SurfaceTexture texture, int outputIndex,
+                                   long ptsUs) throws IOException, InterruptedException {
+        CountDownLatch pending = new CountDownLatch(1);
+        pendingSurfaceFrame = pending;
+        try {
+            decoder.releaseOutputBuffer(outputIndex, Math.multiplyExact(ptsUs, 1000L));
+            if (!pending.await(SURFACE_LATCH_TIMEOUT_MS, TimeUnit.MILLISECONDS)) {
+                throw new IOException("PiP decoder texture timed out");
+            }
+            texture.updateTexImage();
+            if (!DecodedFrameCursor.matchesSurfaceTimestamp(ptsUs, texture.getTimestamp())) {
+                throw new IOException("PiP decoder texture did not latch the released frame");
+            }
+            texture.getTransformMatrix(texMatrix);
+            texMatrixValid = true;
+            currentPtsUs = ptsUs;
+        } finally {
+            pendingSurfaceFrame = null;
         }
     }
 

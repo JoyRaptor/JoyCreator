@@ -200,8 +200,8 @@ public class ShareInActivity extends AppCompatActivity {
             }
             long free = freeBytes();
             if (free >= 0 && need > free) {
-                throw new java.io.IOException("it needs " + Formatter.formatShortFileSize(this, need)
-                        + " and the phone has " + Formatter.formatShortFileSize(this, free) + " free");
+                throw new java.io.IOException("there isn't room: it needs " + Formatter.formatShortFileSize(this, need)
+                        + " and the phone has " + Formatter.formatShortFileSize(this, free) + " free. Free some space and share again");
             }
             jf.index.scan(jf.fs);
             long now = System.currentTimeMillis();
@@ -241,7 +241,7 @@ public class ShareInActivity extends AppCompatActivity {
                             ext == null ? null : "." + ext);
                     try (InputStream in = getContentResolver().openInputStream(u)) {
                         if (in == null) throw new java.io.IOException("couldn't read the shared file");
-                        rel = jf.addFile(dir, name, in, "share-in");
+                        rel = jf.addFile(dir, name, in, "share-in", progressFor(name, size, shared.size() > 1));
                     }
                     // A source that stops part-way just ends its stream: a short copy, and nothing threw.
                     // A short copy is not a copy (work-loss audit 2026-11-10).
@@ -260,7 +260,7 @@ public class ShareInActivity extends AppCompatActivity {
             }
             jf.saveIndex();
         } catch (Exception e) {
-            problem = e.getMessage();
+            problem = com.fadcam.joyfolder.SpaceErrors.plain(e);   // "the phone ran out of room..." in plain words
         }
         // Move: the copy has landed and the index is saved; only now do the originals go.
         List<String> stuck = toRemove.isEmpty() ? new ArrayList<>() : OriginalsRemover.remove(this, toRemove);
@@ -272,6 +272,25 @@ public class ShareInActivity extends AppCompatActivity {
         final String err = problem;
         final String where = dirShown;
         runOnUiThread(() -> showResult(saved, err, where, projectId, projectName));
+    }
+
+    /**
+     * FILE-1, large share-ins: a big copy shows how far it has got ("clip.mp4: 1.2 GB of 2.0 GB") instead of a bare
+     * "Saving…" that looks hung. Only for files over the large-file line, and at most about four updates a second.
+     */
+    private JoyFolder.Progress progressFor(String name, long total, boolean several) {
+        if (total <= LARGE_BYTES) return null;
+        final long[] lastPost = {0};
+        return bytes -> {
+            long now = System.nanoTime();
+            if (now - lastPost[0] < 250_000_000L && bytes < total) return;
+            lastPost[0] = now;
+            final String line = name + ": " + Formatter.formatShortFileSize(this, bytes) + " of "
+                    + Formatter.formatShortFileSize(this, total);
+            runOnUiThread(() -> {
+                if (!isFinishing() && !isDestroyed()) body.setText(line);
+            });
+        };
     }
 
     private void showResult(List<Saved> saved, String problem, String where, String projectId, String projectName) {

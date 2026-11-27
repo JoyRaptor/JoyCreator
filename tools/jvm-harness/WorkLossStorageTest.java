@@ -3,6 +3,7 @@ import com.fadcam.ui.faditor.model.Clip;
 import com.fadcam.ui.faditor.model.FaditorProject;
 import com.fadcam.ui.faditor.project.DiskStamp;
 import com.fadcam.ui.faditor.project.ProjectStorage;
+import com.google.gson.JsonParser;
 
 import java.io.File;
 import java.io.FileOutputStream;
@@ -53,8 +54,28 @@ public class WorkLossStorageTest {
         return new String(Files.readAllBytes(f.toPath()), StandardCharsets.UTF_8);
     }
 
+    static void trueLayerOrderRoundTrips() {
+        ProjectStorage storage = storage();
+        FaditorProject project = video("Ordered");
+        String legacy = storage.toJson(project);
+        check(!storage.fromJson(legacy).isTrueLayerOrder(), "old JSON opens without true order");
+        check(!legacy.contains("\"layerOrder\""), "legacy projects do not write an order flag");
+
+        project.setTrueLayerOrder(true);
+        String ordered = storage.toJson(project);
+        FaditorProject reopened = storage.fromJson(ordered);
+        check(reopened.isTrueLayerOrder(), "an explicit order selection survives reopening");
+        check(JsonParser.parseString(ordered).getAsJsonObject().get("schemaVersion").getAsInt()
+                        == FaditorProject.TRUE_LAYER_ORDER_SCHEMA_VERSION,
+                "true order is protected by the v15 downgrade stamp");
+
+        project.setTrueLayerOrder(false);
+        check(legacy.equals(storage.toJson(project)), "clearing true order restores the original JSON");
+    }
+
     public static void main(String[] args) throws Exception {
         root = Files.createTempDirectory("workloss-storage").toFile();
+        trueLayerOrderRoundTrips();
 
         {
             ProjectStorage first = storage();

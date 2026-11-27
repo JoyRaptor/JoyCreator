@@ -15,6 +15,13 @@ JoyBrush has a drawing open), a temperature line every 30 seconds, BEFORE and AF
 
 ## Slice 0: the pilot reads the shared format (web, small)
 
+**Landed 11-27** (spec session; page v31). All four needs built. Proof: format 74/0; bridge 10/0 (its proof catches the
+old pair model, "not here" counted, "behind" dropped, mirrors ignored and "They meet" ignored); head turning 33/0 on the
+built-in Topps and on `odd-mesh`; scene 84/0; stages 43/0; export 29/0. `odd-mesh` Left Quarter to Upward: the same as the
+11-23 fix (21,697 changed pixels at the swap at twice size, against 21,738 on the old code). Golden file:
+[golden/topps.golden.json](golden/README.md). A new point starts "not here" in the other angles (not "behind", which would
+pull them toward a wrong spot). Not done: the owner's look; any phone.
+
 **Why first:** the phone and the pilot must write the same file before either is trusted, and the owner's landmark model
 replaces the pairs in both.
 

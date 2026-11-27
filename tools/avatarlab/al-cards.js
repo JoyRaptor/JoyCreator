@@ -302,7 +302,7 @@
       pb.appendChild(ui.lab('Its angles', 'setup fit'));
       pb.appendChild(h('div', { class: 'padrow' }, [cards.turnPad(app, { moveDots: function () { return app.moveDots; } }), side]));
       angleTools(app, pb, hd, cv);
-      pb.appendChild(ui.note('The small <b>diamonds</b> between two dots are bridges. Tap one to match those two drawings, so the head bends from one into the other instead of jumping.'));
+      pb.appendChild(ui.note('The small <b>diamonds</b> between two dots open the <b>landmarks</b>: the same numbered spots on every angle, so the head bends from one drawing into the next instead of jumping.'));
     }
     var feats = Object.keys(app.FEAT).filter(function (f) { return app.featureNodes(f).length; });
     if (feats.length) { pb.appendChild(ui.lab(isSet ? 'On this angle' : 'Face parts', 'all')); pb.appendChild(ui.row(feats.map(function (f) { return partChip(app.featureNodes(f)[0], app.FEAT[f].label, 'Open ' + app.FEAT[f].label, function () { app.select('head', f); }); }))); }
@@ -364,9 +364,12 @@
         c2 = JSON.parse(txt);
         var pv = kid.pivot || set.pivot || (function () { var b = AL.boundsOf(kid); return b ? { x: (b.x0 + b.x1) / 2, y: (b.y0 + b.y1) / 2 } : null; })();
         if (pv) { if (!kid.pivot) kid.pivot = { x: pv.x, y: pv.y }; c2.pivot = { x: pv.x, y: pv.y }; }
-        /* matched from birth: the same spots on both, for the whole head and for every piece that warps on its own */
-        var bs = set.bridges || (set.bridges = []), w = tri(kid); if (w) bs.push({ a: kid.id, b: c2.id, pts: w, meet: 0.5 });
-        for (var key in (set.warpWith || {})) if (set.warpWith[key] === 'own') { var pc = AL.find(kid, function (q) { return q !== kid && AL.bridge.key(q) === key; }), pt = pc ? tri(pc) : null; if (pt) bs.push({ a: kid.id, b: c2.id, part: key, pts: pt, meet: 0.5 }); }
+        /* matched from birth: the copy places every landmark exactly where this angle has it (the owner's model: a new angle starts
+           with the points already there, to be dragged into place). A piece with no landmarks on this angle yet gets three, on both. */
+        AL.marks.copyRows(set, kid.id, c2.id);
+        var seed = function (pk, n) { var mk = AL.marks.piece(set, pk, true); if (mk.at[kid.id]) return; var w = tri(n); if (w) w.forEach(function (q) { var pl = {}; pl[kid.id] = q.a; pl[c2.id] = q.b; AL.marks.add(mk, pl); }); };
+        seed('', kid);
+        for (var key in (set.warpWith || {})) if (set.warpWith[key] === 'own') { var pc = AL.find(kid, function (q) { return q !== kid && AL.bridge.key(q) === key; }); if (pc) seed(key, pc); }
       }
       c2.name = String(kid.name).replace(/ copy( \d+)?$/, '') + ' copy'; var nn = 2, base = c2.name; while (set.kids.some(function (k) { return k.name === c2.name; })) c2.name = base + ' ' + nn++;
       c2.at = at; delete c2.auto; set.kids.push(c2); made = c2;

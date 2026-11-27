@@ -32,7 +32,7 @@ public final class FxPreviewTier {
      * program the export compiles, so there is no subset it can fall short of.</p>
      */
     public static boolean canPreview(@NonNull FxEffectDef def) {
-        return true;
+        return canExport(def);
     }
 
     /** Whether the editor routes the decoder through the GL preview renderer. It always does. */
@@ -47,7 +47,7 @@ public final class FxPreviewTier {
      * own FBOs, so a SAMPLER card gets the finished image it needs.</p>
      */
     public static boolean canExport(@NonNull FxEffectDef def) {
-        return true;
+        return def.capability != FxEffectDef.Capability.MOTION;
     }
 
     /** What the stack is attached to. The same effect is not equally supported on both. */

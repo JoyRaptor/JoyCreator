@@ -1898,6 +1898,10 @@ public class Timeline {
         for (Clip oc : overlayClips) {
             if (oc.getLayerId() != null) liveIds.add(oc.getLayerId());
         }
+        for (AdjustmentLayer layer : adjustmentLayers) {
+            String id = layer.getLayerId();
+            liveIds.add(id.isEmpty() ? "adjustment" : id);
+        }
         List<String> dropped = new ArrayList<>();
         java.util.Iterator<String> it = trackFlags.keySet().iterator();
         while (it.hasNext()) {

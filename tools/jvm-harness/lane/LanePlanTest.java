@@ -33,6 +33,9 @@ public final class LanePlanTest {
         blendedPictureIsNotPlain();
         hiddenThingsAreSkipped();
         scopeOnlyForEffectLayers();
+        projectExportUsesProvenLegacyDomain();
+        explicitOrderUsesProjectLayout();
+        orderedPreviewRequiresOneSupportedPlan();
         System.out.println("LanePlanTest: " + assertions + " assertions");
     }
 
@@ -107,6 +110,59 @@ public final class LanePlanTest {
         boolean threw = false;
         try { p.scopeBelow(text); } catch (IllegalArgumentException e) { threw = true; }
         check(threw, "only an effect layer has a scope");
+    }
+
+    static void projectExportUsesProvenLegacyDomain() {
+        Timeline mixed = base();
+        check(plan(mixed).legacyLooksTheSame(), "mixed case has compatible lane order");
+        String pixelFallback = mutant.equals("--assume-legacy-pixels") ? null
+                : plan(mixed).projectExportFallback(false);
+        check(pixelFallback != null && pixelFallback.startsWith("legacy pixel equivalence unverified"),
+                "matching lane order cannot certify legacy pixels");
+        Timeline pictures = new Timeline();
+        var picture = TextOverlayItem.createImage("content://test/picture.png", 0.5f, 0.5f, 0.5f);
+        picture.setLayerId("text");
+        pictures.addTextOverlay(picture);
+        check(plan(pictures).projectExportFallback(false) == null, "ordinary picture is eligible for legacy migration");
+        check(plan(new Timeline()).projectExportFallback(false) != null, "empty plans keep the existing route");
+    }
+
+    static void explicitOrderUsesProjectLayout() {
+        Timeline t = base();
+        t.getOrCreateTrackFlags("adjustment").zIndex = 9;
+        var changesLook = plan(t);
+        check("legacy lane order differs".equals(changesLook.projectExportFallback(false)),
+                "legacy keeps the existing layout if effect order differs");
+        check(changesLook.projectExportFallback(true) == null,
+                "explicit true order overrides the legacy equivalence requirement");
+    }
+
+    static void orderedPreviewRequiresOneSupportedPlan() {
+        Timeline t = new Timeline();
+        var picture = TextOverlayItem.createImage("content://test/picture.png", 0.5f, 0.5f, 0.5f);
+        picture.setLayerId("text");
+        t.addTextOverlay(picture);
+        var adjustment = new AdjustmentLayer();
+        adjustment.setLayerId("adjustment");
+        t.addAdjustmentLayer(adjustment);
+        t.getOrCreateTrackFlags("adjustment").zIndex = 9;
+        check(!plan(t).supportsOrderedPreview(false), "legacy preview keeps incompatible adjustment order");
+        check(plan(t).supportsOrderedPreview(true), "ordered preview accepts one picture and adjustment plan");
+        var firstPip = new Clip(null, 5000);
+        firstPip.setLayerId("video");
+        t.addOverlayClip(firstPip);
+        check(kinds(plan(t)).contains("PIP") && plan(t).supportsOrderedPreview(true),
+                "ordinary single PiP fits the ordered decoder domain");
+        var secondPip = new Clip(null, 5000);
+        secondPip.setLayerId("video-upper");
+        t.addOverlayClip(secondPip);
+        check(!plan(t).supportsOrderedPreview(true), "stacked PiP keeps the original decoder fallback");
+
+        Timeline rigid = base();
+        check(plan(rigid).supportsOrderedPreview(true), "plain title and rigid sprite can share the ordered plan");
+        rigid.getOverlayClips().get(0).setOverlayBlendMode("SCREEN");
+        boolean supported = mutant.equals("--ignore-preview-domain") || plan(rigid).supportsOrderedPreview(true);
+        check(!supported, "unsupported producer forces whole-frame preview fallback");
     }
 
     // ---- helpers --------------------------------------------------------------------------

@@ -6,6 +6,7 @@ import com.fadcam.ui.faditor.ai.AIToolExecutor;
 import com.fadcam.ui.faditor.ai.actions.ActionSpec.Effect;
 import com.fadcam.ui.faditor.ai.joybot.Shape;
 import com.fadcam.ui.faditor.model.FaditorProject;
+import com.fadcam.ui.faditor.compositor.lane.StudioLayerOrder;
 import com.fadcam.ui.faditor.project.ProjectStorage;
 
 import org.json.JSONObject;
@@ -55,7 +56,7 @@ final class CreateActions {
         ProjectStorage storage = new ProjectStorage(ctx.app);
         String name = a.str("name");
         if (name == null || name.trim().isEmpty()) name = "Untitled " + shape.ratio();
-        FaditorProject p = new FaditorProject(storage.uniqueName(name.trim()));
+        FaditorProject p = StudioLayerOrder.newProject(ctx.app, storage.uniqueName(name.trim()));
         p.setCanvasPreset(shape.studioCanvas());
         if (!storage.save(p)) throw new ActionError("the new project couldn't be saved (is the phone full?), so nothing was made.");
         // A project with nothing in it can't be reopened (the editor wants a clip), so it starts with

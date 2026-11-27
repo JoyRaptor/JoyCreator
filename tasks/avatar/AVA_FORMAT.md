@@ -96,10 +96,10 @@ The pilot's `set.bridges = [{ a, b, part, pts: [{ a: [x, y], b: [x, y] }], meet 
 6. `meet` values other than 0.5 go into that piece's `meets`.
 7. `bridges` is removed; `format` becomes `/2`; every other field is copied unchanged.
 
-**The way back** (`AL.format.downgrade`, for the pilot as it is today): every two angles that both place a point (neither
+**The way back** (`AL.format.downgrade`, for a copy of the pilot older than step 0): every two angles that both place a point (neither
 `off`) become a pair, with their `meet`. Every original pair comes back within 4 px (tested). It also yields pairs the
-user never marked (an Upward-Frontal chin derived through Left Quarter): those are the point of the new model, so **the
-pilot should read `marks` in its solver rather than live on the downgrade** (slice 0 in part E).
+user never marked (an Upward-Frontal chin derived through Left Quarter): those are the point of the new model. **Since step 0 (11-27) the pilot reads and writes
+`marks` itself**; the downgrade is only for an older copy of the pilot.
 
 **Worked example** (`format-tests/v1-three-angles.character.json`): 7 pairs of the whole head over Left Quarter, Frontal
 and Upward become 4 landmarks: the nose (matched from Left Quarter to both neighbours, dots 1.4 px apart: one landmark), the

@@ -2622,12 +2622,16 @@ public class ProjectStorage {
                 stampedVersion = Math.max(stampedVersion,
                         com.fadcam.ui.faditor.transcript.TranscriptPoolCodec.MIN_SCHEMA_VERSION);
             }
+            if (src.isTrueLayerOrder()) {
+                stampedVersion = Math.max(stampedVersion, FaditorProject.TRUE_LAYER_ORDER_SCHEMA_VERSION);
+            }
             json.addProperty("schemaVersion", stampedVersion);
             json.addProperty("id", src.getId());
             json.addProperty("name", src.getName());
             json.addProperty("createdAt", src.getCreatedAt());
             json.addProperty("lastModified", src.getLastModified());
             if (src.isMotionBlurEnabled()) json.addProperty("motionBlurEnabled", true);
+            if (src.isTrueLayerOrder()) json.addProperty("layerOrder", "true");
 
             // Serialize timeline with clips
             JsonObject timelineJson = new JsonObject();
@@ -3507,6 +3511,11 @@ public class ProjectStorage {
             if (motionBlurEnabled != null && motionBlurEnabled.isJsonPrimitive()
                     && motionBlurEnabled.getAsJsonPrimitive().isBoolean()) {
                 project.setMotionBlurEnabled(motionBlurEnabled.getAsBoolean());
+            }
+            JsonElement layerOrder = obj.get("layerOrder");
+            if (layerOrder != null && layerOrder.isJsonPrimitive()
+                    && layerOrder.getAsJsonPrimitive().isString()) {
+                project.setTrueLayerOrder("true".equals(layerOrder.getAsString()));
             }
             int runningVersion = com.fadcam.ui.faditor.model.FaditorProject.SCHEMA_VERSION;
             if (schemaVersion > runningVersion) {

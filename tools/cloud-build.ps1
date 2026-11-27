@@ -13,6 +13,12 @@
 #                                                   builds the debug APK, boots cloud Android emulators (.github/workflows/emulator.yml),
 #                                                   runs tools/cloud/emulator/scripts/<script>.sh on them, waits (run it in the background)
 #                                                   and downloads screenshots and logs to build\cloud\emulator-<run>\<name>\
+#   .\tools\cloud-build.ps1 avatar-emu <ref> [tests] [fault] [device] [gpu] [msaa]
+#                                                   builds <ref> and its androidTest, boots an Android emulator on GitHub and runs the Avatar Studio
+#                                                   instrumented tests (.github/workflows/avatar-emulator.yml); waits, then fetches
+#                                                   the pictures and logs into build\cloud\avatar-emulator-*\ (run it in the background).
+#                                                   tests: all (default), draw or room; fault: none (default) or shift; device: pixel_4
+#                                                   (default) or pixel_tablet. Exit code 0 = the tests passed.
 # runId defaults to the last run started from this worktree (build\cloud\last-run.json); "latest" = the newest run anyone started.
 #
 # Then:  .\tools\phone.ps1 install build\cloud\<artifact>\app-default-arm64-v8a-debug.apk   (under the phone lock)
@@ -122,7 +128,7 @@ function Get-RunId {
     throw "no run id given and no build\cloud\last-run.json here: start one first"
 }
 
-function Start-Build([string] $ref, [string] $variant, [string] $suites = "") {
+function Start-Build([string] $ref, [string] $variant, [string] $suites = "", [hashtable] $extra = $null) {
     if (-not $ref) { throw "usage: start <ref> [variant]" }
     if (-not $variant) { $variant = "defaultDebug" }
     # A commit: the runner's checkout can only fetch a FULL 40-character commit id, and only one that is on GitHub.
@@ -144,6 +150,7 @@ function Start-Build([string] $ref, [string] $variant, [string] $suites = "") {
     $rid = "cb-" + [Guid]::NewGuid().ToString("N").Substring(0, 8)
     $inputs = @{ ref = $ref; variant = $variant; request_id = $rid }
     if ($variant -eq "tests") { $inputs.suites = $(if ($suites) { $suites } else { "all" }) }
+    if ($null -ne $extra) { $inputs = @{ ref = $ref; request_id = $rid }; foreach ($k in $extra.Keys) { $inputs[$k] = $extra[$k] } }
     Api POST "/actions/workflows/$Workflow/dispatches" @{ ref = $WorkflowRef; inputs = $inputs } | Out-Null
     # Find our run by the tag in its name (it takes a few seconds to appear).
     for ($i = 0; $i -lt 24; $i++) {
@@ -152,7 +159,7 @@ function Start-Build([string] $ref, [string] $variant, [string] $suites = "") {
         $run = $runs.workflow_runs | Where-Object { "$($_.display_title)".Contains("[$rid]") } | Select-Object -First 1
         if ($run) {
             Save-State ([ordered]@{ run_id = $run.id; ref = $ref; variant = $variant; request_id = $rid; url = $run.html_url; started = (Get-Date).ToString("s") })
-            Write-Host "started run $($run.id): $variant @ $ref"
+            Write-Host "started run $($run.id): $(if ($null -ne $extra) { "$Workflow $(($extra.GetEnumerator() | Sort-Object Name | ForEach-Object { "$($_.Name)=$($_.Value)" }) -join ' ')" } else { $variant }) @ $ref"
             Write-Host "  $($run.html_url)"
             return $run.id
         }
@@ -247,6 +254,15 @@ function Get-Build([string] $id, $art = $null, [string] $root = "") {
     if ($apk) { Write-Host "install: .\tools\phone.ps1 install build\cloud\$($a.name)\$($apk.Name)" }
     $aab = Get-ChildItem $dest -Filter *.aab | Select-Object -First 1
     if ($aab) { Write-Host "unsigned bundle; sign it here: .\tools\cloud-build.ps1 sign build\cloud\$($a.name)\$($aab.Name)" }
+    $res = Join-Path $dest "RESULT.txt"
+    if (Test-Path $res) {   # an emulator run: its verdict, the drawing table, where the pictures are
+        Write-Host ""
+        Get-Content $res | ForEach-Object { Write-Host "  $_" }
+        $par = Join-Path $dest "pictures\draw\parity.txt"
+        if (Test-Path $par) { Get-Content $par | ForEach-Object { Write-Host "  $_" } }
+        Get-Content (Join-Path $dest "instrument.txt") -ErrorAction SilentlyContinue | Where-Object { $_ -match '^(OK|FAILURES|Tests run)' } | ForEach-Object { Write-Host "  $_" }
+        Write-Host "  pictures: build\cloud\$($a.name)\pictures\ ; logs: instrument.txt, avatar-log.txt, logcat.txt"
+    }
     $sum = Join-Path $dest "tests-summary.md"
     if (Test-Path $sum) {
         $lines = @(Get-Content $sum -Encoding UTF8)
@@ -389,6 +405,17 @@ switch ($Cmd) {
         $id = Start-Emulator $Rest[0] $Rest[1] $(if ($Rest.Count -ge 3) { $Rest[2] } else { "" }) $(if ($Rest.Count -ge 4) { $Rest[3] } else { "" })
         $ok = Wait-Build $id
         try { Get-EmulatorResults $id } catch { Write-Host "no results to fetch: $($_.Exception.Message)" }
+        if (-not $ok) { exit 1 }
+    }
+    "avatar-emu" {
+        $script:Workflow = "avatar-emulator.yml"
+        $x = @{ tests = $(if ($Rest.Count -ge 2) { $Rest[1] } else { "all" }); fault = $(if ($Rest.Count -ge 3) { $Rest[2] } else { "none" }) }
+        if ($Rest.Count -ge 4) { $x.device = $Rest[3] }
+        if ($Rest.Count -ge 5) { $x.gpu = $Rest[4] }
+        if ($Rest.Count -ge 6) { $x.msaa = $Rest[5] }
+        $id = Start-Build $Rest[0] "" "" $x
+        $ok = Wait-Build $id
+        try { Get-Build $id } catch { Write-Host "no pictures to fetch: $($_.Exception.Message)" }
         if (-not $ok) { exit 1 }
     }
     default { Get-Content $PSCommandPath -TotalCount 22 | ForEach-Object { $_ -replace '^# ?', '' } }

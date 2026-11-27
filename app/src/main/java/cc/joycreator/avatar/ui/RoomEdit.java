@@ -108,14 +108,26 @@ public final class RoomEdit {
         return true;
     }
 
+    /** What a step keeps: the tree and the take (the pictures never change in a step, so they are not copied). */
     private String tree() {
-        JSONObject r = doc.json.optJSONObject("root");
-        return r == null ? "{}" : r.toString();
+        try {
+            JSONObject o = new JSONObject();
+            JSONObject r = doc.json.optJSONObject("root");
+            o.put("root", r == null ? new JSONObject() : r);
+            Object take = doc.json.opt("take");
+            if (take != null) o.put("take", take);
+            return o.toString();
+        } catch (JSONException e) {
+            return "{}";
+        }
     }
 
     private void restore(String text) {
         try {
-            doc.json.put("root", new JSONObject(text));
+            JSONObject o = new JSONObject(text);
+            doc.json.put("root", o.getJSONObject("root"));
+            if (o.has("take")) doc.json.put("take", o.get("take"));
+            else doc.json.remove("take");
             doc = doc.reread();
         } catch (JSONException e) {
             Log.w(TAG, "undo could not restore", e);

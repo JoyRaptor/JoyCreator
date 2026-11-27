@@ -47,6 +47,12 @@ public final class StageView extends View {
         invalidate();
     }
 
+    /** The live signals for this frame (the take's lane names); the stage draws them as far as its drawing can. */
+    public void setSignals(java.util.Map<String, Object> signals) {
+        if (pose != null) pose.setSignals(signals);
+        invalidate();
+    }
+
     /** The part in hand: a cyan hairline round where it is on the picture (the Spotlight look comes with the stage buttons). */
     public void setSelected(String id) {
         selected = id;

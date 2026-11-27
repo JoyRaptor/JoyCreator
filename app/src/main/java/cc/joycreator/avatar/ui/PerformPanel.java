@@ -1,0 +1,445 @@
+package cc.joycreator.avatar.ui;
+
+import android.content.Context;
+import android.graphics.Canvas;
+import android.graphics.Paint;
+import android.graphics.RectF;
+import android.graphics.drawable.GradientDrawable;
+import android.view.Gravity;
+import android.view.MotionEvent;
+import android.view.View;
+import android.view.ViewGroup;
+import android.widget.HorizontalScrollView;
+import android.widget.LinearLayout;
+import android.widget.ScrollView;
+import android.widget.SeekBar;
+import android.widget.TextView;
+
+import androidx.appcompat.widget.TooltipCompat;
+
+import cc.joycreator.avatar.file.CharacterDoc;
+import cc.joycreator.avatar.perform.Inputs;
+
+import com.fadcam.R;
+import com.fadcam.ui.faditor.Studio;
+
+import org.json.JSONArray;
+import org.json.JSONObject;
+
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Locale;
+
+/**
+ * The performer's panel (spec A7): the take bar (Perform only), the head pad, Hold to talk, Blink, moods, the
+ * character's buttons and the Breeze. Motion shows the same hands without the take bar: the character alive with
+ * nothing recorded. Everything writes into {@link Inputs}; the picture follows through the solver when it lands.
+ */
+public final class PerformPanel extends ScrollView {
+
+    public interface Host {
+        Inputs inputs();
+
+        /** Red dot: starts a pass, or ends it (the room keeps the take as one undo step). */
+        void toggleRecord();
+
+        void togglePlay();
+
+        void takeBack();
+
+        void clearTake();
+    }
+
+    private final Host host;
+    private final float dp;
+    private final LinearLayout column;
+    private HeadPad pad;
+    private TextView rec, play, back, clear;
+    private TakeStrip strip;
+    private final List<TextView> buttonChips = new ArrayList<>();
+    private final List<String> buttonIds = new ArrayList<>();
+    private final List<TextView> moodChips = new ArrayList<>();
+    private final List<String> moodNames = new ArrayList<>();
+
+    public PerformPanel(Context c, Host host) {
+        super(c);
+        this.host = host;
+        dp = c.getResources().getDisplayMetrics().density;
+        column = new LinearLayout(c);
+        column.setOrientation(LinearLayout.VERTICAL);
+        column.setPadding(px(12), px(6), px(12), px(16));
+        addView(column, new LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+    }
+
+    private int px(float v) {
+        return Math.round(v * dp);
+    }
+
+    /** Builds the controls this character has. {@code takeBar}: Perform shows it, Motion does not. */
+    public void bind(CharacterDoc doc, boolean takeBar) {
+        column.removeAllViews();
+        buttonChips.clear();
+        buttonIds.clear();
+        moodChips.clear();
+        moodNames.clear();
+        Inputs in = host.inputs();
+        Context c = getContext();
+
+        if (takeBar) column.addView(takeBar(c));
+
+        // the head pad, and Hold to talk and Blink beside it
+        LinearLayout row = new LinearLayout(c);
+        row.setPadding(0, px(8), 0, px(8));
+        pad = new HeadPad(c);
+        pad.setAngles(headAngles(doc));
+        pad.setListener(new HeadPad.Listener() {
+            @Override
+            public void head(double x, double y) {
+                in.head(x, y);
+            }
+
+            @Override
+            public void released() {
+                in.releaseHead();
+            }
+        });
+        TooltipCompat.setTooltipText(pad, c.getString(R.string.avatar_hover_head_pad));
+        pad.setContentDescription(c.getString(R.string.avatar_hover_head_pad));
+        row.addView(pad);
+        LinearLayout side = new LinearLayout(c);
+        side.setOrientation(LinearLayout.VERTICAL);
+        side.setPadding(px(12), 0, 0, 0);
+        side.addView(holdButton(c, c.getString(R.string.avatar_hold_to_talk), c.getString(R.string.avatar_hover_hold_to_talk), new Hold() {
+            @Override
+            public void down() {
+                in.talk(true);
+            }
+
+            @Override
+            public void up() {
+                in.talk(false);
+            }
+        }), new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, px(44)));
+        LinearLayout.LayoutParams bl = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, px(40));
+        bl.topMargin = px(8);
+        side.addView(holdButton(c, c.getString(R.string.avatar_blink), c.getString(R.string.avatar_hover_blink), new Hold() {
+            @Override
+            public void down() {
+                in.blinkNow(System.currentTimeMillis());
+                in.blinkHold(true);
+            }
+
+            @Override
+            public void up() {
+                in.blinkHold(false);
+            }
+        }), bl);
+        row.addView(side, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
+        column.addView(row);
+
+        // moods: only for a character that has eyelids
+        if (hasRole(doc, "lidU") || hasRole(doc, "lidL")) {
+            column.addView(label(c.getString(R.string.avatar_moods)));
+            HorizontalScrollView hs = new HorizontalScrollView(c);
+            hs.setHorizontalScrollBarEnabled(false);
+            LinearLayout chips = new LinearLayout(c);
+            for (String m : Inputs.MOODS.keySet()) {
+                TextView t = chip(c, m, c.getString(R.string.avatar_hover_mood, m.toLowerCase(Locale.ROOT)), v -> {
+                    in.mood(m, System.currentTimeMillis());
+                    paintChips();
+                });
+                moodChips.add(t);
+                moodNames.add(m);
+                chips.addView(t);
+            }
+            hs.addView(chips);
+            column.addView(hs);
+        }
+
+        // the character's buttons
+        JSONArray triggers = doc.json.optJSONArray("triggers");
+        if (triggers != null && triggers.length() > 0) {
+            column.addView(label(c.getString(R.string.avatar_buttons)));
+            HorizontalScrollView hs = new HorizontalScrollView(c);
+            hs.setHorizontalScrollBarEnabled(false);
+            LinearLayout chips = new LinearLayout(c);
+            for (int i = 0; i < triggers.length(); i++) {
+                JSONObject t = triggers.optJSONObject(i);
+                if (t == null) continue;
+                final String id = t.optString("id"), name = t.optString("name", id);
+                TextView chip = chip(c, name, c.getString(R.string.avatar_hover_button, name), v -> {
+                    in.toggleButton(id);
+                    paintChips();
+                });
+                buttonChips.add(chip);
+                buttonIds.add(id);
+                chips.addView(chip);
+            }
+            hs.addView(chips);
+            column.addView(hs);
+        }
+
+        // the Breeze: for anything that swings
+        if (hasKey(doc, "swing")) {
+            column.addView(label(c.getString(R.string.avatar_breeze)));
+            SeekBar sb = new SeekBar(c);
+            sb.setMax(200);
+            sb.setProgress(100);
+            sb.getProgressDrawable().setTint(Studio.ARMED);
+            sb.getThumb().setTint(Studio.ARMED);
+            sb.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
+                @Override
+                public void onProgressChanged(SeekBar s, int p, boolean user) {
+                    if (user) in.breeze((p - 100) / 100.0, System.currentTimeMillis());
+                }
+
+                @Override
+                public void onStartTrackingTouch(SeekBar s) {
+                }
+
+                @Override
+                public void onStopTrackingTouch(SeekBar s) {
+                }
+            });
+            TooltipCompat.setTooltipText(sb, c.getString(R.string.avatar_hover_breeze));
+            sb.setContentDescription(c.getString(R.string.avatar_hover_breeze));
+            column.addView(sb);
+        }
+        paintChips();
+    }
+
+    // ── per frame ─────────────────────────────────────────────────────────────────────────────────
+
+    /** Called each frame: the strip, the pad's knob following a take, the buttons as they now are. */
+    public void tick() {
+        Inputs in = host.inputs();
+        if (strip != null) strip.invalidate();
+        if (rec != null) paintTakeBar();
+        paintChips();
+    }
+
+    /** Where the head is now (from the signals), so the pad's knob follows a take that is playing. */
+    public void showHead(double x, double y) {
+        if (pad != null) pad.setHead(x, y);
+    }
+
+    private void paintChips() {
+        Inputs in = host.inputs();
+        for (int i = 0; i < buttonChips.size(); i++) paintChip(buttonChips.get(i), in.isOn(buttonIds.get(i)));
+        for (int i = 0; i < moodChips.size(); i++) paintChip(moodChips.get(i), moodNames.get(i).equals(in.moodName()));
+    }
+
+    // ── the take bar ──────────────────────────────────────────────────────────────────────────────
+
+    private View takeBar(Context c) {
+        LinearLayout bar = new LinearLayout(c);
+        bar.setGravity(Gravity.CENTER_VERTICAL);
+        rec = round(c, "●", c.getString(R.string.avatar_hover_record));
+        rec.setOnClickListener(v -> host.toggleRecord());
+        bar.addView(rec, new LinearLayout.LayoutParams(px(40), px(40)));
+        strip = new TakeStrip(c);
+        LinearLayout.LayoutParams sl = new LinearLayout.LayoutParams(0, px(40), 1f);
+        sl.leftMargin = px(8);
+        sl.rightMargin = px(8);
+        bar.addView(strip, sl);
+        play = round(c, "▶", c.getString(R.string.avatar_hover_play));
+        play.setOnClickListener(v -> host.togglePlay());
+        bar.addView(play, new LinearLayout.LayoutParams(px(40), px(40)));
+        back = round(c, "↺", c.getString(R.string.avatar_hover_take_back));
+        back.setOnClickListener(v -> host.takeBack());
+        LinearLayout.LayoutParams gap = new LinearLayout.LayoutParams(px(40), px(40));
+        gap.leftMargin = px(6);
+        bar.addView(back, gap);
+        clear = round(c, "✕", c.getString(R.string.avatar_hover_clear_take));
+        clear.setOnClickListener(v -> host.clearTake());
+        bar.addView(clear, gap);
+        paintTakeBar();
+        return bar;
+    }
+
+    private void paintTakeBar() {
+        Inputs in = host.inputs();
+        boolean recording = in.recorder.recording(), playing = in.recorder.playing() && !recording;
+        boolean hasTake = in.recorder.take() != null && in.recorder.take().n > 0;
+        GradientDrawable g = new GradientDrawable();
+        g.setShape(GradientDrawable.OVAL);
+        g.setColor(recording ? Studio.LIVE : 0xFF27272A);
+        rec.setBackground(g);
+        rec.setTextColor(recording ? Studio.GROUND : Studio.LIVE);
+        paintRound(play, playing);
+        play.setText(playing ? "■" : "▶");
+        play.setAlpha(hasTake || playing ? 1f : 0.35f);
+        back.setAlpha(!recording && in.recorder.hasPassToTakeBack() ? 1f : 0.35f);
+        clear.setAlpha(hasTake ? 1f : 0.35f);
+    }
+
+    private void paintRound(TextView t, boolean on) {
+        GradientDrawable g = new GradientDrawable();
+        g.setShape(GradientDrawable.OVAL);
+        g.setColor(on ? Studio.ARMED : 0xFF27272A);
+        t.setBackground(g);
+        t.setTextColor(on ? Studio.GROUND : 0xFFE4E4E7);
+    }
+
+    /** The take strip: drag to move through the take (silent), the time and length written on it. */
+    private final class TakeStrip extends View {
+        private final Paint p = new Paint(Paint.ANTI_ALIAS_FLAG);
+
+        TakeStrip(Context c) {
+            super(c);
+            setContentDescription(c.getString(R.string.avatar_hover_strip));
+            TooltipCompat.setTooltipText(this, c.getString(R.string.avatar_hover_strip));
+        }
+
+        @Override
+        protected void onDraw(Canvas c) {
+            Inputs in = host.inputs();
+            float w = getWidth(), h = getHeight(), r = 10 * dp;
+            p.setColor(0xFF18181B);
+            c.drawRoundRect(new RectF(0, 0, w, h), r, r, p);
+            double dur = in.recorder.duration(), now = in.recorder.clock();
+            double total = Math.max(dur, in.recorder.recording() ? now : 0);
+            if (total > 0) {
+                p.setColor(in.recorder.recording() ? Studio.LIVE : Studio.ARMED);
+                float x = (float) (6 * dp + (w - 12 * dp) * Math.min(1, now / total));
+                c.drawRect(x - dp, 4 * dp, x + dp, h - 4 * dp, p);
+            }
+            p.setColor(0xFFA1A1AA);
+            p.setTextSize(11 * dp);
+            String t = total <= 0 ? getContext().getString(R.string.avatar_no_take) : String.format(Locale.US, "%.1f / %.1f s", now, total);
+            c.drawText(t, 10 * dp, h / 2 + 4 * dp, p);
+        }
+
+        @Override
+        public boolean onTouchEvent(MotionEvent e) {
+            Inputs in = host.inputs();
+            double dur = in.recorder.duration();
+            if (dur <= 0 || in.recorder.recording()) return true;
+            getParent().requestDisallowInterceptTouchEvent(true);
+            if (e.getActionMasked() == MotionEvent.ACTION_DOWN || e.getActionMasked() == MotionEvent.ACTION_MOVE) {
+                double f = Math.max(0, Math.min(0.999, (e.getX() - 6 * dp) / (getWidth() - 12 * dp)));
+                in.recorder.stop();
+                in.recorder.scrubTo(f * dur);
+                invalidate();
+            }
+            return true;
+        }
+    }
+
+    // ── small pieces ──────────────────────────────────────────────────────────────────────────────
+
+    private interface Hold {
+        void down();
+
+        void up();
+    }
+
+    private TextView holdButton(Context c, String text, String hover, Hold h) {
+        TextView t = new TextView(c);
+        t.setText(text);
+        t.setGravity(Gravity.CENTER);
+        t.setTextSize(14);
+        paintHold(t, false);
+        t.setOnTouchListener((v, e) -> {
+            switch (e.getActionMasked()) {
+                case MotionEvent.ACTION_DOWN:
+                    v.getParent().requestDisallowInterceptTouchEvent(true);
+                    paintHold(t, true);
+                    h.down();
+                    return true;
+                case MotionEvent.ACTION_UP:
+                case MotionEvent.ACTION_CANCEL:
+                    paintHold(t, false);
+                    h.up();
+                    return true;
+                default:
+                    return true;
+            }
+        });
+        TooltipCompat.setTooltipText(t, hover);
+        t.setContentDescription(hover);
+        return t;
+    }
+
+    private void paintHold(TextView t, boolean on) {
+        GradientDrawable g = new GradientDrawable();
+        g.setCornerRadius(px(14));
+        g.setColor(on ? Studio.ARMED : 0xFF27272A);
+        t.setBackground(g);
+        t.setTextColor(on ? Studio.GROUND : 0xFFE4E4E7);
+    }
+
+    private TextView round(Context c, String glyph, String hover) {
+        TextView t = new TextView(c);
+        t.setText(glyph);
+        t.setGravity(Gravity.CENTER);
+        t.setTextSize(16);
+        paintRound(t, false);
+        TooltipCompat.setTooltipText(t, hover);
+        t.setContentDescription(hover);
+        return t;
+    }
+
+    private TextView chip(Context c, String text, String hover, View.OnClickListener tap) {
+        TextView t = new TextView(c);
+        t.setText(text);
+        t.setTextSize(12);
+        t.setGravity(Gravity.CENTER);
+        t.setPadding(px(12), 0, px(12), 0);
+        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, px(32));
+        lp.rightMargin = px(6);
+        t.setLayoutParams(lp);
+        t.setOnClickListener(tap);
+        TooltipCompat.setTooltipText(t, hover);
+        t.setContentDescription(hover);
+        paintChip(t, false);
+        return t;
+    }
+
+    /** ON = solid cyan with the label punched out to the ground colour. */
+    private void paintChip(TextView t, boolean on) {
+        GradientDrawable g = new GradientDrawable();
+        g.setCornerRadius(px(16));
+        g.setColor(on ? Studio.ARMED : 0xFF27272A);
+        t.setBackground(g);
+        t.setTextColor(on ? Studio.GROUND : 0xFFD4D4D8);
+    }
+
+    private TextView label(String s) {
+        TextView t = new TextView(getContext());
+        t.setText(s);
+        t.setTextSize(12);
+        t.setTextColor(0xFF71717A);
+        t.setPadding(0, px(8), 0, px(6));
+        return t;
+    }
+
+    private static boolean hasRole(CharacterDoc d, String role) {
+        final boolean[] has = {false};
+        d.walk((n, depth, p) -> {
+            if (role.equals(n.role)) has[0] = true;
+        });
+        return has[0];
+    }
+
+    private static boolean hasKey(CharacterDoc d, String key) {
+        final boolean[] has = {false};
+        d.walk((n, depth, p) -> {
+            if (n.json.has(key)) has[0] = true;
+        });
+        return has[0];
+    }
+
+    /** The turn positions of the head's drawings: each angle's {@code at} (the first set that turns). */
+    private static List<float[]> headAngles(CharacterDoc d) {
+        final List<float[]> out = new ArrayList<>();
+        d.walk((n, depth, p) -> {
+            if (!out.isEmpty() || !"set".equals(n.type) || !"turn".equals(n.pickBy)) return;
+            for (CharacterDoc.Node k : n.kids) {
+                JSONArray at = k.json.optJSONArray("at");
+                if (at != null && at.length() >= 2) out.add(new float[]{(float) at.optDouble(0), (float) at.optDouble(1)});
+            }
+        });
+        return out;
+    }
+}

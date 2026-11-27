@@ -47,6 +47,7 @@ final class RestPose {
         if (n.hidden) return;
         switch (n.type) {
             case "art": {
+                if (blinkHides(n)) break;
                 Bitmap b = bitmap(n.img);
                 if (b != null) c.drawBitmap(b, n.x, n.y, paint);
                 break;
@@ -71,10 +72,51 @@ final class RestPose {
         else tried.put(setId, kidId);
     }
 
-    /** The drawing a set shows when nothing drives it. */
+    /** What the live hands and the take say now (the take's own lane names); empty until Perform or Motion drives it. */
+    private Map<String, Object> sig = new HashMap<>();
+
+    void setSignals(Map<String, Object> s) {
+        sig = s == null ? new HashMap<>() : s;
+    }
+
+    private double num(String k) {
+        Object v = sig.get(k);
+        return v instanceof Number ? ((Number) v).doubleValue() : 0;
+    }
+
+    /**
+     * The drawing a set shows. A crude stand-in for the solver until X2 lands: a turning head shows the angle nearest to
+     * where the pad is (a hard swap, no bending), a mouth of shapes shows the shape, a set with buttons shows the one a
+     * button switched on, otherwise the resting drawing.
+     */
     private CharacterDoc.Node pick(CharacterDoc.Node set) {
         String t = tried.get(set.id);
         if (t != null) for (CharacterDoc.Node k : set.kids) if (k.id.equals(t) && !k.hidden) return k;
+        if ("turn".equals(set.pickBy)) {
+            CharacterDoc.Node best = null;
+            double bd = 1e9;
+            for (CharacterDoc.Node k : set.kids) {
+                if (k.hidden || "mirror".equals(k.type)) continue;
+                org.json.JSONArray at = k.json.optJSONArray("at");
+                if (at == null || at.length() < 2) continue;
+                double dx = at.optDouble(0) - num("turnX"), dy = at.optDouble(1) - num("turnY"), d = dx * dx + dy * dy;
+                if (d < bd) {
+                    bd = d;
+                    best = k;
+                }
+            }
+            if (best != null) return best;
+        } else if ("viseme".equals(set.pickBy)) {
+            Object v = sig.get("vis");
+            for (CharacterDoc.Node k : set.kids) if (!k.hidden && v != null && v.equals(k.json.optString("shape", null))) return k;
+        } else {
+            for (CharacterDoc.Node k : set.kids) {
+                String trig = k.json.optString("trig", "");
+                if (!k.hidden && !trig.isEmpty() && num("g:" + trig) > 0.5) return k;
+            }
+            String rest = set.json.optJSONObject("pick") == null ? "" : set.json.optJSONObject("pick").optString("rest", "");
+            if (!rest.isEmpty()) for (CharacterDoc.Node k : set.kids) if (k.id.equals(rest)) return k;
+        }
         CharacterDoc.Node first = null;
         for (CharacterDoc.Node k : set.kids) {
             if (k.hidden) continue;
@@ -82,6 +124,14 @@ final class RestPose {
             if ("turn".equals(set.pickBy) && k.name.toLowerCase(Locale.ROOT).contains("front")) return k;
         }
         return first;
+    }
+
+    /** An eye drawn closed shows only while the eyes are shut, and the open ones hide then. */
+    private boolean blinkHides(CharacterDoc.Node n) {
+        String b = n.json.optString("blink", "");
+        if (b.isEmpty()) return false;
+        boolean shut = num("blinkL") > 0.5 || num("blinkR") > 0.5;
+        return "closed".equals(b) ? !shut : shut;
     }
 
     private Bitmap bitmap(String img) {

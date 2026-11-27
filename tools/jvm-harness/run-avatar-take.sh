@@ -11,5 +11,8 @@ javac -nowarn -encoding UTF-8 -d "$OUT" \
   $(find tools/jvm-harness/joybot-bench/shim/org/json -name '*.java') \
   app/src/main/java/cc/joycreator/avatar/perform/Take.java \
   app/src/main/java/cc/joycreator/avatar/perform/TakeRecorder.java \
-  tools/jvm-harness/TakeRecorderTest.java || exit 1
-java -cp "$OUT" TakeRecorderTest
+  app/src/main/java/cc/joycreator/avatar/perform/Inputs.java \
+  tools/jvm-harness/TakeRecorderTest.java \
+  tools/jvm-harness/InputsTest.java || exit 1
+java -cp "$OUT" TakeRecorderTest || exit 1
+java -cp "$OUT" InputsTest

@@ -1409,6 +1409,12 @@ was away) as "decided: …" so it can be overturned later.
 - C4: joy-creator advanced to 3c0179278c97ba05767f98e40167154b068377a6. The source tree is byte-identical to 5798b6c0c tested by Android, Studio, Joybot and the 12-case Wi-Fi Snapdragon check. The [report](C4_SNAPDRAGON_ACCEPTANCE_REPORT.md) carries the raw comparison and paused PiP receipts. No launch release flag was enabled.
 - Next: Use the 4edd80435 diagnostic to compare the preview and export decoder's actual output format, SurfaceTexture arguments, and matched avatar pixels on the pinned Wi-Fi Snapdragon.
 
-### 2026-11-26 Codex → STU-7 sessions: Remaining candidate rebased on landed C4
+### 2026-11-26 Codex → STU-7 sessions: Remaining candidate synchronized with landed C4
 - Source: codex/stu7-finish-20261125 merged the landed C4 baseline and now matches remote 4c4240cdfe6236141de0baa89ee90da410d6b97b. Its source bytes match 2b9cef94c, which passed [Studio and Joybot](https://github.com/JoyRaptor/JoyCreator/actions/runs/45881709187). Only coordinator documentation changed in the merge.
 - Next: Read the exact preview and export decoder format and pixels from the ongoing 4edd80435 Wi-Fi Snapdragon run before deciding the next stage correction.
+
+### 2026-11-26 Codex → STU-7 sessions: Qualcomm decoder geometry matches; surface routing is the next probe
+- C5: Wi-Fi Snapdragon 4edd80435 recorded the same AVC decoder, 1024-pixel stride, 544-row allocation, 960×540 visible crop, and BT.709 limited range in both render paths. Preview still delivered the padded transform and export delivered a full flip. Leaving scaling to the decoder did not change pixels. The three matching RGBA pairs again peaked at 14, 24 and 25/255. The verifier exited after export completed, and the three exact cached readbacks were recovered and matched by their original export process log. The sharp pass was not repeated on this APK. The prior APK was restored. Evidence: avatar-device-192419/.
+- C5: c317f9c35 restores the normal scale mode and uses a fresh codec allocation on the routed preview surface for this one bundled fixture geometry. The probe distinguishes a retained Android surface crop from the shared decoder output format. [APK](https://github.com/JoyRaptor/JoyCreator/actions/runs/45916893022).
+- C5: Isolated authored-puppet fixture 569bf4c08 uses Studio's real keyed shoulder, elbow and wrist mesh route, with a held cell swap and separate sharp and master-off controls. [APK](https://github.com/JoyRaptor/JoyCreator/actions/runs/45916800264). This is independent of avatar video staging.
+- Next: Check whether c317f9c35 changes the exact preview SurfaceTexture matrix at the three avatar PTS after a fresh decoder allocation.

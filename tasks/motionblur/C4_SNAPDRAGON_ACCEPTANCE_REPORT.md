@@ -21,10 +21,14 @@ With the exact-latch APK, the 30-second legacy runs took 6,479 and 7,156 ms. The
 
 On the exact-latch APK, 100 warm-up seeks were followed by 50 measured seeks per mode. Ordered graphics PSS remained exactly 73,336 KiB at all six checkpoints, and legacy rose from 69,276 to 69,300 KiB. EGL remained 50,784 KiB and GL remained 768 KiB in both modes. The ordered mode passed the measured steady-state no-growth check. This result follows warm-up and does not erase the cold allocation or approximately 4 MiB ordered graphics PSS premium. See `settled-seeks-090343/` for raw samples and the route logs. The original APK was restored and the lock released.
 
-The C4 candidate remains isolated. The earlier paused-preview PiP comparison and the landing decision remain open. No Exynos or release-profile claim is made.
+The first export and memory checks ran on isolated C4 candidates. The paused comparison and current integration are recorded below. No Exynos or release-profile claim is made.
 
 ## Paused PiP reproduction
 
 The diagnostic at 0fc0b433d [built in Actions](https://github.com/JoyRaptor/JoyCreator/actions/runs/45878763967) and exercised the real paused seek to 647 ms on the Wi-Fi Snapdragon. It captured the last displayed texture after 2.8 seconds without issuing a new draw. The original C1 mixed scene still omitted the PiP. The supported ordered scene initially selected its ordered plan, fell back, and logged a request to refresh the PiP decoder. Its captured preview still omitted the PiP and the other ordered art visible in the control. Frame differences across later letter shapes or artwork therefore cannot serve as PiP proof.
 
 The candidate remains isolated. Inspect the paused FX plan when decoder size becomes ready. The run left four images and route logs at C:/Temp/stu7-c4-physical-20261125/paused-pip-device-135558/. The previous APK was restored by hash and the phone released.
+
+On the fixed cf3c3fcca [APK](https://github.com/JoyRaptor/JoyCreator/actions/runs/45880166932), the original and ordered positives both showed PiP at the same 647 ms seek. Of 4,266 narrow center-region pixels in the original, all changed by more than 12/255 against its no-PiP control. The baseline showed zero changes in that region. Ordered changed 5,029 of 6,401 center pixels and zero pixels in the off-PiP control region. The log shows the ordered renderer returning immediately after PAUSED_FX_PIP_READY reports 960×540. Evidence is in C:/Temp/stu7-c4-physical-20261125/paused-pip-device-140854/. The phone was restored by hash. [Full Studio](https://github.com/JoyRaptor/JoyCreator/actions/runs/45880242987) passed on that source.
+
+A C4-only integration at 5798b6c0c uses the current Studio base without C5 or C6 candidates. The [exact Android build](https://github.com/JoyRaptor/JoyCreator/actions/runs/45881917624) and [Studio and Joybot](https://github.com/JoyRaptor/JoyCreator/actions/runs/45881845662) are running. The existing internal rollout preference applies.

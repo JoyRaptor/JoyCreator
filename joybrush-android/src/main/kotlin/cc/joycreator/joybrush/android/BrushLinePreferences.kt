@@ -20,8 +20,13 @@ internal class BrushLinePreferences(private val prefs: SharedPreferences) {
 
     companion object {
         private const val PREFIX = "joybrush.brushMakesLines."
-        // K25: pixel-reading/stateful engines cannot become vector lines, even with a stale saved ON flag.
-        fun canSwitch(brush: BrushPreset?): Boolean = brush != null && brush.engine !in PIXELS_ALWAYS
+        // K25: pixel-reading/stateful engines cannot become vector lines, even with a stale saved ON flag. And the switch
+        // is only offered where the canvas will keep the line (11-27, Concepts parity): before, the Fill pen and Wire
+        // defaulted to "lines" and were refused at every pen-down. Only the BRUSH's own reasons count here; a tiled board
+        // or a layer of realistic paint is a reason of the moment, and the canvas still says so when it happens.
+        fun canSwitch(brush: BrushPreset?): Boolean = brush != null && brush.engine !in PIXELS_ALWAYS &&
+            cc.joycreator.joybrush.androidkit.lines.LineAdmission.lineRefusal(brush, erase = false, smoothing = 0.5f,
+                zoom = 1f, tiledBoard = false, holdsRealisticPaint = false) == null
 
         private val PIXELS_ALWAYS = setOf("media", "smudge", "push", "wet", "blur", "clone", "paste")
         private val LINE_IDS = setOf(

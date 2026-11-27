@@ -134,6 +134,26 @@ class ToolStripView(private val kit: ChromeKit, private val host: Host) : Linear
         }
     }
 
+    /**
+     * The lines-or-pixels mark on each tool button, for the brush that slot holds (null hides it). Its spoken name says
+     * the same, so TalkBack and the hover label know too.
+     */
+    fun setMakesLines(marks: Map<ToolSlot, Boolean?>) {
+        for ((slot, item) in tools) {
+            val mark = marks[slot]
+            if (item.makesLines == mark) continue
+            item.makesLines = mark
+            item.invalidate()
+        }
+        updateRestyleLabels()
+    }
+
+    private fun modeWords(slot: ToolSlot): String = when (tools.getValue(slot).makesLines) {
+        true -> " · makes editable lines"
+        false -> " · makes pixels"
+        null -> ""
+    }
+
     /** Highlight the strip controls that edit the current selection; only their rings pulse. */
     fun setSelectionRestyle(on: Boolean, pulse: Boolean) {
         if (!on) {
@@ -167,7 +187,9 @@ class ToolStripView(private val kit: ChromeKit, private val host: Host) : Linear
         else "Colour — tap to pick, or drag onto the drawing to take a colour from it")
         kit.label(tools.getValue(ToolSlot.BRUSH), if (selectionRestyle)
             "Brush — change the selected lines’ brush"
-        else "Brush — tap again for the brushes, hold for this brush's settings")
+        else "Brush — tap again for the brushes, hold for this brush's settings" + modeWords(ToolSlot.BRUSH))
+        kit.label(tools.getValue(ToolSlot.SMUDGE), "Smudge — tap again for the smudge brushes, hold for this one's settings" + modeWords(ToolSlot.SMUDGE))
+        kit.label(tools.getValue(ToolSlot.ERASER), "Eraser — tap again for the erasers, hold for this one's settings" + modeWords(ToolSlot.ERASER))
     }
 
     private fun startSelectionPulse() {
@@ -256,6 +278,8 @@ class ToolStripView(private val kit: ChromeKit, private val host: Host) : Linear
         var sizePx = 12f
         var argb = 0
         var opacity = 1f
+        /** A tool's brush makes editable lines (true), pixels (false), or the mark is not shown (null). */
+        var makesLines: Boolean? = null
         private val paint = Paint(Paint.ANTI_ALIAS_FLAG)
         private val box = RectF()
         private val drawable = icon?.drawable(kit.p.drawerInk)
@@ -276,6 +300,12 @@ class ToolStripView(private val kit: ChromeKit, private val host: Host) : Linear
                     val h = kit.dpi(10f)
                     drawable?.setBounds(Math.round(cx) - h, Math.round(cy) - h, Math.round(cx) + h, Math.round(cy) + h)
                     drawable?.draw(c)
+                    // Always know what you paint with (owner, 11-27): lines or pixels, small in the corner.
+                    makesLines?.let { lines ->
+                        val s = kit.dp(9f)
+                        cc.joycreator.joybrush.android.select.BrushModeBadge.drawMark(c, paint, lines, kit.p.drawerInk,
+                            cx + kit.dp(8f), cy + kit.dp(6f), s)
+                    }
                 }
                 Kind.SIZE -> {
                     paint.style = Paint.Style.STROKE

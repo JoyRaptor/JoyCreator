@@ -9,7 +9,7 @@ import java.util.Map;
  * <li><b>Left and right with your face</b>: your face to one side of where it rests walks the character that way, faster the
  *     further over, like the joystick; back to the middle and it stops where it is. Turning or tilting your head still turns
  *     ITS head: this is where your face SITS (the face camera's {@code leanX}), not where it points. A head tilted toward a
- *     shoulder holds the walk (a tilt swings the face sideways; it is not a walk).</li>
+ *     shoulder holds the walk (a tilt swings the face sideways; it is not a walk), and so does a head turned well to a side.</li>
  * <li><b>Closer and further with your face</b>: come closer to the camera and it walks toward you; sit back and it steps away
  *     ({@code near}). Where your face rests, it stands at its place.</li>
  * <li><b>Up close</b>: no face needed; it walks up to the camera and stays; untick and it walks back.</li>
@@ -23,6 +23,8 @@ public final class FaceWalk {
     public static final double SPEED = 0.8;                     // body heights a second, the face right over to one side
     public static final double CURVE = 1.6;                     // gentle near the middle, quick toward the edge
     public static final double TILT = 0.36;                     // the head tilted further than this (|roll|) holds the sideways walk
+    public static final double TURN = 0.5;                      // or turned further than this (|turnX|): a turned head swings the face sideways
+                                                                // (his take, 11-27: turning right walked Topps right; his leans turned 0.3 to 0.41)
     static final double LET_GO_S = 0.4;                         // stopped this long, the body is handed back
 
     /** What it needs of the walker (the phone's {@code Walker}, or a test's). */
@@ -59,7 +61,7 @@ public final class FaceWalk {
     }
 
     private boolean lr, deep, upClose;
-    private double lx, nz, roll, still;
+    private double lx, nz, roll, turn, still;
     private boolean own, drove;
 
     public boolean leftRight() {
@@ -122,7 +124,8 @@ public final class FaceWalk {
             /* left and right: a rate, like the joystick */
             if (lr && seen && w.travels()) {
                 roll += (Math.abs(g(face, "roll")) - roll) * e;
-                double u = roll > TILT ? 0 : past(lx, DEAD_X);
+                turn += (Math.abs(g(face, "turnX")) - turn) * e;
+                double u = roll > TILT || turn > TURN ? 0 : past(lx, DEAD_X);
                 if (u != 0) {
                     double v = w.tx() + Math.signum(u) * Math.pow(Math.abs(u), CURVE) * SPEED * bodyH * dt;
                     w.setTx(Math.max(-limX, Math.min(limX, v)));

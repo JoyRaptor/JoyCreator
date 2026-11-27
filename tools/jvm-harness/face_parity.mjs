@@ -66,7 +66,17 @@ if (dump.shoulders) {
   });
 }
 
+// the owner's real face take (11-27): every frame of it through the pilot's stage, as the phone's
+if (dump.real) {
+  const rst = new F.Stage(F.calibration(), {});
+  dump.real.forEach((fr, i) => {
+    let xyz = null;
+    if (fr.pts) { xyz = new Float32Array(478 * 3); dump.realKeep.forEach((p, k) => { for (let c = 0; c < 3; c++) xyz[p * 3 + c] = fr.pts[k * 3 + c]; }); }
+    same(`his take ${fr.t.toFixed(2)} s`, fr.out, rst.process(fr.raw, fr.t, xyz));
+  });
+}
+
 console.log(fails === 0
-  ? `PASS  the pilot reads every face as the phone does (${compared} values, ${dump.cases.length} faces, ${dump.stage.length} stage frames)`
+  ? `PASS  the pilot reads every face as the phone does (${compared} values, ${dump.cases.length} faces, ${dump.stage.length} stage frames${dump.real ? ', his take: ' + dump.real.length + ' frames' : ''})`
   : `FAIL  ${fails} of ${compared} values differ between the phone and the pilot`);
 process.exit(fails === 0 ? 0 : 1);

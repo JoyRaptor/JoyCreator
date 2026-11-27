@@ -28,3 +28,19 @@ in Perform (simulated time from `al-breaktest-fit.js`), and keeping the signals 
 **Not in them:** walking itself (the walker is not part of the solver; it feeds it foot and body signals), the owner's saved
 characters, swinging over many frames (8 only), onion skin and forced poses (building aids), a picture painted finer than its
 character.
+
+## The owner's face take: `face-take-20261127.track.json`
+
+His own 45.6 s take on the Note 9's front camera (11-27, for testing), read by the web pilot's face tracker (MediaPipe face
+landmarker 0.10.14, float16 model, on the CPU) at 15 frames a second from a 640-wide picture. **Numbers only, no picture:** per
+frame the tracker's raw face (52 expression values, the head's three angles, the face's box) and 58 of the 478 face points (the
+steady points the head's frame is taken from, the lids, the named points face pins use); 619 of 683 frames have a face. The video
+itself is owner media: it is never kept in the repository or sent anywhere. `moves` lists what he did, in his words ("I look to
+the right, put my head to the right, move my right eye, then my left eye, tilt to the left, look to the left, lean to the left and
+the right, forward and back, puff face and other expressions"), with the times read from the numbers. The recording is not
+mirrored: his right turn, right eye and left lean all come first in the numbers, as in his words.
+
+Checked by `bash tools/jvm-harness/run-avatar-face.sh` (`AvatarFaceTakeTest`: every move through the phone room's face engine,
+hands and walking with your face) and `bash tools/jvm-harness/run-face.sh` (the pilot reads every frame of it as the phone does).
+Made by running the take through the pilot page in an off-screen Edge (`tools/avatarlab/local/` held the video), then packing
+the numbers (integers: expression values x 1000, degrees x 10, the box and the points x 10000).

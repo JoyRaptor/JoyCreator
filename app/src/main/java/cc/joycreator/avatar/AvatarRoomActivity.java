@@ -1072,15 +1072,15 @@ public final class AvatarRoomActivity extends Activity implements RoomMenu.Host,
     }
 
     @Override
-    public boolean faceMirror() {
-        return faceCapture != null && faceCapture.tuning().mirror;
+    public boolean faceMirror() {                               // (on = like your reflection: the engine's flag is the opposite)
+        return cc.joycreator.avatar.face.FaceDrive.mirrorChip(faceCapture == null ? null : faceCapture.tuning());
     }
 
     @Override
     public void setFaceMirror(boolean on) {
         if (faceCapture == null) return;
         com.fadcam.ui.faditor.avatar.face.FaceTuning t = faceCapture.tuning();
-        t.mirror = on;
+        cc.joycreator.avatar.face.FaceDrive.setMirrorChip(t, on);
         faceCapture.setTuning(t);
     }
 

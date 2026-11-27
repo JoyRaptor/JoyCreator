@@ -152,6 +152,18 @@ public final class FaceDrive {
         }
     }
 
+    /**
+     * The Mirror chip, as the pilot's tick: ON = the character moves like your reflection (the default). The engine's own
+     * flag says the other thing ({@code FaceTuning.mirror} true = like someone facing you), so the chip is its opposite.
+     */
+    public static boolean mirrorChip(com.fadcam.ui.faditor.avatar.face.FaceTuning t) {
+        return t == null || !t.mirror;
+    }
+
+    public static void setMirrorChip(com.fadcam.ui.faditor.avatar.face.FaceTuning t, boolean on) {
+        t.mirror = !on;
+    }
+
     /** The lane's owner in a take: the face's lanes are the face pins' (the pilot's ownerOf). Null: not a face lane. */
     public static String ownerOf(String lane) {
         if (lane == null) return null;

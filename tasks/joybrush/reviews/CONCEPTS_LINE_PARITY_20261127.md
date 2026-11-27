@@ -88,3 +88,13 @@ Fixes go to `joy-creator` in steps, each with host tests. Progress is logged bel
   - Undo after Delete survives a touch.
   - SelectBench has new Cut / Undo / Redo and Done steps, and Undo after a move now fails if the selection is lost.
   - Host tests: SelectionSyncTest +2.
+  - Cloud: jb-android 618 and jb-androidkit 1380 passed.
+- **11-27, UI step 1, done:** the strip's Brush, Smudge and Eraser buttons each carry the lines-or-pixels mark for the brush that slot holds (`BrushModeBadge.drawMark`, shared with the drawer), and their spoken names say "makes editable lines" or "makes pixels". `ToolStripSelectionTest` +1.
+- **11-27, UI step 2, done:** `BrushLinePreferences.canSwitch` now asks `LineAdmission`.
+  - The shipped Fill pen and Wire, and any paint-behind brush, now say "makes pixels" and offer no switch. Before, they defaulted to lines that the canvas refused at every pen-down.
+  - `BrushLinePreferencesTest` +1.
+- **11-27, UI step 4, done:** More, then Same colour or Same brush, widens a line selection to the matching lines on the layer. It records no undo step, because selecting is not an edit. `SelectionSyncTest` +1.
+- **UI step 3, the stroke eraser, is not done here.**
+  - The person expects it on the Eraser button. That pen-down routing is `JbCanvasView` (the paint-engine session's), so it goes there with this plan: in a "Stroke" eraser mode, hit-test each pen sample against the lines as Select's "touching" loop does (`core/select/LineLasso`, `InkErase.WHOLE_STROKE`), collect the touched addresses, and delete them on lift through Select's one-step `deleteLines`.
+  - A Select-side stand-in is possible: loop, Touching, then Delete. That is two actions, and they work today.
+- **UI step 5 is not done:** the "lines" tag on layer rows. The row subtitle shows only on wide-screen pulled-out rows, and keeping it current needs a refresh hook on every line edit. It is low value for the cost; listed for the layer-column owner.

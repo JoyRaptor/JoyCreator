@@ -42,12 +42,23 @@ public class CharacterSolverTest {
         for (String[] r : run("gadget", gadget, new JSONObject(read("tasks/avatar/golden/gadget.golden.json")), null)) report(r);
         String pip = read("tasks/avatar/golden/pip.character.json");
         for (String[] r : run("Pip", pip, new JSONObject(read("tasks/avatar/golden/pip.golden.json")), null)) report(r);
+        /* FACE-2: Topps wearing the face mask (the mask guessed by the pilot, a pose, a swap): the mask pass, mid-turn too */
+        JSONObject maskPatch = new JSONObject(read("tasks/avatar/golden/topps-mask.patch.json"));
+        String toppsMask = masked(topps, maskPatch);
+        JSONObject gM = new JSONObject(read("tasks/avatar/golden/topps-mask.golden.json"));
+        for (String[] r : run("Topps with the face mask", toppsMask, gM, null)) report(r);
         /* more pairs from the command line: <character.json> <golden.json> ... (the owner's own characters stay out of the repository) */
         for (int i = 0; i + 1 < a.length; i += 2) for (String[] r : run(Paths.get(a[i]).getFileName().toString(), read(a[i]), new JSONObject(read(a[i + 1])), null)) report(r);
 
         /* planted faults: each must make at least one case fail */
         fault("Topps: every drawing of the right arm solved from a shoulder pin 3 px off", topps, gT, ch -> { for (JSONObject l : limbsOf(ch, "armR")) l.getJSONObject("a").put("x", l.getJSONObject("a").getDouble("x") + 3); });
         fault("Topps: the expected picture one vertex 0.6 px off (the 0.5 px bar)", topps, nudged(gT, 0.6), null);
+        final String mHead = maskPatch.getString("head"), mQuarter = maskPatch.getString("quarter");
+        fault("Topps mask: the mask pass forgotten (your face moves nothing)", toppsMask, gM, ch -> findKid(ch, mHead).getJSONObject("face").remove("fit"));
+        fault("Topps mask: the drawing's own turn ignored (the quarter drawing taken as front-on)", toppsMask, gM, ch -> findKid(ch, mHead).getJSONObject("face").getJSONObject("fit").getJSONArray(mQuarter).put(0, 0));
+        fault("Topps mask: the poses forgotten", toppsMask, gM, ch -> findKid(ch, mHead).getJSONObject("face").remove("posed"));
+        fault("Topps mask: a strong pose swaps nothing", toppsMask, gM, ch -> findKid(ch, mHead).getJSONObject("face").remove("swapped"));
+        fault("Topps mask: the gain doubled", toppsMask, gM, ch -> findKid(ch, mHead).getJSONObject("face").put("gain", 2));
         fault("squares: the landmark that is BEHIND in B treated as NOT HERE", squares, gS, ch -> headMarks(ch).getJSONObject("at").getJSONArray("kB").put(4, new JSONArray("[220,280,\"off\"]")));
         fault("squares: the landmark that is NOT HERE in B counted as here", squares, gS, ch -> headMarks(ch).getJSONObject("at").getJSONArray("kB").put(5, new JSONArray("[500,500]")));
         fault("squares: \"They meet\" between A and C forgotten", squares, gS, ch -> headMarks(ch).remove("meets"));
@@ -75,6 +86,16 @@ public class CharacterSolverTest {
     }
 
     /** Runs every case of a golden file; one result line per case. */
+    /** A character with the face mask put on its head set (topps-mask.patch.json: the head's mask landmarks and face data). */
+    static String masked(String chText, JSONObject patch) throws Exception {
+        JSONObject ch = new JSONObject(chText), head = findKid(ch, patch.getString("head"));
+        JSONObject marks = head.optJSONObject("marks");
+        if (marks == null) { marks = new JSONObject(); head.put("marks", marks); }
+        marks.put("", patch.getJSONObject("marks"));
+        head.put("face", patch.getJSONObject("face"));
+        return ch.toString();
+    }
+
     static List<String[]> run(String label, String chText, JSONObject golden, Object unused) throws Exception {
         List<String[]> out = new ArrayList<>();
         JSONObject ch = new JSONObject(chText);

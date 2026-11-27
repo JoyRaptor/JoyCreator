@@ -18,6 +18,7 @@ javac -nowarn -encoding UTF-8 -d "$OUT" \
   app/src/main/java/cc/joycreator/avatar/perform/Walker.java \
   app/src/main/java/cc/joycreator/avatar/perform/DepthWalk.java \
   app/src/main/java/cc/joycreator/avatar/face/FaceDrive.java \
+  app/src/main/java/cc/joycreator/avatar/face/MaskDrive.java \
   app/src/main/java/cc/joycreator/avatar/perform/Stick.java \
   tools/jvm-harness/StickTest.java || exit 1
 java -Djava.awt.headless=true -cp "$OUT" StickTest

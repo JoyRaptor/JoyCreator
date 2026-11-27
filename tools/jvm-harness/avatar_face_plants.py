@@ -20,6 +20,7 @@ MC = "app/src/main/java/cc/joycreator/avatar/face/MirrorChip.java"
 FM = "app/src/main/java/com/fadcam/ui/faditor/avatar/face/FaceMapper.java"
 TR = "app/src/main/java/cc/joycreator/avatar/perform/TakeRecorder.java"
 DP = "app/src/main/java/cc/joycreator/avatar/face/DirectionPrompts.java"
+MD = "app/src/main/java/cc/joycreator/avatar/face/MaskDrive.java"
 M = "app/src/main/java/cc/joycreator/avatar/ui/SignalMap.java"
 
 PLANTS = [
@@ -64,6 +65,11 @@ PLANTS = [
     ("the puff lane belongs to the face pins again (a pass with Puff held records nothing)", [(TR, "        if (name.equals(\"face.cheekPuff\")) return \"puff\";", "")]),
     ("Check directions asks for the first move every time", [(DP, "face.check(STEPS[at]);", "face.check(STEPS[0]);")]),
     ("Check directions does not count a move made", [(DP, "        if (ok) answered++;\n", "")]),
+    ("the mask ignores Mirror (its right side follows your right)", [(MD, "int j = mirrored && b != null ? b : a;", "int j = a;")]),
+    ("a pose may be held past 1.5", [(MD, "Math.max(0, Math.min(1.5, wt[i] + dot / cc[i]))", "Math.max(0, Math.min(9, wt[i] + dot / cc[i]))")]),
+    ("a pose may be held backwards", [(MD, "Math.max(0, Math.min(1.5, wt[i] + dot / cc[i]))", "Math.max(-9, Math.min(1.5, wt[i] + dot / cc[i]))")]),
+    ("the face does not drive the mask", [(D, "        if (maskSet != null) MaskDrive.drive(maskSet, smPt, maskMirrored, maskRest, out);", "")]),
+    ("the camera is not asked to watch the mask's points", [(MD, "                if (!out.contains(a)) out.add(a);\n", "")]),
     ("the camera starts but the face does not drive", [(I, "if (on && faceDrive.mode() == cc.joycreator.avatar.face.FaceDrive.Mode.OFF) faceDrive.setMode(cc.joycreator.avatar.face.FaceDrive.Mode.ALWAYS);", "")]),
 ]
 

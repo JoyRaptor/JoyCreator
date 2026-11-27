@@ -44,16 +44,16 @@ Updated 11-27 by the lead.
 | Face capture on the phone, walk with your face | 5 | ⬜ | slice 1 |
 | Side-by-side pass against the pilot: every control, every word, polish | 8 | ⬜ | slice 1 + lead |
 | **Slice 2: characters inside Video Studio** | | | |
-| X4 voice recorder gives its sound to lip sync | 2 | ⬜ | slice 2 (cloud) |
-| X5 export sheet parts shared with Studio | 3 | ⬜ | slice 2 (cloud) |
-| A solid colour clip in Studio (key colour) | 2 | ⬜ | slice 2 (cloud) |
-| A character drawn in Studio's preview and export | 5 | ⬜ | slice 2 (cloud) |
-| Add a character to a project with its take and voice | 3 | ⬜ | slice 2 (cloud) |
-| Still draggable; record a pass in Studio | 3 | ⬜ | slice 2 (cloud) |
-| Send to Studio, the room's export sheet, video with a key colour | 5 | ⬜ | slice 2 (cloud) |
+| X4 voice recorder gives its sound to lip sync | 2 | ⬜ claimed 11-27 | slice 2 (cloud) |
+| X5 export sheet parts shared with Studio | 3 | ⬜ claimed 11-27 | slice 2 (cloud) |
+| A solid colour clip in Studio (key colour) | 2 | ⬜ claimed 11-27 | slice 2 (cloud) |
+| A character drawn in Studio's preview and export | 5 | ⬜ claimed 11-27 | slice 2 (cloud) |
+| Add a character to a project with its take and voice | 3 | ⬜ claimed 11-27 | slice 2 (cloud) |
+| Still draggable; record a pass in Studio | 3 | ⬜ claimed 11-27 | slice 2 (cloud) |
+| Send to Studio, the room's export sheet, video with a key colour | 5 | ⬜ claimed 11-27 | slice 2 (cloud) |
 | **Slice 2b: acting from a video** | | | |
-| Act from a video: pick layers, what it follows, read into keyframes, Bake / Keep as driver, lips from a sound layer | 8 | ⬜ | slice 2 (cloud) |
-| The performing pop-up on the timeline | 5 | ⬜ | slice 2 (cloud) |
+| Act from a video: pick layers, what it follows, read into keyframes, Bake / Keep as driver, lips from a sound layer | 8 | ⬜ claimed 11-27 | slice 2 (cloud) |
+| The performing pop-up on the timeline | 5 | ⬜ claimed 11-27 | slice 2 (cloud) |
 | **Slice 3: scenes** | | | |
 | Scene file and clock, the camera lane | 3 | ⬜ | after slice 1 |
 | Path tabs, the chair, the frame, the strip | 5 | ⬜ | after slice 1 |

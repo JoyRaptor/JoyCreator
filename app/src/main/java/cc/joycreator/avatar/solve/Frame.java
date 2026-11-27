@@ -53,7 +53,7 @@ final class Frame {
         Ball ball;
         Double phase;
         Item.Z zo;
-        Post post;
+        Post post, post2;                                   // (post2: the face mask, FACE-2, bent last of all)
         JSONObject restLimb, dirKid;
 
         Ctx copy() {
@@ -61,7 +61,7 @@ final class Frame {
             k.M = M; k.P = P; k.rootIn = rootIn; k.rel = rel; k.P0 = P0; k.reach = reach; k.a = a; k.foot = foot; k.mir = mir; k.ghost = ghost;
             k.nc = nc; k.picked = picked; k.late = late; k.lift = lift; k.back = back; k.clip = clip; k.tag = tag; k.vs = vs; k.wrap = wrap;
             k.under = under; k.limbSet = limbSet; k.handKey = handKey; k.warp = warp; k.warps = warps; k.ball = ball; k.phase = phase; k.zo = zo;
-            k.post = post; k.restLimb = restLimb; k.dirKid = dirKid;
+            k.post = post; k.post2 = post2; k.restLimb = restLimb; k.dirKid = dirKid;
             return k;
         }
     }
@@ -89,7 +89,10 @@ final class Frame {
         this.dt = Limbs.clamp(opt.dt > 0 ? opt.dt : 1 / 60.0, 0.001, 1 / 20.0);
         this.moving = live || opt.tween;
         this.SM = new Signals[] {S, S.mirrored()};
+        this.mswap = MaskBend.swapsNow(MaskBend.headSet(sv.ch.optJSONObject("root")), S);   // FACE-2: the parts your poses swap now
     }
+
+    private final Map<String, String> mswap;
 
     private static double clamp(double v, double a, double b) { return Limbs.clamp(v, a, b); }
 
@@ -203,7 +206,7 @@ final class Frame {
         Ctx k = new Ctx();
         k.M = Mx; k.a = c.a; k.mir = c.mir; k.P = c.P; k.rootIn = c.rootIn; k.clip = c.clip; k.tag = c.tag; k.vs = c.vs; k.ghost = c.ghost;
         k.warp = c.warp; k.reach = null; k.ball = c.ball; k.wrap = c.wrap; k.rel = c.rel; k.under = c.under; k.phase = c.phase;
-        k.warps = c.warps; k.P0 = c.P0; k.nc = c.nc; k.zo = c.zo; k.post = c.post;
+        k.warps = c.warps; k.P0 = c.P0; k.nc = c.nc; k.zo = c.zo; k.post = c.post; k.post2 = c.post2;
         return k;
     }
 
@@ -547,6 +550,35 @@ final class Frame {
         out.before.put(id(n), Mx);
         double[] L = local(n, c); if (L != null) Mx = Mat.mul(Mx, L);
         out.m.put(id(n), Mx);
+        /* FACE-2: a drawing of a head that wears the face mask bends last, as one piece, by the mask (MaskBend.bendFor): your
+           face's movement turned to this drawing's real turn, held at the drawing's edges. In the head's frame (where it is placed). */
+        JSONObject tset = ix.p(id(n));
+        if (tset != null && J.o(tset, "face") != null && "set".equals(type(tset)) && J.o(tset, "pick") != null && "turn".equals(J.s(J.o(tset, "pick"), "by"))) {
+            MaskBend.Bend mb = MaskBend.bendFor(tset, n, sg(c));
+            double[] Ms = out.m.get(id(tset)) != null ? out.m.get(id(tset)) : Mx;
+            if (mb != null && c.warp != null && !mb.P.isEmpty()) {          // mid-turn: the mask's points are where the turn's own bend carried them
+                float[] fl = new float[mb.P.size() * 2];
+                for (int i = 0; i < mb.P.size(); i++) { fl[i * 2] = (float) mb.P.get(i)[0]; fl[i * 2 + 1] = (float) mb.P.get(i)[1]; }
+                float[] wv = Warps.warpMLS(fl, c.warp.P, c.warp.Q, null, c.warp.K);
+                for (int i = 0; i < mb.P.size(); i++) {
+                    double[] p = mb.P.get(i), q = mb.Q.get(i);
+                    mb.Q.set(i, new double[]{wv[i * 2] + q[0] - p[0], wv[i * 2 + 1] + q[1] - p[1]});
+                    mb.P.set(i, new double[]{wv[i * 2], wv[i * 2 + 1]});
+                }
+            }
+            if (mb != null) {
+                Post post2 = new Post();
+                if (mb.moved) {
+                    double[] bb = ix.boundsOf(n);
+                    List<double[]> hold = holdOf(n, bb);
+                    List<double[]> P = new ArrayList<>(mb.P), Q = new ArrayList<>(mb.Q); P.addAll(hold); Q.addAll(hold);
+                    double[] K = new double[P.size()]; java.util.Arrays.fill(K, 1);
+                    Warps.Lattice lat = Warps.sheetLattice(bb, P, Q, K);
+                    if (lat != null) { post2.on = true; post2.lat = lat; post2.M = Ms; post2.I = Mat.inv(Ms); }
+                }
+                c = c.copy(); c.post2 = post2;
+            }
+        }
         if (!"art".equals(type(n)) && mesh != null && J.t(mesh, "last")) {
             boolean bend = gp != null && gp.moved;
             Post post = new Post();
@@ -614,6 +646,10 @@ final class Frame {
         double[] Mx = Mx0;
         String fid = opt.force != null ? opt.force.get(id(n)) : null;
         JSONObject forced = fid != null && ix.n(fid) != null && ix.p(fid) == n ? ix.n(fid) : null;
+        if (forced == null && mswap != null && mswap.get(id(n)) != null) {          // FACE-2: a strong pose shows another drawing (an open mouth)
+            String sw = mswap.get(id(n));
+            if (ix.n(sw) != null && ix.p(sw) == n) forced = ix.n(sw);
+        }
         JSONObject trigKid = null;
         for (JSONObject k : kids) { String tg = J.s(k, "trig"); if (tg != null && !tg.isEmpty() && s.trig(tg)) { trigKid = k; break; } }
         String prevId = st.pick.get(id(n));
@@ -889,7 +925,7 @@ final class Frame {
         boolean meshOn = mpins != null && mpins.length() > 0;
         boolean wrapOn = moving && c.ball != null && "on".equals(c.wrap);
         byte[] behind = null;
-        int dense = (meshOn || wrapOn || limbOn) ? 2 : (limb != null || (swing != null && !"stiff".equals(J.s(swing, "kind"))) || breathe != null || c.warp != null || c.post != null) ? 1 : 0;
+        int dense = (meshOn || wrapOn || limbOn) ? 2 : (limb != null || (swing != null && !"stiff".equals(J.s(swing, "kind"))) || breathe != null || c.warp != null || c.post != null || c.post2 != null) ? 1 : 0;
         Meshes.Grid g = gridOf(n, img, dense);
         JSONObject zs = (J.o(n, "zSplit") != null && limb != null && !c.lift && !c.ghost && c.zo == null) ? J.o(n, "zSplit") : null;
         Item.Z zt = (c.zo != null && "under".equals(c.zo.how) && c.zo.tip != null && limb != null && !c.lift && !c.ghost) ? c.zo : null;
@@ -936,6 +972,7 @@ final class Frame {
         float[] w = new float[v.length];
         for (int i = 0; i < v.length; i += 2) { w[i] = (float) (Mx[0] * v[i] + Mx[2] * v[i + 1] + Mx[4]); w[i + 1] = (float) (Mx[1] * v[i] + Mx[3] * v[i + 1] + Mx[5]); }
         if (c.post != null && c.post.on) Warps.bendBySheet(w, c.post.lat, c.post.I, c.post.M);
+        if (c.post2 != null && c.post2.on) Warps.bendBySheet(w, c.post2.lat, c.post2.I, c.post2.M);   // FACE-2: the face mask, last of all
         Item item = new Item();
         item.id = id(n); item.img = img; item.v = w; item.uv = g.uv; item.idx = g.idx; item.a = c.a * J.d(n, "opacity", 1);
         item.under = c.lift ? null : (J.s(n, "zUnder") != null ? J.s(n, "zUnder") : c.under);

@@ -83,7 +83,7 @@ public final class Signals {
         o.spin = -spin; o.walk = -walk; o.armSide = armSide; o.trig.putAll(trig); o.pin.putAll(pin); o.t = t;
         for (Map.Entry<String, Double> e : extra.entrySet()) {
             String k = e.getKey();
-            if (k.startsWith("pt.") || k.startsWith("face.")) o.extra.put(k, e.getValue());
+            if (k.startsWith("pt.") || k.startsWith("face.") || k.startsWith("mk.") || k.startsWith("mp.")) o.extra.put(k, e.getValue());   // (FACE-2: the mask too, as the pilot's sigsFull)
         }
         Double sl = extra.get("shrugL"), sr = extra.get("shrugR"), sh = extra.get("shrug");
         if (sr != null) o.extra.put("shrugL", sr);

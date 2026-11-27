@@ -547,6 +547,22 @@ public class CompositeExportOverlay extends BitmapOverlay {
     /** Lazy replay puppet per performing avatar item (mirrors the preview's
      *  SpriteOverlayView cache; null cached = missing rig, no per-frame retry). */
     @Nullable
+    /** A new-format character's puppet (Avatar Studio); null = its standing picture, the plain sprite path. */
+    @Nullable
+    private cc.joycreator.avatar.studio.ItemPuppet characterPuppetFor(
+            @NonNull com.fadcam.ui.faditor.sprite.SpriteOverlayItem o) {
+        if (!o.isCharacter()) return null;
+        String key = o.getId() + "|" + o.getCharacterRef();
+        if (characterPuppets.containsKey(key)) return characterPuppets.get(key);
+        cc.joycreator.avatar.studio.ItemPuppet p = cc.joycreator.avatar.studio.ItemPuppets.forItem(
+                context, o, null, null, null);
+        characterPuppets.put(key, p);
+        return p;
+    }
+
+    private final java.util.Map<String, cc.joycreator.avatar.studio.ItemPuppet> characterPuppets =
+            new java.util.HashMap<>();
+
     private com.fadcam.ui.faditor.avatar.AvatarItemPuppet puppetFor(
             @NonNull com.fadcam.ui.faditor.sprite.SpriteOverlayItem o) {
         if (!o.hasAvatarPerformance()) return null;
@@ -1172,8 +1188,11 @@ public class CompositeExportOverlay extends BitmapOverlay {
                 final int fCell = cell;
                 final com.fadcam.ui.faditor.avatar.AvatarItemPuppet fPuppet = puppet;
                 final float fOpacity = opacity;
+                final cc.joycreator.avatar.studio.ItemPuppet fCharacter = characterPuppetFor(o);
                 com.fadcam.ui.faditor.sprite.SpriteMeshDraw.Content content = (c, into) -> {
-                    if (fPuppet != null && o.getAvatarTrack() != null) {
+                    if (fCharacter != null) {
+                        fCharacter.draw(c, into, o, Math.max(0, o.toLocalMs(timelineMs)), fOpacity);
+                    } else if (fPuppet != null && o.getAvatarTrack() != null) {
                         fPuppet.draw(c, into, o.getAvatarTrack(),
                                 Math.max(0, o.toLocalMs(timelineMs)), fOpacity);
                     } else {
@@ -1383,6 +1402,10 @@ public class CompositeExportOverlay extends BitmapOverlay {
             if (p != null) p.release();
         }
         avatarPuppets.clear();
+        for (cc.joycreator.avatar.studio.ItemPuppet p : characterPuppets.values()) {
+            if (p != null) p.release();
+        }
+        characterPuppets.clear();
         for (com.fadcam.ui.faditor.sprite.SpriteSheetRenderer r : spriteRenderers.values()) {
             if (r != null) r.recycle();
         }

@@ -221,6 +221,19 @@ final class SpriteBlendGlEffect implements GlEffect {
             return r;
         }
 
+        @Nullable private cc.joycreator.avatar.studio.ItemPuppet character;
+        private boolean characterTried;
+
+        /** A new-format character's puppet (Avatar Studio); null = its standing picture, the plain sprite path. */
+        @Nullable
+        private cc.joycreator.avatar.studio.ItemPuppet characterFor() {
+            if (characterTried) return character;
+            characterTried = true;
+            if (!item.isCharacter()) return null;
+            character = cc.joycreator.avatar.studio.ItemPuppets.forItem(appContext, item, null, null, null);
+            return character;
+        }
+
         @Nullable
         private com.fadcam.ui.faditor.avatar.AvatarItemPuppet puppetFor() {
             if (puppetTried) return puppet;
@@ -298,7 +311,10 @@ final class SpriteBlendGlEffect implements GlEffect {
                 final com.fadcam.ui.faditor.avatar.AvatarItemPuppet fPuppet = p;
                 final float fOpacity = opacity;
                 final com.fadcam.ui.faditor.sprite.SpriteSheetRenderer fr = r;
-                if (fPuppet != null && item.getAvatarTrack() != null) {
+                cc.joycreator.avatar.studio.ItemPuppet fCharacter = characterFor();
+                if (fCharacter != null) {
+                    fCharacter.draw(canvas, dest, item, Math.max(0, item.toLocalMs(timelineMs)), fOpacity);
+                } else if (fPuppet != null && item.getAvatarTrack() != null) {
                     fPuppet.draw(canvas, dest, item.getAvatarTrack(),
                             Math.max(0, item.toLocalMs(timelineMs)), fOpacity);
                 } else if (fr != null
@@ -322,6 +338,10 @@ final class SpriteBlendGlEffect implements GlEffect {
                 if (puppet != null) {
                     try { puppet.release(); } catch (Exception ignored) { }
                     puppet = null;
+                }
+                if (character != null) {
+                    try { character.release(); } catch (Exception ignored) { }
+                    character = null;
                 }
                 for (com.fadcam.ui.faditor.sprite.SpriteSheetRenderer r : renderers.values()) {
                     if (r != null) {
@@ -756,7 +776,10 @@ final class SpriteBlendGlEffect implements GlEffect {
                 Canvas c = new Canvas(bmp);
                 c.drawColor(0, android.graphics.PorterDuff.Mode.CLEAR);
                 RectF into = new RectF(0f, 0f, bw, bh);
-                if (p != null && item.getAvatarTrack() != null) {
+                cc.joycreator.avatar.studio.ItemPuppet ch = frame.characterFor();
+                if (ch != null) {
+                    ch.draw(c, into, item, Math.max(0, item.toLocalMs(timelineMs)), 1f);
+                } else if (p != null && item.getAvatarTrack() != null) {
                     p.draw(c, into, item.getAvatarTrack(),
                             Math.max(0, item.toLocalMs(timelineMs)), 1f);
                 } else if (r != null

@@ -25,7 +25,10 @@ import cc.joycreator.avatar.file.CharacterDoc;
 import cc.joycreator.avatar.file.CharacterOpen;
 import cc.joycreator.avatar.file.CharacterStore;
 import cc.joycreator.avatar.ui.LayersView;
+import cc.joycreator.avatar.perform.Inputs;
+import cc.joycreator.avatar.perform.Take;
 import cc.joycreator.avatar.ui.PartsView;
+import cc.joycreator.avatar.ui.PerformPanel;
 import cc.joycreator.avatar.ui.RoomEdit;
 import cc.joycreator.avatar.ui.RoomMenu;
 import cc.joycreator.avatar.ui.StageView;
@@ -47,7 +50,7 @@ import java.util.List;
  * Perform and recording are filled in by the later steps of slice 1; a control appears only when it works (a dead knob
  * is worse than a missing one).</p>
  */
-public final class AvatarRoomActivity extends Activity implements RoomMenu.Host, LayersView.Host, PartsView.Host {
+public final class AvatarRoomActivity extends Activity implements RoomMenu.Host, LayersView.Host, PartsView.Host, PerformPanel.Host, cc.joycreator.avatar.ui.LandmarksScreen.Host {
     private static final String TAG = "AvatarRoom";
     private static final int REQ_OPEN = 41;
     private static final int REQ_PICTURES = 42;
@@ -76,6 +79,17 @@ public final class AvatarRoomActivity extends Activity implements RoomMenu.Host,
     private LinearLayout panel;
     private TextView pathName;
     private PartsView parts;
+    private PerformPanel performPanel;
+    private cc.joycreator.avatar.ui.LandmarksScreen landmarks;
+    private android.widget.FrameLayout panelBody;
+    private com.fadcam.ui.faditor.avatar.MicVisemeSource mic;
+    private static final int REQ_MIC = 44;
+    private static final int REQ_CAMERA = 45;
+    private com.fadcam.ui.faditor.avatar.face.FaceCapture faceCapture;
+    private final Inputs inputs = new Inputs();
+    private boolean wasRecording;
+    private boolean looping;
+    private long lastFrameNs;
     private LayersView layers;
     private TextView partsTab, layersTab, undoButton, redoButton;
     private boolean showLayers;
@@ -134,7 +148,10 @@ public final class AvatarRoomActivity extends Activity implements RoomMenu.Host,
         parts = new PartsView(this, this);
         layers = new LayersView(this, this);
         android.widget.FrameLayout body = new android.widget.FrameLayout(this);
+        panelBody = body;
         body.addView(parts, new android.widget.FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
+        performPanel = new PerformPanel(this, this);
+        body.addView(performPanel, new android.widget.FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
         body.addView(layers, new android.widget.FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
         panel.addView(body, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f));
         root.addView(panel);
@@ -150,10 +167,12 @@ public final class AvatarRoomActivity extends Activity implements RoomMenu.Host,
         View left = root.getChildAt(0);
         if (land) {
             left.setLayoutParams(new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, 1f));
-            panel.setLayoutParams(new LinearLayout.LayoutParams(px(340), ViewGroup.LayoutParams.MATCH_PARENT));
+            // a tablet gets a wider card (more columns, never bigger buttons: dp stay as drawn)
+            panel.setLayoutParams(new LinearLayout.LayoutParams(px(cfg.smallestScreenWidthDp >= 600 ? 480 : 340), ViewGroup.LayoutParams.MATCH_PARENT));
         } else {
-            left.setLayoutParams(new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 0.52f));
-            panel.setLayoutParams(new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 0.48f));
+            boolean tablet = cfg.smallestScreenWidthDp >= 600;
+            left.setLayoutParams(new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, tablet ? 0.6f : 0.52f));
+            panel.setLayoutParams(new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, tablet ? 0.4f : 0.48f));
         }
     }
 
@@ -240,10 +259,18 @@ public final class AvatarRoomActivity extends Activity implements RoomMenu.Host,
             t.setBackground(g);
             t.setTextColor(chosen ? Studio.GROUND : 0xFFA1A1AA);
         }
-        if (layers != null) {
-            layers.setVisibility(on ? View.VISIBLE : View.GONE);
-            parts.setVisibility(on ? View.GONE : View.VISIBLE);
-        }
+        applyPanels();
+    }
+
+    /** Layers when asked for; otherwise the performer's panel on Motion and Perform, the parts card on the first two. */
+    private void applyPanels() {
+        if (layers == null || parts == null || performPanel == null) return;
+        boolean matching = landmarks != null && landmarks.isOpen();
+        boolean perform = !showLayers && !matching && stageIndex >= 2;
+        layers.setVisibility(showLayers && !matching ? View.VISIBLE : View.GONE);
+        parts.setVisibility(!showLayers && !matching && !perform ? View.VISIBLE : View.GONE);
+        performPanel.setVisibility(perform ? View.VISIBLE : View.GONE);
+        if (landmarks != null) landmarks.view().setVisibility(matching ? View.VISIBLE : View.GONE);
     }
 
     private LinearLayout buildStageRow() {
@@ -265,7 +292,31 @@ public final class AvatarRoomActivity extends Activity implements RoomMenu.Host,
     }
 
     /** Chosen = solid cyan with the label punched out to the ground colour; the rest grey (rule: ON = solid cyan). */
+    @Override
+    public void openLandmarks(String setId) {
+        if (character == null || landmarks == null) return;
+        landmarks.open(character, setId);
+        applyPanels();
+    }
+
+    @Override
+    public void closeLandmarks() {
+        if (landmarks != null) landmarks.close();
+        applyPanels();
+        if (character != null) parts.show(character, inHand, stageIndex);
+    }
+
+    @Override
+    public void onBackPressed() {
+        if (landmarks != null && landmarks.isOpen()) closeLandmarks();
+        else super.onBackPressed();
+    }
+
     private void selectStage(int idx) {
+        if (landmarks != null && landmarks.isOpen()) closeLandmarks();
+        if (inputs.recorder.recording() && idx < 2) endRecord();     // a pass belongs to Motion and Perform
+        if (idx < 2 && inputs.micOn()) micOff();                     // the microphone listens only in Motion and Perform
+        if (idx < 2 && inputs.faceOn()) faceOff();                   // and so does the camera
         stageIndex = idx;
         for (int i = 0; i < 4; i++) {
             boolean on = i == idx;
@@ -275,7 +326,11 @@ public final class AvatarRoomActivity extends Activity implements RoomMenu.Host,
             stageTabs[i].setBackground(g);
             stageTabs[i].setTextColor(on ? Studio.GROUND : 0xFFA1A1AA);
         }
-        if (character != null) parts.show(character, inHand, stageIndex);
+        if (character != null) {
+            parts.show(character, inHand, stageIndex);
+            performPanel.bind(character, stageIndex == 3);
+        }
+        applyPanels();
     }
 
     private TextView roundButton(String glyph, String hover) {
@@ -298,7 +353,14 @@ public final class AvatarRoomActivity extends Activity implements RoomMenu.Host,
         if (character == null) return;
         fromEdit = false;
         if (edit == null) edit = new RoomEdit(character, this::edited);
+        if (landmarks == null) {
+            landmarks = new cc.joycreator.avatar.ui.LandmarksScreen(this, stage, edit, this);
+            panelBody.addView(landmarks.view(), new android.widget.FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
+            landmarks.view().setVisibility(View.GONE);
+        }
+        if (landmarks.isOpen()) landmarks.close();
         edit.reset(character);
+        feedInputs(character);
         pathName.setText(character.name.isEmpty() ? getString(R.string.avatar_untitled) : character.name);
         paintSaveDot();
     }
@@ -311,6 +373,9 @@ public final class AvatarRoomActivity extends Activity implements RoomMenu.Host,
         layers.show(d, inHand);
         parts.show(d, inHand, stageIndex);
         paintUndo();
+        if (landmarks != null) landmarks.refresh(d);
+        syncTake(d);
+        performPanel.refreshSettings(d);
         if (fromEdit) {
             unsaved = true;
             paintSaveDot();
@@ -318,6 +383,221 @@ public final class AvatarRoomActivity extends Activity implements RoomMenu.Host,
             main.postDelayed(autosave, 1500);   // it saves by itself in a moment
         }
         fromEdit = true;
+    }
+
+    // ── performing: the hands, the take and the frame loop ──────────────────────────────────────────
+
+    /** A new character on the stage: its buttons, its take, hands let go, the controls rebuilt. */
+    private void feedInputs(CharacterDoc d) {
+        java.util.ArrayList<String> ids = new java.util.ArrayList<>();
+        org.json.JSONArray tr = d.json.optJSONArray("triggers");
+        for (int i = 0; tr != null && i < tr.length(); i++) {
+            org.json.JSONObject t = tr.optJSONObject(i);
+            if (t != null) ids.add(t.optString("id"));
+        }
+        inputs.recorder.stop();
+        inputs.letGoOfEverything();
+        inputs.setButtons(ids);
+        inputs.recorder.setTake(takeOf(d));
+        performPanel.bind(d, stageIndex == 3);
+    }
+
+    private static Take takeOf(CharacterDoc d) {
+        org.json.JSONObject t = d.json.optJSONObject("take");
+        Take take = t == null ? null : Take.fromJson(t);
+        return take != null && take.n > 0 ? take : null;
+    }
+
+    /** An undo or redo changed the take in the file: the recorder follows (a pass in progress is left alone). */
+    private void syncTake(CharacterDoc d) {
+        if (inputs.recorder.recording()) return;
+        Take have = inputs.recorder.take(), want = takeOf(d);
+        boolean same = have == null ? want == null : have.sameAs(want);
+        if (!same) inputs.recorder.setTake(want);
+    }
+
+    @Override
+    public void toggleMic() {
+        if (inputs.micOn()) {
+            micOff();
+            return;
+        }
+        if (androidx.core.content.ContextCompat.checkSelfPermission(this, android.Manifest.permission.RECORD_AUDIO)
+                != android.content.pm.PackageManager.PERMISSION_GRANTED) {
+            requestPermissions(new String[]{android.Manifest.permission.RECORD_AUDIO}, REQ_MIC);
+            return;
+        }
+        micOn();
+    }
+
+    private void micOn() {
+        if (mic == null) mic = new com.fadcam.ui.faditor.avatar.MicVisemeSource();
+        mic.start(this);
+        inputs.mic(true);
+        performPanel.tick();
+    }
+
+    /** Lets go of the microphone at once (leaving the room, or the chip tapped off). */
+    private void micOff() {
+        if (mic != null) mic.stop();
+        inputs.mic(false);
+        performPanel.tick();
+    }
+
+    @Override
+    public void toggleFace() {
+        if (inputs.faceOn()) {
+            faceOff();
+            return;
+        }
+        if (androidx.core.content.ContextCompat.checkSelfPermission(this, android.Manifest.permission.CAMERA)
+                != android.content.pm.PackageManager.PERMISSION_GRANTED) {
+            requestPermissions(new String[]{android.Manifest.permission.CAMERA}, REQ_CAMERA);
+            return;
+        }
+        faceOn();
+    }
+
+    private void faceOn() {
+        try {
+            if (faceCapture == null) faceCapture = new com.fadcam.ui.faditor.avatar.face.FaceCapture(this);
+            faceCapture.start();
+            inputs.face(true);
+        } catch (RuntimeException e) {
+            Log.w(TAG, "face camera did not start", e);
+            Toast.makeText(this, R.string.avatar_face_failed, Toast.LENGTH_LONG).show();
+        }
+        performPanel.tick();
+    }
+
+    /** Lets go of the camera at once (leaving the room, or the chip tapped off). */
+    private void faceOff() {
+        if (faceCapture != null) faceCapture.stop();
+        inputs.face(false);
+        performPanel.tick();
+    }
+
+    @Override
+    public void onRequestPermissionsResult(int req, String[] perms, int[] results) {
+        super.onRequestPermissionsResult(req, perms, results);
+        if (req == REQ_CAMERA && results.length > 0 && results[0] == android.content.pm.PackageManager.PERMISSION_GRANTED && !isFinishing()
+                && stageIndex >= 2) faceOn();
+        if (req == REQ_MIC && results.length > 0 && results[0] == android.content.pm.PackageManager.PERMISSION_GRANTED && !isFinishing()
+                && stageIndex >= 2) micOn();            // a permission granted late never starts capture outside Perform
+    }
+
+    /** The microphone's shape names as the character's mouth shapes. */
+    private static final String[] MIC_SHAPES = {"Neutral", "Aa", "Ee", "W-Oo", "M", "S"};
+
+    @Override
+    public void setSetting(String key, boolean on, String stepName) {
+        edit.apply(stepName, doc -> {
+            org.json.JSONObject st = doc.json.optJSONObject("settings");
+            if (st == null) {
+                st = new org.json.JSONObject();
+                doc.json.put("settings", st);
+            }
+            st.put(key, on);
+        });
+    }
+
+    @Override
+    public Inputs inputs() {
+        return inputs;
+    }
+
+    @Override
+    public void toggleRecord() {
+        if (inputs.recorder.recording()) endRecord();
+        else {
+            inputs.recorder.stop();
+            inputs.record();
+            wasRecording = true;
+        }
+        performPanel.tick();
+    }
+
+    /** Ends a pass and keeps the take as ONE named undo step. */
+    private void endRecord() {
+        inputs.recorder.stop();
+        wasRecording = false;
+        commitTake(getString(R.string.avatar_step_record));
+    }
+
+    private void commitTake(String stepName) {
+        if (edit == null) return;
+        final Take t = inputs.recorder.take();
+        edit.apply(stepName, doc -> {
+            if (t == null || t.n == 0) doc.json.remove("take");
+            else doc.json.put("take", t.toJson());
+        });
+    }
+
+    @Override
+    public void togglePlay() {
+        if (inputs.recorder.recording()) return;
+        if (inputs.recorder.playing()) inputs.recorder.stop();
+        else inputs.recorder.play();
+        performPanel.tick();
+    }
+
+    @Override
+    public void takeBack() {
+        if (inputs.recorder.recording() || !inputs.recorder.undoPass()) return;
+        commitTake(getString(R.string.avatar_step_take_back));
+        performPanel.tick();
+    }
+
+    @Override
+    public void clearTake() {
+        if (inputs.recorder.take() == null) return;
+        new android.app.AlertDialog.Builder(this, android.R.style.Theme_DeviceDefault_Dialog_Alert)
+                .setTitle(R.string.avatar_clear_ask)
+                .setPositiveButton(R.string.avatar_clear_yes, (dl, w) -> {
+                    inputs.recorder.clear();
+                    commitTake(getString(R.string.avatar_step_clear_take));
+                    performPanel.tick();
+                })
+                .setNegativeButton(R.string.avatar_clear_no, null)
+                .show();
+    }
+
+    private final android.view.Choreographer.FrameCallback frameLoop = new android.view.Choreographer.FrameCallback() {
+        @Override
+        public void doFrame(long ns) {
+            if (!looping) return;
+            double dt = lastFrameNs == 0 ? 1 / 60.0 : Math.min(0.1, (ns - lastFrameNs) / 1e9);
+            lastFrameNs = ns;
+            frame(dt);
+            android.view.Choreographer.getInstance().postFrameCallback(this);
+        }
+    };
+
+    private void frame(double dt) {
+        if (stageIndex < 2) {
+            stage.setSignals(null);
+            return;
+        }
+        if (inputs.micOn() && mic != null) {
+            float db = mic.currentAudioDb();
+            int cls = mic.currentVisemeClassIndex();
+            inputs.micHeard(Float.isNaN(db) ? 0 : Math.max(0, Math.min(1, (db + 50) / 40)), cls >= 0 && cls < MIC_SHAPES.length ? MIC_SHAPES[cls] : "Neutral");
+        }
+        if (inputs.faceOn() && faceCapture != null) inputs.faceSaw(faceCapture.sample(System.nanoTime()));
+        java.util.Map<String, Object> sig = inputs.frame(dt, System.currentTimeMillis());
+        stage.setSignals(sig);
+        Object tx = sig.get("turnX"), ty = sig.get("turnY");
+        if (tx instanceof Number && ty instanceof Number) performPanel.showHead(((Number) tx).doubleValue(), ((Number) ty).doubleValue());
+        performPanel.tick();
+        if (wasRecording && !inputs.recorder.recording()) endRecord();     // the pass ended itself (the take's limit)
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        looping = true;
+        lastFrameNs = 0;
+        android.view.Choreographer.getInstance().postFrameCallback(frameLoop);
     }
 
     private void paintUndo() {
@@ -491,6 +771,10 @@ public final class AvatarRoomActivity extends Activity implements RoomMenu.Host,
     @Override
     protected void onPause() {
         super.onPause();
+        looping = false;
+        micOff();                                               // the microphone's light goes out with the room
+        faceOff();                                              // and so does the camera's
+        if (inputs.recorder.recording()) endRecord();          // leaving the room ends a pass; nothing keeps listening
         main.removeCallbacks(autosave);
         if (unsaved && character != null) saveQuietly();
     }

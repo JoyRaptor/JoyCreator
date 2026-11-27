@@ -165,8 +165,9 @@ class BrushSettingsView(
         scroll.setOnScrollChangeListener { _, _, y, _, _ ->
             header.active = groupStarts.entries.lastOrNull { it.value.top <= y + kit.dpi(12f) }?.key ?: groups.firstOrNull()
         }
-        // Preview + sliders take at most ~55% of the screen, so the drawing above stays free for test strokes.
-        val maxH = (context.resources.displayMetrics.heightPixels * 0.55f).toInt() - kit.dpi(PREVIEW_DP + 48f)
+        // Preview + sliders take at most ~55% of a short screen, so the drawing above stays free for test strokes; on a
+        // taller one the cap stops at what the Note 9 had (dp as drawn: a 20:9 phone must not stretch the sheet).
+        val maxH = minOf((context.resources.displayMetrics.heightPixels * 0.55f).toInt(), kit.dpi(MAX_SHEET_DP)) - kit.dpi(PREVIEW_DP + 48f)
         addView(object : LinearLayout(context) {
             override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
                 super.onMeasure(widthMeasureSpec, MeasureSpec.makeMeasureSpec(maxH, MeasureSpec.AT_MOST))
@@ -326,6 +327,8 @@ class BrushSettingsView(
     companion object {
         /** The live preview's height, dp. */
         const val PREVIEW_DP = 180f
+        /** The most the preview and sliders take: 55% of the Note 9's 846 dp. Taller screens get no more. */
+        const val MAX_SHEET_DP = 465f
         private const val STEPS = 100
         private const val MATCH = ViewGroup.LayoutParams.MATCH_PARENT
         private const val WRAP = ViewGroup.LayoutParams.WRAP_CONTENT

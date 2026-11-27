@@ -135,6 +135,11 @@ public final class TakeRecorder {
         return true;
     }
 
+    /** True when the last recording pass can still be taken back. */
+    public boolean hasPassToTakeBack() {
+        return backup != null;
+    }
+
     public void play() {
         if (take == null || take.n == 0) return;
         playing = true;

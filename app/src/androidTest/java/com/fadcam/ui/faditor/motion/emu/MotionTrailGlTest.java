@@ -114,6 +114,10 @@ public final class MotionTrailGlTest {
         MotionEmu.log("smear gaps between the oldest and newest pose: " + gaps);
         assertEquals("a Smear has no gap between where it was 8 frames ago and now", 0, gaps);
         assertTrue("and nothing before it started", row[40] == 0);
+        int lo = 255, hi = 0;
+        for (int x = 130; x <= 380; x++) { lo = Math.min(lo, row[x]); hi = Math.max(hi, row[x]); }
+        MotionEmu.log("smear evenness across the middle: " + lo + ".." + hi);
+        assertTrue("an even stroke, no stripes: " + lo + ".." + hi, hi - lo <= 24);
     }
 
     @Test public void copiesLeaveGaps() throws Exception {

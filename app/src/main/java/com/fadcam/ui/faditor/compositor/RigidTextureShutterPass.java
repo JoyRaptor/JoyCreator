@@ -59,6 +59,7 @@ public final class RigidTextureShutterPass {
     private final float[] sharpX = new float[4];
     private final float[] sharpY = new float[4];
     private final float[] scale = new float[3];
+    private final float[] feather = new float[2];
     private final boolean overlay;
     private final boolean pip;
     private final float[] frame;
@@ -162,6 +163,9 @@ public final class RigidTextureShutterPass {
         scale[1] = (float) trail.copyScale();
         scale[2] = (float) trail.sharp();
         p.setFloatsUniform("uScale", scale);
+        feather[0] = (float) trail.featherU();
+        feather[1] = (float) trail.featherV();
+        p.setFloatsUniform("uFeather", feather);
         p.bindAttributesAndUniforms();
         GLES20.glDrawArrays(GLES20.GL_TRIANGLE_STRIP, 0, 4);
         GlUtil.checkGlError();
@@ -186,6 +190,35 @@ public final class RigidTextureShutterPass {
 
     /** {@code trail} null = the camera shutter program; else the trail program for that look. */
     static String fragmentShader(Source kind, MotionShutter.Look trail) {
+        String shader = fragmentShaderText(kind, trail);
+        return trail == null ? shader : withSoftSampler(shader);
+    }
+
+    /**
+     * The trail program's {@code sampleSoft}: {@code samplePose} with its edges softened along the
+     * motion by {@code uFeather} (UV units) and its UV held inside the picture, so a smear's steps
+     * add up evenly. Built from the camera program's own text, which stays exactly as it was.
+     */
+    static String withSoftSampler(String shader) {
+        int start = shader.indexOf("vec4 samplePose(vec3 pixel, vec4 rowX, vec4 rowY) {");
+        int end = shader.indexOf("void main() {");
+        if (start < 0 || end < start) throw new IllegalStateException("samplePose not found");
+        String soft = shader.substring(start, end)
+                .replace("vec4 samplePose(", "vec4 sampleSoft(")
+                .replace("  if (any(lessThanEqual(uv, vec2(0.0))) || any(greaterThanEqual(uv, vec2(1.0))))\n"
+                                + "    return vec4(0.0);\n",
+                        "  vec2 soft = clamp((min(uv, 1.0 - uv) + 0.5 * uFeather)"
+                                + " / max(uFeather, vec2(0.0001)), 0.0, 1.0);\n"
+                                + "  if (soft.x * soft.y <= 0.0) return vec4(0.0);\n"
+                                + "  uv = clamp(uv, vec2(0.0), vec2(1.0));\n")
+                .replace("* rowX.w;", "* rowX.w * soft.x * soft.y;");
+        if (!soft.contains("soft.x * soft.y;") || !soft.contains("vec2 soft =")) {
+            throw new IllegalStateException("soft sampler did not build");
+        }
+        return shader.substring(0, end) + soft + shader.substring(end);
+    }
+
+    private static String fragmentShaderText(Source kind, MotionShutter.Look trail) {
         boolean pip = kind == Source.PIP;
         boolean overlay = !pip && kind != Source.SPINE;
         boolean bitmap = kind == Source.PICTURE || kind == Source.PREMULTIPLIED_OVERLAY;
@@ -207,7 +240,9 @@ public final class RigidTextureShutterPass {
         for (int i = 0; i < rowCount; i++) {
             source.append("uniform vec4 uTapX").append(i).append(", uTapY").append(i).append(";\n");
         }
-        if (trail != null) source.append("uniform vec4 uSharpX, uSharpY;\nuniform vec3 uScale;\n");
+        if (trail != null) {
+            source.append("uniform vec4 uSharpX, uSharpY;\nuniform vec3 uScale;\nuniform vec2 uFeather;\n");
+        }
         if (bitmap) {
             source.append("""
                     vec3 toLinear(vec3 rgb) {
@@ -314,7 +349,7 @@ public final class RigidTextureShutterPass {
                 source.append("  if (uTapY").append(i + 1).append(".w > 0.0) {\n");
                 for (int j = 0; j < RigidShutterPlan.TRAIL_SUBSTEPS; j++) {
                     String t = Float.toString((float) j / RigidShutterPlan.TRAIL_SUBSTEPS);
-                    source.append("    color += uScale.x * samplePose(pixel, mix(uTapX").append(i)
+                    source.append("    color += uScale.x * sampleSoft(pixel, mix(uTapX").append(i)
                             .append(", uTapX").append(i + 1).append(", ").append(t)
                             .append("), mix(uTapY").append(i).append(", uTapY").append(i + 1)
                             .append(", ").append(t).append("));\n");
@@ -325,7 +360,7 @@ public final class RigidTextureShutterPass {
             for (int i = 0; i < n; i++) {
                 source.append("  if (uTapY").append(i).append(".w > 0.0");
                 if (i + 1 < n) source.append(" && uTapY").append(i + 1).append(".w == 0.0");
-                source.append(") color += uScale.x * samplePose(pixel, uTapX").append(i)
+                source.append(") color += uScale.x * sampleSoft(pixel, uTapX").append(i)
                         .append(", uTapY").append(i).append(");\n");
             }
         }

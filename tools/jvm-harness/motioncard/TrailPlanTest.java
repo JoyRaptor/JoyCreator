@@ -62,6 +62,13 @@ public final class TrailPlanTest {
         double ty0 = plan.taps().get(0).canvasToUv().ty();
         double ty6 = plan.taps().get(6).canvasToUv().ty();
         check(Math.abs(ty3 - (ty0 + ty6) / 2) > 1, "real earlier poses: the trail bends with the path");
+        ItemMotionSampler square = t -> new ItemMotionSampler.Affine(32, 0, 0, 32,
+                500 + (t - NOW) / (double) PERIOD * 40, 300);
+        RigidShutterPlan sq = RigidShutterPlan.prepareTrail(square, NOW, trail, PERIOD,
+                MotionBreaks.none(), 4000, 4000);
+        // 8 frames x 40 px over 6 x 6 steps = 8.9 px a step = 0.28 of a 32 px square
+        near(320.0 / 36 / 32, sq.trail().featherU(), 1e-6, "smear steps soften along the motion by one step");
+        near(0.0, sq.trail().featherV(), 1e-9, "and stay crisp across it");
         check(plan.bounds().left() == 0 && plan.bounds().right() >= 500,
                 "the swept box covers the whole trail (clipped at the canvas edge): " + plan.bounds());
 

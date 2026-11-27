@@ -27,7 +27,7 @@ public record RigidShutterPlan(SweptBounds bounds, List<Tap> taps, Trail trail) 
      * the sharp pose (the last tap) that Mix keeps on top.
      */
     public record Trail(MotionShutter.Look look, double smearScale, double copyScale, double sharp,
-                        Tap sharpTap) {}
+                        Tap sharpTap, double featherU, double featherV) {}
 
     /**
      * A stylised window (long trail, Fade, Copies) from real earlier poses. Null when nothing
@@ -80,8 +80,16 @@ public record RigidShutterPlan(SweptBounds bounds, List<Tap> taps, Trail trail) 
         }
         // Rotations between poses sweep slightly outside the poses' own boxes: a wider halo.
         SweptBounds bounds = SweptBounds.ofPoses(all, width, height, 4.0);
+        // Each smear step's edges are softened along the motion by one step (in the object's own
+        // UV units), so neighbouring steps overlap into an even stroke instead of stripes.
+        int steps = (times.length - 1) * TRAIL_SUBSTEPS;
+        ItemMotionSampler.Affine first = all.get(0), last = all.get(all.size() - 2);
+        double dx = (last.tx() - first.tx()) / Math.max(1, steps);
+        double dy = (last.ty() - first.ty()) / Math.max(1, steps);
+        double fu = Math.min(1.0, Math.abs(sharpInverse.xx() * dx + sharpInverse.xy() * dy));
+        double fv = Math.min(1.0, Math.abs(sharpInverse.yx() * dx + sharpInverse.yy() * dy));
         return new RigidShutterPlan(bounds, taps, new Trail(controls.look(), smearScale, copyScale,
-                1.0 - mix, new Tap(sharpInverse, 1.0)));
+                1.0 - mix, new Tap(sharpInverse, 1.0), fu, fv));
     }
 
     /**

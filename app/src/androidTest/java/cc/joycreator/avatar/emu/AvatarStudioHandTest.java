@@ -168,7 +168,7 @@ public class AvatarStudioHandTest {
     private static void shot(File out, String name, StringBuilder log) {
         Bitmap s = Emu.screen();
         if (s != null) {
-            Emu.save(s, new File(out, name + ".png"));
+            try { Emu.save(s, new File(out, name + ".png")); } catch (java.io.IOException e) { Log.w(Emu.TAG, "picture not saved", e); }
             s.recycle();
         }
         log.append("screenshot ").append(name).append('\n');

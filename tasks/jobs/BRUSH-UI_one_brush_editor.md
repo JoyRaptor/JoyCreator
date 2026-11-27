@@ -273,3 +273,32 @@ All other brush properties follow below, as now. Owner's design: build to the mo
 - **The drawer is a real drawer on the phone:** no rounded bottom corners and no enclosed pop-up look. It slides up
   from the bottom edge and uses those 10–15 px for content.
 - **Test stroke area:** round its hard corners a little.
+
+**§L built, 11-27 (orchestrator's Select lane, Opus; cloud-checked, Note 9 shots owed):**
+- **Step 1, one look:**
+  - The phone sheet sits on the bottom edge with square bottom corners, and the card's margins go to content.
+  - Unibrush drops its own panel inside the drawer.
+  - One × keeps the live changes; there is no separate Pressure link (it lights Shape).
+  - Unibrush's test stroke sits on the drawing's paper in the paint editor's 180 dp frame, with slightly round corners.
+- **Steps 2 and 3, one pen row for every brush** (`chrome/PenHearingRow`):
+  - Left to right: the pen monitor at paint's size, the 0/35/70° footprints stacked beside it, then the Pressure and Tilt boxes.
+  - A small grey corner button makes the monitor large over the boxes, and back.
+  - The boxes fill under the curve while the pen presses, and keep a plain grey ball and stick where the last stroke ended.
+  - The monitor's lean is a cyan triangle to the ball's edges.
+  - Unibrush's big Pressure → Tilt pad and its two 288 dp response boxes are gone; its response curves are now the row's boxes.
+  - The tip side view, which is not in the mockup, is gone from the row.
+- **Step 4, A and B in the monitor** (`ShapeMonitorView`, `ShapeOptionsBox`):
+  - Tap a shape or its A / B dot to choose it; B is made from A on first use.
+  - Drag its numbered points to reshape it; drag the cyan caret on the ring to turn the tip. Each drag is one step.
+  - The chosen shape's options sit in a box under the row, with an arrow pointing at A or B.
+  - The old square shape editor and the Shape endpoint choice are gone.
+- **Step 5, one live stage** (`BrushStage` in `JoyBrushActivity`):
+  - Unibrush modes draw their real test stroke on the same live stage as paint, on the drawing's paper. The stage can be drawn on, and has Clear and Test.
+  - Picture-tip brushes (Unibrush image modes and imported ones) read their tips through the drawing's own lookup. A Unibrush mode whose pictures are not prepared yet keeps a picture on paper.
+  - The live stage's corners are rounded by caps over the surface (`StageCorners`, since Android 10 cannot clip a SurfaceView).
+- **No engine change was needed.** The earlier note that a second live canvas could not hold picture tips did not hold: the canvas resolves tips per stroke from a lookup, and the stage now gets the drawing's.
+- **Tests:** `PenHearingRowTest` 2, `ShapeMonitorViewTest` 4, `UnibrushSettingsViewTest` +1 and updated, `BrushEditorStageTest` updated.
+- **Owed:**
+  - Note 9 before and after shots (`tasks/screens/brush-editor-20261127/`). The phone was offline.
+  - The owner's look.
+  - On a real pen, whether a picture-tip mode's live test stroke matches the drawing's.

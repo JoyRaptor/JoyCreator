@@ -42,6 +42,22 @@ import java.nio.ByteBuffer;
 final class MotionRouteFixture {
     private MotionRouteFixture() {}
 
+    static FaditorProject createPrivateFootage(Context context, boolean enabled) throws IOException {
+        var storage = new ProjectStorage(context);
+        var project = new FaditorProject(storage.uniqueName("TEST STU-7 C6 cut proof"));
+        project.setMotionBlurEnabled(enabled);
+        File source = new File(context.getExternalFilesDir(null), "studio-stu7-reference.mp4");
+        long duration = durationMs(source);
+        if (duration <= 0) throw new IOException("Missing private footage fixture");
+        var clip = clip(source, duration, duration);
+        clip.setAudioMuted(true);
+        clip.setRigidMotionBlurEnabled(true);
+        clip.setRigidMotionShutter(new MotionShutter.Controls(180, MotionShutter.Timing.CENTERED, 0, 100));
+        project.getTimeline().addClip(clip);
+        if (!storage.save(project)) throw new IOException("Could not save the footage fixture");
+        return project;
+    }
+
     static FaditorProject create(Context context) throws IOException {
         ProjectStorage storage = new ProjectStorage(context);
         var project = new FaditorProject(storage.uniqueName("TEST STU-7 route"));

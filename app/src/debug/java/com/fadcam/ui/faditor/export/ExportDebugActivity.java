@@ -145,6 +145,12 @@ public class ExportDebugActivity extends Activity {
             in.putExtra("project_id", fixture.getId());
             FLog.i(TAG, "C1 route fixture project_id=" + fixture.getId());
         }
+        if (in.getBooleanExtra("motion_footage_fixture", false)
+                && in.getBooleanExtra("motion_private_reference", false)) {
+            FaditorProject fixture = MotionRouteFixture.createPrivateFootage(this,
+                    in.getBooleanExtra("motion_enabled", true));
+            in.putExtra("project_id", fixture.getId());
+        }
         String id = in.getStringExtra("project_id");
         if (id == null) {
             FLog.w(TAG, "no project_id extra");

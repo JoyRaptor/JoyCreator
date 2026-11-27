@@ -108,6 +108,7 @@ public final class PartsView extends ScrollView {
     // ── Set up: its drawings ──────────────────────────────────────────────────────────────────────
 
     private void setUp(CharacterDoc doc, CharacterDoc.Node node) {
+        column.addView(body(getContext().getString(R.string.avatar_pins_hint)));
         if (!"set".equals(node.type) || node.kids.isEmpty()) {
             column.addView(body(getContext().getString(R.string.avatar_ask_stage_1)));
             return;

@@ -153,5 +153,7 @@
     <string name="avatar_step_mark_state">Landmark %1$d: %2$s</string>
     <string name="avatar_step_remove_mark">Remove landmark %1$d</string>
     <string name="avatar_step_meet">Change where two angles meet</string>
+    <string name="avatar_step_move_pin">Move a pin</string>
+    <string name="avatar_pins_hint">Yellow pins are where it turns; blue pins hold a spot as it bends. Drag one on the picture: a loupe follows your finger.</string>
 </resources>
 

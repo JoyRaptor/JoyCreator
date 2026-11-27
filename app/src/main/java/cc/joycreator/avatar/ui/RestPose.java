@@ -201,6 +201,30 @@ final class RestPose implements PoseRenderer {
     }
 
     @Override
+    public java.util.List<CharacterDoc.Node> shown(CharacterDoc.Node n) {
+        java.util.List<CharacterDoc.Node> out = new java.util.ArrayList<>();
+        collectShown(n, out);
+        return out;
+    }
+
+    private void collectShown(CharacterDoc.Node n, java.util.List<CharacterDoc.Node> out) {
+        if (n.hidden) return;
+        out.add(n);
+        switch (n.type) {
+            case "set": {
+                CharacterDoc.Node k = pick(n);
+                if (k != null) collectShown(k, out);
+                return;
+            }
+            case "art":
+            case "mirror":
+                return;
+            default:
+                for (CharacterDoc.Node k : n.kids) collectShown(k, out);
+        }
+    }
+
+    @Override
     public void release() {
         for (Bitmap b : bitmaps.values()) b.recycle();
         bitmaps.clear();

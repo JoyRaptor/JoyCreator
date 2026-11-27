@@ -33,6 +33,9 @@ public interface PoseRenderer {
     /** Where a part is on the picture right now, or null when it shows nothing. */
     RectF bounds(CharacterDoc.Node n);
 
+    /** The part and every piece of it that is drawn right now (a set shows one drawing), outermost first. */
+    java.util.List<CharacterDoc.Node> shown(CharacterDoc.Node n);
+
     /** "Try this drawing": look at one drawing of a set without changing the file; {@code kidId} null puts it back. */
     void tryDrawing(String setId, String kidId);
 

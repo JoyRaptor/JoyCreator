@@ -205,5 +205,18 @@
     <string name="avatar_done">Done</string>
     <string name="avatar_stick_step">Gesture: %1$s, %2$s</string>
     <string name="avatar_stick_note">These belong to %1$s: each character keeps its own. A quick flick or tap on the pad is a gesture; a press you hold and steer is the joystick. Its own stances and buttons are here too.</string>
+    <string name="avatar_in_the_stance">, in the stance “%1$s”</string>
+    <string name="avatar_stack_back">Back</string>
+    <string name="avatar_stack_front">Front</string>
+    <string name="avatar_stack_me">%1$s: the part you are placing</string>
+    <string name="avatar_stack_behind">Put %1$s just behind %2$s</string>
+    <string name="avatar_stack_ahead">Put %1$s just in front of %2$s</string>
+    <string name="avatar_as_standing">As when standing</string>
+    <string name="avatar_its_own_place">Its own place</string>
+    <string name="avatar_hover_forget_order">Forget the order: the same as when it stands, or back to where the file has it</string>
+    <string name="avatar_changes_over">Changes over at</string>
+    <string name="avatar_stack_note">Left is the back, right is the front. Tap a part to step past it. It stays like this.</string>
+    <string name="avatar_stack_note_stance">Left is the back, right is the front. Tap a part to step past it. Only while it is in this stance.</string>
+    <string name="avatar_stack_step">%1$s: %2$s</string>
 </resources>
 

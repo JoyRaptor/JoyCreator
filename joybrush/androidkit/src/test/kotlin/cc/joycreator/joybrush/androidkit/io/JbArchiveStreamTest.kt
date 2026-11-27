@@ -11,6 +11,8 @@ import cc.joycreator.joybrush.core.doc.TILE_SIZE
 import cc.joycreator.joybrush.core.media.MediaStores
 import java.io.ByteArrayOutputStream
 import java.io.File
+import kotlin.test.AfterTest
+import kotlin.test.BeforeTest
 import kotlin.test.Test
 import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
@@ -22,6 +24,9 @@ import kotlin.test.assertTrue
  * writes them and hands them back before taking the next. The file is the one a save of the same tiles in memory makes.
  */
 class JbArchiveStreamTest {
+    @BeforeTest fun on() { ArchiveCarrying.streamTiles = true }
+    @AfterTest fun off() { ArchiveCarrying.streamTiles = false }
+
     private val layer = "oil"
     private val cel = "c-oil"
     private val count = 120

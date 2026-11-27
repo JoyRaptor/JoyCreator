@@ -72,6 +72,11 @@ object ArchiveCarrying {
      * 2026-11-15) or every tile, as before. Off is the way back if a phone's fingerprints ever disagree with its tiles.
      */
     @Volatile var rereadChangedOnly: Boolean = true
+    /**
+     * Whether a save takes a [TileStream]'s tiles one at a time as it writes them (JBX-36 S1, 11-27) or all of them
+     * before it writes anything, as before. The file made is the same either way. Off until measured on the Note 9.
+     */
+    @Volatile var streamTiles: Boolean = false
 }
 
 /** Thrown by every function here. The message is the whole error report, so it says what is wrong. */
@@ -307,11 +312,31 @@ object JbArchive {
         prepareStructure(contents, retainEntries = false)
     }
 
+    /**
+     * A tile's bytes as a save writes them (JBX-36): already in memory, or taken from a [TileStream] when they are
+     * written ([open]) and handed back right after ([close]), so a streamed drawing is held one tile at a time.
+     */
+    private class Payload(val size: Int, private val bytes: ByteArray?, private val stream: TileStream<Any?>?, private val key: Any?) {
+        fun open(): ByteArray = bytes ?: stream!!.take(key)
+        fun close() { stream?.written(key) }
+    }
+
+    @Suppress("UNCHECKED_CAST")
+    private fun <K> payloadOf(map: Map<K, ByteArray>, key: K): Payload {
+        val stream = if (ArchiveCarrying.streamTiles) map as? TileStream<K> else null
+        if (stream != null) {
+            val size = stream.sizeOf(key) ?: throw JbArchiveException("a tile listed for this save has no length")
+            return Payload(size, null, stream as TileStream<Any?>, key)
+        }
+        val bytes = map.getValue(key)
+        return Payload(bytes.size, bytes, null, null)
+    }
+
     private class PreparedEntries(
-        val tiles: List<Pair<String, ByteArray>>,
+        val tiles: List<Pair<String, Payload>>,
         val slabs: List<Pair<String, ByteArray>>,
         val looks: List<Pair<String, ByteArray>>,
-        val media: List<Pair<String, ByteArray>>,
+        val media: List<Pair<String, Payload>>,
         val strokes: List<Pair<String, ByteArray>>,
         val brushes: List<Pair<String, ByteArray>>,
         val brushAssets: List<Pair<String, ByteArray>>,
@@ -339,11 +364,12 @@ object JbArchive {
 
         val declared = declaredTiles(doc)
 
-        val tileEntries = ArrayList<Pair<String, ByteArray>>()
+        // Lengths only: a streamed drawing's tiles are taken when they are written, one at a time (JBX-36).
+        val tileEntries = ArrayList<Pair<String, Payload>>()
         for (key in contents.tiles.keys.sortedWith(TILE_ORDER)) {
-            val bytes = contents.tiles.getValue(key)
-            checkTile(key, bytes, declared)
-            keep(tileEntries, tilePath(key), bytes)
+            val payload = payloadOf(contents.tiles, key)
+            checkTile(key, payload.size, declared)
+            if (retainEntries) tileEntries.add(tilePath(key) to payload)
         }
 
         // Check the reverse direction too. Validating only the supplied payloads can otherwise
@@ -424,11 +450,11 @@ object JbArchive {
 
         // Media state, both directions, as for paint tiles: every file is declared, and every declared tile has state.
         val mediaDeclared = declaredMediaTiles(doc)
-        val mediaEntries = ArrayList<Pair<String, ByteArray>>()
+        val mediaEntries = ArrayList<Pair<String, Payload>>()
         for (key in contents.mediaTiles.keys.sortedWith(MEDIA_ORDER)) {
-            val bytes = contents.mediaTiles.getValue(key)
-            checkMediaTile(key, bytes.size, mediaDeclared)
-            keep(mediaEntries, mediaPath(key), bytes)
+            val payload = payloadOf(contents.mediaTiles, key)
+            checkMediaTile(key, payload.size, mediaDeclared)
+            if (retainEntries) mediaEntries.add(mediaPath(key) to payload)
         }
         val given = contents.mediaTiles.keys.mapTo(HashSet()) { Triple(it.layerId, it.celId, it.key) }
         for ((cel, keys) in mediaDeclared) for (key in keys) {
@@ -496,8 +522,9 @@ object JbArchive {
 
             for (entry in entries.tiles) {
                 zos.putNextEntry(ZipEntry(entry.first))
-                zos.write(entry.second)
+                zos.write(entry.second.open())
                 zos.closeEntry()
+                entry.second.close()
             }
             for (entry in entries.slabs + entries.looks) {
                 zos.putNextEntry(ZipEntry(entry.first))
@@ -507,8 +534,9 @@ object JbArchive {
             zos.setLevel(ArchiveMediaDeflate.level)
             for (entry in entries.media) {
                 zos.putNextEntry(ZipEntry(entry.first))
-                zos.write(entry.second)
+                zos.write(entry.second.open())
                 zos.closeEntry()
+                entry.second.close()
             }
             zos.setLevel(ARCHIVE_DEFLATE_LEVEL)
             for (entry in entries.strokes) {
@@ -668,19 +696,25 @@ object JbArchive {
         val unread = HashMap<String, Unread>(sparse.tiles.size + sparse.mediaTiles.size)
         // Stand-ins of the right size so the document is checked against every tile as always. They are never written:
         // a tile named in [unread] is carried or the save is refused, and that is checked by name below.
-        val tiles = HashMap<Triple<String, String, String>, ByteArray>(sparse.contents.tiles)
+        // The tiles that came with bytes are not copied (they may be a stream, taken one at a time as they are written):
+        // the stand-ins are laid beside them.
+        val tileStandIns = HashMap<Triple<String, String, String>, ByteArray>(sparse.tiles.size * 2)
         for ((key, u) in sparse.tiles) {
             if (key in sparse.contents.tiles) throw JbArchiveException("tile ${tilePath(key)} was given with and without its bytes")
             if (u.size != TILE_BYTES) throw JbArchiveNeedsBytes("tile ${tilePath(key)} is remembered with another size")
-            tiles[key] = standIn(TILE_BYTES); unread[tilePath(key)] = u
+            tileStandIns[key] = standIn(TILE_BYTES); unread[tilePath(key)] = u
         }
-        val media = HashMap<MediaTileKey, ByteArray>(sparse.contents.mediaTiles)
+        val mediaStandIns = HashMap<MediaTileKey, ByteArray>(sparse.mediaTiles.size * 2)
         for ((key, u) in sparse.mediaTiles) {
             if (key in sparse.contents.mediaTiles) throw JbArchiveException("tile ${mediaPath(key)} was given with and without its bytes")
             val size = try { cc.joycreator.joybrush.core.media.MediaStores.tileBytes(TILE_SIZE, key.store) } catch (e: RuntimeException) { -1 }
             if (size <= 0 || u.size != size) throw JbArchiveNeedsBytes("tile ${mediaPath(key)} is remembered with another size")
-            media[key] = standIn(size); unread[mediaPath(key)] = u
+            mediaStandIns[key] = standIn(size); unread[mediaPath(key)] = u
         }
+        val tiles: Map<Triple<String, String, String>, ByteArray> =
+            if (tileStandIns.isEmpty()) sparse.contents.tiles else TilesWithExtra(sparse.contents.tiles, tileStandIns)
+        val media: Map<MediaTileKey, ByteArray> =
+            if (mediaStandIns.isEmpty()) sparse.contents.mediaTiles else TilesWithExtra(sparse.contents.mediaTiles, mediaStandIns)
         if (unread.size != sparse.tiles.size + sparse.mediaTiles.size) throw JbArchiveException("two tiles of this drawing share a file name")
         val filled = if (sparse.whole) sparse.contents else sparse.contents.copy(tiles = tiles, mediaTiles = media)
         val prints = HashMap<String, cc.joycreator.joybrush.core.paint.TileFingerprint.Print>(sparse.tilePrints.size + sparse.mediaPrints.size)
@@ -698,17 +732,19 @@ object JbArchive {
     private fun writeCarrying(out: OutputStream, contents: JbContents, old: File, memo: SaveMemo?, unread: Map<String, Unread>,
                               prints: Map<String, cc.joycreator.joybrush.core.paint.TileFingerprint.Print>): SaveMemo {
         val (doc, entries) = prepareWrite(contents, null)
-        class Item(val name: String, val bytes: ByteArray, val level: Int)
+        // A tile's bytes are taken only when its turn comes and handed back once written (JBX-36): [Payload].
+        class Item(val name: String, val payload: Payload, val level: Int)
+        fun held(bytes: ByteArray) = Payload(bytes.size, bytes, null, null)
         val items = ArrayList<Item>()
-        items += Item(MIMETYPE_NAME, JB_MIMETYPE.toByteArray(Charsets.US_ASCII), -1)
-        items += Item(DOCUMENT_NAME, DocJson.encode(doc).toByteArray(Charsets.UTF_8), ARCHIVE_DEFLATE_LEVEL)
+        items += Item(MIMETYPE_NAME, held(JB_MIMETYPE.toByteArray(Charsets.US_ASCII)), -1)
+        items += Item(DOCUMENT_NAME, held(DocJson.encode(doc).toByteArray(Charsets.UTF_8)), ARCHIVE_DEFLATE_LEVEL)
         for (e in entries.tiles) items += Item(e.first, e.second, ARCHIVE_DEFLATE_LEVEL)
-        for (e in entries.slabs + entries.looks) items += Item(e.first, e.second, ARCHIVE_DEFLATE_LEVEL)
+        for (e in entries.slabs + entries.looks) items += Item(e.first, held(e.second), ARCHIVE_DEFLATE_LEVEL)
         for (e in entries.media) items += Item(e.first, e.second, ArchiveMediaDeflate.level)
-        for (e in entries.strokes) items += Item(e.first, e.second, ARCHIVE_DEFLATE_LEVEL)
-        for (e in entries.brushes) items += Item(e.first, e.second, ARCHIVE_DEFLATE_LEVEL)
-        for (e in entries.brushAssets) items += Item(e.first, e.second, ARCHIVE_DEFLATE_LEVEL)
-        contents.thumbnailPng?.let { items += Item(THUMBNAIL_NAME, it, ARCHIVE_DEFLATE_LEVEL) }
+        for (e in entries.strokes) items += Item(e.first, held(e.second), ARCHIVE_DEFLATE_LEVEL)
+        for (e in entries.brushes) items += Item(e.first, held(e.second), ARCHIVE_DEFLATE_LEVEL)
+        for (e in entries.brushAssets) items += Item(e.first, held(e.second), ARCHIVE_DEFLATE_LEVEL)
+        contents.thumbnailPng?.let { items += Item(THUMBNAIL_NAME, held(it), ARCHIVE_DEFLATE_LEVEL) }
 
         val trusted = memo != null && old.isFile && memo.path == old.path && memo.length == old.length() && memo.modified == old.lastModified()
         val raf = if (trusted) try { java.io.RandomAccessFile(old, "r") } catch (e: java.io.IOException) { null } else null
@@ -730,6 +766,8 @@ object JbArchive {
                 if (index == null) throw JbArchiveNeedsBytes("the older file is not the one the last save wrote")
             }
             for (item in items) {
+                // A tile without bytes (a stand-in) is never taken; any other is taken now and handed back once written.
+                val bytes: ByteArray? = if (item.name in unread) null else item.payload.open()
                 // A tile that was not read back: the last save must have been given this very fingerprint for it; its
                 // checksum is then the one that save wrote, and its bytes here are a stand-in that must never reach the file.
                 val u = unread[item.name]
@@ -742,9 +780,10 @@ object JbArchive {
                     tags[item.name] = u.print
                 } else {
                     prints[item.name]?.let { tags[item.name] = it }
-                    crc.reset(); crc.update(item.bytes)
-                    adler.reset(); adler.update(item.bytes)
-                    sum = (crc.value shl 32) or adler.value; length = item.bytes.size.toLong(); rawCrc = crc.value
+                    val b = bytes!!
+                    crc.reset(); crc.update(b)
+                    adler.reset(); adler.update(b)
+                    sum = (crc.value shl 32) or adler.value; length = b.size.toLong(); rawCrc = crc.value
                 }
                 raw[item.name] = sum
                 val kept = index?.get(item.name)
@@ -773,7 +812,8 @@ object JbArchive {
                     }
                 }
                 if (!done && u != null) throw JbArchiveNeedsBytes("the older file does not hold ${item.name} as it was last saved")
-                if (!done) { packed[item.name] = w.fresh(item.name, item.bytes, item.level); fresh++ }
+                if (!done) { packed[item.name] = w.fresh(item.name, bytes!!, item.level); fresh++ }
+                if (bytes != null) item.payload.close()
             }
             w.finish()
             buffered.flush()
@@ -1263,7 +1303,7 @@ object JbArchive {
         return out
     }
 
-    private fun checkTile(key: Triple<String, String, String>, bytes: ByteArray, declared: Map<Pair<String, String>, List<String>>) {
+    private fun checkTile(key: Triple<String, String, String>, size: Int, declared: Map<Pair<String, String>, List<String>>) {
         val keys = declared[Pair(key.first, key.second)]
         if (keys == null) {
             throw JbArchiveException(
@@ -1276,9 +1316,9 @@ object JbArchive {
         if (!isTileKey(key.third)) {
             throw JbArchiveException("tile key \"${key.third}\" of cel \"${key.second}\" is not \"tx_ty\"")
         }
-        if (bytes.size != TILE_BYTES) {
+        if (size != TILE_BYTES) {
             throw JbArchiveException(
-                "tile \"${key.third}\" of layer \"${key.first}\" cel \"${key.second}\" is ${bytes.size} bytes, a paint tile is $TILE_BYTES"
+                "tile \"${key.third}\" of layer \"${key.first}\" cel \"${key.second}\" is $size bytes, a paint tile is $TILE_BYTES"
             )
         }
     }

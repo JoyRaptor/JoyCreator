@@ -74,6 +74,19 @@ class BrushLinePreferencesTest {
         }
     }
 
+    @Test fun theSwitchIsOfferedOnlyWhereTheCanvasKeepsTheLine() {
+        val mode = BrushLinePreferences(preferences())
+        val fillPen = paint.copy(id = "joybrush.lines.fill_pen", engine = "fill")
+        val wire = paint.copy(id = "joybrush.lines.wire",
+            line = cc.joycreator.joybrush.core.brush.LineStyleSpec(screenWidthPx = 1f))
+        for (b in listOf(fillPen, wire, paint.copy(blend = "behind"))) {
+            assertFalse(b.id + " " + b.blend, BrushLinePreferences.canSwitch(b))
+            assertFalse("a brush the canvas refuses as a line never says it makes lines", mode.enabled(b))
+        }
+        assertTrue(BrushLinePreferences.canSwitch(ink))
+        assertTrue(BrushLinePreferences.canSwitch(water))
+    }
+
     @Test fun nullBrushDoesNotReadOrCreateAGlobalSetting() {
         val prefs = preferences()
         val mode = BrushLinePreferences(prefs)

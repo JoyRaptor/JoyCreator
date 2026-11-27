@@ -1156,6 +1156,7 @@ class JoyBrushActivity : Activity() {
         canvas.preset = wanted
         canvas.editableLines = BrushLinePreferences(prefs).enabled(canvas.preset)
         strip.showTools(tools.slots.keys, if (selectInHand) null else tools.active)
+        showStripModeMarks(tuned)
         showStripValues()
         // Do not erase a saved user ID while its catalog/PNG owner is still loading (or refused).
         if (!catalogToolsPending && !importsPending) prefs.edit().putString(PREF_TOOLS, tools.encode()).apply()
@@ -3715,7 +3716,16 @@ class JoyBrushActivity : Activity() {
         if (canvas.editableLines == on) return
         canvas.editableLines = on
         BrushLinePreferences(prefs).set(canvas.preset, on)
+        showStripModeMarks(tunedBrushes())
         toast(if (on) "This brush keeps eligible strokes as editable lines" else "This brush paints pixels")
+    }
+
+    /** Each strip tool's lines-or-pixels mark, from the brush that slot holds (owner, 11-27: always know). */
+    private fun showStripModeMarks(library: List<cc.joycreator.joybrush.core.brush.BrushPreset>) {
+        val linePrefs = BrushLinePreferences(prefs)
+        strip.setMakesLines(tools.slots.mapValues { (_, state) ->
+            library.firstOrNull { it.id == state.brushId }?.let { linePrefs.enabled(it) }
+        })
     }
 
     private fun linesSelected(): Boolean = selection?.tool?.selection is SelectionState.Lines

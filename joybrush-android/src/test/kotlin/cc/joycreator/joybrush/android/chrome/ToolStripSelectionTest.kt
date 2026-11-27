@@ -46,6 +46,20 @@ class ToolStripSelectionTest {
         return field.get(strip) as? ValueAnimator
     }
 
+    @Test fun eachToolSaysWhetherItsBrushMakesLinesOrPixels() {
+        val strip = strip()
+        strip.showTools(setOf(ToolSlot.BRUSH, ToolSlot.SMUDGE, ToolSlot.ERASER), ToolSlot.BRUSH)
+        fun named(prefix: String) = descendants(strip).first { it.contentDescription?.toString()?.startsWith(prefix) == true }
+        strip.setMakesLines(mapOf(ToolSlot.BRUSH to true, ToolSlot.SMUDGE to false, ToolSlot.ERASER to null))
+        assertTrue(named("Brush").contentDescription.toString().endsWith("makes editable lines"))
+        assertTrue(named("Smudge").contentDescription.toString().endsWith("makes pixels"))
+        assertFalse(named("Eraser").contentDescription.toString().contains("makes"))
+        strip.setMakesLines(mapOf(ToolSlot.BRUSH to false))
+        assertTrue("a brush switched to pixels says so at once", named("Brush").contentDescription.toString().endsWith("makes pixels"))
+        strip.setSelectionRestyle(on = true, pulse = false)
+        assertTrue(named("Brush").contentDescription.toString().contains("selected lines’ brush"))
+    }
+
     @Test fun restyleHighlightsTheThreeSelectionTargetsAndSurvivesToolRefreshes() {
         val strip = strip()
         strip.showTools(setOf(ToolSlot.BRUSH, ToolSlot.SMUDGE, ToolSlot.ERASER), ToolSlot.BRUSH)

@@ -987,6 +987,7 @@ public final class AvatarRoomActivity extends Activity implements RoomMenu.Host,
         edit.reset(character);
         feedInputs(character);
         pathName.setText(character.name.isEmpty() ? getString(R.string.avatar_untitled) : character.name);
+        stage.setHint(getString(R.string.avatar_hint_character, character.name.isEmpty() ? getString(R.string.avatar_untitled) : character.name));
         paintSaveDot();
     }
 

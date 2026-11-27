@@ -3,7 +3,8 @@
     <!-- Avatar Studio, the character room (AVA-1 slice 1). Words and hover labels from tasks/avatar/AVA_PHONE_SPEC.md. -->
     <string name="avatar_untitled">New character</string>
     <string name="avatar_cannot_open">That file is not a character this room can open. Nothing was changed.</string>
-    <string name="avatar_hint_rest">Topps, standing. Moving him comes with the next step.</string>
+    <string name="avatar_hint_rest">Standing.</string>
+    <string name="avatar_hint_character">%1$s, standing.</string>
 
     <!-- The four stages. The second one's word is one string, so it changes in one place. -->
     <string name="avatar_stage_1">Set up</string>

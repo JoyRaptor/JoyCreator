@@ -70,7 +70,7 @@ public final class PinWizard extends FrameLayout {
         canvas = new View(c) {
             @Override
             protected void onDraw(Canvas g) {
-                draw(g);
+                paintPicture(g);
             }
 
             @Override
@@ -96,7 +96,7 @@ public final class PinWizard extends FrameLayout {
         return Math.round(v * dp);
     }
 
-    private void draw(Canvas g) {
+    private void paintPicture(Canvas g) {
         float w = canvas.getWidth(), h = canvas.getHeight();
         scale = Math.min((w - 40 * dp) / pic.getWidth(), (h - 40 * dp) / pic.getHeight());
         ox = (w - pic.getWidth() * scale) / 2;

@@ -140,4 +140,16 @@ class UnibrushSettingsViewTest {
         assertEquals(1,picked)
         assertEquals(recipe,view.currentRecipe())
     }
+
+    /** BRUSH-UI §L: on the live stage, Clear and Test sit under it as they do for paint brushes; on a picture, they don't. */
+    @Test fun theLiveStageHasClearAndTest() {
+        var cleared = 0; var tested = 0
+        val live = UnibrushSettingsView(ChromeKit(context), UnibrushModes.presets().first(), StabilizerPreference(), View(context),
+            { _, _ -> }, {}, {}, {}, { _, _ -> }, onClear = { cleared++ }, onTest = { tested++ })
+        click(live, "Wipe what you drew on the preview; the sample strokes stay")
+        click(live, "Draw a sheet of test strokes on the drawing with this brush. One undo removes them")
+        assertEquals(1, cleared); assertEquals(1, tested)
+        val picture = sheet()
+        assertTrue(descendants(picture).none { it.contentDescription?.toString()?.startsWith("Wipe what you drew") == true })
+    }
 }

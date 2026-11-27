@@ -38,6 +38,10 @@ class UnibrushSettingsView(
     private val onChooseSecondaryColour: (() -> Unit)? = null,
     /** BRUSH-UI section K.3: draws a slider's end picture, as for the paint brushes (null: words only). */
     endPicture: ((BrushPreset, Int, Int, cc.joycreator.joybrush.core.brush.TestStroke.Part, Float?, (android.graphics.Bitmap) -> Unit) -> (() -> Unit))? = null,
+    /** §L: the live stage's Clear (wipe what was drawn there), when the stage is the live one paint brushes use. */
+    private val onClear: (() -> Unit)? = null,
+    /** §L: the live stage's Test (a sheet of test strokes on the drawing), as paint brushes have it. */
+    private val onTest: (() -> Unit)? = null,
 ) : LinearLayout(kit.context) {
     private val endPictures = endPicture?.let { SliderEndPictures(it) }
     /** Each slider with pictures: what its two ends are and how a value is written. */
@@ -137,6 +141,13 @@ class UnibrushSettingsView(
         addView(preview, LayoutParams(MATCH, kit.dpi(BrushSettingsView.PREVIEW_DP)).apply {
             setMargins(kit.dpi(4f), 0, kit.dpi(4f), kit.dpi(2f))
         })
+        if (onClear != null || onTest != null) {
+            // The stage's own actions, small, under it, as the paint editor has them (§L 1: one order).
+            val stageActions = LinearLayout(context).apply { orientation = HORIZONTAL; gravity = Gravity.END }
+            onClear?.let { clear -> stageActions.addView(StageButton.make(kit, "Clear", "Wipe what you drew on the preview; the sample strokes stay") { clear() }) }
+            onTest?.let { test -> stageActions.addView(StageButton.make(kit, "Test", "Draw a sheet of test strokes on the drawing with this brush. One undo removes them") { test() }) }
+            addView(stageActions, LayoutParams(MATCH, WRAP))
+        }
         addView(error, LayoutParams(MATCH, WRAP))
         scroll.addView(body, ViewGroup.LayoutParams(MATCH, WRAP))
         addView(scroll, LayoutParams(MATCH, 0, 1f))

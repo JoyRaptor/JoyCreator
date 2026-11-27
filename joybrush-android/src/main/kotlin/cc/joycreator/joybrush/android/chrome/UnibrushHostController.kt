@@ -170,6 +170,14 @@ class UnibrushHostController(
      */
     interface SettingsHost { fun show(view:View,onClosed:()->Unit):Boolean; fun close() }
     var settingsHost:SettingsHost?=null
+    /**
+     * BRUSH-UI §L (owner, 11-27): the test stroke on the same live stage paint brushes use, drawn by the brush itself on the
+     * drawing's paper, and drawable. The activity supplies it. A mode with picture tips keeps the picture on paper (its
+     * tips are not loaded into a second canvas yet).
+     */
+    interface Stage { val view:View; fun redrawSoon(); fun clear(); fun test(); fun penReading(cb:((Float,Float,Float)->Unit)?) }
+    var stageFactory:((()->BrushPreset)->Stage)?=null
+    private var liveStage:Stage?=null
     private var settingsDocked=false
     private fun closeSettingsSurface(){ if(settingsDocked)settingsHost?.close() else popovers.close() }
 
@@ -189,7 +197,10 @@ class UnibrushHostController(
             if(right-left!=oldRight-oldLeft||bottom-top!=oldBottom-oldTop)redrawPreview(epoch)
         }
         previewImage=image
-        val view=UnibrushSettingsView(kit,active.current().recipe,port.stabilizerPreference,image,
+        val opening=active.current().recipe
+        val stage=stageFactory?.takeIf{BrushAssetPaths.required(opening).isEmpty()}?.invoke{canvas.preset?:opening}
+        liveStage=stage
+        val view=UnibrushSettingsView(kit,opening,port.stabilizerPreference,stage?.view?:image,
             onChange={recipe,_->
                 val now=session?:throw BrushException("Choose the mode again")
                 val imported=now.pending()?.pair?.takeIf{it.resources.paths==BrushAssetPaths.required(recipe).toSet()}
@@ -216,10 +227,13 @@ class UnibrushHostController(
                     part=part,stripes=false,dabScalePx=dabScale),onReady)
                 ({ask.cancel()})
             },
+            onClear=stage?.let{s->{s.clear()}},
+            onTest=stage?.let{s->{s.test()}},
         )
         sheet=view
+        stage?.penReading{p,t,o->if(epoch==sheetRevision)view.showReading(p,t,o)}
         val closed={
-            if(epoch==sheetRevision){sheetRevision++;sheet=null;previewImage=null;previewAsk?.cancel();previewAsk=null;canvas.onPenReading=null;cancelPick();secondaryInk.cancel()}
+            if(epoch==sheetRevision){sheetRevision++;sheet=null;previewImage=null;liveStage?.penReading(null);liveStage=null;previewAsk?.cancel();previewAsk=null;canvas.onPenReading=null;cancelPick();secondaryInk.cancel()}
         }
         // Shown before the pen reading is set: showing closes the surface before, whose close clears the reading.
         settingsDocked=settingsHost?.show(view,closed)==true
@@ -236,6 +250,7 @@ class UnibrushHostController(
             null,{choice.cancel();redrawPreview(epoch)})
     }
     private fun redrawPreview(epoch:Long) {
+        if(epoch==sheetRevision)liveStage?.let{it.redrawSoon();return}
         val image=previewImage?:return
         if(epoch!=sheetRevision||image.width<=0||image.height<=0)return
         val pair=session?.current()?:return

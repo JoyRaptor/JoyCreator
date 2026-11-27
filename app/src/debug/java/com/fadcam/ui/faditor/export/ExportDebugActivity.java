@@ -128,6 +128,15 @@ public class ExportDebugActivity extends Activity {
             in.putExtra("project_id", fixture.getId());
             FLog.i(TAG, "C2 sprite fixture enabled=" + enabled);
         }
+        if (in.getBooleanExtra("motion_puppet_mesh_fixture", false)) {
+            boolean enabled = in.getBooleanExtra("motion_enabled", true);
+            FaditorProject fixture = MotionRouteFixture.createPuppetMesh(
+                    this, enabled, in.getBooleanExtra("motion_master_off", false));
+            in.putExtra("project_id", fixture.getId());
+            in.putExtra("motion_lane_project_order", true);
+            FLog.i(TAG, "C5 puppet mesh fixture project_id=" + fixture.getId()
+                    + " item=" + enabled + " master=" + fixture.isMotionBlurEnabled());
+        }
         if (in.getBooleanExtra("motion_title_fixture", false)) {
             boolean enabled = in.getBooleanExtra("motion_enabled", true);
             FaditorProject fixture = MotionRouteFixture.createTitle(this, enabled);

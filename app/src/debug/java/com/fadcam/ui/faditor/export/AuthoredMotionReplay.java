@@ -11,7 +11,8 @@ public final class AuthoredMotionReplay {
     public static final int HEIGHT = 80;
     public static final int ART_WIDTH = 20;
     public static final int ART_HEIGHT = 8;
-    public static final int CENTER_MS = 120;
+    // Keep the sample past the emulator decoder's initial queued frames.
+    public static final int CENTER_MS = 400;
     private static final int HALF_EXPOSURE_MS = 10;
 
     private AuthoredMotionReplay() {}

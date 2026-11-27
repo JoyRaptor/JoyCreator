@@ -234,8 +234,68 @@
       });
       if (!row.some(function (q) { return q && q[2] !== 'off'; })) row[0] = [row[0][0], row[0][1]];      // (a row must place something: the rules)
     });
+    var f = mask.data(set); f.fit = {};
+    Object.keys(sol.angles).forEach(function (id) { var A = sol.angles[id]; f.fit[id] = [A.turn[0], A.turn[1], Math.round(A.map.sx * 100) / 100, Math.round(A.map.sy * 100) / 100]; });
+    if (AL.maskPoses) AL.maskPoses.carry(set);                       // stage 3: the poses, carried by the new turns
     return sol;
   };
+
+  /* ── stage 2: your face drives the mask ──
+     Each mask point follows its face points' movement from your neutral face (al-face.js points: the head's turn, tilt and
+     distance already taken out), in mask units, as signals mk.<n>.x / .y (recorded and played back like every face lane). The
+     solver turns that movement to each drawing's real turn and bends the drawing last, as one piece, held at its edges
+     (al-solve.js, the mask pass). With the front camera the character mirrors you: its right side follows your left. */
+  var PARTNER = { 107: 336, 336: 107, 70: 300, 300: 70, 33: 263, 263: 33, 133: 362, 362: 133, 205: 425, 425: 205, 61: 291, 291: 61, 172: 397, 397: 172 };
+  /** The face points the mask follows (both sides, so the camera's mirror can choose). */
+  mask.watch = function (ch) {
+    var set = mask.headSet(ch), mk = set && piece(set, false), seen = {}, out = []; if (!mk) return out;
+    mk.pts.forEach(function (p) { (p.face || []).forEach(function (i) { [i, PARTNER[i]].forEach(function (j) { if (j != null && !seen[j]) { seen[j] = 1; out.push(j); } }); }); });
+    return out;
+  };
+  /** Mask units per unit of the face points: the eyes are 0.9 apart on the mask. */
+  function unitOf(cal) {
+    var P = cal && cal.points; if (!P) return 0.75;
+    function c(a, b) { return [(P[a * 3] + P[b * 3]) / 2, (P[a * 3 + 1] + P[b * 3 + 1]) / 2]; }
+    var l = c(33, 133), r = c(263, 362), d = Math.hypot(l[0] - r[0], l[1] - r[1]);
+    return d > 1e-6 ? 0.9 / d : 0.75;
+  }
+  /** From the face points' signals (already eased) to the mask's: S['mk.<n>.x' / '.y']. */
+  mask.drive = function (inp, S) {
+    var ch = inp.app.ch, set = mask.headSet(ch), mk = set && piece(set, false); if (!mk) return;
+    var st = inp.cam && inp.cam._faceStage, mirrored = !(st && st.tun && st.tun.mirror), k = unitOf(st && st.cal), raw = {};
+    mk.pts.forEach(function (p) {
+      if (!p.face || !p.face.length) return;
+      var sx = 0, sy = 0, n = 0;
+      p.face.forEach(function (i) { var j = mirrored && PARTNER[i] != null ? PARTNER[i] : i, x = S['pt.' + j + '.x'], y = S['pt.' + j + '.y']; if (typeof x === 'number') { sx += x; sy += y || 0; n++; } });
+      raw[p.n] = [n ? sx / n * k : 0, n ? sy / n * k : 0];
+    });
+    inp._mkRaw = raw;                                                  // (Make the face keeps this)
+    /* stage 3: how much of each pose your face holds; the poses carry that, and what they do not explain follows directly */
+    var MP = AL.maskPoses, poses = MP ? MP.list(set).filter(function (q) { return q.face; }) : [], rest = raw, f = set.face || {};
+    for (var key in S) if (key.slice(0, 3) === 'mp.') delete S[key];
+    if (poses.length) { var wt = MP.weights(set, raw); poses.forEach(function (q) { S['mp.' + q.id] = wt.w[q.id] || 0; }); rest = wt.rest; }
+    var dg = f.direct == null ? 1 : f.direct;
+    Object.keys(raw).forEach(function (n) { var v = rest[n] || [0, 0]; S['mk.' + n + '.x'] = v[0] * (poses.length ? dg : 1); S['mk.' + n + '.y'] = v[1] * (poses.length ? dg : 1); });
+  };
+  mask.swapsNow = function (ch, S) { var set = mask.headSet(ch); return set && AL.maskPoses ? AL.maskPoses.swapsNow(set, S) : null; };
+  /** For the solver: how drawing `kid` of the head bends by the mask now (signals s), in the head's frame:
+      { P, Q, moved }, or null when the head has no mask or the drawing no row. Points with no face (your own, landmarks made
+      elsewhere) hold still; hidden and "not here" points take no part. All points: set.face.gain. */
+  mask.bendFor = function (set, kid, s) {
+    var mk = piece(set, false), f = set.face, fit = f && f.fit && f.fit[kid.id], row = mk && mk.at[kid.id]; if (!fit || !row) return null;
+    var r = R3(fit[0], fit[1]), g = f.gain == null ? 1 : f.gain, P = [], Q = [], moved = false, posed = f.posed;
+    mk.pts.forEach(function (p, i) {
+      var q = row[i]; if (!q || q[2] === 'off' || q[2] === 'behind') return;
+      var dx = 0, dy = 0;
+      if (p.face && p.face.length) { var mx = s['mk.' + p.n + '.x'] || 0, my = s['mk.' + p.n + '.y'] || 0; if (mx || my) { var v = fwd(r, [mx, my, 0]); dx = v[0] * fit[2] * g; dy = v[1] * fit[3] * g; } }
+      if (posed) for (var pid in posed) { var wv = s['mp.' + pid]; if (!wv) continue; var on = posed[pid][kid.id], mv = on && on[p.n]; if (mv) { dx += mv[0] * wv; dy += mv[1] * wv; } }      // your poses, as strong as your face holds them
+      if (Math.abs(dx) > 0.01 || Math.abs(dy) > 0.01) moved = true;
+      P.push([q[0], q[1]]); Q.push([q[0] + dx, q[1] + dy]);
+    });
+    return P.length ? { P: P, Q: Q, moved: moved } : null;
+  };
+  mask.setGain = function (set, g) { mask.data(set).gain = g; };
+  mask.gain = function (set) { var f = set && set.face; return f && f.gain != null ? f.gain : 1; };
 
   /* ── edits (each called inside app.edit, so one is one undo step) ── */
   /** Put the mask on a head: the template's points after any landmarks it already has, guessed on every drawing. */

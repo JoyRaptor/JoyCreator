@@ -35,8 +35,8 @@ Updated 11-27 by the lead.
 | Perform panel: head pad, Hold to talk, Blink, moods, buttons, Breeze, take bar, Mic, Face | 5 | ✅ landed (cloud tests green); crude stage until X2; not tried on a phone | slice 1 |
 | Landmarks screen on the phone | 3 | ✅ landed (whole head only; one piece on its own, preview slider owed) | slice 1 |
 | Landscape and tablet layouts | 3 | 🟡 landscape split and tablet proportions landed; the two-column tablet layouts owed | slice 1 |
-| X2 the movement engine (the pilot's solver), matched to the pilot within half a pixel | 13 | ⬜ in progress | spec session (Opus) |
-| X3 drawing on the GPU: masks, colour sets | 8 | ⬜ after X2 | spec session (Opus) |
+| X2 the movement engine (the pilot's solver), matched to the pilot within half a pixel | 13 | ✅ landed (see the X2 commit on joy-creator, 11-27): every vertex within 0.005 px in 41 poses of Topps, Pip, the landmark squares and a feature "gadget" (+ the Joybot draft locally); cloud Studio 82/0; not run on a phone | spec session (Opus) |
+| X3 drawing on the GPU: masks, colour sets | 8 | 🔨 built on `claude/gracious-mendel-3513fb` (19c5696c6): the pilot's shaders exactly (checked), masks, colour sets, a Note 9 bench; waiting for the Note 9 | spec session (Opus) |
 | Set up card: pins, magnifier, pin wizard | 5 | ⬜ | slice 1 |
 | Arrange: the box, stances, all fours, reshape with pins, in front / behind | 8 | ⬜ | slice 1 |
 | Motion: swinging parts, turning round, round heads | 5 | ⬜ | slice 1 |

@@ -36358,6 +36358,12 @@ public class FaditorEditorActivity extends AppCompatActivity {
             float lowest = pc.getHeight() - puppetHelper.heightPx()
                     - 10f * getResources().getDisplayMetrics().density;
             if (at[1] < floor) at[1] = Math.max(at[1], Math.min(floor, lowest));
+            // STU-4 11-27: when the picture is too short for the strip to sit below the drawer it lies over the drawer's
+            // rows. It then keeps to the RIGHT edge (as in the Selected scope), where the Recording rows leave room for
+            // it (PuppetDrawerTabs reserves its width), instead of dodging left over "Record on touch" and the slider ends.
+            if (at[1] < floor + 1f && puppetHelper.getHeight() > 0 && at[1] + puppetHelper.heightPx() > floor) {
+                at[0] = pc.getWidth() - puppetHelper.widthPx() - 10f * getResources().getDisplayMetrics().density;
+            }
         }
         puppetHelper.setX(at[0]);
         puppetHelper.setY(at[1]);

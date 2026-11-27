@@ -52,8 +52,29 @@ public final class AuthoredSpriteMeshExposure {
                                                      SpriteOverlayItem item) {
         if (!launchEnabled || !projectEnabled || !item.isRigidMotionBlurEnabled()
                 || !supportsDirectMesh(item)) return null;
-        SpriteOverlayItem snapshot = item.copyWithNewId(item.getId());
-        return new AuthoredSpriteMeshExposure(snapshot, snapshot.getMesh());
+        return prepareSnapshot(true, item.copyWithNewId(item.getId()));
+    }
+
+    /** The caller owns a detached sprite snapshot and publishes it to the GL thread. */
+    @Nullable static AuthoredSpriteMeshExposure prepareSnapshot(boolean projectEnabled,
+                                                                SpriteOverlayItem snapshot) {
+        return projectEnabled && snapshot.isRigidMotionBlurEnabled()
+                ? new AuthoredSpriteMeshExposure(snapshot, snapshot.getMesh()) : null;
+    }
+
+    record SharpPose(long editorMs, long localMs, float cx, float cy, float height,
+                     float rotation, float alpha, float mirrorX, float mirrorY) {}
+
+    /** The ordinary mesh renderer uses milliseconds. Sample it from the actual decoded frame. */
+    @Nullable static SharpPose sharpPoseAt(SpriteOverlayItem item, long editorUs) {
+        long editorMs = Math.floorDiv(editorUs, 1000L);
+        if (!item.isVisibleAt(editorMs)) return null;
+        float alpha = item.animatedOpacity(editorMs);
+        float height = item.animatedSizeFraction(editorMs);
+        if (alpha < 0.005f || !(height > 0f)) return null;
+        return new SharpPose(editorMs, item.meshLocalTime(editorMs), item.animatedCenterX(editorMs),
+                item.animatedCenterY(editorMs), height, item.animatedRotation(editorMs), alpha,
+                item.isFlipH() ? -1f : 1f, item.isFlipV() ? -1f : 1f);
     }
 
     /** The held source cell, ordered taps and fractional placement for one render. */

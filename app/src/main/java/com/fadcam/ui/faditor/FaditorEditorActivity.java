@@ -1154,8 +1154,11 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 MotionBlurItem item = findMotionBlurItem(id);
                 if (item == null) return;
                 // Only for as long as the finger is down; released (or cancelled) puts it back.
+                // A save already queued could land mid-hold with the blur off, so the release
+                // queues one more save of the restored state.
                 item.setRigidMotionBlurEnabled(!sharp);
                 refreshMotionPreview();
+                if (!sharp) scheduleAutoSave();
             }
             @Override public int cannotBlurReason() {
                 MotionBlurItem item = findMotionBlurItem(id);

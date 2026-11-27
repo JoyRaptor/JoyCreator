@@ -137,11 +137,13 @@ public final class DecodedFlowWorkTest {
         FlowCache.Key key = new FlowCache.Key("scene-cut", 0, 0, 0, 0, 0,
                 116_000, 120_000, "cpu-r1", "high", 24, 20);
         int count = key.width * key.height;
-        float[] earlier = new float[count], later = new float[count], flashed = new float[count];
+        float[] earlier = new float[count], later = new float[count];
+        float[] flashed = new float[count], compressedHighlights = new float[count];
         for (int i = 0; i < count; i++) {
             earlier[i] = ((i + i / key.width) & 1) == 0 ? .12f : .60f;
             later[i] = 1f - earlier[i];
             flashed[i] = earlier[i] + .28f;
+            compressedHighlights[i] = earlier[i] * .55f + .43f;
         }
         var from = new LumaImage(key.width, key.height, earlier);
         var to = new LumaImage(key.width, key.height, later);
@@ -166,13 +168,15 @@ public final class DecodedFlowWorkTest {
                         backward.withConfidence(new float[count]), FlowConfidence.Params.DEFAULT)
                         .contains(FlowCache.Flag.SCENE_CUT),
                 "collapsed confidence in low light without a large jump does not fence the pair");
-        var flash = new LumaImage(key.width, key.height, flashed);
-        for (boolean enteringFlash : new boolean[]{true, false}) {
-            var flashPair = new DecodedFlowWork(key, (pts, w, h) ->
-                    (pts == key.fromPtsUs) == enteringFlash ? from : flash,
-                    unaligned, FlowConfidence.Params.DEFAULT).analyze(() -> false);
-            check(flashPair.has(FlowCache.Flag.FLASH) && !flashPair.crossesCut(),
-                    "large exposure change that keeps the image texture is a flash in either direction");
+        for (float[] flashedLuma : new float[][]{flashed, compressedHighlights}) {
+            var flash = new LumaImage(key.width, key.height, flashedLuma);
+            for (boolean enteringFlash : new boolean[]{true, false}) {
+                var flashPair = new DecodedFlowWork(key, (pts, w, h) ->
+                        (pts == key.fromPtsUs) == enteringFlash ? from : flash,
+                        unaligned, FlowConfidence.Params.DEFAULT).analyze(() -> false);
+                check(flashPair.has(FlowCache.Flag.FLASH) && !flashPair.crossesCut(),
+                        "large exposure change that keeps the image texture is a flash in either direction");
+            }
         }
         var dir = Files.createTempDirectory("stu7-scene-cut-cache");
         try {

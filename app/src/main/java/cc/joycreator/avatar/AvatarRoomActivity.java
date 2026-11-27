@@ -55,6 +55,7 @@ public final class AvatarRoomActivity extends Activity implements RoomMenu.Host,
     private static final int REQ_OPEN = 41;
     private static final int REQ_PICTURES = 42;
     private static final int REQ_PSD = 43;
+    private static final int REQ_UPDATE = 46;
 
     /** The four stages, in the order the owner reads them (spec A2). The second one's word is one string. */
     private static final int[] STAGE_NAMES = {
@@ -1062,6 +1063,69 @@ public final class AvatarRoomActivity extends Activity implements RoomMenu.Host,
         }
     }
 
+    @Override
+    public void updateTheArt() {
+        Intent i = new Intent(Intent.ACTION_OPEN_DOCUMENT).addCategory(Intent.CATEGORY_OPENABLE).setType("*/*");
+        try {
+            startActivityForResult(i, REQ_UPDATE);
+        } catch (Exception e) {
+            Log.w(TAG, "no file picker", e);
+        }
+    }
+
+    /** The PNG text of one layer's pixels (the phone's bitmap code behind {@code PsdDoor.PngEncoder}). */
+    private static String pngOf(int w, int h, byte[] rgba) {
+        int[] px = new int[w * h];
+        for (int k = 0; k < px.length; k++) {
+            int o = k * 4;
+            px[k] = ((rgba[o + 3] & 255) << 24) | ((rgba[o] & 255) << 16) | ((rgba[o + 1] & 255) << 8) | (rgba[o + 2] & 255);
+        }
+        android.graphics.Bitmap b = android.graphics.Bitmap.createBitmap(w, h, android.graphics.Bitmap.Config.ARGB_8888);
+        b.setPixels(px, 0, w, 0, 0, w, h);
+        ByteArrayOutputStream png = new ByteArrayOutputStream();
+        b.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, png);
+        b.recycle();
+        return "data:image/png;base64," + android.util.Base64.encodeToString(png.toByteArray(), android.util.Base64.NO_WRAP);
+    }
+
+    /** Reads the repainted file on a copy, then lays the result over the character as ONE undo step. */
+    private void updateDoor(final Uri uri) {
+        final CharacterDoc now = character;
+        if (now == null) return;
+        JoyFolderHome.io().execute(() -> {
+            org.json.JSONObject copy = null;
+            cc.joycreator.avatar.intake.PsdUpdate.Result res = null;
+            String say = null;
+            try (InputStream in = getContentResolver().openInputStream(uri)) {
+                if (in == null) throw new java.io.IOException(getString(R.string.avatar_psd_unreadable));
+                cc.joycreator.avatar.intake.PsdReader psd = cc.joycreator.avatar.intake.PsdReader.parse(readAll(in));
+                copy = new org.json.JSONObject(now.json.toString());
+                res = cc.joycreator.avatar.intake.PsdUpdate.apply(copy, psd, AvatarRoomActivity::pngOf);
+            } catch (java.io.IOException e) {
+                say = e.getMessage();
+            } catch (Exception | OutOfMemoryError e) {
+                Log.w(TAG, "update not read", e);
+            }
+            final org.json.JSONObject fresh = copy;
+            final cc.joycreator.avatar.intake.PsdUpdate.Result r = res;
+            final String line = say;
+            main.post(() -> {
+                if (isFinishing()) return;
+                if (fresh == null || r == null) {
+                    Toast.makeText(this, line != null ? line : getString(R.string.avatar_psd_unreadable), Toast.LENGTH_LONG).show();
+                    return;
+                }
+                if (character != now) return;                       // another character came on the stage meanwhile
+                edit.apply(getString(R.string.avatar_step_update_art), d -> {
+                    d.json.put("root", fresh.getJSONObject("root"));
+                    d.json.put("pictures", fresh.getJSONObject("pictures"));
+                    if (fresh.has("fine")) d.json.put("fine", fresh.getJSONObject("fine"));
+                });
+                Toast.makeText(this, getString(R.string.avatar_update_done, r.replaced + r.finer, r.added, r.left), Toast.LENGTH_LONG).show();
+            });
+        });
+    }
+
     /** Reads the layered file, builds the character (every layer's picture inside it), and puts it on the stage. */
     private void layeredDoor(final Uri uri) {
         JoyFolderHome.io().execute(() -> {
@@ -1176,6 +1240,10 @@ public final class AvatarRoomActivity extends Activity implements RoomMenu.Host,
     @Override
     protected void onActivityResult(int req, int res, Intent data) {
         super.onActivityResult(req, res, data);
+        if (req == REQ_UPDATE && res == RESULT_OK && data != null && data.getData() != null) {
+            updateDoor(data.getData());
+            return;
+        }
         if (req == REQ_PSD && res == RESULT_OK && data != null && data.getData() != null) {
             layeredDoor(data.getData());
             return;

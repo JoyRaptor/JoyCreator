@@ -85,7 +85,10 @@ final class RestPose implements PoseRenderer {
             case "art": {
                 if (blinkHides(n)) break;
                 Bitmap b = bitmap(n.img);
-                if (b != null) c.drawBitmap(b, n.x, n.y, paint);
+                if (b == null) break;
+                float[] sz = shownSize(n.img, b);
+                if (sz[0] == b.getWidth() && sz[1] == b.getHeight()) c.drawBitmap(b, n.x, n.y, paint);
+                else c.drawBitmap(b, null, new RectF(n.x, n.y, n.x + sz[0], n.y + sz[1]), paint);      // finer art: more pixels, the same size on the character
                 break;
             }
             case "set": {
@@ -191,6 +194,13 @@ final class RestPose implements PoseRenderer {
     }
 
     /** Where a part is on the picture (the drawings it shows now), or null when it shows nothing. */
+    /** The size a drawing takes up on the character: its own pixels, unless it is finer art ({@code fine} in the file). */
+    private float[] shownSize(String img, Bitmap b) {
+        org.json.JSONObject fine = doc.json.optJSONObject("fine");
+        org.json.JSONArray f = fine == null ? null : fine.optJSONArray(img);
+        return f != null && f.length() >= 2 ? new float[]{(float) f.optDouble(0), (float) f.optDouble(1)} : new float[]{b.getWidth(), b.getHeight()};
+    }
+
     @Override
     public RectF bounds(CharacterDoc.Node n) {
         RectF out = new RectF();
@@ -205,7 +215,8 @@ final class RestPose implements PoseRenderer {
             case "art": {
                 Bitmap b = bitmap(n.img);
                 if (b == null) return;
-                RectF r = new RectF(n.x, n.y, n.x + b.getWidth(), n.y + b.getHeight());
+                float[] sz = shownSize(n.img, b);
+                RectF r = new RectF(n.x, n.y, n.x + sz[0], n.y + sz[1]);
                 if (any[0]) out.union(r);
                 else out.set(r);
                 any[0] = true;
@@ -255,7 +266,8 @@ final class RestPose implements PoseRenderer {
             if (!"art".equals(n.type)) continue;
             Bitmap b = bitmap(n.img);
             if (b == null) continue;
-            int px = Math.round(x - n.x), py = Math.round(y - n.y);
+            float[] sz = shownSize(n.img, b);
+            int px = Math.round((x - n.x) * b.getWidth() / sz[0]), py = Math.round((y - n.y) * b.getHeight() / sz[1]);
             if (px < 0 || py < 0 || px >= b.getWidth() || py >= b.getHeight()) continue;
             if (android.graphics.Color.alpha(b.getPixel(px, py)) > 40) return n;
         }

@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# PsdReaderTest + PsdDoorTest: the layered-file door (Avatar Studio) on hand-written files. Pure Java; no Gradle.
+# PsdReaderTest + PsdDoorTest + PsdUpdateTest: the layered-file door and "Update the art" (Avatar Studio) on hand-written
+# files. Pure Java; no Gradle.
 # Usage:  bash tools/jvm-harness/run-avatar-psd.sh
 set -u
 cd "$(dirname "$0")/../.." || exit 1
@@ -16,7 +17,10 @@ javac -nowarn -encoding UTF-8 -d "$OUT" \
   app/src/main/java/cc/joycreator/avatar/intake/PsdReader.java \
   app/src/main/java/cc/joycreator/avatar/intake/RoleGuess.java \
   app/src/main/java/cc/joycreator/avatar/intake/PsdDoor.java \
+  app/src/main/java/cc/joycreator/avatar/intake/PsdUpdate.java \
   tools/jvm-harness/PsdReaderTest.java \
-  tools/jvm-harness/PsdDoorTest.java || exit 1
+  tools/jvm-harness/PsdDoorTest.java \
+  tools/jvm-harness/PsdUpdateTest.java || exit 1
 java -cp "$OUT" PsdReaderTest || exit 1
-java -cp "$OUT" PsdDoorTest
+java -cp "$OUT" PsdDoorTest || exit 1
+java -cp "$OUT" PsdUpdateTest

@@ -46,6 +46,9 @@ public final class RoomMenu {
 
         /** The "layered file" door: pick a .psd or .psb, get a new character. */
         void newFromLayeredFile();
+
+        /** "Update the art": bring in the repainted layered file; every pin and setting stays. */
+        void updateTheArt();
     }
 
     private RoomMenu() {}
@@ -78,6 +81,7 @@ public final class RoomMenu {
         scroll.addView(row);
         box.addView(scroll);
 
+        box.addView(action(c, dp, c.getString(R.string.avatar_update_art), c.getString(R.string.avatar_hover_update_art), v -> { d.dismiss(); host.updateTheArt(); }));
         box.addView(action(c, dp, c.getString(R.string.avatar_new_from_psd), c.getString(R.string.avatar_hover_new_from_psd), v -> { d.dismiss(); host.newFromLayeredFile(); }));
         box.addView(action(c, dp, c.getString(R.string.avatar_new_from_pictures), c.getString(R.string.avatar_hover_new_from_pictures), v -> { d.dismiss(); host.newFromPictures(); }));
         box.addView(action(c, dp, c.getString(R.string.avatar_open), c.getString(R.string.avatar_hover_open), v -> { d.dismiss(); host.openFromPicker(); }));

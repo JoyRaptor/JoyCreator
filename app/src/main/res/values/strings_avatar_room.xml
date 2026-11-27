@@ -177,5 +177,9 @@
     <string name="avatar_hover_recentre">Take your face now as neutral: look at the screen, relaxed</string>
     <string name="avatar_mirror">Mirror</string>
     <string name="avatar_hover_mirror">On: the character moves like your reflection. Off: like someone facing you</string>
+    <string name="avatar_update_art">Update the art</string>
+    <string name="avatar_hover_update_art">Bring in the repainted file: every pin and setting stays</string>
+    <string name="avatar_step_update_art">Update the art</string>
+    <string name="avatar_update_done">%1$d pictures replaced, %2$d new layers in Extras, %3$d not in the new file (kept).</string>
 </resources>
 

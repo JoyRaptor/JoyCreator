@@ -201,7 +201,7 @@ public final class PerformPanel extends ScrollView {
         if (host.stick() != null) {
             stickChip = chip(c, c.getString(R.string.avatar_joystick), c.getString(R.string.avatar_hover_joystick), v -> {
                 host.setStickOpen(!host.stickOpen());
-                show(doc);
+                bind(doc, takeBar);
             });
             paintChip(stickChip, host.stickOpen());
             side.addView(stickChip, ml);

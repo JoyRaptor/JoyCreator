@@ -248,6 +248,8 @@ private const val WHEEL_DP = 176
 private const val SIZE_STEPS = 1000
 /** No brush reads a paint selection as a clip yet (SELECT_PIXELS P2+): a stroke then ends it, so the ants never lie. */
 private const val PAINT_CLIP_WIRED = false
+/** The shipped "Whole lines" eraser (brushes/lineeraser): with it in the hand, StrokeEraserTool takes the stroke. */
+private const val LINE_ERASER_ID = "joybrush.eraser.lines"
 
 /** What "Open…" accepts: a Joy Brush drawing, and the two types a provider gives one it does not know. */
 private val OPENABLE_TYPES = arrayOf(JB_MIMETYPE, "application/zip", "application/octet-stream")
@@ -3624,8 +3626,22 @@ class JoyBrushActivity : Activity() {
         // Lines that changed from outside the tool (a stroke, an undo, a drawing opened): keep surviving selected lines,
         // drop missing ones, and refit the box. The tool's own edits are already in the host's lists, so they pass.
         canvas.onLinesChanged = { SelectionSync.afterLinesChanged(controller.tool, host) }
+        // The whole-line eraser (owner 11-27, Concepts' stroke eraser) stands in front of Select's tool: it takes a stroke
+        // only while that eraser is in the hand and hands everything else (the pen button's lasso, hover) to Select.
+        canvas.tool = cc.joycreator.joybrush.androidkit.select.StrokeEraserTool(
+            host = { selectionHost },
+            inHand = ::lineEraserInHand,
+            radiusDoc = { (tools.current?.sizePx ?: 40f) / 2f },
+            next = { selection?.tool },
+            fingersErase = { canvas.fingersDraw },
+            say = { selectUi.say(it) },
+        )
         strip.showSelect(shown = true, chosen = false)
     }
+
+    /** The "Whole lines" eraser is the tool in the hand: a stroke takes away whole editable lines, as one step. */
+    private fun lineEraserInHand(): Boolean =
+        !selectInHand && tools.active == ToolSlot.ERASER && tools.current?.brushId == LINE_ERASER_ID
 
     /** What the host needs of this screen. */
     private val selectUi = object : HostUi {

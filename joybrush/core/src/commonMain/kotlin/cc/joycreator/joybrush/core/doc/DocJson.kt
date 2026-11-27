@@ -59,8 +59,12 @@ object DocJson {
      */
     private fun canonical(doc: JbDocument): JbDocument {
         return doc.copy(
+            // v10: the frozen-brush list and each cel's slab list are sets in a fixed order, for the same reason.
+            brushes = doc.brushes.sorted(),
             layers = doc.layers.map { l ->
-                l.copy(frameCel = l.frameCel.entries.sortedBy { it.key }.associate { it.key to it.value }, regions = l.regions.map { region ->
+                l.copy(cels = l.cels.map { c ->
+                    if (c.slabs.size < 2) c else c.copy(slabs = c.slabs.sortedWith(compareBy({ it.key }, { it.seq })))
+                }, frameCel = l.frameCel.entries.sortedBy { it.key }.associate { it.key to it.value }, regions = l.regions.map { region ->
                     region.copy(frameCel = region.frameCel.entries.sortedBy { it.key }.associate { it.key to it.value })
                 })
             },
@@ -75,7 +79,7 @@ object DocJson {
      */
     fun decode(text: String): JbDocument = try {
         refuseUnknownKeys(json.parseToJsonElement(text))
-        mediaAsPaint(json.decodeFromString(JbDocument.serializer(), text))
+        inkAsPaint(mediaAsPaint(json.decodeFromString(JbDocument.serializer(), text)))
     } catch (e: SerializationException) {
         throw DocException("document.json cannot be read: ${e.message}")
     } catch (e: IllegalArgumentException) {
@@ -92,6 +96,33 @@ object DocJson {
     private fun mediaAsPaint(doc: JbDocument): JbDocument {
         if (doc.version > 8 || doc.layers.none { it.kind == LayerKind.MEDIA }) return doc
         return doc.copy(version = 9, layers = doc.layers.map { if (it.kind == LayerKind.MEDIA) it.copy(kind = LayerKind.PAINT) else it })
+    }
+
+    /**
+     * R51 Phase 3 (JB-5.20 D13): there is one kind of layer since version 10. A file older than that whose layers
+     * include INK ones opens with them as PAINT layers whose cels hold only lines: `strokesFile` stays where it was and
+     * the cels have no tiles, so what was drawn is what is shown, now editable beside paint. The document becomes
+     * version 10, which is what it is from now on (an older build opening the next save says it is from a newer Joy
+     * Brush, rather than showing an ink layer that has pixels). Records from a v9 file have no frozen brush copies; that
+     * is the archive's to fill ([cc.joycreator.joybrush.androidkit.io.JbArchive.read]). A file that says version 10 or
+     * later and still has INK is left alone, for [DocOps.validate] to refuse in words. A file with no INK is NOT touched
+     * (its version stays what it said), exactly as [mediaAsPaint] leaves a document with no MEDIA.
+     */
+    private fun inkAsPaint(doc: JbDocument): JbDocument {
+        if (doc.version >= 10 || doc.layers.none { it.kind == LayerKind.INK }) return doc
+        return doc.copy(version = 10, layers = doc.layers.map { if (it.kind == LayerKind.INK) it.copy(kind = LayerKind.PAINT) else it })
+    }
+
+    /**
+     * The `version` a `document.json` says it is, or null when it has none a reader can use. For a caller that must
+     * know whether the file it just decoded was migrated (decode itself returns the migrated document).
+     */
+    fun fileVersion(text: String): Int? = try {
+        ((json.parseToJsonElement(text) as? JsonObject)?.get("version") as? JsonPrimitive)?.intOrNull
+    } catch (e: SerializationException) {
+        null
+    } catch (e: IllegalArgumentException) {
+        null
     }
 
     /**

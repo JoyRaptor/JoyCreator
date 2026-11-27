@@ -1,0 +1,35 @@
+Picked up JAVA_TOOL_OPTIONS:  -Djdk.net.unixdomain.tmpdir=C:/Temp
+> Task :core:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :core:compileKotlinJvm
+> Task :core:compileJvmMainJava NO-SOURCE
+> Task :core:jvmProcessResources NO-SOURCE
+> Task :core:processJvmMainResources SKIPPED
+> Task :core:jvmMainClasses
+> Task :core:jvmJar
+> Task :core:compileTestKotlinJvm
+> Task :core:compileJvmTestJava NO-SOURCE
+> Task :core:jvmTestProcessResources
+> Task :core:processJvmTestResources SKIPPED
+> Task :core:jvmTestClasses
+
+> Task :core:jvmTest
+Picked up JAVA_TOOL_OPTIONS:  -Djdk.net.unixdomain.tmpdir=C:/Temp
+
+> Task :androidkit:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :androidkit:compileKotlin
+> Task :androidkit:compileJava NO-SOURCE
+> Task :androidkit:processResources
+> Task :androidkit:classes
+> Task :androidkit:jar
+> Task :androidkit:compileTestKotlin
+w: file:///C:/Temp/lead-symcheck/joybrush/androidkit/src/test/kotlin/cc/joycreator/joybrush/androidkit/gl/GlJointPaintHistoryTest.kt:292:57 Unchecked cast of 'Any!' to 'HashMap<Long, Int>'.
+
+> Task :androidkit:compileTestJava NO-SOURCE
+> Task :androidkit:processTestResources NO-SOURCE
+> Task :androidkit:testClasses UP-TO-DATE
+
+> Task :androidkit:test
+Picked up JAVA_TOOL_OPTIONS:  -Djdk.net.unixdomain.tmpdir=C:/Temp
+
+BUILD SUCCESSFUL in 9m 41s
+10 actionable tasks: 10 executed

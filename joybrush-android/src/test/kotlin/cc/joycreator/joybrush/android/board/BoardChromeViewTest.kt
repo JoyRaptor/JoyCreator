@@ -7,6 +7,7 @@ import android.os.Looper
 import android.view.MotionEvent
 import android.view.View
 import cc.joycreator.joybrush.core.chrome.BoardChromeLayout as Chrome
+import cc.joycreator.joybrush.core.chrome.BoardChromeIdentity
 import cc.joycreator.joybrush.core.doc.BoardKind
 import org.junit.Assert.*
 import org.junit.Test
@@ -201,5 +202,134 @@ class BoardChromeViewTest {
         view.stopInteractions()
         assertEquals(listOf(true to null,false to 2),events)
         view.stopInteractions();assertEquals(2,events.size)
+    }
+
+    private fun animation() = input().copy(kind = BoardKind.ANIMATION, selected = true, holds = listOf(1, 2, 1))
+    private fun attachStrip(view: BoardChromeView, state: Chrome.Input = animation()) {
+        view.sceneIdentity = BoardChromeIdentity("walk", listOf("left", "middle", "right"))
+        view.show(state); frame()
+    }
+    private data class Hold(val board: String, val frame: String, val before: Int,
+                            val dx: Float, val density: Float, val finished: Boolean)
+
+    @Test fun edgeDragPreviewsThenCommitsOnceAgainstOriginalHoldAndId() {
+        val view = view(); val updates = mutableListOf<Hold>(); val actions = mutableListOf<String>()
+        view.host = object : BoardChromeView.Host {
+            override fun stripHold(boardId: String, frameId: String, holdAtDown: Int, dragPx: Float, density: Float, finished: Boolean) {
+                updates += Hold(boardId, frameId, holdAtDown, dragPx, density, finished)
+                if (!finished) view.show(animation().copy(holds = listOf(1, 3, 1)))
+            }
+            override fun action(id: String, held: Boolean) { actions += id }
+        }
+        attachStrip(view)
+        // Middle cell: starts at 152, width 88, visible right edge 236; the 4 dp visual gap is not duration.
+        touch(view, MotionEvent.ACTION_DOWN, 235f, 275f)
+        touch(view, MotionEvent.ACTION_MOVE, 279f, 275f)
+        frame() // A transient preview changes displayed holds while the original gesture stays anchored.
+        touch(view, MotionEvent.ACTION_MOVE, 301f, 275f)
+        touch(view, MotionEvent.ACTION_UP, 301f, 275f)
+        assertFalse(touch(view, MotionEvent.ACTION_UP, 301f, 275f))
+        assertEquals(listOf(Hold("walk", "middle", 2, 44f, 1f, false),
+            Hold("walk", "middle", 2, 66f, 1f, false), Hold("walk", "middle", 2, 66f, 1f, true)), updates)
+        assertTrue(actions.isEmpty())
+    }
+
+    @Test fun bodyDragScrubsAcrossHeldCellsWithStableIdsAndNoDuplicateRelease() {
+        val view = view(); val frames = mutableListOf<String>(); var scrolls = 0; var holds = 0
+        view.host = object : BoardChromeView.Host {
+            override fun stripScrub(boardId: String, frameId: String) { assertEquals("walk", boardId); frames += frameId }
+            override fun stripScrollBy(pixels: Int) { scrolls++ }
+            override fun stripHold(boardId: String, frameId: String, holdAtDown: Int, dragPx: Float, density: Float, finished: Boolean) { holds++ }
+        }
+        attachStrip(view)
+        touch(view, MotionEvent.ACTION_DOWN, 116f, 275f)
+        touch(view, MotionEvent.ACTION_MOVE, 161f, 275f)
+        touch(view, MotionEvent.ACTION_MOVE, 211f, 275f) // Still the same two-tick middle frame.
+        touch(view, MotionEvent.ACTION_MOVE, 251f, 275f)
+        touch(view, MotionEvent.ACTION_MOVE, 110f, 275f)
+        touch(view, MotionEvent.ACTION_UP, 110f, 275f)
+        assertEquals(listOf("middle", "right", "left"), frames)
+        assertEquals(0, scrolls); assertEquals(0, holds)
+    }
+
+    @Test fun stripTapUsesStableIdAndScrollOffsetRatherThanCellNumberAction() {
+        val view = view(); val frames = mutableListOf<String>(); var actions = 0
+        view.host = object : BoardChromeView.Host {
+            override fun stripScrub(boardId: String, frameId: String) { frames += frameId }
+            override fun action(id: String, held: Boolean) { actions++ }
+        }
+        attachStrip(view, animation().copy(stripScrollPx = 44f))
+        touch(view, MotionEvent.ACTION_DOWN, 116f, 275f)
+        touch(view, MotionEvent.ACTION_UP, 116f, 275f)
+        assertEquals(listOf("middle"), frames); assertEquals(0, actions)
+    }
+
+    @Test fun cancelSecondFingerAndSceneReorderNeverCommitDuration() {
+        for (end in listOf("cancel", "second-finger", "reorder", "host", "stop")) {
+            val view = view(); val updates = mutableListOf<Hold>(); val cancelled = mutableListOf<String>()
+            view.host = object : BoardChromeView.Host {
+                override fun stripHold(boardId: String, frameId: String, holdAtDown: Int, dragPx: Float, density: Float, finished: Boolean) {
+                    updates += Hold(boardId, frameId, holdAtDown, dragPx, density, finished)
+                }
+                override fun stripHoldCancelled(boardId: String, frameId: String) { cancelled += "$boardId/$frameId" }
+            }
+            attachStrip(view)
+            touch(view, MotionEvent.ACTION_DOWN, 235f, 275f)
+            touch(view, MotionEvent.ACTION_MOVE, 279f, 275f)
+            when (end) {
+                "cancel" -> touch(view, MotionEvent.ACTION_CANCEL, 279f, 275f)
+                "second-finger" -> touch(view, MotionEvent.ACTION_POINTER_DOWN, 279f, 275f)
+                "reorder" -> view.sceneIdentity = BoardChromeIdentity("walk", listOf("right", "middle", "left"))
+                "host" -> view.host = object : BoardChromeView.Host {}
+                else -> view.stopInteractions()
+            }
+            touch(view, MotionEvent.ACTION_UP, 279f, 275f)
+            assertEquals(listOf("walk/middle"), cancelled)
+            assertEquals(1, updates.size); assertFalse(updates.single().finished)
+        }
+    }
+
+    @Test fun durationDragKeepsScreenDeltaAndDensityForSharedRounding() {
+        val view = view(); val updates = mutableListOf<Hold>()
+        view.host = object : BoardChromeView.Host {
+            override fun stripHold(boardId: String, frameId: String, holdAtDown: Int, dragPx: Float, density: Float, finished: Boolean) {
+                updates += Hold(boardId, frameId, holdAtDown, dragPx, density, finished)
+            }
+        }
+        val state = animation().copy(density = 2f, board = Chrome.Rect(100f, 100f, 524f, 226f))
+        attachStrip(view, state)
+        val edge = Chrome.layout(state).elements.first { it.id == "cell-0" }.rect
+        touch(view, MotionEvent.ACTION_DOWN, edge.right - 2f, edge.cy)
+        touch(view, MotionEvent.ACTION_MOVE, edge.right - 90f, edge.cy)
+        touch(view, MotionEvent.ACTION_UP, edge.right - 90f, edge.cy)
+        assertEquals(Hold("walk", "left", 1, -88f, 2f, true), updates.last())
+    }
+
+    @Test fun holdingCellBodyStillLiftsForReorderingInsteadOfScrubbing() {
+        val view = view(); val lifted = mutableListOf<Int>(); val scrubbed = mutableListOf<String>()
+        view.host = object : BoardChromeView.Host {
+            override fun stripLift(index: Int, dx: Float, dy: Float, removing: Boolean, active: Boolean) { if (active) lifted += index }
+            override fun stripScrub(boardId: String, frameId: String) { scrubbed += frameId }
+        }
+        attachStrip(view)
+        touch(view, MotionEvent.ACTION_DOWN, 116f, 275f)
+        shadowOf(Looper.getMainLooper()).idleFor(Duration.ofMillis(700))
+        touch(view, MotionEvent.ACTION_MOVE, 161f, 250f)
+        touch(view, MotionEvent.ACTION_CANCEL, 161f, 250f)
+        assertTrue(lifted.isNotEmpty()); assertEquals(0, lifted.first()); assertTrue(scrubbed.isEmpty())
+    }
+
+    @Test fun replacementIdentityCannotUsePreviousScenesGeometryBeforeNextUiFrame() {
+        val view = view(); val frames = mutableListOf<String>()
+        view.host = object : BoardChromeView.Host {
+            override fun stripScrub(boardId: String, frameId: String) { frames += "$boardId/$frameId" }
+        }
+        attachStrip(view)
+        view.sceneIdentity = BoardChromeIdentity("jump", listOf("up", "middle", "down"))
+        assertFalse(touch(view, MotionEvent.ACTION_DOWN, 116f, 275f))
+        view.show(animation()); frame()
+        touch(view, MotionEvent.ACTION_DOWN, 116f, 275f)
+        touch(view, MotionEvent.ACTION_UP, 116f, 275f)
+        assertEquals(listOf("jump/up"), frames)
     }
 }

@@ -14,7 +14,12 @@ import cc.joycreator.joybrush.core.chrome.BoardHoverLoop
 import cc.joycreator.joybrush.core.chrome.BoardChromeFrameQueue
 import cc.joycreator.joybrush.core.chrome.BoardChromePointerCapture
 import cc.joycreator.joybrush.core.chrome.BoardChromeRenderPlan
+import cc.joycreator.joybrush.core.chrome.BoardChromeIdentity
 import cc.joycreator.joybrush.core.chrome.IconInk
+import cc.joycreator.joybrush.core.anim.FilmStrip as CoreFilmStrip
+import cc.joycreator.joybrush.core.doc.Board
+import cc.joycreator.joybrush.core.doc.Frame
+import cc.joycreator.joybrush.core.doc.RectPx
 import cc.joycreator.joybrush.core.doc.BoardKind
 import com.fadcam.ui.type.Type
 import com.fadcam.ui.faditor.sprite.RollDragController
@@ -39,6 +44,12 @@ class BoardChromeView(context: Context) : ViewGroup(context) {
         fun stripGap(index: Int) {}
         fun stripHint(active: Boolean, removing: Boolean) {}
         fun stripDrop(from: Int, insertionGap: Int, remove: Boolean) {}
+        /** IDs are frozen at pointer-down. Host rejects IDs removed from the live document. */
+        fun stripScrub(boardId: String, frameId: String) {}
+        /** Preview until finished; commit once on release through FilmStrip.setHoldByDrag. */
+        fun stripHold(boardId: String, frameId: String, holdAtDown: Int, dragPx: Float,
+                      density: Float, finished: Boolean) {}
+        fun stripHoldCancelled(boardId: String, frameId: String) {}
         fun hoverLoop(playing: Boolean, restoreFrame: Int?) {}
         /** Draw the board's region art into the supplied, already clipped screen rectangle. */
         fun art(canvas: Canvas, element: Chrome.Element) {}
@@ -48,6 +59,16 @@ class BoardChromeView(context: Context) : ViewGroup(context) {
 
     var host: Host = object : Host {}
         set(value) { if (field !== value) { stopInteractions(); field = value } }
+    /** Supply before show(). Replacing a board/order cancels gestures before their indices can move. */
+    var sceneIdentity: BoardChromeIdentity? = null
+        set(value) {
+            if (field?.boardId != value?.boardId || field?.frameIds != value?.frameIds) {
+                stopInteractions()
+                identityAwaitingLayout = value != null
+            }
+            field = value
+        }
+    private var identityAwaitingLayout = false
     var paperInk: IconInk = IconInk.LIGHT
         set(value) { if (field != value) { field = value; invalidate() } }
     var paperColour: Int = Color.TRANSPARENT
@@ -102,10 +123,13 @@ class BoardChromeView(context: Context) : ViewGroup(context) {
 
     private fun applyInput(input: Chrome.Input) {
         val previous = this.input
-        if (previous != null && (previous.density != input.density || previous.selected != input.selected || previous.kind != input.kind || previous.holds != input.holds)) {
+        if (previous != null && (previous.density != input.density || previous.selected != input.selected || previous.kind != input.kind ||
+                    previous.holds != input.holds && (activeTarget as? Target)?.isHolding != true)) {
             stopInteractions()
         }
         this.input = input
+        identityAwaitingLayout = input.kind == BoardKind.ANIMATION &&
+            sceneIdentity?.frameIds?.size?.let { it != input.holds.size } == true
         layoutBuildCount++
         applyLayout(Chrome.layout(input))
         if (roll == null || rollDensity != input.density) {
@@ -378,6 +402,12 @@ class BoardChromeView(context: Context) : ViewGroup(context) {
 
     /** Core chooses among overlapping >=40dp targets. No child z order steals a neighbour. */
     override fun dispatchTouchEvent(event: MotionEvent): Boolean {
+        // Identity and geometry must belong to the same displayed scene, not a queued next frame.
+        if (identityAwaitingLayout) return false
+        if (event.actionMasked == MotionEvent.ACTION_POINTER_DOWN && activeTarget != null) {
+            stopInteractions()
+            return true
+        }
         if (event.actionMasked == MotionEvent.ACTION_DOWN) {
             val id = capture.down(layout, Chrome.Point(event.x, event.y))
             activeTarget = id?.takeIf { host.acceptsPointer(it, event) }?.let { targets[it] }
@@ -448,11 +478,61 @@ class BoardChromeView(context: Context) : ViewGroup(context) {
         private var held = false
         private var tapEligible = false
         private var lastPoint = Chrome.Point(0f, 0f)
+        private var stripIdentity: BoardChromeIdentity? = null
+        private var stripGeometry: CoreFilmStrip? = null
+        private var stripOrigin = 0f
+        private var stripEdge = -1
+        private var lastScrub: String? = null
+        val isHolding: Boolean get() = stripIdentity != null && stripEdge >= 0
+
+        private fun beginStrip(point: Chrome.Point) {
+            val state = input ?: return
+            val identity = sceneIdentity ?: return
+            if (!id.startsWith("cell-") || layout.folded || state.kind != BoardKind.ANIMATION ||
+                identity.frameIds.size != state.holds.size) return
+            stripIdentity = identity
+            stripGeometry = CoreFilmStrip(Board(identity.boardId, state.name, BoardKind.ANIMATION,
+                RectPx(0, 0, 1, 1), frames = identity.frameIds.mapIndexed { n, frame -> Frame(frame, state.holds[n]) }), state.density)
+            // Exactly the layout's unfurled cell origin, including its 8 dp inset and current scroll.
+            stripOrigin = state.board.left + 8f * state.density - state.stripScrollPx
+            stripEdge = stripGeometry!!.edgeAt(point.x - stripOrigin)
+            lastScrub = null
+        }
+
+        private fun scrub(point: Chrome.Point) {
+            val identity = stripIdentity ?: return
+            val geometry = stripGeometry ?: return
+            val frameId = identity.frameIds[geometry.frameAt(point.x - stripOrigin)]
+            if (frameId != lastScrub) {
+                lastScrub = frameId
+                host.stripScrub(identity.boardId, frameId)
+            }
+        }
+
+        private fun hold(point: Chrome.Point, finished: Boolean) {
+            val identity = stripIdentity ?: return
+            val geometry = stripGeometry ?: return
+            val edge = stripEdge
+            if (edge < 0) return
+            val frame = geometry.board.frames[edge]
+            if (finished) clearStrip() // reentrant scene updates cannot cancel a committed gesture
+            host.stripHold(identity.boardId, frame.id, frame.holdFrames, point.x - from.x, geometry.density, finished)
+        }
+
+        private fun clearStrip() { stripIdentity = null; stripGeometry = null; stripEdge = -1; lastScrub = null }
+
+        private fun cancelStrip() {
+            val identity = stripIdentity
+            val frameId = identity?.frameIds?.getOrNull(stripEdge)
+            clearStrip()
+            if (identity != null && frameId != null) host.stripHoldCancelled(identity.boardId, frameId)
+        }
         private var hoverToast: Toast? = null
         private val showLabel = Runnable {
             if (hoverLabel.isNotEmpty()) hoverToast = Toast.makeText(context, hoverLabel, Toast.LENGTH_LONG).also { it.show() }
         }
         fun stopInteraction() {
+            cancelStrip()
             if (dragging && !id.startsWith("cell-")) host.cancel(id)
             clearNativeTouch()
             cancelLongPress(); isPressed = false; dragging = false
@@ -471,7 +551,8 @@ class BoardChromeView(context: Context) : ViewGroup(context) {
             setOnLongClickListener {
                 held = true
                 val frameIndex = if (id.startsWith("cell-")) id.removePrefix("cell-").toIntOrNull() else null
-                if (frameIndex != null && !layout.folded) roll?.begin(frameIndex)
+                if (isHolding) return@setOnLongClickListener true
+                if (frameIndex != null && !layout.folded) { clearStrip(); roll?.begin(frameIndex) }
                 else host.action(id, true)
                 true
             }
@@ -489,11 +570,16 @@ class BoardChromeView(context: Context) : ViewGroup(context) {
         override fun onTouchEvent(event: MotionEvent): Boolean {
             val point = Chrome.Point(event.x + left, event.y + top)
             when (event.actionMasked) {
-                MotionEvent.ACTION_DOWN -> { from = point; lastPoint = point; startFrame = input?.currentFrame ?: 1; dragging = false; held = false; tapEligible = true }
+                MotionEvent.ACTION_DOWN -> { from = point; lastPoint = point; startFrame = input?.currentFrame ?: 1; dragging = false; held = false; tapEligible = true; beginStrip(point) }
                 MotionEvent.ACTION_MOVE -> {
                     if (!Chrome.containsHit(layout, id, point)) tapEligible = false
                     val frameIndex = if (id.startsWith("cell-")) id.removePrefix("cell-").toIntOrNull() else null
-                    if (frameIndex != null && roll?.isDragging(frameIndex) == true) {
+                    if (stripIdentity != null) {
+                        if (dragging || kotlin.math.abs(point.x - from.x) > android.view.ViewConfiguration.get(context).scaledTouchSlop) {
+                            dragging = true
+                            if (isHolding) hold(point, false) else scrub(point)
+                        }
+                    } else if (frameIndex != null && roll?.isDragging(frameIndex) == true) {
                         dragging = true; roll?.move(point.x, point.y)
                     } else if (frameIndex != null && (dragging || kotlin.math.abs(point.x - from.x) > android.view.ViewConfiguration.get(context).scaledTouchSlop)) {
                         dragging = true; host.stripScrollBy((lastPoint.x - point.x).roundToInt())
@@ -506,7 +592,16 @@ class BoardChromeView(context: Context) : ViewGroup(context) {
                     lastPoint = point
                     if (dragging) { cancelLongPress(); isPressed = false; return true }
                 }
-                MotionEvent.ACTION_UP -> if (dragging || id.removePrefix("cell-").toIntOrNull()?.let { roll?.isDragging(it) } == true) {
+                MotionEvent.ACTION_UP -> if (stripIdentity != null) {
+                    if (isHolding) {
+                        if (dragging) hold(point, true) else cancelStrip()
+                    } else {
+                        if (dragging || tapEligible && !held) scrub(point)
+                        clearStrip()
+                    }
+                    clearNativeTouch(event); tapEligible = false; dragging = false
+                    return true
+                } else if (dragging || id.removePrefix("cell-").toIntOrNull()?.let { roll?.isDragging(it) } == true) {
                     if (id.startsWith("cell-")) roll?.end(true) else if(id!="wheel") host.drag(id, from, point, true)
                     clearNativeTouch(event); tapEligible = false
                     dragging = false; return true
@@ -519,6 +614,7 @@ class BoardChromeView(context: Context) : ViewGroup(context) {
                     return true
                 }
                 MotionEvent.ACTION_CANCEL -> {
+                    cancelStrip()
                     if (dragging && !id.startsWith("cell-")) host.cancel(id)
                     roll?.end(false); dragging = false; isPressed = false; tapEligible = false
                 }

@@ -10,9 +10,10 @@ exec > >(tee "$OUT/run.log") 2>&1
 
 PKG=com.fadcam.beta
 export PKG
+adb() { command timeout "${ADB_TIMEOUT:-60}" adb "$@"; }
 echo "profile=${EMU_PROFILE} script=${EMU_SCRIPT}"
 adb devices
-adb wait-for-device
+timeout 120 adb wait-for-device || { echo "emulator did not come up"; exit 1; }
 adb shell getprop ro.build.version.sdk | tr -d '\r'
 
 # Make the phone profile the Note 9 as the owner uses it: 1080x2220 at density 315 (about 548 dp wide upright).
@@ -51,14 +52,14 @@ for NAME in "${NAMES[@]}"; do
     echo "=== script $NAME ==="
     START=$(date +%s)
     code=0
-    bash -c ". '$HERE/lib.sh'; . '$SCRIPT'" || code=$?
+    timeout "${SCRIPT_TIMEOUT:-600}" bash -c ". '$HERE/lib.sh'; . '$SCRIPT'" || code=$?
     echo "script $NAME exit=$code after $(( $(date +%s) - START )) s"
     [ "$code" -ne 0 ] && FINAL=$code
     OUT="$OUT_BASE"; export OUT
 done
 code=$FINAL
 
-adb logcat -d -v time > "$OUT/logcat.txt" 2>&1 || true
+ADB_TIMEOUT=60 adb logcat -d -v time > "$OUT/logcat.txt" 2>&1 || true
 adb shell dumpsys battery | head -12 > "$OUT/battery.txt" 2>&1 || true
 # The crash list, if any.
 adb shell dumpsys dropbox --print data_app_crash 2>/dev/null | head -80 > "$OUT/crashes.txt" || true

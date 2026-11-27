@@ -220,13 +220,34 @@ object JbArchive {
     }
 
     /**
-     * Writes the archive to [out], which is NOT closed — `finish()` is called and the stream is
-     * flushed, so the caller decides when it ends.
+     * Handle-free, no-IO structural admission using the writer's actual checks. No line replay,
+     * look composition or whole-ZIP serialization occurs. Stroke/brush serializability and all
+     * generated payload paths are checked; encoded values are discarded one entry at a time.
      *
-     * Everything is checked before the first byte is written, so a refused archive leaves [out] as
-     * it was found instead of half a file long.
+     * Input is BORROWED and must remain stable for this call. This neither snapshots arrays or
+     * nested metadata nor issues a certificate valid after caller mutation. A queued loader must
+     * own its immutable input separately. ZIP envelope/size budgets, actual saved-look coverage,
+     * renderer capabilities and upload ownership are not established here. Generic archive
+     * compatibility is unchanged; stricter cold-loader profiles belong at their own boundary.
      */
-    fun write(out: OutputStream, contents: JbContents) {
+    internal fun requireStructure(contents: JbContents) {
+        prepareStructure(contents, retainEntries = false)
+    }
+
+    private class PreparedEntries(
+        val tiles: List<Pair<String, ByteArray>>,
+        val slabs: List<Pair<String, ByteArray>>,
+        val looks: List<Pair<String, ByteArray>>,
+        val media: List<Pair<String, ByteArray>>,
+        val strokes: List<Pair<String, ByteArray>>,
+        val brushes: List<Pair<String, ByteArray>>,
+    )
+
+    /** [retainEntries] controls only retention for writing, never which checks run. */
+    private fun prepareStructure(contents: JbContents, retainEntries: Boolean): PreparedEntries {
+        fun keep(entries: MutableList<Pair<String, ByteArray>>, path: String, bytes: ByteArray) {
+            if (retainEntries) entries.add(path to bytes)
+        }
         val doc = contents.doc
         val problems = DocOps.validate(doc)
         if (problems.isNotEmpty()) {
@@ -239,7 +260,7 @@ object JbArchive {
         for (key in contents.tiles.keys.sortedWith(TILE_ORDER)) {
             val bytes = contents.tiles.getValue(key)
             checkTile(key, bytes, declared)
-            tileEntries.add(tilePath(key) to bytes)
+            keep(tileEntries, tilePath(key), bytes)
         }
 
         // Check the reverse direction too. Validating only the supplied payloads can otherwise
@@ -259,7 +280,7 @@ object JbArchive {
         val slabsDeclared = declaredSlabs(doc)
         for (key in contents.slabs.keys.sortedWith(SLAB_ORDER)) {
             checkSlab(key, contents.slabs.getValue(key).size, slabsDeclared)
-            slabEntries.add(slabPath(key) to contents.slabs.getValue(key))
+            keep(slabEntries, slabPath(key), contents.slabs.getValue(key))
         }
         for ((cel, listed) in slabsDeclared) for ((key, seq) in listed) {
             if (SlabKey(cel.first, cel.second, key, seq) !in contents.slabs) {
@@ -272,7 +293,7 @@ object JbArchive {
         val looksDeclared = declaredLooks(doc)
         for (key in contents.looks.keys.sortedWith(TILE_ORDER)) {
             checkLook(key, contents.looks.getValue(key).size, looksDeclared)
-            lookEntries.add(lookPath(key) to contents.looks.getValue(key))
+            keep(lookEntries, lookPath(key), contents.looks.getValue(key))
         }
         for ((cel, keys) in looksDeclared) for (key in keys) {
             if (Triple(cel.first, cel.second, key) !in contents.looks) {
@@ -303,7 +324,7 @@ object JbArchive {
             } catch (e: BrushException) {
                 throw JbArchiveException("brush \"$id\" cannot be kept with the drawing: ${brief(e)}")
             }
-            brushEntries.add(brushPath(index, id) to text.toByteArray(Charsets.UTF_8))
+            keep(brushEntries, brushPath(index, id), text.toByteArray(Charsets.UTF_8))
         }
 
         // Media state, both directions, as for paint tiles: every file is declared, and every declared tile has state.
@@ -312,7 +333,7 @@ object JbArchive {
         for (key in contents.mediaTiles.keys.sortedWith(MEDIA_ORDER)) {
             val bytes = contents.mediaTiles.getValue(key)
             checkMediaTile(key, bytes.size, mediaDeclared)
-            mediaEntries.add(mediaPath(key) to bytes)
+            keep(mediaEntries, mediaPath(key), bytes)
         }
         val given = contents.mediaTiles.keys.mapTo(HashSet()) { Triple(it.layerId, it.celId, it.key) }
         for ((cel, keys) in mediaDeclared) for (key in keys) {
@@ -331,12 +352,12 @@ object JbArchive {
                 )
             }
             // In time order on disk: the file says what covers what, whatever order the caller held the lines in.
-            strokeEntries.add(strokesPath(cel) to StrokeCodec.encodeAll(contents.strokes.getValue(cel).sortedBy { it.seq }))
+            keep(strokeEntries, strokesPath(cel), StrokeCodec.encodeAll(contents.strokes.getValue(cel).sortedBy { it.seq }))
         }
 
-        // The rules that need the records themselves (JB-5.20 D1, D5, D14): unique ids and seqs, brushes that resolve,
-        // looks only where lines cross. Saving is where the exact look check runs; opening never replays (D3).
-        val lineProblems = lineProblems(doc, contents.strokes, doc.brushes.toSet(), exactLooks = { frozen[it] })
+        // The cheap record rules are shared with structural admission. Only write checks
+        // geometric look reach, after this complete preparation succeeds (opening never replays).
+        val lineProblems = lineProblems(doc, contents.strokes, doc.brushes.toSet(), exactLooks = null)
         if (lineProblems.isNotEmpty()) {
             throw JbArchiveException("the lines in this document cannot be saved: " + lineProblems.joinToString("; "))
         }
@@ -351,6 +372,30 @@ object JbArchive {
             }
         }
 
+        return PreparedEntries(tileEntries, slabEntries, lookEntries, mediaEntries, strokeEntries, brushEntries)
+    }
+
+    /**
+     * Writes the archive to [out], which is NOT closed — `finish()` is called and the stream is
+     * flushed, so the caller decides when it ends.
+     *
+     * Everything is checked before the first byte is written, so a refused archive leaves [out] as
+     * it was found instead of half a file long.
+     */
+    fun write(out: OutputStream, contents: JbContents) {
+        val doc = contents.doc
+        val entries = prepareStructure(contents, retainEntries = true)
+        // Save-only geometry remains outside structural admission: this may replay CPU-supported
+        // lines, and is deliberately not called by requireStructure or the reader.
+        val lookProblems = ArrayList<String>()
+        for (layer in doc.layers) for (cel in DocOps.storedCels(layer)) {
+            lookProblems += LineRules.lookProblems(layer.id, cel,
+                contents.strokes[Pair(layer.id, cel.id)].orEmpty()) { contents.brushes[it] }
+        }
+        if (lookProblems.isNotEmpty()) {
+            throw JbArchiveException("the lines in this document cannot be saved: " + lookProblems.joinToString("; "))
+        }
+
         // STORED, because a reader can identify the file by the first bytes without inflating, and
         // because that is what OpenRaster does and what the reader expects.
         val zos = ZipOutputStream(out)
@@ -362,27 +407,27 @@ object JbArchive {
             zos.write(DocJson.encode(doc).toByteArray(Charsets.UTF_8))
             zos.closeEntry()
 
-            for (entry in tileEntries) {
+            for (entry in entries.tiles) {
                 zos.putNextEntry(ZipEntry(entry.first))
                 zos.write(entry.second)
                 zos.closeEntry()
             }
-            for (entry in slabEntries + lookEntries) {
+            for (entry in entries.slabs + entries.looks) {
                 zos.putNextEntry(ZipEntry(entry.first))
                 zos.write(entry.second)
                 zos.closeEntry()
             }
-            for (entry in mediaEntries) {
+            for (entry in entries.media) {
                 zos.putNextEntry(ZipEntry(entry.first))
                 zos.write(entry.second)
                 zos.closeEntry()
             }
-            for (entry in strokeEntries) {
+            for (entry in entries.strokes) {
                 zos.putNextEntry(ZipEntry(entry.first))
                 zos.write(entry.second)
                 zos.closeEntry()
             }
-            for (entry in brushEntries) {
+            for (entry in entries.brushes) {
                 zos.putNextEntry(ZipEntry(entry.first))
                 zos.write(entry.second)
                 zos.closeEntry()

@@ -6,7 +6,7 @@ shot canvas
 dump canvas
 python3 "$HERE_LIB/uia.py" list /tmp/ui.xml | head -30
 
-open_shelf() { tap_text "Brush " >/dev/null 2>&1; settle 2; }
+open_shelf() { tap_text "tap again for the brushes" >/dev/null 2>&1; settle 2; }
 close_sheet() { tap_text "Done" >/dev/null 2>&1 || key 4; settle 2; }
 
 # the shelf, once

@@ -167,10 +167,12 @@ public final class AvatarRoomActivity extends Activity implements RoomMenu.Host,
         View left = root.getChildAt(0);
         if (land) {
             left.setLayoutParams(new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, 1f));
-            panel.setLayoutParams(new LinearLayout.LayoutParams(px(340), ViewGroup.LayoutParams.MATCH_PARENT));
+            // a tablet gets a wider card (more columns, never bigger buttons: dp stay as drawn)
+            panel.setLayoutParams(new LinearLayout.LayoutParams(px(cfg.smallestScreenWidthDp >= 600 ? 480 : 340), ViewGroup.LayoutParams.MATCH_PARENT));
         } else {
-            left.setLayoutParams(new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 0.52f));
-            panel.setLayoutParams(new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 0.48f));
+            boolean tablet = cfg.smallestScreenWidthDp >= 600;
+            left.setLayoutParams(new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, tablet ? 0.6f : 0.52f));
+            panel.setLayoutParams(new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, tablet ? 0.4f : 0.48f));
         }
     }
 

@@ -50,7 +50,7 @@ import java.util.List;
  * Perform and recording are filled in by the later steps of slice 1; a control appears only when it works (a dead knob
  * is worse than a missing one).</p>
  */
-public final class AvatarRoomActivity extends Activity implements RoomMenu.Host, LayersView.Host, PartsView.Host, PerformPanel.Host, cc.joycreator.avatar.ui.LandmarksScreen.Host, cc.joycreator.avatar.ui.PinsLayer.Host, cc.joycreator.avatar.ui.BoxLayer.Host, cc.joycreator.avatar.ui.MotionSections.Host, cc.joycreator.avatar.ui.StanceCard.Host {
+public final class AvatarRoomActivity extends Activity implements RoomMenu.Host, LayersView.Host, PartsView.Host, PerformPanel.Host, cc.joycreator.avatar.ui.LandmarksScreen.Host, cc.joycreator.avatar.ui.PinsLayer.Host, cc.joycreator.avatar.ui.BoxLayer.Host, cc.joycreator.avatar.ui.MotionSections.Host, cc.joycreator.avatar.ui.StanceCard.Host, cc.joycreator.avatar.ui.ReshapeLayer.Host {
     private static final String TAG = "AvatarRoom";
     private static final int REQ_OPEN = 41;
     private static final int REQ_PICTURES = 42;
@@ -93,6 +93,8 @@ public final class AvatarRoomActivity extends Activity implements RoomMenu.Host,
     private final java.util.Map<String, String> forced = new java.util.HashMap<>();
     private final cc.joycreator.avatar.ui.PinsLayer pins = new cc.joycreator.avatar.ui.PinsLayer(this);
     private final cc.joycreator.avatar.ui.BoxLayer box = new cc.joycreator.avatar.ui.BoxLayer(this);
+    private final cc.joycreator.avatar.ui.ReshapeLayer reshapeLayer = new cc.joycreator.avatar.ui.ReshapeLayer(this);
+    private boolean reshaping;
     private android.widget.FrameLayout panelBody;
     private com.fadcam.ui.faditor.avatar.MicVisemeSource mic;
     private static final int REQ_MIC = 44;
@@ -449,7 +451,103 @@ public final class AvatarRoomActivity extends Activity implements RoomMenu.Host,
     private void refreshPins() {
         if (stage == null || (landmarks != null && landmarks.isOpen())) return;
         boolean on = inHand != null && !showLayers;
-        stage.setLandmarks(on && stageIndex == 0 ? pins : on && stageIndex == 1 ? box : null);
+        stage.setLandmarks(on && stageIndex == 0 ? pins : on && stageIndex == 1 ? (reshaping ? reshapeLayer : box) : null);
+    }
+
+    // ── Arrange: reshape with pins ────────────────────────────────────────────────────────────────
+
+    @Override
+    public boolean reshaping() {
+        return reshaping && inHand != null;
+    }
+
+    /** The picture shows the shape being made (this stance's, or the standing one) at full while reshaping. */
+    private void pushShapes() {
+        java.util.Map<String, java.util.Map<String, Double>> m = new java.util.HashMap<>();
+        CharacterDoc.Node n = reshaping && inHand != null && character != null ? character.find(inHand) : null;
+        if (n != null) m.put(n.id, cc.joycreator.avatar.file.Reshape.weights(n.json, poseJson() == null ? null : poseEdit));
+        glStage.setShapes(m);
+    }
+
+    @Override
+    public void reshape(boolean on) {
+        if (on && inHand != null) {
+            CharacterDoc.Node n = character.find(inHand);
+            if (n == null) return;
+            final String pid = poseJson() == null ? null : poseEdit;
+            edit.apply(getString(R.string.avatar_step_reshape_on), d -> {
+                org.json.JSONObject nn = d.find(inHand).json;
+                cc.joycreator.avatar.file.Reshape.on(nn, pid == null ? null : cc.joycreator.avatar.file.Stances.find(d.json, pid));
+            });
+        }
+        reshaping = on;
+        pushShapes();
+        refreshPins();
+        parts.show(character, inHand, stageIndex);
+    }
+
+    /** Leave reshaping (the part in hand, the stance or the stage changed). */
+    private void stopReshape() {
+        if (!reshaping) return;
+        reshaping = false;
+        pushShapes();
+    }
+
+    @Override
+    public void reshapeAction(String what) {
+        if (inHand == null) return;
+        final String pid = poseJson() == null ? null : poseEdit;
+        final String id = inHand;
+        if (what.equals("removeLast")) edit.apply(getString(R.string.avatar_step_reshape_remove), d -> cc.joycreator.avatar.file.Reshape.removePin(d.find(id).json, pid));
+        else edit.apply(getString(R.string.avatar_step_reshape_again), d -> cc.joycreator.avatar.file.Reshape.startAgain(d.find(id).json, pid));
+    }
+
+    @Override
+    public String poseId() {
+        return poseJson() == null ? null : poseEdit;
+    }
+
+    @Override
+    public double[] matrix(String id) {
+        return glStage.matrix(id);
+    }
+
+    @Override
+    public void live(String nodeId, String pinId, double x, double y) {
+        try {
+            cc.joycreator.avatar.file.Reshape.dragTo(character.find(nodeId).json, poseId(), pinId, x, y);
+        } catch (org.json.JSONException e) {
+            Log.w(TAG, "live reshape refused", e);
+            return;
+        }
+        redraw();
+    }
+
+    @Override
+    public void commit(String nodeId, String pinId, double x, double y, org.json.JSONArray oldOffset) {
+        final String pid = poseId();
+        try {                                                    // put the live offset back so the step starts from what was there
+            org.json.JSONObject fs = cc.joycreator.avatar.file.Reshape.fixShape(character.find(nodeId).json, pid);
+            org.json.JSONObject dd = fs == null ? null : fs.optJSONObject("d");
+            if (dd != null) {
+                if (oldOffset == null) dd.remove(pinId);
+                else dd.put(pinId, oldOffset);
+            }
+        } catch (org.json.JSONException e) {
+            Log.w(TAG, "reshape put-back refused", e);
+        }
+        edit.apply(getString(R.string.avatar_step_reshape_pin), d -> cc.joycreator.avatar.file.Reshape.dragTo(d.find(nodeId).json, pid, pinId, x, y));
+    }
+
+    @Override
+    public void drop(String nodeId, double x, double y) {
+        final String pid = poseId();
+        edit.apply(getString(R.string.avatar_step_reshape_drop), d -> cc.joycreator.avatar.file.Reshape.dropPin(d.find(nodeId).json, pid, x, y, (nid, px, py, w) -> glStage.warpAt(nid, px, py, w)));
+    }
+
+    @Override
+    public void say(int string) {
+        Toast.makeText(this, string, Toast.LENGTH_SHORT).show();
     }
 
     // ── Motion: values of the part in hand and of the character ────────────────────────────────────
@@ -637,6 +735,7 @@ public final class AvatarRoomActivity extends Activity implements RoomMenu.Host,
 
     @Override
     public void editStance(String idOrNull) {
+        stopReshape();
         poseEdit = idOrNull;
         poseAmt = 1;
         pushPoses();
@@ -827,6 +926,7 @@ public final class AvatarRoomActivity extends Activity implements RoomMenu.Host,
         if (idx < 2 && inputs.micOn()) micOff();                     // the microphone listens only in Motion and Perform
         if (idx < 2 && inputs.faceOn()) faceOff();                   // and so does the camera
         stageIndex = idx;
+        if (idx != 1) stopReshape();
         for (int i = 0; i < 4; i++) {
             boolean on = i == idx;
             GradientDrawable g = new GradientDrawable();
@@ -1298,6 +1398,7 @@ public final class AvatarRoomActivity extends Activity implements RoomMenu.Host,
 
     @Override
     public void inHand(String id) {
+        stopReshape();
         inHand = id.equals(inHand) ? null : id;
         stage.setSelected(inHand);
         layers.show(character, inHand);

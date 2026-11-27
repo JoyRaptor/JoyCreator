@@ -45,6 +45,9 @@ public final class SolverStage extends GLSurfaceView implements GLSurfaceView.Re
     private volatile Map<String, double[]> lastAnchor = new HashMap<>(), lastTips = new HashMap<>();
     private volatile Map<String, String> force = new HashMap<>();
     private volatile Map<String, Double> poses = new HashMap<>();
+    private volatile Map<String, Map<String, Double>> shapes = new HashMap<>();
+    private volatile Map<String, double[]> lastM = new HashMap<>();
+    private final Object solverLock = new Object();
     private volatile boolean live;
     private volatile double clock, breath, dt = 1 / 60.0;
     private volatile float viewS = 1, viewX, viewY;
@@ -128,6 +131,25 @@ public final class SolverStage extends GLSurfaceView implements GLSurfaceView.Re
         requestRender();
     }
 
+    /** Shapes worn at a given strength whatever the signals say ({part id: {shape id: 0..1}}): what reshaping shows. */
+    public void setShapes(Map<String, Map<String, Double>> s) {
+        shapes = s == null ? new HashMap<>() : s;
+        requestRender();
+    }
+
+    /** A part's matrix as drawn on the last frame (part space to stage space: x' = a x + c y + e, y' = b x + d y + f), or null. */
+    public double[] matrix(String id) {
+        return lastM.get(id);
+    }
+
+    /** Where one spot of a part with pins goes with its shapes worn at these strengths (the solver's warpAt). */
+    public double[] warpAt(String nodeId, double x, double y, Map<String, Double> weights) {
+        synchronized (solverLock) {
+            CharacterSolver s = solver;
+            return s == null ? new double[]{x, y} : s.warpAt(nodeId, x, y, weights);
+        }
+    }
+
     /** "Try this drawing": a drawing of a set shown whatever the signals say (set id to drawing id). */
     public void setForce(Map<String, String> f) {
         force = f == null ? new HashMap<>() : f;
@@ -161,7 +183,9 @@ public final class SolverStage extends GLSurfaceView implements GLSurfaceView.Re
                     pics = new BitmapPics(next, null);
                     gl.forget();
                 }
-                solver = new CharacterSolver(next, pics);
+                synchronized (solverLock) {
+                    solver = new CharacterSolver(next, pics);
+                }
             }
             if (solver == null) return;
             Signals s = signals;
@@ -172,7 +196,13 @@ public final class SolverStage extends GLSurfaceView implements GLSurfaceView.Re
             if (!f.isEmpty()) opt.force = f;
             Map<String, Double> ps = poses;
             if (!ps.isEmpty()) opt.poses = ps;
-            SolveOut out = solver.eval(s, opt);
+            Map<String, Map<String, Double>> sh = shapes;
+            if (!sh.isEmpty()) opt.shapes = sh;
+            SolveOut out;
+            synchronized (solverLock) {
+                out = solver.eval(s, opt);
+            }
+            lastM = new HashMap<>(out.m);
             java.util.List<String> ord = new java.util.ArrayList<>();
             for (cc.joycreator.avatar.solve.Item it : out.items) if (!it.ghost) ord.add(it.id);
             lastOrder = ord;

@@ -115,6 +115,13 @@ public final class CharacterSolver {
         return new Frame(this, S, opt == null ? new Opt() : opt).run();
     }
 
+    /** Where one spot (x, y) of a part with pins is carried to with its shapes worn at these strengths ({shapeId: 0..1}). */
+    public double[] warpAt(String nodeId, double x, double y, java.util.Map<String, Double> weights) {
+        JSONObject n = ix.n(nodeId);
+        if (n == null) return new double[] {x, y};
+        return new Frame(this, new Signals(), new Opt()).warpAtPart(n, x, y, weights == null ? new java.util.HashMap<>() : weights);
+    }
+
     /** Rest bounds [x0, y0, x1, y1] of a part, for the room (framing, the transform box). */
     public double[] boundsOf(String id) {
         JSONObject n = ix.n(id);

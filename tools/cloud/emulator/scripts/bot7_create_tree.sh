@@ -37,9 +37,10 @@ landing() {
     adb shell am start -n "$PKG/com.fadcam.SplashActivity" >/dev/null; settle 6
     tap_text "Joybot" >/dev/null 2>&1 || tap 1020 105; settle 3
 }
-landing "Drawing" "1:1" "Square" "16:9" "Use this"
 landing "Tile" "256 px"
-landing "Sprite" "4" "Use this"
-landing "perspective" "1-point" "1" "16:9"
-landing "Find" "recent" "Show"
+landing "Hand animation" "16:9" "12" "Use this"
+landing "Video" "16:9" "Use this"
+landing "Music visuals"
+landing "Titles"
+landing "Character"
 echo "script done"

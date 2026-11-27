@@ -198,6 +198,19 @@ public final class PerformPanel extends ScrollView {
                 in.blinkHold(false);
             }
         }), bl);
+        if (doc != null && doc.json.toString().contains("\"face.cheekPuff\"")) {   // (only where a part follows the cheek puff: no dead button)
+            side.addView(holdButton(c, c.getString(R.string.avatar_puff), c.getString(R.string.avatar_hover_puff), new Hold() {
+                @Override
+                public void down() {
+                    in.puff(true);
+                }
+
+                @Override
+                public void up() {
+                    in.puff(false);
+                }
+            }), new LinearLayout.LayoutParams(bl));
+        }
         micChip = chip(c, c.getString(R.string.avatar_mic), c.getString(R.string.avatar_hover_mic), v -> host.toggleMic());
         LinearLayout.LayoutParams ml = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, px(36));
         ml.topMargin = px(8);

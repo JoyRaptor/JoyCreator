@@ -113,7 +113,7 @@
   }
   fp.expressions = function (inp, face, dt) {
     var S = inp.S, sm = inp.smExpr || (inp.smExpr = {}), a = 1 - Math.exp(-20 * (dt || 0));
-    fp.EXPR.forEach(function (n) { var k = 'face.' + n, v = face ? exprOf(face, n) : 0, cur = sm[k] == null ? v : sm[k]; cur += (v - cur) * a; sm[k] = cur; S[k] = cur; });
+    fp.EXPR.forEach(function (n) { var k = 'face.' + n, v = face ? exprOf(face, n) : 0, cur; if (n === 'cheekPuff' && inp.puffHold) v = 1; cur = sm[k] == null ? v : sm[k]; cur += (v - cur) * a; sm[k] = cur; S[k] = cur; });   // (the Puff button)
   };
 
   /** Where you build and where it moves (Set up and Motion): a part's card offers Face pins. Any part but an arm or a leg. */

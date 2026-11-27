@@ -360,12 +360,18 @@ mirrored: his right turn, right eye and left lean come first in the numbers, as 
 | ✅ | Forward and back | comes toward the camera and grows to 1.44 (29.2-30 s); no clear lean back in the take | the same |
 | ✅ | Nods (not in his list, in the take) | looks down at 16 degrees down (0.84), up at 13 up (-0.35) | the same |
 | ✅ | Brows up, mouth open, pucker, smile | brows 0.88-1.0, mouth 1.0 (Aa), pucker lane 1.0, smile lane 0.91 | the same |
-| ❌ | **Puff face** | **nothing**: the tracker's own puff value never passed 0.003 in the whole take, and the mesh does not show it either (the cheek outline stays within 1% of his neutral, where a smile moves it 7-16%). What the tracker does see is the lips rolled in and sealed, which he also did at 8-9.5 s without a puff, and it lost his face twice (35.5-38 s, 40-41.5 s) | not readable by this tracker (the phone uses the same model). Needs his call: a Puff button, or "lips pressed in = puff" as an opt-in |
+| ✅ | **Puff face** | **nothing**: the tracker's own puff value never passed 0.003 in the whole take, and the mesh does not show it either (the cheek outline stays within 1% of his neutral, where a smile moves it 7-16%); it lost his face twice (35.5-38 s, 40-41.5 s) | a **Puff** button in Perform (hold, like Blink; a take records it under its own owner, one undo per pass), shown where a part follows the cheek puff |
+| ✅ | Nodding down (the lead's call: the tracker's view from below) | every nod down lowered his brows (to -0.6 at 25 degrees); a pucker held level did not | the part of browDown a nod explains comes out (0.033 a degree past 8.5 down, fitted on his nods): -0.15 at that nod; brows raised while looking down still rise (0.8) |
 
 **The fix** (`FaceWalk.TURN` 0.5, the pilot's `fw.TURN`): walking with your face holds the sideways walk while the head is turned
 well to a side, as it already did for a tilt. A swing taken out of the lean (as for the tilt) was tried first and dropped: his
 left turn swung the face a third as far as his right, so a fixed swing walked him on the other turns. His leans turned his head
 0.3 to 0.41, his turns 1.0.
+
+**The puff (11-27, the lead's call).** Puff button built (phone and pilot). "Lips pressed in = puff" was dropped after
+looking closer: his lips read rolled in AT REST (0.89 upper, 0.90 lower) and a little less while puffing (0.75, 0.78), so no
+setting on them could ever fire for him (a dead control); I had first compared the puff with a lean, not with his rest. No tracker
+value tells his puff from his resting face (the biggest difference is that lip value, the wrong way).
 
 **Also found:** the phone room's **Mirror** chip showed the engine's flag the wrong way round (the engine's `mirror` means "like
 someone facing you"): it read OFF while the character moved like a reflection, and ON switched it to facing. Now
@@ -375,7 +381,7 @@ someone facing you"): it read OFF while the character moved like a reflection, a
 hands and walking with your face; the turn check failed first on the old code), plants 33 of 33 caught; `run-face.sh`: the pilot
 reads every frame of his take as the phone does (683 frames within 0.0001); the pilot's face-walk suite with a new turn check, its
 two new plants caught. Possibly worth a look: nodding down also lowered the brows (-0.7 to -0.9) in all three of his nods, which
-may be the tracker's view from below rather than a frown; not changed.
+may be the tracker's view from below rather than a frown; changed afterwards (the lead's call): see the table.
 
 ## What is left
 - [x] Engine (`app/src/main/java/com/fadcam/ui/faditor/avatar/face/`), pure Java where it can be, each piece

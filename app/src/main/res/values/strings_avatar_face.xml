@@ -19,6 +19,30 @@
     <string name="avatar_face_dirs_all">Directions set for this phone.</string>
     <string name="avatar_face_dirs_some">Directions set for %1$d of %2$d (the rest are as they were).</string>
     <string name="avatar_puff">Puff</string>
+    <string name="avatar_facepins_your_face">YOUR FACE</string>
+    <string name="avatar_facepins">Face pins</string>
+    <string name="avatar_facepins_n">Face pins: %1$d</string>
+    <string name="avatar_hover_facepins">A point of your face pulls a pin of the character: pick a point, then tap the character where it should pull</string>
+    <string name="avatar_facepins_hint">Pick a point of your face, then tap the character where it should pull. Drag a pin to move it.</string>
+    <string name="avatar_facepins_now_tap">Now tap the character where this point should pull.</string>
+    <string name="avatar_hover_facepins_point">Pick %1$s, then tap the character</string>
+    <string name="avatar_facepins_remove">Remove</string>
+    <string name="avatar_hover_facepins_remove">Take this face pin off (and its pin, if it was made for it)</string>
+    <string name="avatar_facepins_strength">Strength</string>
+    <string name="avatar_hover_facepins_strength">How far this pin follows your face: 1 = as far as your face moves</string>
+    <string name="avatar_facepins_all">All pins</string>
+    <string name="avatar_hover_facepins_all">Every face pin at once: 1 = as set</string>
+    <string name="avatar_facepins_one_piece">Make one piece (%1$d on slices)</string>
+    <string name="avatar_hover_facepins_one_piece">Move the face pins that bend a single slice onto the head's whole drawing, so it bends as one piece</string>
+    <string name="avatar_facepins_pick_first">Pick a point of your face first, then tap the character.</string>
+    <string name="avatar_facepins_tap_character">Tap on the character itself.</string>
+    <string name="avatar_facepins_not_limbs">Arms and legs follow the hands and feet. Try the head, the mouth, the brows or the cheeks.</string>
+    <string name="avatar_step_facepin_add">Add a face pin</string>
+    <string name="avatar_step_facepin_move">Move a face pin</string>
+    <string name="avatar_step_facepin_remove">Remove a face pin</string>
+    <string name="avatar_step_facepin_strength">Face pin strength</string>
+    <string name="avatar_step_facepins_all">All face pins</string>
+    <string name="avatar_step_facepins_one_piece">Make face pins one piece</string>
     <string name="avatar_hover_puff">Puff (hold to puff the cheeks). The face camera cannot see a puff, so this button does it; a take records it</string>
     <string name="avatar_face_walk">Walk with your face</string>
     <string name="avatar_hover_face_walk">Walk with your face: lean to a side to walk that way, come closer to walk toward the camera. And Up close.</string>

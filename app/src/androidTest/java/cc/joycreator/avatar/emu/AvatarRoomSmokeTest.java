@@ -41,6 +41,7 @@ public class AvatarRoomSmokeTest {
         File out = Emu.dir("room");
         StringBuilder log = new StringBuilder();
         empty.setLength(0);
+        Emu.turn();                                            // -e orientation: tablet and landscape screens
         try (ActivityScenario<AvatarRoomActivity> sc = ActivityScenario.launch(AvatarRoomActivity.class)) {
             Emu.sleep(4000);                                   // the stage's first frames (SwiftShader compiles slowly)
             AvatarRoomActivity[] a = new AvatarRoomActivity[1];

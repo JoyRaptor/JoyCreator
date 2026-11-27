@@ -4,6 +4,7 @@ import android.opengl.GLES30
 import cc.joycreator.joybrush.androidkit.gl.ShaderLibrary
 import cc.joycreator.joybrush.core.media.DabBatch
 import cc.joycreator.joybrush.core.media.MediaPaper
+import cc.joycreator.joybrush.core.media.MediaStores
 import cc.joycreator.joybrush.core.media.OpaquePaint
 import cc.joycreator.joybrush.core.media.PASTE_DEPTH
 import cc.joycreator.joybrush.core.media.PASTE_LANES
@@ -104,6 +105,8 @@ class MediaLayerEngine(private val shaders: ShaderLibrary = ShaderLibrary()) {
     private var lutTex = 0
     private var lutSrc: Any? = null
     private var lookTex = 0; private var lookFbo = 0
+    /** The pixels the media lies on (JB-2.40 §Q1): RGBA8 premultiplied, window px. Made with the state. */
+    private var groundTex = 0; private var groundFbo = 0
     private var empty = 0
 
     private var quadBuf = 0; private var quadVao = 0; private var dabBuf = 0; private var dabVao = 0; private var emptyVao = 0
@@ -178,6 +181,8 @@ class MediaLayerEngine(private val shaders: ShaderLibrary = ShaderLibrary()) {
         }
         pFbo0 = MediaTex.fbo(state[0].p0, state[0].p1)
         pFbo1 = MediaTex.fbo(state[1].p0, state[1].p1)
+        groundTex = MediaTex.make(w, h, GLES30.GL_RGBA8, GLES30.GL_RGBA, GLES30.GL_UNSIGNED_BYTE, GLES30.GL_NEAREST)
+        groundFbo = MediaTex.fbo(groundTex)
         asleep = false
     }
 
@@ -197,14 +202,15 @@ class MediaLayerEngine(private val shaders: ShaderLibrary = ShaderLibrary()) {
         val tex = ArrayList<Int>()
         for (s in state) tex += listOf(s.p0, s.p1, s.paper)
         wet?.forEach { tex += listOf(it.w0, it.w1, it.flux) }
-        tex += listOf(delta, bakeTex, fluidBake, waterBake, run, in0, in1, lookTex) + bead.toList()
+        tex += listOf(delta, bakeTex, fluidBake, waterBake, run, in0, in1, lookTex, groundTex) + bead.toList()
         tex.filter { it != 0 }.toIntArray().let { if (it.isNotEmpty()) MediaTex.deleteTex(*it) }
         val fbos = ArrayList<Int>()
         for (s in state) fbos += s.fbo
-        fbos += listOf(pFbo0, pFbo1, deltaFbo, bakeFbo, inFbo, lookFbo) + beadFbo.toList() + fluxFbo.toList() + updFbo.toList() +
+        fbos += listOf(pFbo0, pFbo1, deltaFbo, bakeFbo, inFbo, lookFbo, groundFbo) + beadFbo.toList() + fluxFbo.toList() + updFbo.toList() +
             wetCopyFbo.toList() + eraseWetFbo.toList()
         fbos.filter { it != 0 }.toIntArray().let { if (it.isNotEmpty()) MediaTex.deleteFbo(*it) }
         eraseWetFbo = IntArray(0)
+        groundTex = 0; groundFbo = 0
         delta = 0; deltaFbo = 0; bakeTex = 0; fluidBake = 0; waterBake = 0; bakeFbo = 0; bakedPaper = null
         wet = null; run = 0; in0 = 0; in1 = 0; inFbo = 0; lookTex = 0; lookFbo = 0
         bead = IntArray(0); beadFbo = IntArray(0); fluxFbo = IntArray(0); updFbo = IntArray(0); wetCopyFbo = IntArray(0)
@@ -266,6 +272,7 @@ class MediaLayerEngine(private val shaders: ShaderLibrary = ShaderLibrary()) {
 
     fun clearAll() {
         for (s in state) clearFbo(s.fbo)
+        if (groundFbo != 0) clearFbo(groundFbo)
         if (deltaFbo != 0) clearFbo(deltaFbo)
         if (wet != null) { for (f in wetCopyFbo) clearFbo(f); clearFbo(inFbo) }
         wetRect = null
@@ -322,6 +329,7 @@ class MediaLayerEngine(private val shaders: ShaderLibrary = ShaderLibrary()) {
     /** The textures a store loads into (both water buffers, so the next substep reads what was loaded). */
     fun loadTargets(store: String): List<Int> = when (store) {
         "p0" -> listOf(state[0].p0); "p1" -> listOf(state[0].p1); "paper" -> listOf(state[0].paper)
+        MediaStores.GROUND -> listOf(groundTex)
         "w0" -> { ensureWet(); wet!!.map { it.w0 } }
         "w1" -> { ensureWet(); wet!!.map { it.w1 } }
         else -> throw IllegalArgumentException("unknown media store $store")
@@ -330,6 +338,7 @@ class MediaLayerEngine(private val shaders: ShaderLibrary = ShaderLibrary()) {
     /** The texture a store's current state is read from, for a write-back. Null for water that was never made. */
     fun current(store: String): Int? = when (store) {
         "p0" -> state[0].p0; "p1" -> state[0].p1; "paper" -> state[0].paper
+        MediaStores.GROUND -> groundTex
         "w0" -> wet?.get(wc)?.w0; "w1" -> wet?.get(wc)?.w1
         else -> throw IllegalArgumentException("unknown media store $store")
     }
@@ -342,6 +351,26 @@ class MediaLayerEngine(private val shaders: ShaderLibrary = ShaderLibrary()) {
             clearFbo(lookFbo)
         }
         return lookTex
+    }
+
+    /** The ground texture (window px): what the media lies on, loaded from `g` tiles or, where a tile has no payload, its look. */
+    fun groundTexture(): Int = groundTex
+
+    /**
+     * Empties a window-px rectangle of every target a tile loads into (state, ground, both water buffers and their flow),
+     * so a tile can be loaded again while the water elsewhere keeps running ([MediaWindow.lookWritten]).
+     */
+    fun clearRect(x0: Int, y0: Int, x1: Int, y1: Int) {
+        GLES30.glEnable(GLES30.GL_SCISSOR_TEST)
+        GLES30.glScissor(x0, y0, x1 - x0, y1 - y0)
+        GLES30.glClearColor(0f, 0f, 0f, 0f)
+        for (f in listOf(state[0].fbo, groundFbo) + wetCopyFbo.toList()) {
+            if (f == 0) continue
+            GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER, f)
+            GLES30.glClear(GLES30.GL_COLOR_BUFFER_BIT)
+        }
+        GLES30.glDisable(GLES30.GL_SCISSOR_TEST)
+        GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER, 0)
     }
 
     /** Stops the water where it is (undo while wet, the Lead's rule): the state stays, nothing runs until [resumeWater]. */
@@ -701,7 +730,7 @@ class MediaLayerEngine(private val shaders: ShaderLibrary = ShaderLibrary()) {
         val ws = wet
         // gl_FragCoord is layer px: docPx = (frag − pan) / zoom = origin + frag / scale.
         progRender.use(common(paper.uniforms() + mapOf(
-            "u_p0" to Tex(state[0].p0), "u_p1" to Tex(state[0].p1), "u_paperState" to Tex(state[0].paper),
+            "u_p0" to Tex(state[0].p0), "u_p1" to Tex(state[0].p1), "u_paperState" to Tex(state[0].paper), "u_ground" to Tex(groundTex),
             "u_paperBake" to Tex(if (bakeTex != 0) bakeTex else emptyTex()),
             "u_w0" to Tex(ws?.get(wc)?.w0 ?: emptyTex()), "u_w1" to Tex(ws?.get(wc)?.w1 ?: emptyTex()),
             "u_targetSize" to floatArrayOf(w.toFloat(), h.toFloat()), "u_pan" to floatArrayOf(-originX * scale, -originY * scale),
@@ -760,12 +789,12 @@ class MediaLayerEngine(private val shaders: ShaderLibrary = ShaderLibrary()) {
         for (s in state) tex += listOf(s.p0, s.p1, s.paper)
         for (b in brush) tex += listOf(b.b0, b.b1)
         wet?.forEach { tex += listOf(it.w0, it.w1, it.flux) }
-        tex += listOf(delta, bakeTex, fluidBake, waterBake, run, in0, in1, lutTex, lookTex, empty) + bead.toList()
+        tex += listOf(delta, bakeTex, fluidBake, waterBake, run, in0, in1, lutTex, lookTex, groundTex, empty) + bead.toList()
         tex.filter { it != 0 }.toIntArray().let { if (it.isNotEmpty()) MediaTex.deleteTex(*it) }
         val fbos = ArrayList<Int>()
         for (s in state) fbos += s.fbo
         for (b in brush) fbos += b.fbo
-        fbos += listOf(pFbo0, pFbo1, deltaFbo, bakeFbo, inFbo, lookFbo, readFbo, drawFbo) + beadFbo.toList() + fluxFbo.toList() + updFbo.toList() +
+        fbos += listOf(pFbo0, pFbo1, deltaFbo, bakeFbo, inFbo, lookFbo, groundFbo, readFbo, drawFbo) + beadFbo.toList() + fluxFbo.toList() + updFbo.toList() +
             wetCopyFbo.toList() + eraseWetFbo.toList()
         fbos.filter { it != 0 }.toIntArray().let { if (it.isNotEmpty()) MediaTex.deleteFbo(*it) }
         GLES30.glDeleteBuffers(2, intArrayOf(quadBuf, dabBuf), 0)

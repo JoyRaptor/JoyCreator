@@ -111,8 +111,11 @@ fun maskStoreId(layerId: String): String = layerId + MASK_SUFFIX
 /** Refusal of a media write past [GlPaintEngine.mediaBudgetBytes]: [message] is the sentence to show. */
 class MediaRoomException(message: String) : RuntimeException(message)
 
-/** What [GlPaintEngine.writableMediaTiles] calls a media layer's RGBA8 look, which keeps the layer's own id. */
+/** What [GlPaintEngine.writableMediaTiles] calls a layer's RGBA8 look, which keeps the layer's own id. */
 const val MEDIA_LOOK = "look"
+
+/** A payload's agreed look where the tile has no look at all (GL never names a texture 0). */
+private const val NO_LOOK = 0
 
 /**
  * The two rates of a smudge stroke (JB-1.06): how fast the ONE carried colour takes on the canvas ([pickup]) and the brush's
@@ -306,7 +309,10 @@ class GlPaintEngine(
         var plan: RegionPaintPlan? = null
         val projected = HashMap<Long, Int>()
         var visibleProjection: Map<Long,Int>? = null
-        /** A media layer's float state by store name ([MediaStores.ALL]); [tiles] is its look. Empty for every other layer. */
+        /**
+         * The media payload by store name ([MediaStores.PAYLOAD]): float state and ground, only on tiles a media stroke
+         * touched (R51); [tiles] is the look. Address it through [payload], the one place a cel (and later a slab) goes.
+         */
         val floats = HashMap<String, HashMap<Long, Int>>()
         fun ownedTextures(): Set<Int> = (tiles.values + cels.values.flatMap { it.values } + projected.values + floats.values.flatMap { it.values }).toSet()
         /** JB-2.23: this layer's mask, a second tile store whose missing tiles are WHITE (full coverage). */
@@ -701,23 +707,6 @@ class GlPaintEngine(
         undo.push(UndoLog.Step(emptyList(), before, after, documentBefore = oldDoc, documentAfter = next))
     }
 
-    /**
-     * A new MEDIA layer [newId], as [after] adds it, in ONE undo step (contract point 5: a media brush on a paint layer
-     * makes a media layer above it; the canvas then folds its first stroke into this step). A media layer has one shared
-     * cel and no frames (contract point 3). Needs the board document (the Lead's step-4 check 8).
-     */
-    fun addMediaLayerStep(newId: String, before: LayerStack, after: LayerStack) {
-        check(!strokeInProgress && mediaStroke == null) { "a layer change during a stroke would be undone out of order" }
-        val oldDoc = boardDocument ?: error("A pencil, watercolour or oil layer needs the drawing's board document first")
-        val state = after.layers.first { it.id == newId }
-        val cel = UUID.randomUUID().toString()
-        val media = cc.joycreator.joybrush.core.doc.Layer(newId, state.name, LayerKind.MEDIA, cels = listOf(Cel(cel)), sharedCelId = cel)
-        val next = documentForStack(oldDoc, after, mapOf(newId to media))
-        applyStack(after)
-        setBoardDocument(next)
-        undo.push(UndoLog.Step(emptyList(), before, after, documentBefore = oldDoc, documentAfter = next))
-    }
-
     /** The stack made [target] with NO undo step: loading a drawing. */
     fun setStack(target: LayerStack) {
         applyStack(target)
@@ -736,6 +725,7 @@ class GlPaintEngine(
         // A media layer's float state goes with its look, into the same step.
         layer.floats.forEach { (store, tiles) -> tiles.forEach { (k, t) -> changes.add(UndoLog.TileChange(MediaStores.id(id, store), k, t, null)) } }
         layer.floats.clear()
+        forgetAgreements(id)
         // The mask goes with its layer, into the same step, so one undo brings both back.
         layer.mask?.let { m ->
             m.tiles.forEach { (k, tex) -> changes.add(UndoLog.TileChange(m.id, k, tex, null)) }
@@ -788,7 +778,7 @@ class GlPaintEngine(
             }
             if (clone == null) src.mask?.let { copyStore(it.tiles, maskStoreId(newId), null) }
             for ((store, tiles) in src.floats) for ((key, tex) in tiles) {
-                val copy = newFloatTile()
+                val copy = newPayloadTile(store)
                 changes.add(UndoLog.TileChange(MediaStores.id(newId, store), key, null, copy))
                 initializeTile(copy, tex, false)
             }
@@ -796,6 +786,8 @@ class GlPaintEngine(
             applyStack(after)
             published = true
             changes.forEach { put(it.layerId, it.key, it.after, it.celId) }
+            // The copy's payload agrees with the copy's look, as the source's did.
+            for (key in src.floats.values.flatMap { it.keys }.toSet()) agree(newId, key)
             next?.let(::setBoardDocument)
             undo.push(UndoLog.Step(changes, before, after, documentBefore = oldDoc, documentAfter = next))
         } catch (e: Throwable) {
@@ -953,10 +945,11 @@ class GlPaintEngine(
     fun clearLayer(id: String) {
         val layer = storeOf(id) ?: return
         if (layer.floats.values.all { it.isEmpty() }) { replaceTiles(id,visibleTiles(layer).keys.associateWith{null}); return }
-        // A media layer: its float state is emptied in the same step as its look, or the next look render brings it back.
+        // A layer with media: its payload is emptied in the same step as its look, or the next look render brings it back.
         val changes = ArrayList<UndoLog.TileChange<Int>>()
         layer.floats.forEach { (store, tiles) -> tiles.forEach { (k, t) -> changes.add(UndoLog.TileChange(MediaStores.id(id, store), k, t, null)) } }
         layer.floats.clear()
+        forgetAgreements(id)
         undo.push(UndoLog.Step(changes))
         if (replaceTiles(id, visibleTiles(layer).keys.associateWith { null }) > 0) undo.mergeNewest(2)
         reportMediaRestored(changes)
@@ -1076,7 +1069,7 @@ class GlPaintEngine(
         }catch(e:Throwable){changes.forEach{it.after?.let(::recycleLayerTex)};throw e}
         finally{GLES30.glDisable(GLES30.GL_SCISSOR_TEST);GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER,0)}
         changes.forEach{put(it.layerId,it.key,it.after,it.celId)}
-        if(changes.isNotEmpty())undo.push(UndoLog.Step(changes))
+        if(changes.isNotEmpty())undo.push(UndoLog.Step(changes + settlePlainWrites(changes)))
         return changes.size
     }
 
@@ -1093,7 +1086,7 @@ class GlPaintEngine(
     /** Empties the whole document (all layers, all undo). For "open another document". */
     fun resetDocument() {
         cancelStroke()
-        mediaStroke = null; mediaStrokeHeld.clear()
+        mediaStroke = null; mediaStrokeHeld.clear(); agreedLook.clear()
         undo.clear()
         layers.values.forEach { l -> l.ownedTextures().forEach(::recycleLayerTex); l.mask?.ownedTextures()?.forEach(::recycleLayerTex) }
         layers.clear()
@@ -1298,8 +1291,8 @@ class GlPaintEngine(
             published=true
             pending.values.forEach { c->put(c.layerId,c.key,c.after,c.celId) }
             setBoardDocument(change.doc)
-            if(before!=change.doc || pending.isNotEmpty()) undo.push(UndoLog.Step(pending.values.toList(),
-                documentBefore=before,documentAfter=change.doc))
+            if(before!=change.doc || pending.isNotEmpty()) undo.push(UndoLog.Step(pending.values.toList() + settlePlainWrites(pending.values) +
+                dropPayloadsOfFramedLayers(change.doc), documentBefore=before,documentAfter=change.doc))
         } catch(e:Throwable) {
             // Restore every published address before releasing prepared textures.
             if(published) { pending.values.forEach{c->put(c.layerId,c.key,c.before,c.celId)}; setBoardDocument(before) }
@@ -1735,7 +1728,7 @@ class GlPaintEngine(
         if (changes.isNotEmpty()) {
             val afterDoc=if(wrappedId != null && beforeDoc != null) BoardDocumentOps.markWrappedStroke(beforeDoc,wrappedId) else beforeDoc
             if(afterDoc != beforeDoc && afterDoc != null) setBoardDocument(afterDoc)
-            undo.push(UndoLog.Step(changes,documentBefore=beforeDoc?.takeIf { it != afterDoc },documentAfter=afterDoc?.takeIf { it != beforeDoc }))
+            undo.push(UndoLog.Step(changes + settlePlainWrites(changes),documentBefore=beforeDoc?.takeIf { it != afterDoc },documentAfter=afterDoc?.takeIf { it != beforeDoc }))
         }
         return changes.size
     }
@@ -1758,6 +1751,7 @@ class GlPaintEngine(
         }
         if (framePreviews.isNotEmpty()) setFramePreviews(emptyMap())
         s.changes.forEach { put(it.layerId, it.key, it.before, it.celId) }
+        reconcileAgreements(s.changes)
         reportMediaRestored(s.changes)
         s.stackBefore?.let { restoreStack(it) }
         s.paperBefore?.let { setDocumentPaper(it) }
@@ -1774,6 +1768,7 @@ class GlPaintEngine(
         }
         if (framePreviews.isNotEmpty()) setFramePreviews(emptyMap())
         s.changes.forEach { put(it.layerId, it.key, it.after, it.celId) }
+        reconcileAgreements(s.changes)
         reportMediaRestored(s.changes)
         s.stackAfter?.let { restoreStack(it) }
         s.paperAfter?.let { setDocumentPaper(it) }
@@ -1788,11 +1783,12 @@ class GlPaintEngine(
     }
 
 
-    // ── media stores (MEDIA_ENGINE_PLAN §4 and M5.3c) ────────────────────────
+    // ── media payloads (MEDIA_ENGINE_PLAN §4, M5.3c; R51 and JB-2.40) ────────
     //
-    // A media layer's float state lives beside its RGBA8 look: `<id>#p0 #p1 #paper #w0 #w1` ([MediaStores]), RGBA16F tiles
-    // from their own pool, owned and released exactly like look tiles (UndoLog sizes and recycles each by its kind). A
-    // media layer has no frames yet (contract point 3), so a float store is per layer, never per cel.
+    // Pencil, watercolour and oil are a payload on the tiles of an ordinary layer they touched, beside its RGBA8 look:
+    // `<id>#p0 #p1 #paper #w0 #w1` ([MediaStores]), RGBA16F tiles from their own pool, and `<id>#g`, the ground (RGBA8,
+    // the look's own pool), owned and released exactly like look tiles (UndoLog sizes and recycles each by its kind).
+    // Until JB-2.40 slice 3 a payload is per layer, never per cel ([payload] is the one place that changes).
     //
     // Copy-on-write, as endStroke does for paint: [writableMediaTiles] swaps a fresh copy in before the first write to a
     // tile, and the old texture IS the undo snapshot. During a stroke the copies join the stroke's step ([endMediaStroke]);
@@ -1810,8 +1806,116 @@ class GlPaintEngine(
      */
     var mediaBudgetBytes: Long = Long.MAX_VALUE
 
-    /** Bytes of media state the layers hold now (undo snapshots are the undo budget's business). */
-    fun mediaResidentBytes(): Long = layers.values.sumOf { l -> l.floats.values.sumOf { it.size } }.toLong() * MediaStores.tileBytes(size)
+    /** Bytes of media payload the layers hold now (undo snapshots are the undo budget's business). */
+    fun mediaResidentBytes(): Long =
+        layers.values.sumOf { l -> l.floats.entries.sumOf { (store, tiles) -> tiles.size.toLong() * MediaStores.tileBytes(size, store) } }
+
+    /** The one place a payload store is addressed (the Lead, for JB-5.20's slabs): [layer]'s [store], by tile. */
+    private fun payload(layer: Layer, store: String): HashMap<Long, Int> = layer.floats.getOrPut(store) { HashMap() }
+
+    /** True where [layerId] has a payload on tile [key]: some store of it holds that tile. */
+    fun hasPayload(layerId: String, key: Long): Boolean = layers[layerId]?.floats?.values?.any { key in it } == true
+
+    /** A fresh tile for [store]: the ground is RGBA8 from the look's pool, the rest RGBA16F. */
+    private fun newPayloadTile(store: String): Int = if (store == MediaStores.GROUND) newLayerTile() else newFloatTile()
+
+    /** Told when the requirement 5 net catches something (the view logs it): a write that bypassed the funnel. */
+    var onMediaWarning: ((String) -> Unit)? = null
+
+    /** Called with the tiles a plain write changed (a stroke, a fill, a board edit), by layer: the media window reloads them. */
+    var onLookWritten: ((layerId: String, keys: Set<Long>) -> Unit)? = null
+
+    /**
+     * JB-2.40 slice 1, the floor of requirement 4: a plain write that changed the look of a tile with a payload drops that
+     * tile's whole payload, ground included, in the same undo step, so nothing renders the old paint over the new pixels.
+     * Lossy, never wrong: a tile without a payload has its look as its ground, so the next media touch starts from
+     * exactly what the write left. Every plain writer reaches here (endStroke, replaceTiles, applyBoardChange); slice 2
+     * puts the per-pixel bake in its place. Returns the changes to add to the write's step.
+     */
+    internal fun settlePlainWrites(changes: Collection<UndoLog.TileChange<Int>>): List<UndoLog.TileChange<Int>> {
+        val out = ArrayList<UndoLog.TileChange<Int>>()
+        val written = LinkedHashMap<String, HashSet<Long>>()
+        for (c in changes) {
+            if (c.before == c.after || MediaStores.isMediaStore(c.layerId)) continue
+            val layer = layers[c.layerId] ?: continue   // a mask's store is not a layer, and has no payload
+            written.getOrPut(c.layerId) { HashSet() }.add(c.key)
+            for ((store, tiles) in layer.floats) {
+                val tex = tiles.remove(c.key) ?: continue
+                out.add(UndoLog.TileChange(MediaStores.id(c.layerId, store), c.key, tex, null))
+            }
+            agreedLook.remove(c.layerId to c.key)
+        }
+        // The window holds a copy of these looks as the ground of tiles with no payload, so it hears of every one.
+        onLookWritten?.let { listener -> for ((id, keys) in written) listener(id, keys) }
+        return out
+    }
+
+    /**
+     * Until JB-2.40 slice 3 a payload is per layer, so a layer that gains frames (an animation board over it) lets its
+     * payload go in the board change's own step: lossy, never wrong, and undo brings it back with the layer's old shape.
+     * Its agreements stay, so the restored payload is not mistaken for a stale one.
+     */
+    internal fun dropPayloadsOfFramedLayers(doc: JbDocument): List<UndoLog.TileChange<Int>> {
+        val out = ArrayList<UndoLog.TileChange<Int>>()
+        for (meta in doc.layers) {
+            if (meta.regions.isEmpty() && meta.cels.size == 1) continue
+            val layer = layers[meta.id] ?: continue
+            if (layer.floats.values.all { it.isEmpty() }) continue
+            val keys = HashSet<Long>()
+            for ((store, tiles) in layer.floats) for ((k, tex) in tiles) { out.add(UndoLog.TileChange(MediaStores.id(meta.id, store), k, tex, null)); keys.add(k) }
+            layer.floats.clear()
+            onMediaRestored?.invoke(meta.id, keys)
+        }
+        return out
+    }
+
+    // Requirement 5, the net under the funnel: the look texture each payload tile last agreed with. Media and look written
+    // together agree (a media write, a load, a step that carries both); a look that changed any other way did not, and
+    // its payload goes at the next window load ([dropStalePayload]) rather than render over the new pixels.
+    private val agreedLook = HashMap<Pair<String, Long>, Int>()
+
+    private fun agree(layerId: String, key: Long) { agreedLook[layerId to key] = layers[layerId]?.tiles?.get(key) ?: NO_LOOK }
+
+    private fun forgetAgreements(layerId: String) { agreedLook.keys.removeAll { it.first == layerId } }
+
+    /** After a load: every payload agrees with the look the file put beside it. */
+    fun agreeAllPayloads() {
+        agreedLook.clear()
+        for (l in layers.values) for (key in l.floats.values.flatMap { it.keys }.toSet()) agree(l.id, key)
+    }
+
+    /**
+     * Undo or redo put [changes] back. A look restored together with its tile's payload agrees with it; a look restored
+     * alone over a payload does not (it came from a write that bypassed the funnel), and that payload is stale.
+     */
+    private fun reconcileAgreements(changes: List<UndoLog.TileChange<Int>>) {
+        val withPayload = changes.mapNotNull { c -> MediaStores.parse(c.layerId)?.let { it.first to c.key } }.toSet()
+        for (c in changes) {
+            if (MediaStores.isMediaStore(c.layerId) || layers[c.layerId] == null) continue
+            val at = c.layerId to c.key
+            if (hasPayload(c.layerId, c.key) && at in withPayload) agree(c.layerId, c.key) else agreedLook.remove(at)
+        }
+    }
+
+    /**
+     * Requirement 5: of [keys], the tiles of [layerId] whose payload no longer agrees with their look lose the payload
+     * (lossy, never wrong; logged, because only a write that bypassed the funnel gets here). Inside a media stroke the
+     * drop joins its step; otherwise it is a step of its own. Returns the keys dropped.
+     */
+    fun dropStalePayload(layerId: String, keys: Collection<Long>): Set<Long> {
+        val layer = layers[layerId] ?: return emptySet()
+        val stale = keys.filter { k -> hasPayload(layerId, k) && agreedLook[layerId to k] != (layer.tiles[k] ?: NO_LOOK) }
+        if (stale.isEmpty()) return emptySet()
+        val changes = ArrayList<UndoLog.TileChange<Int>>()
+        for (k in stale) {
+            for ((store, tiles) in layer.floats) tiles.remove(k)?.let { changes.add(UndoLog.TileChange(MediaStores.id(layerId, store), k, it, null)) }
+            agreedLook.remove(layerId to k)
+        }
+        onMediaWarning?.invoke("dropped the media of ${stale.size} tile(s) of $layerId: their pixels changed outside the media funnel")
+        val stroke = mediaStroke
+        if (stroke != null) stroke.addAll(changes) else undo.push(UndoLog.Step(changes))
+        return stale.toSet()
+    }
 
     private var mediaStroke: ArrayList<UndoLog.TileChange<Int>>? = null
     private val mediaStrokeHeld = HashSet<Triple<String, String?, Long>>()
@@ -1847,9 +1951,12 @@ class GlPaintEngine(
             undo.newestExtendable()?.takeIf { MediaStores.isMediaStep(it) }?.changes?.associateBy { Triple(it.layerId, it.celId, it.key) } ?: emptyMap()
         val held: Set<Triple<String, String?, Long>> = stroke?.let { mediaStrokeHeld } ?: topHeld.keys
         val revived = ArrayList<UndoLog.TileChange<Int>>()
+        val strokeRevived = HashMap<Int, UndoLog.TileChange<Int>>()
         // Refused before anything is swapped: past the ceiling the layer stops growing, it does not crash.
-        val newFloat = stores.filter { it != MEDIA_LOOK }.sumOf { st -> keys.count { layer.floats[st]?.containsKey(it) != true } }
-        if (newFloat > 0 && mediaResidentBytes() + newFloat.toLong() * MediaStores.tileBytes(size) > mediaBudgetBytes) {
+        val newBytes = stores.filter { it != MEDIA_LOOK }.sumOf { st ->
+            keys.count { layer.floats[st]?.containsKey(it) != true }.toLong() * MediaStores.tileBytes(size, st)
+        }
+        if (newBytes > 0 && mediaResidentBytes() + newBytes > mediaBudgetBytes) {
             throw MediaRoomException(LayerBudget.mediaFullMessage(mediaBudgetBytes))
         }
         val fresh = ArrayList<UndoLog.TileChange<Int>>()
@@ -1857,18 +1964,21 @@ class GlPaintEngine(
         try {
             for (store in stores) {
                 val look = store == MEDIA_LOOK
-                require(look || store in MediaStores.ALL) { "unknown media store $store" }
+                require(look || store in MediaStores.PAYLOAD) { "unknown media store $store" }
                 val storeId = if (look) layerId else MediaStores.id(layerId, store)
-                val tiles = if (look) layer.tiles else layer.floats.getOrPut(store) { HashMap() }
+                val tiles = if (look) layer.tiles else payload(layer, store)
                 val texes = LinkedHashMap<Long, Int>()
                 for (key in keys) {
                     val now = tiles[key]
                     val tile = Triple(storeId, null, key)
                     if (now != null && tile in held) { texes[key] = now; continue }
-                    val after = if (look) newLayerTile() else newFloatTile()
+                    val after = if (look) newLayerTile() else newPayloadTile(store)
                     initializeTile(after, now, false)
                     val dropped = topHeld[tile]
-                    if (now == null && dropped != null) revived.add(UndoLog.TileChange(storeId, key, dropped.before, after))
+                    // A tile this stroke itself dropped (a stale payload, [dropStalePayload]) comes back in that same change.
+                    val droppedHere = if (now == null && stroke != null) stroke.indexOfFirst { it.after == null && Triple(it.layerId, it.celId, it.key) == tile } else -1
+                    if (droppedHere >= 0) strokeRevived[droppedHere] = UndoLog.TileChange(storeId, key, stroke!![droppedHere].before, after)
+                    else if (now == null && dropped != null) revived.add(UndoLog.TileChange(storeId, key, dropped.before, after))
                     else fresh.add(UndoLog.TileChange(storeId, key, now, after))
                     tiles[key] = after
                     texes[key] = after
@@ -1878,13 +1988,16 @@ class GlPaintEngine(
         } catch (e: Throwable) {
             // Put back what was swapped and free the copies: nothing half-done reaches the history.
             for (c in fresh.asReversed()) { put(c.layerId, c.key, c.before); c.after?.let(::recycleLayerTex) }
-            for (c in revived) { put(c.layerId, c.key, null); c.after?.let(::recycleLayerTex) }
+            for (c in revived + strokeRevived.values) { put(c.layerId, c.key, null); c.after?.let(::recycleLayerTex) }
             throw e
         } finally {
             GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER, 0)
         }
         invalidateProjection(layer)
+        // The media wrote these tiles' look and payload together: they agree.
+        if (MEDIA_LOOK in stores) for (key in keys) agree(layerId, key)
         if (stroke != null) {
+            for ((i, c) in strokeRevived) { stroke[i] = c; mediaStrokeHeld.add(Triple(c.layerId, c.celId, c.key)) }
             stroke.addAll(fresh)
             fresh.forEach { mediaStrokeHeld.add(Triple(it.layerId, it.celId, it.key)) }
         } else {
@@ -1934,8 +2047,10 @@ class GlPaintEngine(
      * the store has no tile.
      */
     fun readMediaTile(layerId: String, store: String, key: Long): ByteArray? {
-        require(store in MediaStores.ALL) { "unknown media store $store" }
+        require(store in MediaStores.PAYLOAD) { "unknown media store $store" }
         val tex = layers[layerId]?.floats?.get(store)?.get(key) ?: return null
+        // The ground is RGBA8 like a look tile, and is read like one.
+        if (store == MediaStores.GROUND) return readTextureTile(tex)
         val buf = ByteBuffer.allocateDirect(size * size * 4 * 4).order(ByteOrder.nativeOrder())
         GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER, fbo)
         attach(tex)
@@ -1955,10 +2070,11 @@ class GlPaintEngine(
 
     /** Sets a float tile (same layout as [readMediaTile]). For loading a document: NOT undoable. Creates what is missing. */
     fun writeMediaTile(layerId: String, store: String, key: Long, bytes: ByteArray) {
-        require(store in MediaStores.ALL) { "unknown media store $store" }
-        require(bytes.size == MediaStores.tileBytes(size)) { "media tile must be ${MediaStores.tileBytes(size)} bytes, got ${bytes.size}" }
+        require(store in MediaStores.PAYLOAD) { "unknown media store $store" }
+        require(bytes.size == MediaStores.tileBytes(size, store)) { "media tile must be ${MediaStores.tileBytes(size, store)} bytes, got ${bytes.size}" }
         val layer = storeOrCreate(layerId)
-        val tex = layer.floats.getOrPut(store) { HashMap() }.getOrPut(key) { newFloatTile() }
+        val tex = payload(layer, store).getOrPut(key) { newPayloadTile(store) }
+        if (store == MediaStores.GROUND) { uploadTile(tex, bytes); return }
         // Uploaded as full floats (ES 3 takes FLOAT data for an RGBA16F texture) so the rounding is the one [HalfFloat] did.
         val floats = HalfFloat.decode(bytes)
         val buf = ByteBuffer.allocateDirect(floats.size * 4).order(ByteOrder.nativeOrder())
@@ -2280,8 +2396,8 @@ class GlPaintEngine(
 
     private fun put(layerId: String, key: Long, tex: Int?, celId: String? = null) {
         MediaStores.parse(layerId)?.let { (owner, store) ->
-            require(celId == null) { "a media store has no cels" }
-            val tiles = storeOrCreate(owner).floats.getOrPut(store) { HashMap() }
+            require(celId == null) { "a media payload is per layer until JB-2.40 slice 3" }
+            val tiles = payload(storeOrCreate(owner), store)
             if (tex == null) tiles.remove(key) else tiles[key] = tex
             return
         }

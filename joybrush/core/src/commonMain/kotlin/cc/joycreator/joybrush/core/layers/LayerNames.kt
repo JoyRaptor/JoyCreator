@@ -126,11 +126,11 @@ object LayerBudget {
 
     /**
      * The media window's own reservation (the Lead, 2026-10-07): the TOOL, kept apart from [mediaBudgetBytes] (the
-     * painting) and from the layer slots. Full-float state ×2 (96 B/px), the dry delta, the paper bakes and the look make
-     * 128 B/px; water adds its two buffers, the flow, the run and input targets and the bead field, 108 B/px more. Wet
-     * targets are made only when a wet or thinned medium first touches the window.
+     * painting) and from the layer slots. Full-float state ×2 (96 B/px), the dry delta, the paper bakes, the look and the
+     * ground (JB-2.40) make 132 B/px; water adds its two buffers, the flow, the run and input targets and the bead field,
+     * 108 B/px more. Wet targets are made only when a wet or thinned medium first touches the window.
      */
-    val MEDIA_WINDOW_DRY_BYTES: Long = MediaWindowMath.PX.toLong() * MediaWindowMath.PX * 128
+    val MEDIA_WINDOW_DRY_BYTES: Long = MediaWindowMath.PX.toLong() * MediaWindowMath.PX * 132
     val MEDIA_WINDOW_WET_BYTES: Long = MEDIA_WINDOW_DRY_BYTES + MediaWindowMath.PX.toLong() * MediaWindowMath.PX * 108
 
     /**

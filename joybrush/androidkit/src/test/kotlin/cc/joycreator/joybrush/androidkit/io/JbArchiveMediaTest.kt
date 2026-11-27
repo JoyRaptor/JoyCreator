@@ -20,19 +20,19 @@ import kotlin.test.assertFailsWith
 import kotlin.test.assertTrue
 
 /**
- * A media layer in the `.joybrush` file (step 3b, the Lead's store-format ruling): `.f16` store tiles round-trip, a save
- * mid-flow keeps the water (so reopening resumes wet), and every disagreement between the document and the files is
- * refused in one sentence, in both directions, on write AND on read.
+ * Media payloads in the `.joybrush` file (step 3b, the Lead's store-format ruling; R51): `.f16` store tiles and `.g.rgba`
+ * ground tiles round-trip on an ordinary layer, a v8 media layer opens as paint, and every disagreement between the
+ * document and the files is refused in one sentence, in both directions, on write AND on read.
  */
 class JbArchiveMediaTest {
     private val layer = "wc"
     private val cel = "c-wc"
     private val mediaBytes = MediaStores.tileBytes(TILE_SIZE)
 
-    private fun doc(floatTiles: List<String> = listOf("0_0", "1_0")) = JbDocument(
-        id = "doc-m", name = "Media",
+    private fun doc(floatTiles: List<String> = listOf("0_0", "1_0"), kind: LayerKind = LayerKind.PAINT, version: Int = cc.joycreator.joybrush.core.doc.DOC_VERSION) = JbDocument(
+        id = "doc-m", name = "Media", version = version,
         boards = listOf(Board(id = "b", name = "Board", kind = BoardKind.CANVAS, rect = RectPx(0, 0, 512, 256))),
-        layers = listOf(Layer(id = layer, name = "Watercolour", kind = LayerKind.MEDIA,
+        layers = listOf(Layer(id = layer, name = "Layer 1", kind = kind,
             cels = listOf(Cel(id = cel, tiles = listOf("0_0", "1_0"), floatTiles = floatTiles)))),
         activeLayerId = layer, activeBoardId = "b",
     )
@@ -85,6 +85,27 @@ class JbArchiveMediaTest {
         assertTrue("layers/wc/c-wc/0_0.w0.f16" in names, names.toString())
         assertTrue("layers/wc/c-wc/0_0.rgba" in names, "the look is an ordinary paint tile")
         assertEquals(mediaBytes, TILE_SIZE * TILE_SIZE * 8, "half floats at rest")
+    }
+
+    @Test fun theGroundRoundTripsAsAnRgbaTileBesideTheStores() {
+        val grounded = wet().copy(mediaTiles = wet().mediaTiles + (key("0_0", MediaStores.GROUND) to look(7)))
+        val bytes = bytesOf(grounded)
+        val names = ArrayList<String>()
+        ZipInputStream(ByteArrayInputStream(bytes)).use { z -> while (true) names += (z.nextEntry ?: break).name }
+        assertTrue("layers/wc/c-wc/0_0.g.rgba" in names, names.toString())
+        val back = read(bytes)
+        assertContentEquals(look(7), back.mediaTiles.getValue(key("0_0", MediaStores.GROUND)), "the ground comes back to the byte")
+        assertEquals(grounded.tiles.keys, back.tiles.keys, "and is not mistaken for a paint tile")
+        val wrong = wet().copy(mediaTiles = wet().mediaTiles + (key("0_0", MediaStores.GROUND) to state(0f)))
+        assertTrue("a g tile is $TILE_BYTES" in assertFailsWith<JbArchiveException> { bytesOf(wrong) }.message!!)
+    }
+
+    @Test fun aVersion8MediaLayerOpensAsAPaintLayerWithItsPayload() {
+        val v8 = wet().copy(doc = doc(kind = LayerKind.MEDIA, version = 8))
+        val back = read(bytesOf(v8))
+        assertEquals(LayerKind.PAINT, back.doc.layers.single().kind)
+        assertEquals(9, back.doc.version)
+        assertEquals(v8.mediaTiles.keys, back.mediaTiles.keys)
     }
 
     @Test fun writingRefusesStateTheDocumentDoesNotList() {

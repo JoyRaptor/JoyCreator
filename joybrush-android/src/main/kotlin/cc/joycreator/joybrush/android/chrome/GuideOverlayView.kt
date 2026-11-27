@@ -90,16 +90,12 @@ class GuideOverlayView(private val kit: ChromeKit, private val transform: ViewTr
     private val zonePath = Path()
 
     /** What the path was built for: it is rebuilt only when the zone moves or the view changes size. */
-    private var zoneKey: ZoneKey? = null
+    private var zoneKey: SafeZoneKey? = null
 
     /** The circle where it was last built, in screen px. */
     private var zoneScreenX = 0f
     private var zoneScreenY = 0f
     private var zoneScreenR = 0f
-
-    private class ZoneKey(
-        val cx: Double, val cy: Double, val radius: Float, val width: Int, val height: Int, val zoom: Float,
-    )
 
     /** The visible page in document px, filled in place: the same numbers every frame, no new array. */
     private val viewDoc = FloatArray(4)
@@ -210,14 +206,16 @@ class GuideOverlayView(private val kit: ChromeKit, private val transform: ViewTr
      * symmetry centre, inside the window pinned there), so the person can see where the paint may
      * go before the pen goes there.
      *
-     * The path is rebuilt only when the zone MOVES (the guide, the radius, the zoom) or the view
-     * changes size: nothing is allocated per frame.
+     * The path is rebuilt only when the zone MOVES (the guide, the radius, the transform's zoom,
+     * pan or rotation) or the view changes size: nothing is allocated per frame. Pan and rotation
+     * are in the key because the ring is drawn in SCREEN px — without them a panned or turned page
+     * would leave the circle and the darkening behind at the old screen position.
      */
     private fun drawSafeZone(c: Canvas, sym: Guide.Symmetry, zoom: Float) {
         if (!mediaBrushInHand || !(safeZoneRadiusDocPx > 0f)) return
         val cx = (sym.a.x + sym.b.x) / 2.0
         val cy = (sym.a.y + sym.b.y) / 2.0
-        val key = ZoneKey(cx, cy, safeZoneRadiusDocPx, width, height, zoom)
+        val key = SafeZoneKey.of(transform, cx, cy, safeZoneRadiusDocPx, width, height)
         if (zoneKey != key) {
             zoneKey = key
             val (sx, sy) = transform.docToScreen(cx.toFloat(), cy.toFloat())
@@ -320,6 +318,17 @@ class GuideOverlayView(private val kit: ChromeKit, private val transform: ViewTr
         if (!adjusting && sym == null) return false
         when (e.actionMasked) {
             MotionEvent.ACTION_DOWN -> {
+                // A pen always paints, and so does the pen's eraser: only a finger may take the
+                // line, whose body sits exactly where people paint. The down falls through to the
+                // canvas, so a stylus stroke started on the axis is a stroke, not a drag.
+                if (!SymmetryGrip.mayGrab(e.getToolType(0))) {
+                    grabbed = null
+                    bodyGrab = false
+                    rotating = false
+                    pointer0 = MotionEvent.INVALID_POINTER_ID
+                    pointer1 = MotionEvent.INVALID_POINTER_ID
+                    return false
+                }
                 grabbed = null
                 bodyGrab = false
                 rotating = false
@@ -345,6 +354,8 @@ class GuideOverlayView(private val kit: ChromeKit, private val transform: ViewTr
             MotionEvent.ACTION_POINTER_DOWN -> {
                 val held = grabbed == KEY_SYM_A || grabbed == KEY_SYM_B || bodyGrab
                 if (!held || pointer1 != MotionEvent.INVALID_POINTER_ID) return true
+                // A pen joining a finger gesture does not turn the line: it paints.
+                if (!SymmetryGrip.mayGrab(e.getToolType(e.actionIndex))) return true
                 val id = e.getPointerId(e.actionIndex)
                 val a = e.findPointerIndex(pointer0)
                 val b = e.findPointerIndex(id)
@@ -356,36 +367,35 @@ class GuideOverlayView(private val kit: ChromeKit, private val transform: ViewTr
                 return true
             }
             MotionEvent.ACTION_MOVE -> {
+                // After the turn ended on POINTER_UP there is nothing held: a remaining finger
+                // must not move the line, and must not report the same line over and over.
+                if (grabbed == null && !bodyGrab && !rotating) return true
                 val next = step(e)
                 settings = next
                 onChanged?.invoke(next, false)
                 return true
             }
             MotionEvent.ACTION_POINTER_UP -> {
-                val gone = e.getPointerId(e.actionIndex)
-                if (gone == pointer0 || gone == pointer1) {
-                    // Keep going with whichever finger stays, from where it is now: no jump.
-                    val keep = if (gone == pointer0) pointer1 else pointer0
-                    if (keep != MotionEvent.INVALID_POINTER_ID) {
-                        pointer0 = keep
-                        val i = e.findPointerIndex(keep)
-                        if (i >= 0) {
-                            val (dx, dy) = transform.screenToDoc(e.getX(i), e.getY(i))
-                            lastDocX = dx
-                            lastDocY = dy
-                        }
-                    } else {
-                        pointer0 = MotionEvent.INVALID_POINTER_ID
-                    }
-                    pointer1 = MotionEvent.INVALID_POINTER_ID
-                    rotating = false
+                // The turn ends HERE: commit the line as it stands and drop every grab. Re-basing
+                // onto the finger that stays is what used to place an end under it — a visible jump.
+                if (grabbed != null || bodyGrab || rotating) {
+                    val next = step(e)
+                    settings = next
+                    onChanged?.invoke(next, true)
                 }
+                grabbed = null
+                bodyGrab = false
+                rotating = false
+                pointer0 = MotionEvent.INVALID_POINTER_ID
+                pointer1 = MotionEvent.INVALID_POINTER_ID
                 return true
             }
             MotionEvent.ACTION_UP -> {
-                val next = step(e)
-                settings = next
-                onChanged?.invoke(next, true)
+                if (grabbed != null || bodyGrab || rotating) {
+                    val next = step(e)
+                    settings = next
+                    onChanged?.invoke(next, true)
+                }
                 grabbed = null
                 bodyGrab = false
                 rotating = false
@@ -472,8 +482,8 @@ class GuideOverlayView(private val kit: ChromeKit, private val transform: ViewTr
         atan2((e.getY(b) - e.getY(a)).toDouble(), (e.getX(b) - e.getX(a)).toDouble())
 
     /**
-     * The soft 45-degree snap: the line's angle is pulled to the nearest multiple of 45 degrees when it comes within
-     * [SNAP_TOLERANCE] of one, keeping the length and the anchor — the grabbed end, or the middle for a turn. The finger
+     * The soft 45-degree snap: the angle is a quarter turn when the core's [cc.joycreator.joybrush.core.guide.SymmetryMath.snapAngle]
+     * says so, and the overlay keeps the length and the anchor — the grabbed end, or the middle for a turn. The finger
      * may drag on past it: there is no detent and nothing latches. A tick, once per snap and not once per frame.
      */
     private fun snapped(a: Pt, b: Pt, anchor: Anchor): Pair<Pt, Pt> {
@@ -481,13 +491,12 @@ class GuideOverlayView(private val kit: ChromeKit, private val transform: ViewTr
         val dy = b.y - a.y
         val len = hypot(dx, dy)
         if (!(len > 0.0) || !len.isFinite()) return a to b
-        val angle = atan2(dy, dx)
-        val k = Math.round(angle / SNAP_STEP).toInt()
-        val target = k * SNAP_STEP
-        if (abs(angle - target) > SNAP_TOLERANCE) {
+        val target = SymmetrySnap.target(atan2(dy, dx))
+        if (target == null) {
             snappedTo = NO_SNAP
             return a to b
         }
+        val k = Math.round(target / SNAP_STEP).toInt()
         if (k != snappedTo) {
             snappedTo = k
             performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK)
@@ -543,11 +552,8 @@ class GuideOverlayView(private val kit: ChromeKit, private val transform: ViewTr
         const val KEY_SYM_A = "sa"
         const val KEY_SYM_B = "sb"
 
-        /** A quarter turn: the multiples the line snaps to. */
+        /** A quarter turn: the multiples the line snaps to (the tolerance is the core's). */
         const val SNAP_STEP = PI / 4.0
-
-        /** How close to a quarter turn the line has to come before it is pulled onto it, radians. */
-        const val SNAP_TOLERANCE = 3.0 * PI / 180.0
 
         /** No quarter turn: the line is not on one. */
         const val NO_SNAP = Int.MIN_VALUE

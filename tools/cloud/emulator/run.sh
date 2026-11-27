@@ -39,12 +39,24 @@ adb shell dumpsys package "$PKG" | grep -E "versionName|lastUpdateTime" | head -
 # The helper library for the scripts.
 . "$HERE/lib.sh"
 
-SCRIPT="$HERE/scripts/${EMU_SCRIPT}.sh"
-[ -f "$SCRIPT" ] || { echo "no such script: $SCRIPT"; ls "$HERE/scripts"; exit 1; }
-START=$(date +%s)
-code=0
-bash -c ". '$HERE/lib.sh'; . '$SCRIPT'" || code=$?
-echo "script exit=$code after $(( $(date +%s) - START )) s"
+# EMU_SCRIPT may name several scripts, comma separated: they run one after another on the same emulator, in the same
+# installed app (so a later script sees what an earlier one left), each with its own folder under emu-out/.
+FINAL=0
+IFS=',' read -r -a NAMES <<< "${EMU_SCRIPT}"
+for NAME in "${NAMES[@]}"; do
+    SCRIPT="$HERE/scripts/${NAME}.sh"
+    [ -f "$SCRIPT" ] || { echo "no such script: $SCRIPT"; ls "$HERE/scripts"; FINAL=1; continue; }
+    if [ "${#NAMES[@]}" -gt 1 ]; then export OUT_BASE="$OUT"; OUT="$OUT_BASE/$NAME"; mkdir -p "$OUT"; else OUT_BASE="$OUT"; fi
+    export OUT
+    echo "=== script $NAME ==="
+    START=$(date +%s)
+    code=0
+    bash -c ". '$HERE/lib.sh'; . '$SCRIPT'" || code=$?
+    echo "script $NAME exit=$code after $(( $(date +%s) - START )) s"
+    [ "$code" -ne 0 ] && FINAL=$code
+    OUT="$OUT_BASE"; export OUT
+done
+code=$FINAL
 
 adb logcat -d -v time > "$OUT/logcat.txt" 2>&1 || true
 adb shell dumpsys battery | head -12 > "$OUT/battery.txt" 2>&1 || true

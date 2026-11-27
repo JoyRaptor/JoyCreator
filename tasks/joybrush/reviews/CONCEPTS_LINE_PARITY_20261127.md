@@ -104,3 +104,29 @@ Fixes go to `joy-creator` in steps, each with host tests. Progress is logged bel
   - **Paint is untouched by this eraser;** the ordinary eraser rubs out paint. Erasing part of a line and keeping the pieces as lines is still engine work.
   - **Phone check owed:** on the Note 9, draw three crossing lines, pick Eraser, then Whole lines, and stroke across two of them. Both should go at once and one Undo should bring both back. SelectBench runs only on the phone, so it has not been run.
 - **UI step 5 is not done:** the "lines" tag on layer rows. The row subtitle shows only on wide-screen pulled-out rows, and keeping it current needs a refresh hook on every line edit. It is low value for the cost; listed for the layer-column owner.
+
+## Slice eraser and partial erase: read 11-27, engine-side (one small piece)
+
+**What exists:**
+- `core/vector/VectorEraser.erase(lines, eraserPath, mode)` finds the touched spans:
+  - `PARTIAL`: the span under the eraser;
+  - `TO_INTERSECTION`: out to the nearest crossing on each side;
+  - `WHOLE_STROKE`.
+- `core/vector/InkErase.run(...)` turns the surviving pieces into contiguous sublists of the line's own samples, so a piece stays a re-brushable line (LEAD_RULINGS R20). It refuses captured records in words.
+- The crossing search, the box pre-filter and the piece maths are written and tested.
+- The tool side would be the Whole lines eraser again: another mode of `StrokeEraserTool`, chosen by an eraser brush in the Erasers shelf.
+
+**Why it cannot land as one undo step today:**
+- Erasing the middle of a line leaves two pieces. One gesture must therefore remove one line and add two, and the owner's rule makes that one undo step.
+- Line edits are applied inside `GlPaintEngine.editLines` (androidkit `gl/`, around line 3606). It knows only Replace (same address), Add, Delete and Bake.
+- Replace for one piece plus Add for the rest is two edits, so two presses to undo.
+- Only an erase that trims a line's end, leaving one piece, fits in one Replace.
+
+**The engine piece needed (small):**
+- A new `LineEdit.Split(removed: Set<LineAddress>, added: List<AddressedStroke>, brushes, assets)`.
+- `editLines` applies it as its Delete loop followed by its Add loop in the same pass. The pass already gathers every tile, slab and line change of one edit into ONE `UndoLog` entry, so undo and redo stay one step.
+- `LineEdit.addresses()` returns both sets.
+- `CanvasSelectionHost`'s refusal and history mapping (around line 251) treats it as a delete plus an add.
+- About 30 lines in `GlPaintEngine.kt` and `LineTypes.kt`. The rest (the tool modes, the two eraser brushes, the tests with crossing lines) is UI and core.
+
+**Status:** not built. `GlPaintEngine` is the paint engine's file, outside this lane. The orchestrator was asked whether this lane may make that one change, as it did for the eraser routing in `JbCanvasView`.

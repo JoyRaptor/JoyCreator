@@ -101,6 +101,36 @@ final class Frame {
 
     private static String id(JSONObject n) { return n.optString("id", ""); }
 
+    /** Where one spot of a part with pins is carried to when its shapes are worn at these strengths (the pilot's warpAt: used to drop a
+        pin on a part that is already reshaped without the part moving under it). */
+    double[] warpAtPart(JSONObject n, double x, double y, Map<String, Double> W) {
+        JSONArray pins = J.a(J.o(n, "mesh"), "pins"), shp = J.a(n, "shapes");
+        if (pins == null || pins.length() == 0) return new double[] {x, y};
+        List<double[]> P = new ArrayList<>(), Q = new ArrayList<>();
+        double[] K = new double[pins.length()];
+        boolean any = false;
+        for (int i = 0; i < pins.length(); i++) {
+            JSONObject p = pins.optJSONObject(i);
+            double[] q = {J.x(p), J.y(p)};
+            for (int j = 0; shp != null && j < shp.length(); j++) {
+                JSONObject sh = shp.optJSONObject(j);
+                Double w0 = W.get(id(sh));
+                double w = w0 == null ? 0 : w0;
+                JSONObject dd = w != 0 && sh != null ? J.o(sh, "d") : null;
+                JSONArray d = dd == null ? null : dd.optJSONArray(id(p));
+                if (d != null) { q[0] += d.optDouble(0, 0) * w; q[1] += d.optDouble(1, 0) * w; any = true; }
+            }
+            P.add(new double[] {J.x(p), J.y(p)});
+            Q.add(q);
+            K[i] = pinHold(p, W);
+        }
+        if (!any) return new double[] {x, y};
+        String img = "art".equals(J.s(n, "type")) ? J.s(n, "img") : null;
+        Warps.Geo geo = img != null && sv.pics.has(img) ? geoFor(n, img) : null;
+        float[] o = Warps.warpMLS(new float[] {(float) x, (float) y}, P, Q, geo, K);
+        return new double[] {o[0], o[1]};
+    }
+
     private static String type(JSONObject n) { return n.optString("type", ""); }
 
     private boolean show(JSONObject n) { return opt.show != null && Boolean.TRUE.equals(opt.show.get(id(n))); }

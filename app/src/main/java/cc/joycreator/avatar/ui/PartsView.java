@@ -51,6 +51,18 @@ public final class PartsView extends ScrollView {
         default void stackEdit(String stepName, String nodeId, cc.joycreator.avatar.file.Stack.Step step) {
         }
 
+        /** Reshape with pins is on for the part in hand. */
+        default boolean reshaping() {
+            return false;
+        }
+
+        default void reshape(boolean on) {
+        }
+
+        /** "removeLast" (the last pin dropped in this pose) or "again" (every pin back). */
+        default void reshapeAction(String what) {
+        }
+
         /** The stance row and card on Arrange. */
         StanceCard.Host stances();
 
@@ -184,6 +196,7 @@ public final class PartsView extends ScrollView {
             column.addView(label(getContext().getString(R.string.avatar_size_and_turn)));
             column.addView(body(getContext().getString(R.string.avatar_box_hint)));
             column.addView(box2);
+            reshapeSection(doc, node, poseId);
             return;
         }
         column.addView(label(getContext().getString(R.string.avatar_in_front_or_behind)));
@@ -212,6 +225,34 @@ public final class PartsView extends ScrollView {
         bs.setHorizontalScrollBarEnabled(false);
         bs.addView(buttons);
         column.addView(bs);
+        reshapeSection(doc, node, poseId);
+    }
+
+    /** Reshape with pins: a chip on any drawing or folder (in a stance, only a stance with a button). */
+    private void reshapeSection(CharacterDoc doc, CharacterDoc.Node node, String poseId) {
+        if ("set".equals(node.type) || "mirror".equals(node.type) || node.json.has("limb")) return;
+        JSONObject pose = poseId == null ? null : cc.joycreator.avatar.file.Stances.find(doc.json, poseId);
+        if (pose != null && pose.optString("trig").isEmpty()) return;
+        final Context c = getContext();
+        boolean on = host.reshaping();
+        column.addView(label(c.getString(R.string.avatar_reshape_title)));
+        LinearLayout row = new LinearLayout(c);
+        row.addView(chip(c.getString(R.string.avatar_reshape), on, v -> host.reshape(!on), c.getString(R.string.avatar_hover_reshape)));
+        if (on) {
+            if (!cc.joycreator.avatar.file.Reshape.ownPins(node.json, poseId).isEmpty())
+                row.addView(chip(c.getString(R.string.avatar_reshape_remove), false, v -> host.reshapeAction("removeLast"), c.getString(R.string.avatar_hover_reshape_remove)));
+            row.addView(chip(c.getString(R.string.avatar_reshape_again), false, v -> host.reshapeAction("again"), c.getString(R.string.avatar_hover_reshape_again)));
+            row.addView(chip(c.getString(R.string.avatar_done), true, v -> host.reshape(false), c.getString(R.string.avatar_hover_reshape_done)));
+        }
+        HorizontalScrollView hs = new HorizontalScrollView(c);
+        hs.setHorizontalScrollBarEnabled(false);
+        hs.addView(row);
+        column.addView(hs);
+        if (pose != null) column.addView(body(c.getString(R.string.avatar_reshape_stance_note, pose.optString("name"))));
+        if (on) {
+            boolean any = node.json.optJSONObject("mesh") != null && node.json.optJSONObject("mesh").optJSONArray("pins") != null && node.json.optJSONObject("mesh").optJSONArray("pins").length() > 0;
+            column.addView(body(c.getString(any ? R.string.avatar_reshape_hint_have : R.string.avatar_reshape_hint_none)));
+        }
     }
 
     // ── Arrange: in front or behind, for a whole part or in a stance ─────────────────────────────

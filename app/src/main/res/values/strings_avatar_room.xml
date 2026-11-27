@@ -218,5 +218,22 @@
     <string name="avatar_stack_note">Left is the back, right is the front. Tap a part to step past it. It stays like this.</string>
     <string name="avatar_stack_note_stance">Left is the back, right is the front. Tap a part to step past it. Only while it is in this stance.</string>
     <string name="avatar_stack_step">%1$s: %2$s</string>
+    <string name="avatar_reshape_title">Reshape with pins</string>
+    <string name="avatar_reshape">Reshape with pins</string>
+    <string name="avatar_hover_reshape">Tap the part to drop pins, then drag one: the part stretches from there and the other pins hold the rest still</string>
+    <string name="avatar_reshape_remove">Remove the last pin</string>
+    <string name="avatar_hover_reshape_remove">Takes out the last pin dropped here. Pins dropped in another stance, or standing, are taken out there.</string>
+    <string name="avatar_reshape_again">Start again</string>
+    <string name="avatar_hover_reshape_again">Every pin back to where it was dropped</string>
+    <string name="avatar_hover_reshape_done">Finish reshaping</string>
+    <string name="avatar_reshape_stance_note">This reshaping is for %1$s only. Standing, the part keeps its own shape.</string>
+    <string name="avatar_reshape_hint_none">Tap the part where it should stay put, and again where you want to pull it. Then drag a pin.</string>
+    <string name="avatar_reshape_hint_have">Drag a pin to stretch the part from there. Pins you leave alone hold it still. Tap the part for another pin.</string>
+    <string name="avatar_reshape_tap_part">Tap on the part itself to drop a pin.</string>
+    <string name="avatar_step_reshape_on">Reshape with pins</string>
+    <string name="avatar_step_reshape_drop">Add a pin</string>
+    <string name="avatar_step_reshape_pin">Reshape: move a pin</string>
+    <string name="avatar_step_reshape_remove">Remove a pin</string>
+    <string name="avatar_step_reshape_again">Clear the reshape</string>
 </resources>
 

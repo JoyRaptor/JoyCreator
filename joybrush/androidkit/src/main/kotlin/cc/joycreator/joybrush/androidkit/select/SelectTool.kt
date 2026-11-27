@@ -217,7 +217,8 @@ class SelectTool(
 
     override fun down(ev: MotionEvent, pointerIndex: Int, view: cc.joycreator.joybrush.core.view.ViewTransform): Boolean {
         this.view = view
-        deletedForUndo = null
+        // Not cleared on a touch: a pan or a zoom after Delete must not stop Undo bringing the lines back SELECTED
+        // (D20). A new pick clears it in onSelectionChanged, and the epoch check guards another drawing (11-27).
         val id = ev.getPointerId(pointerIndex)
         val kind = kindOf(ev, pointerIndex)
         if (router.busy) return router.otherDown(id, kind)

@@ -36,4 +36,14 @@ object SelectionSync {
         }
     }
 
+    /**
+     * The second half of Cut, once the copy is safely held: delete the copied lines as ONE undo step, but only if they are
+     * still exactly the selection (the person may have picked something else while the copy ran). False = nothing deleted.
+     */
+    fun cutAfterCopy(tool: SelectTool?, copied: Set<cc.joycreator.joybrush.core.stroke.LineAddress>): Boolean {
+        val still = tool?.selection as? SelectionState.Lines ?: return false
+        if (still.ids != copied) return false
+        return tool.deleteSelection()
+    }
+
 }

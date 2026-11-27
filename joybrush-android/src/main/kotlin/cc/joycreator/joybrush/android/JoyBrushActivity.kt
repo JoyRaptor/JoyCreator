@@ -1583,8 +1583,8 @@ class JoyBrushActivity : Activity() {
     /**
      * The test-stroke stage every brush editor shares (BRUSH-UI §L, 11-27): a second live canvas on the drawing's paper,
      * with the captions under it, redrawn with the sample sheet and whatever the owner drew there each time [redrawSoon]
-     * is called. [shown] is the brush as the editor has it now. Paint brushes and Unibrush modes without picture tips use
-     * it; a Unibrush mode with picture tips still shows a picture (its tips are not loaded into a second canvas yet).
+     * is called. [shown] is the brush as the editor has it now. Every brush uses it, picture-tip brushes included: the
+     * stage reads their pictures through the drawing's own lookup.
      */
     inner class BrushStage(private val shown: () -> BrushPreset) {
         val preview = JbCanvasView(this@JoyBrushActivity).apply {
@@ -1616,6 +1616,10 @@ class JoyBrushActivity : Activity() {
                     t.translationX = (r - l) * c.centreX - t.width / 2f
                 }
             }
+            // Slightly round corners (BRUSH-UI §L addition 5): caps over the live surface, which Android 10 cannot clip.
+            addView(cc.joycreator.joybrush.android.chrome.StageCorners(this@JoyBrushActivity,
+                kit.dp(cc.joycreator.joybrush.android.chrome.UnibrushHostController.STAGE_CORNER_DP),
+                com.fadcam.ui.faditor.tools.DrawerFill.fill(this@JoyBrushActivity)), FrameLayout.LayoutParams(MATCH, MATCH))
         }
         val view: View get() = framed
         val canvasView: JbCanvasView get() = preview
@@ -1652,7 +1656,12 @@ class JoyBrushActivity : Activity() {
         }
         /** Wipe what the owner drew here; the sample strokes stay. */
         fun clear() { preview.drawnStrokes.clear(); redrawSoon() }
-        init { preview.onReady = { redrawSoon() } }
+        init {
+            preview.onReady = { redrawSoon() }
+            // A brush with picture tips (an imported brush, a Unibrush image mode) finds its pictures where the drawing
+            // does: the stage asks the drawing's own lookup at each stroke, so its tips are the ones the pen will lay.
+            preview.brushPngs = { p -> canvas.brushPngs?.invoke(p) }
+        }
     }
 
     /**

@@ -172,8 +172,8 @@ class UnibrushHostController(
     var settingsHost:SettingsHost?=null
     /**
      * BRUSH-UI §L (owner, 11-27): the test stroke on the same live stage paint brushes use, drawn by the brush itself on the
-     * drawing's paper, and drawable. The activity supplies it. A mode with picture tips keeps the picture on paper (its
-     * tips are not loaded into a second canvas yet).
+     * drawing's paper, and drawable. The activity supplies it. A picture-tip mode uses it too, reading its pictures through
+     * the drawing's lookup; only one whose pictures are not prepared yet keeps a picture on paper.
      */
     interface Stage { val view:View; fun redrawSoon(); fun clear(); fun test(); fun penReading(cb:((Float,Float,Float)->Unit)?) }
     var stageFactory:((()->BrushPreset)->Stage)?=null
@@ -198,7 +198,10 @@ class UnibrushHostController(
         }
         previewImage=image
         val opening=active.current().recipe
-        val stage=stageFactory?.takeIf{BrushAssetPaths.required(opening).isEmpty()}?.invoke{canvas.preset?:opening}
+        // A picture-tip mode draws on the live stage too, through the drawing's own picture lookup; only when that lookup
+        // has nothing for it (its pictures are not prepared yet) does it keep the picture on paper.
+        val picturesReady=BrushAssetPaths.required(opening).isEmpty()||try{canvas.brushPngs?.invoke(opening)!=null}catch(e:Exception){false}
+        val stage=stageFactory?.takeIf{picturesReady}?.invoke{canvas.preset?:opening}
         liveStage=stage
         val view=UnibrushSettingsView(kit,opening,port.stabilizerPreference,stage?.view?:image,
             onChange={recipe,_->

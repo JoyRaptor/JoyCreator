@@ -33,6 +33,9 @@ public final class FaceMapper {
     static final float LEGACY_YAW_DEG = 45f, LEGACY_PITCH_DEG = 30f;
     /** How far the face's middle sits above the neck's turning point, in face widths (the owner's tilt, 11-22). */
     static final double TILT_SWING = 0.95;
+    /** Looking down at the phone, the tracker sees the brows from below and reads them lowered: browDown rises about NOD_BROW a
+     *  degree past NOD_BROW_FROM degrees down (fitted on the owner's nods, 11-27; a pucker held level did not lower them). */
+    static final double NOD_BROW_FROM = 8.5, NOD_BROW = 0.033;
 
     @NonNull
     public static Map<String, Float> map(@NonNull Map<String, Float> raw, @NonNull FaceCalibration cal,
@@ -45,6 +48,16 @@ public final class FaceMapper {
         float yawR = cal.headDeg(FaceCalibration.HEAD_YAW, s.raw(FaceCalibration.HEAD_YAW));
         float down = cal.headDeg(FaceCalibration.HEAD_PITCH, s.raw(FaceCalibration.HEAD_PITCH));
         float tiltR = cal.headDeg(FaceCalibration.HEAD_ROLL, s.raw(FaceCalibration.HEAD_ROLL));
+        // the brows seen from below: the part of browDown a nod explains comes out (the lead, 11-27, on the owner's take)
+        float fromBelow = (float) (NOD_BROW * Math.max(0, down - NOD_BROW_FROM));
+        if (fromBelow > 0) {
+            raw = new HashMap<>(raw);
+            for (String k : new String[]{"browDownLeft", "browDownRight"}) {
+                Float v = raw.get(k);
+                if (v != null) raw.put(k, Math.max(0f, v - fromBelow));
+            }
+            s = new Side(raw, cal, tun.mirror);
+        }
         o.put(FaceSignals.TURN_X, sgn(flip * yawR / TURN_DEG * tun.head));
         o.put(FaceSignals.TURN_Y, sgn(down / NOD_DEG * tun.head));
         o.put(FaceSignals.ROLL, sgn(flip * tiltR / ROLL_DEG * tun.head));
@@ -136,7 +149,7 @@ public final class FaceMapper {
         // "mouthLeft" moves the mouth toward the picture's left, i.e. the person's right (default)
         float mouthTowardR = s.personR("mouth") - s.personL("mouth");
         o.put(FaceSignals.MOUTH_X, sgn(flip * mouthTowardR * 1.5f * tun.mouth));
-        o.put(FaceSignals.CHEEK_PUFF, amt(s.amt("cheekPuff") * 1.3f * tun.mouth));
+        o.put(FaceSignals.CHEEK_PUFF, amt(s.amt("cheekPuff") * 1.3f * tun.mouth));   // (the owner's take: never above 0.003; the Puff button stands in)
 
         o.put(FaceSignals.VIS, (float) FaceSignals.shapeIndex(shape(m, (smL + smR) / 2f, pucker, funnel, wide,
                 press, inner)));

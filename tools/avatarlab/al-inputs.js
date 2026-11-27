@@ -133,7 +133,7 @@
   var HAND = { hLx: ['L', 0], hLy: ['L', 1], hRx: ['R', 0], hRy: ['R', 1], fLx: ['FL', 0], fLy: ['FL', 1], fRx: ['FR', 0], fRy: ['FR', 1] };
   var STEP = { vis: 1, flip: 1, hLw: 1, hRw: 1 }, FADE = 0.25;      // (hLw, hRw: that hand is WALKING, planted on the stage like a foot; see al-take-walk.js)
   AL.TAKE_LANES = [['head', 'Head'], ['mouth', 'Mouth'], ['mood', 'Mood'], ['blink', 'Blink'], ['handL', 'Left hand'], ['handR', 'Right hand'], ['body', 'Body and feet'], ['other', 'Buttons, wind, pins']];
-  P.ownerOf = function (name) { if (OWN[name]) return OWN[name]; var p = name.slice(0, 3); if (p === 'pt.' || p === 'mk.' || p === 'mp.' || name.slice(0, 5) === 'face.') return 'facepins'; if (p === 'dx:' || p === 'dy:') return 'head'; if (name.slice(0, 2) === 'p:') return name.slice(0, name.lastIndexOf(':')); return name; };
+  P.ownerOf = function (name) { if (OWN[name]) return OWN[name]; if (name === 'face.cheekPuff') return 'puff'; var p = name.slice(0, 3); if (p === 'pt.' || p === 'mk.' || p === 'mp.' || name.slice(0, 5) === 'face.') return 'facepins'; if (p === 'dx:' || p === 'dy:') return 'head'; if (name.slice(0, 2) === 'p:') return name.slice(0, name.lastIndexOf(':')); return name; };
   P.channels = function () {
     var seen = {}, out = [], k; function add(n) { if (!seen[n]) { seen[n] = 1; out.push(n); } }
     for (k in OWN) add(k);
@@ -148,7 +148,7 @@
   P.owned = function (talking, faceOn) {
     var hd = this.held, face = !!faceOn && !!this.cam.face, k;
     var o = { head: !!hd.head || face, mouth: !!talking || this.mic.on || face, mood: !!hd.face || face, blink: !!this.blinkHold || this.blinkManual > 0 || face,
-      facepins: face, shoulders: !!(AL.pose && AL.pose.live), handL: !!hd.handL, handR: !!hd.handR, footL: !!hd.footL || !!hd.body, footR: !!hd.footR || !!hd.body, body: !!hd.body, wind: !!hd.wind };
+      facepins: face, puff: face || !!this.puffHold, shoulders: !!(AL.pose && AL.pose.live), handL: !!hd.handL, handR: !!hd.handR, footL: !!hd.footL || !!hd.body, footR: !!hd.footR || !!hd.body, body: !!hd.body, wind: !!hd.wind };
     for (k in this.trigTouched) o['g:' + k] = true;                 // a button pressed in this pass is yours to the end of it
     for (k in this.pinTouched) o['p:' + k] = true;
     return o;

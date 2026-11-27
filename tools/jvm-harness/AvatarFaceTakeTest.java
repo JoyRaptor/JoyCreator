@@ -175,6 +175,12 @@ public class AvatarFaceTakeTest {
         for (int i = r.from(29.2); i <= r.to(30.0); i++) tzMax = Math.max(tzMax, r.tz.get(i));
         check(tzMax > 0.7 * 180, "he comes close to the phone: Topps walks toward the camera (" + n2(tzMax) + " of 180)");
         check(Math.min(r.max("browL", 13.3, 14.0), r.max("browR", 13.3, 14.0)) > 0.7, "he raises his brows: both of Topps's rise");
+        double nodBrow = Math.min(r.min("browL", 33.6, 34.2), r.min("browR", 33.6, 34.2));
+        check(nodBrow > -0.2, "he nods 25 degrees down at the phone: Topps's brows stay put (the tracker sees brows from below as lowered) (" + n2(nodBrow) + ")");
+        check(Math.min(r.max("browL", 28.95, 29.2), r.max("browR", 28.95, 29.2)) > 0.6, "brows raised while looking down still rise (" + n2(Math.min(r.max("browL", 28.95, 29.2), r.max("browR", 28.95, 29.2))) + ")");
+        // his puff: no tracker value tells it from his resting face (its puff value never passes 0.003; his lips read rolled in at
+        // rest, 0.89, and a little less while puffing, 0.75), so nothing puffs Topps from the camera: the Puff button does
+        check(r.max("face.cheekPuff", 38.3, 42.5) < 0.05, "his puff: the tracker does not see it, so the camera puffs nothing by mistake (" + n2(r.max("face.cheekPuff", 38.3, 42.5)) + ")");
         boolean aa = false;
         for (int i = r.from(15.5); i <= r.to(16.0); i++) aa |= "Aa".equals(r.sig.get(i).get("vis"));
         check(r.max("mouth", 15.5, 16.0) > 0.9 && aa, "he opens his mouth: Topps's mouth opens (Aa)");

@@ -23,7 +23,7 @@
   F.SHAPES = ['Neutral', 'Aa', 'Ee', 'Oh', 'W-Oo', 'M', 'F', 'L', 'S', 'D', 'R', 'Uh', 'Smile', 'Surprised'];
   F.HEAD_YAW = 'headYawDeg'; F.HEAD_PITCH = 'headPitchDeg'; F.HEAD_ROLL = 'headRollDeg';
   F.FACE_X = 'faceX'; F.FACE_Y = 'faceY'; F.FACE_SIZE = 'faceSize'; F.FACE_SPREAD = 'faceSpread';
-  var TURN_DEG = 32, NOD_DEG = 24, ROLL_DEG = 35, LEGACY_YAW_DEG = 45, LEGACY_PITCH_DEG = 30, MIN_SPAN = 0.25, TILT_SWING = 0.95;   // TILT_SWING: face widths from the face's middle down to the neck's turning point (the owner, 11-22)
+  var TURN_DEG = 32, NOD_DEG = 24, ROLL_DEG = 35, LEGACY_YAW_DEG = 45, LEGACY_PITCH_DEG = 30, MIN_SPAN = 0.25, TILT_SWING = 0.95, NOD_BROW_FROM = 8.5, NOD_BROW = 0.033;   // TILT_SWING: face widths from the face's middle down to the neck's turning point (the owner, 11-22)
   var STEP = { vis: 1, face: 1 };
   F.ALL = ['turnX', 'turnY', 'roll', 'yaw', 'pitch', 'lookX', 'lookY', 'blinkL', 'blinkR', 'squintL', 'squintR', 'wideL', 'wideR',
     'browL', 'browR', 'browInner', 'sneer', 'lidUp', 'lidLow', 'lidTilt', 'mouth', 'jawOpen', 'jaw', 'jawX', 'jawFwd', 'smileL', 'smileR',
@@ -143,6 +143,8 @@
     function shut(k) { var v = raw[k], r = rest(cal, k); return v == null || v !== v || r < 1e-4 ? -1 : clamp(1 - v / r, 0, 1); }
     var o = {};
     var yawR = headDeg(cal, F.HEAD_YAW, rw(F.HEAD_YAW)), down = headDeg(cal, F.HEAD_PITCH, rw(F.HEAD_PITCH)), tiltR = headDeg(cal, F.HEAD_ROLL, rw(F.HEAD_ROLL));
+    var fromBelow = NOD_BROW * Math.max(0, down - NOD_BROW_FROM);      // the brows seen from below: the part of browDown a nod explains comes out (his take, 11-27)
+    if (fromBelow > 0) { raw = Object.assign({}, raw); ['browDownLeft', 'browDownRight'].forEach(function (k) { if (raw[k] != null) raw[k] = Math.max(0, raw[k] - fromBelow); }); }
     o.turnX = sgn(flip * yawR / TURN_DEG * head); o.turnY = sgn(down / NOD_DEG * head); o.roll = sgn(flip * tiltR / ROLL_DEG * head);
     o.yaw = sgn(flip * yawR / LEGACY_YAW_DEG * head); o.pitch = sgn(-down / LEGACY_PITCH_DEG * head);
     var ln = (F.FACE_SIZE in raw) ? lean(cal, rw(F.FACE_X), rw(F.FACE_Y), rw(F.FACE_SIZE), (F.FACE_SPREAD in raw) ? rw(F.FACE_SPREAD) : NaN) : null;

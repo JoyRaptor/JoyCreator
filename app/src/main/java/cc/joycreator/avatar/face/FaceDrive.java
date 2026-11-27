@@ -21,7 +21,7 @@ import java.util.Map;
  *     lids, each blink and the gaze. A mood button held a moment ago keeps the expression unless you are talking.</li>
  * <li><b>Lanes</b>: {@code pt.<mesh index>.x / .y} for face pins and {@code face.<name>} for expressions (cheekPuff, smile,
  *     jaw, mouthWide, pucker, wide, squint, browInner, frown, sneer), eased as the pilot eases them, back to rest when the face
- *     is not driving. They ride the take like any lane (owner "facepins").</li>
+ *     is not driving. They ride the take like any lane (owner "facepins"; the cheek puff's is "puff", the Puff button).</li>
  * </ul>
  */
 public final class FaceDrive {
@@ -44,6 +44,7 @@ public final class FaceDrive {
     static final double EASE_POINTS = 30, EASE_EXPR = 20;
 
     private Mode mode = Mode.OFF;
+    private boolean puff;                                     // the Puff button is held
     private double[] zero;                                    // {face turnX, turnY, roll, pad x, pad y, pad roll} when the face took over
     private final Map<String, Double> smPt = new HashMap<>(), smEx = new HashMap<>();
 
@@ -69,6 +70,15 @@ public final class FaceDrive {
 
     public boolean drives(boolean talking) {
         return mode == Mode.ALWAYS || (mode == Mode.TALK && talking);
+    }
+
+    /** The Puff button (held): the cheek puff a part can follow, with or without the camera (the tracker never sees a puff). */
+    public void puff(boolean on) {
+        puff = on;
+    }
+
+    public boolean puffing() {
+        return puff;
     }
 
     /** Re-centre (with the camera's new neutral): the head moves from where the pad is now. */
@@ -134,6 +144,7 @@ public final class FaceDrive {
         out.putAll(smPt);
         for (String n : EXPR) {
             double v = face == null ? 0 : expr(face, n);
+            if (puff && n.equals("cheekPuff")) v = 1;           // (the Puff button)
             Double cur = smEx.get(n);
             double c = cur == null ? v : cur + (v - cur) * ae;
             smEx.put(n, c);
@@ -155,6 +166,7 @@ public final class FaceDrive {
     /** The lane's owner in a take: the face's lanes are the face pins' (the pilot's ownerOf). Null: not a face lane. */
     public static String ownerOf(String lane) {
         if (lane == null) return null;
+        if (lane.equals(FACE + "cheekPuff")) return "puff";     // (its own owner: a pass with Puff held leaves the face's other lanes alone)
         if (lane.startsWith(POINT) || lane.startsWith(FACE) || lane.startsWith("mk.") || lane.startsWith("mp.")) return "facepins";
         if (lane.equals("shrugL") || lane.equals("shrugR") || lane.equals("shrug")) return "shoulders";
         return null;

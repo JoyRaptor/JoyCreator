@@ -17,6 +17,8 @@ D = "app/src/main/java/cc/joycreator/avatar/face/FaceDrive.java"
 W = "app/src/main/java/cc/joycreator/avatar/face/FaceWalk.java"
 I = "app/src/main/java/cc/joycreator/avatar/perform/Inputs.java"
 MC = "app/src/main/java/cc/joycreator/avatar/face/MirrorChip.java"
+FM = "app/src/main/java/com/fadcam/ui/faditor/avatar/face/FaceMapper.java"
+TR = "app/src/main/java/cc/joycreator/avatar/perform/TakeRecorder.java"
 M = "app/src/main/java/cc/joycreator/avatar/ui/SignalMap.java"
 
 PLANTS = [
@@ -55,6 +57,10 @@ PLANTS = [
     ("the face's lanes never reach the solver (face pins move nothing)", [(M, "s.extra.put(k, ((Number) e.getValue()).doubleValue());   // face pins", "{ }   // face pins")]),
     ("the Mirror chip shows the engine's flag as it is (off while it reflects)", [(MC, "return t == null || !t.mirror;", "return t != null && t.mirror;")]),
     ("the Mirror chip sets the engine's flag as it is (on = like someone facing you)", [(MC, "t.mirror = !on;", "t.mirror = on;")]),
+    ("nodding down lowers his brows again (the tracker's view from below)", [(FM, "NOD_BROW_FROM = 8.5, NOD_BROW = 0.033;", "NOD_BROW_FROM = 8.5, NOD_BROW = 0.0;")]),
+    ("the Puff button puffs nothing", [(D, "if (puff && n.equals(\"cheekPuff\")) v = 1;", "")]),
+    ("holding Puff does not own its lane", [(I, "        if (faceDrive.puffing()) o.add(\"puff\");\n", "")]),
+    ("the puff lane belongs to the face pins again (a pass with Puff held records nothing)", [(TR, "        if (name.equals(\"face.cheekPuff\")) return \"puff\";", "")]),
     ("the camera starts but the face does not drive", [(I, "if (on && faceDrive.mode() == cc.joycreator.avatar.face.FaceDrive.Mode.OFF) faceDrive.setMode(cc.joycreator.avatar.face.FaceDrive.Mode.ALWAYS);", "")]),
 ]
 

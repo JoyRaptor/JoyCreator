@@ -203,6 +203,7 @@ public class SpriteOverlayItem implements com.fadcam.ui.faditor.model.LinkFollow
         c.locked = locked;
         c.rigidMotionBlur = rigidMotionBlur;
         c.rigidMotionShutter = rigidMotionShutter;
+        c.rigidMotionShutterKeys = rigidMotionShutterKeys;
         c.name = name; // a copy keeps the person's name (owner ruling 10-14)
         c.centerX = centerX;
         c.centerY = centerY;
@@ -358,6 +359,16 @@ public class SpriteOverlayItem implements com.fadcam.ui.faditor.model.LinkFollow
 
     private boolean rigidMotionBlur;
     private MotionShutter.Controls rigidMotionShutter = MotionShutter.Controls.NATURAL;
+    private com.fadcam.ui.faditor.motion.ShutterKeys rigidMotionShutterKeys =
+            com.fadcam.ui.faditor.motion.ShutterKeys.EMPTY;
+
+    @NonNull public com.fadcam.ui.faditor.motion.ShutterKeys getRigidMotionShutterKeys() {
+        return rigidMotionShutterKeys;
+    }
+
+    public void setRigidMotionShutterKeys(@NonNull com.fadcam.ui.faditor.motion.ShutterKeys keys) {
+        rigidMotionShutterKeys = java.util.Objects.requireNonNull(keys);
+    }
 
     @NonNull public MotionShutter.Controls getRigidMotionShutter() { return rigidMotionShutter; }
 

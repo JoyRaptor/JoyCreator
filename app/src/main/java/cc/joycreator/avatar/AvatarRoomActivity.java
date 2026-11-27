@@ -57,6 +57,7 @@ public final class AvatarRoomActivity extends Activity implements RoomMenu.Host,
     private static final int REQ_PSD = 43;
     private static final int REQ_UPDATE = 46;
     private static final int REQ_WHOLE = 47;
+    private static final int REQ_SHEET = 48;
 
     /** The four stages, in the order the owner reads them (spec A2). The second one's word is one string. */
     private static final int[] STAGE_NAMES = {
@@ -1681,6 +1682,115 @@ public final class AvatarRoomActivity extends Activity implements RoomMenu.Host,
     }
 
     @Override
+    public void newFromSheet() {
+        Intent i = new Intent(Intent.ACTION_OPEN_DOCUMENT).addCategory(Intent.CATEGORY_OPENABLE).setType("image/*");
+        try {
+            startActivityForResult(i, REQ_SHEET);
+        } catch (Exception e) {
+            Log.w(TAG, "no file picker", e);
+        }
+    }
+
+    /** The sheet is read (down to a size the phone can work on), its plain background taken away, its drawings found; the cutter opens over the room. */
+    private void sheetDoor(final Uri uri) {
+        JoyFolderHome.io().execute(() -> {
+            android.graphics.Bitmap b = null;
+            cc.joycreator.avatar.intake.SheetCutter.Sheet sheet = null;
+            try (InputStream in = getContentResolver().openInputStream(uri)) {
+                if (in != null) {
+                    byte[] raw = readAll(in);
+                    android.graphics.BitmapFactory.Options o = new android.graphics.BitmapFactory.Options();
+                    o.inJustDecodeBounds = true;
+                    android.graphics.BitmapFactory.decodeByteArray(raw, 0, raw.length, o);
+                    int sample = 1;
+                    while (Math.max(o.outWidth, o.outHeight) / (sample * 2) >= 2000) sample *= 2;
+                    o.inJustDecodeBounds = false;
+                    o.inSampleSize = sample;
+                    o.inMutable = true;
+                    android.graphics.Bitmap src = android.graphics.BitmapFactory.decodeByteArray(raw, 0, raw.length, o);
+                    if (src != null) {
+                        int w = src.getWidth(), h = src.getHeight();
+                        int[] px = new int[w * h];
+                        src.getPixels(px, 0, w, 0, 0, w, h);
+                        sheet = cc.joycreator.avatar.intake.SheetCutter.read(px, w, h);
+                        b = android.graphics.Bitmap.createBitmap(px, w, h, android.graphics.Bitmap.Config.ARGB_8888);
+                        src.recycle();
+                    }
+                }
+            } catch (Exception | OutOfMemoryError e) {
+                Log.w(TAG, "sheet not read", e);
+            }
+            final android.graphics.Bitmap pic = b;
+            final cc.joycreator.avatar.intake.SheetCutter.Sheet read = sheet;
+            main.post(() -> {
+                if (isFinishing()) return;
+                if (pic == null || read == null) {
+                    Toast.makeText(this, R.string.avatar_no_pictures, Toast.LENGTH_LONG).show();
+                    return;
+                }
+                openCutter(read, pic);
+            });
+        });
+    }
+
+    private void openCutter(final cc.joycreator.avatar.intake.SheetCutter.Sheet sheet, final android.graphics.Bitmap pic) {
+        final cc.joycreator.avatar.ui.SheetCutterView[] cv = new cc.joycreator.avatar.ui.SheetCutterView[1];
+        cv[0] = new cc.joycreator.avatar.ui.SheetCutterView(this, sheet, pic, new cc.joycreator.avatar.ui.SheetCutterView.Listener() {
+            @Override
+            public void make(java.util.List<cc.joycreator.avatar.intake.SheetCutter.Piece> pieces) {
+                ((ViewGroup) cv[0].getParent()).removeView(cv[0]);
+                pic.recycle();
+                finishSheet(pieces);
+            }
+
+            @Override
+            public void cancel() {
+                ((ViewGroup) cv[0].getParent()).removeView(cv[0]);
+                pic.recycle();
+            }
+        });
+        addContentView(cv[0], new ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
+    }
+
+    /** The cut drawings become a new character: each a picture, laid out in Extras, ready to be told what it is. */
+    private void finishSheet(final java.util.List<cc.joycreator.avatar.intake.SheetCutter.Piece> pieces) {
+        JoyFolderHome.io().execute(() -> {
+            CharacterDoc made = null;
+            try {
+                java.util.ArrayList<cc.joycreator.avatar.file.LooseCharacter.Pic> pics = new java.util.ArrayList<>();
+                int n = 0;
+                for (cc.joycreator.avatar.intake.SheetCutter.Piece p : pieces) {
+                    android.graphics.Bitmap b = android.graphics.Bitmap.createBitmap(p.px, p.w, p.h, android.graphics.Bitmap.Config.ARGB_8888);
+                    ByteArrayOutputStream png = new ByteArrayOutputStream();
+                    b.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, png);
+                    b.recycle();
+                    n++;
+                    pics.add(new cc.joycreator.avatar.file.LooseCharacter.Pic(getString(R.string.avatar_part_n, n), p.w, p.h,
+                            "data:image/png;base64," + android.util.Base64.encodeToString(png.toByteArray(), android.util.Base64.NO_WRAP)));
+                }
+                made = CharacterOpen.read(cc.joycreator.avatar.file.LooseCharacter.build(getString(R.string.avatar_untitled), pics).toString());
+            } catch (Exception | OutOfMemoryError e) {
+                Log.w(TAG, "character not made", e);
+            }
+            final CharacterDoc result = made;
+            main.post(() -> {
+                if (isFinishing()) return;
+                if (result == null) {
+                    Toast.makeText(this, R.string.avatar_no_pictures, Toast.LENGTH_LONG).show();
+                    return;
+                }
+                character = result;
+                characterPath = null;
+                unsaved = true;
+                inHand = null;
+                showCharacter();
+                setLayersShown(true);
+                main.postDelayed(autosave, 1500);
+            });
+        });
+    }
+
+    @Override
     public void newFromWholeDrawing() {
         Intent i = new Intent(Intent.ACTION_OPEN_DOCUMENT).addCategory(Intent.CATEGORY_OPENABLE).setType("image/*");
         try {
@@ -1969,6 +2079,10 @@ public final class AvatarRoomActivity extends Activity implements RoomMenu.Host,
         super.onActivityResult(req, res, data);
         if (req == REQ_UPDATE && res == RESULT_OK && data != null && data.getData() != null) {
             updateDoor(data.getData());
+            return;
+        }
+        if (req == REQ_SHEET && res == RESULT_OK && data != null && data.getData() != null) {
+            sheetDoor(data.getData());
             return;
         }
         if (req == REQ_WHOLE && res == RESULT_OK && data != null && data.getData() != null) {

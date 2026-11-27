@@ -753,6 +753,7 @@ public class Clip implements AudioParams, MotionBlurItem {
         this.spineRotationDeg = other.spineRotationDeg;
         this.rigidMotionBlur = other.rigidMotionBlur;
         this.rigidMotionShutter = other.rigidMotionShutter;
+        this.rigidMotionShutterKeys = other.rigidMotionShutterKeys;
         this.spineTransform = other.spineTransform != null
                 ? other.spineTransform.copy() : null;
         // SPEC ZB: the warp rides along, DEEP — beside the spine pose, not inside it. The
@@ -852,6 +853,7 @@ public class Clip implements AudioParams, MotionBlurItem {
         c.spineRotationDeg = spineRotationDeg;
         c.rigidMotionBlur = rigidMotionBlur;
         c.rigidMotionShutter = rigidMotionShutter;
+        c.rigidMotionShutterKeys = rigidMotionShutterKeys;
         c.spineTransform = spineTransform != null ? spineTransform.copy() : null;
         // SPEC ZB: relinked()'s own javadoc promises to keep "every edit", and the warp is
         // one. Deep, like the copy constructor above, for the same aliasing reason.
@@ -1937,6 +1939,16 @@ public class Clip implements AudioParams, MotionBlurItem {
     private float spineRotationDeg = 0f;
     private boolean rigidMotionBlur;
     private MotionShutter.Controls rigidMotionShutter = MotionShutter.Controls.NATURAL;
+    private com.fadcam.ui.faditor.motion.ShutterKeys rigidMotionShutterKeys =
+            com.fadcam.ui.faditor.motion.ShutterKeys.EMPTY;
+
+    @NonNull public com.fadcam.ui.faditor.motion.ShutterKeys getRigidMotionShutterKeys() {
+        return rigidMotionShutterKeys;
+    }
+
+    public void setRigidMotionShutterKeys(@NonNull com.fadcam.ui.faditor.motion.ShutterKeys keys) {
+        rigidMotionShutterKeys = java.util.Objects.requireNonNull(keys);
+    }
 
     @NonNull public MotionShutter.Controls getRigidMotionShutter() { return rigidMotionShutter; }
 

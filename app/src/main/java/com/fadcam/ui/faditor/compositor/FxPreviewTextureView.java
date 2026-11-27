@@ -1959,8 +1959,12 @@ public class FxPreviewTextureView extends TextureView
     private static final long FAST_FOOTAGE_MAX_GAP_US = IndexedFootageMedia.MAX_GAP_US;
 
     record FastFootageInput(String sourceKey, long startUs, long endUs, float speed,
-                            MotionShutter.Controls shutter, android.net.Uri uri,
-                            long sourceStartUs, long sourceEndUs) {}
+                            MotionShutter.Controls shutter,
+                            com.fadcam.ui.faditor.motion.ShutterKeys keys, android.net.Uri uri,
+                            long sourceStartUs, long sourceEndUs) {
+        /** The shutter at an editor (timeline) time, with the card's keys applied. */
+        MotionShutter.Controls shutterAt(long editorUs) { return keys.at(editorUs / 1000L, shutter); }
+    }
 
     private record FastFootageExposure(FastFootageInput input, MotionBreaks fences) {}
     private record FootagePause(boolean paused, long epoch) {}
@@ -2285,7 +2289,7 @@ public class FxPreviewTextureView extends TextureView
             var estimate = footageFlow.observeVerifiedPair(input.speed(), targets[0][0], ptsUs,
                     frame.continuityEpoch(), source, canPair ? previousUs : Long.MIN_VALUE);
             if (estimate == null || frame.periodUs() <= 0) return 0;
-            var taps = input.shutter().schedule(frame.editorTimeUs(), frame.periodUs(),
+            var taps = input.shutterAt(frame.editorTimeUs()).schedule(frame.editorTimeUs(), frame.periodUs(),
                     FastFootageGatherGl.MAX_TAPS, exposure.fences(), sourceCuts);
             // Slot 1 is the existing grade destination. The third target as a source lets
             // the optional grade run exactly as before without sampling its own attachment.
@@ -2358,7 +2362,7 @@ public class FxPreviewTextureView extends TextureView
             var uploaded = highFootageFlow.set(pair);
             if (uploaded == null || frame.periodUs() <= 0) return false;
             var input = exposure.input();
-            var taps = input.shutter().schedule(frame.editorTimeUs(), frame.periodUs(),
+            var taps = input.shutterAt(frame.editorTimeUs()).schedule(frame.editorTimeUs(), frame.periodUs(),
                     HighFootageGatherGl.MAX_TAPS, exposure.fences(), sourceCuts);
             // A live decoder supplies the previous donor. The gather keeps the centre color
             // for any future taps until a route can supply the exact next staged frame.
@@ -2417,7 +2421,7 @@ public class FxPreviewTextureView extends TextureView
         if (pausedColors == null) pausedColors = pausedColorWorker.request(key);
         if (pausedColors == null) return false;
         long period = Math.round((center - previous) / (double) input.speed());
-        var taps = input.shutter().schedule(frame.editorTimeUs(), period,
+        var taps = input.shutterAt(frame.editorTimeUs()).schedule(frame.editorTimeUs(), period,
                 HighFootageGatherGl.MAX_TAPS, exposure.fences(), sourceCuts);
         var uploadedBefore = highFootageFlow.set(before);
         var uploadedAfter = pausedFootageAfter.set(after);

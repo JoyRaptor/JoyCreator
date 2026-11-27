@@ -127,6 +127,9 @@ public final class FxPanel {
          */
         @Nullable
         default View objectEffectTile(@NonNull Context ctx, @NonNull Runnable close) { return null; }
+
+        /** True while such an object effect is on: the "changes nothing yet" note stays away. */
+        default boolean hasObjectEffect() { return false; }
     }
 
     /**
@@ -161,6 +164,8 @@ public final class FxPanel {
         // on playhead ticks.
         final RefreshState rs = new RefreshState();
         root.setTag(REFRESH_TAG, rs);
+        final Runnable[] rebuildRef = new Runnable[1];
+        root.setTag(REBUILD_TAG, (Runnable) () -> { if (rebuildRef[0] != null) rebuildRef[0].run(); });
 
         final Runnable[] rebuild = new Runnable[1];
         rebuild[0] = () -> {
@@ -168,7 +173,7 @@ public final class FxPanel {
             rs.entries.clear();
             root.addView(headerRow(ctx, stack, host, rebuild[0], d));
             List<FxInstance> cards = stack.cards();
-            if (cards.isEmpty()) {
+            if (cards.isEmpty() && !host.hasObjectEffect()) {
                 root.addView(emptyNote(ctx, d, subject));
             }
             // TOP-DOWN on screen, bottom-up in the model. The last card in the list is applied
@@ -181,6 +186,7 @@ public final class FxPanel {
             root.addView(addRow(ctx, stack, host, rebuild[0], d, subject));
             root.addView(presetRow(ctx, stack, host, rebuild[0], d, subject));
         };
+        rebuildRef[0] = rebuild[0];
         rebuild[0].run();
         return root;
     }
@@ -1464,6 +1470,25 @@ public final class FxPanel {
      * key, and a slider shows the interpolated keyframed value. No-op when {@code root} is not
      * (or no longer contains) an FxPanel root.
      */
+    /** Tag holding a panel's rebuild, for {@link #rebuild}. */
+    private static final int REBUILD_TAG = com.fadcam.R.id.fx_panel_rebuild;
+
+    /**
+     * Rebuild the FxPanel at {@code root} (or under it), e.g. after an object effect it lists was
+     * added or removed from outside the panel. No-op when there is none.
+     */
+    public static void rebuild(@Nullable View root) {
+        if (root == null) return;
+        Object tag = root.getTag(REBUILD_TAG);
+        if (tag instanceof Runnable r) {
+            r.run();
+            return;
+        }
+        if (root instanceof android.view.ViewGroup vg) {
+            for (int i = 0; i < vg.getChildCount(); i++) rebuild(vg.getChildAt(i));
+        }
+    }
+
     public static void refreshRows(@Nullable View root, long playheadMs) {
         if (root == null) return;
         Object tag = root.getTag(REFRESH_TAG);
@@ -1848,11 +1873,19 @@ public final class FxPanel {
         wrap.addView(add);
 
         // STU-7 §K: Motion Blur is listed with the others, under Studio's own heading.
-        View objectTile = host.objectEffectTile(ctx, () -> picker.setVisibility(View.GONE));
+        View objectTile = host.objectEffectTile(ctx, () -> {
+            picker.setVisibility(View.GONE);
+            rebuild.run();
+        });
         if (objectTile != null) {
             picker.addView(TextOverlayDrawer.Kit.sectionLabel(ctx,
                     ctx.getString(com.fadcam.R.string.studio_motion_family)));
-            picker.addView(objectTile);
+            // A row of its own, left-aligned like every family's tiles.
+            LinearLayout objectRow = new LinearLayout(ctx);
+            objectRow.setOrientation(LinearLayout.HORIZONTAL);
+            objectRow.addView(objectTile, new LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT));
+            picker.addView(objectRow);
         }
 
         for (FxEffectDef.Family family : FxEffectDef.Family.values()) {

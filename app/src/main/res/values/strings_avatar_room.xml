@@ -249,5 +249,24 @@
     <string name="avatar_hover_wizard_done">Use these pins</string>
     <string name="avatar_hover_wizard_two">Place at least two pins</string>
     <string name="avatar_wizard_pinned">Pinned. Drag any pin to move it in Set up.</string>
+    <string name="avatar_new_sheet">Cut parts from a sheet</string>
+    <string name="avatar_hover_new_sheet">One picture with the parts laid out: tap each part</string>
+    <string name="avatar_part_n">Part %1$d</string>
+    <string name="avatar_cutter_title">Cut parts from a sheet</string>
+    <string name="avatar_cutter_note_found">Found %1$d parts. Tap every drawing you want, in the order you want them, then Make.</string>
+    <string name="avatar_cutter_note_grid">%1$d cells. Tap the cells you want, in order, then Make.</string>
+    <string name="avatar_cutter_find">Find the parts</string>
+    <string name="avatar_hover_cutter_find">Each separate drawing on the sheet is one part</string>
+    <string name="avatar_cutter_grid">Even grid</string>
+    <string name="avatar_hover_cutter_grid">The sheet is rows and columns of the same size: a mouth chart, frames of a loop</string>
+    <string name="avatar_cutter_across">across %1$d</string>
+    <string name="avatar_cutter_down">down %1$d</string>
+    <string name="avatar_hover_cutter_fewer">One fewer</string>
+    <string name="avatar_hover_cutter_more">One more</string>
+    <string name="avatar_cutter_all">All</string>
+    <string name="avatar_hover_cutter_all">Choose every cell, in reading order</string>
+    <string name="avatar_cutter_make">Make</string>
+    <string name="avatar_cutter_make_n">Make a character of %1$d</string>
+    <string name="avatar_hover_cutter_make">Make a new character from the drawings you tapped</string>
 </resources>
 

@@ -4,9 +4,133 @@ import java.util.ArrayList;
 import java.util.List;
 
 /** Per-item inverse sampling data for a rigid export pass, in canvas pixel coordinates. */
-public record RigidShutterPlan(SweptBounds bounds, List<Tap> taps) {
+public record RigidShutterPlan(SweptBounds bounds, List<Tap> taps, Trail trail) {
     public RigidShutterPlan {
         taps = List.copyOf(taps);
+    }
+
+    /** The camera shutter plan every older caller builds: no trail. */
+    public RigidShutterPlan(SweptBounds bounds, List<Tap> taps) {
+        this(bounds, taps, null);
+    }
+
+    /** Most key poses a trail carries (two uniform rows each in the trail pass). */
+    public static final int MAX_TRAIL_POSES = 7;
+
+    /** Sub-steps the trail pass takes between neighbouring key poses for a Smear. */
+    public static final int TRAIL_SUBSTEPS = 6;
+
+    /**
+     * STU-7 §K.2: how the trail pass draws {@link #taps} (the key poses, oldest first, raw Fade
+     * weights). {@code smearScale} and {@code copyScale} turn those weights into a sum of one
+     * for the smear between neighbours and for the poses alone; {@code sharp} is the weight of
+     * the sharp pose (the last tap) that Mix keeps on top.
+     */
+    public record Trail(MotionShutter.Look look, double smearScale, double copyScale, double sharp,
+                        Tap sharpTap, double featherU, double featherV) {}
+
+    /**
+     * A stylised window (long trail, Fade, Copies) from real earlier poses. Null when nothing
+     * moves, as for the camera plan.
+     */
+    public static RigidShutterPlan prepareTrail(ItemMotionSampler sampler, long centerUs,
+                                                MotionShutter.Controls controls, long periodUs,
+                                                MotionBreaks breaks, int width, int height) {
+        int poses = controls.look() == MotionShutter.Look.SMEAR
+                ? MAX_TRAIL_POSES : Math.min(MAX_TRAIL_POSES, controls.copies());
+        MotionShutter.Schedule schedule = controls.trailPoses(centerUs, periodUs, poses, breaks);
+        long[] times = schedule.timesUs();
+        if (times.length < 2) return null;
+        ItemMotionSampler.Affine sharp = sampler.at(centerUs);
+        if (!finite(sharp)) return null;
+        ItemMotionSampler.Affine sharpInverse = invert(sharp);
+        if (sharpInverse == null) return null;
+        var all = new ArrayList<ItemMotionSampler.Affine>(times.length + 1);
+        var taps = new ArrayList<Tap>(times.length);
+        boolean differs = false;
+        for (int i = 0; i < times.length; i++) {
+            ItemMotionSampler.Affine pose = times[i] == centerUs ? sharp : sampler.at(times[i]);
+            if (!finite(pose)) return null;
+            ItemMotionSampler.Affine inverse = invert(pose);
+            if (inverse == null) return null;   // a vanished pose would break the smear chain
+            differs |= !pose.equals(sharp);
+            all.add(pose);
+            taps.add(new Tap(inverse, schedule.weights()[i]));
+        }
+        if (!differs) return null;
+        all.add(sharp);
+        double[] w = schedule.weights();
+        double copies = 0;
+        for (double x : w) copies += x;
+        double smear = smearTotal(w);
+        double mix = controls.mixPercent() / 100.0;
+        double smearScale = 0, copyScale = 0;
+        // A camera shutter spreads the object's light over its path (exposure: weights sum to
+        // one). A long trail is a stylised stroke: as solid as the object, thinning by Fade, so
+        // its samples weigh one object's worth per object width along the path (the pass clamps
+        // any overlap to full coverage).
+        double stroke = controls.isLongTrail() ? strokeScale(all.subList(0, all.size() - 1), w) : 0;
+        switch (controls.look()) {
+            case SMEAR -> smearScale = smear > 0 ? Math.max(mix / smear, mix * stroke) : 0;
+            case COPIES -> copyScale = copies > 0 ? mix / copies : 0;
+            case BOTH -> {
+                smearScale = smear > 0 ? 0.5 * Math.max(mix / smear, mix * stroke) : 0;
+                copyScale = copies > 0 ? 0.5 * mix / copies : 0;
+            }
+        }
+        // Rotations between poses sweep slightly outside the poses' own boxes: a wider halo.
+        SweptBounds bounds = SweptBounds.ofPoses(all, width, height, 4.0);
+        // Each smear step's edges are softened along the motion by one step (in the object's own
+        // UV units), so neighbouring steps overlap into an even stroke instead of stripes.
+        int steps = (times.length - 1) * TRAIL_SUBSTEPS;
+        ItemMotionSampler.Affine first = all.get(0), last = all.get(all.size() - 2);
+        double dx = (last.tx() - first.tx()) / Math.max(1, steps);
+        double dy = (last.ty() - first.ty()) / Math.max(1, steps);
+        double fu = Math.min(1.0, Math.abs(sharpInverse.xx() * dx + sharpInverse.xy() * dy));
+        double fv = Math.min(1.0, Math.abs(sharpInverse.yx() * dx + sharpInverse.yy() * dy));
+        return new RigidShutterPlan(bounds, taps, new Trail(controls.look(), smearScale, copyScale,
+                1.0 - mix, new Tap(sharpInverse, 1.0), fu, fv));
+    }
+
+    /**
+     * What the trail pass sums for a Smear before scaling: {@link #TRAIL_SUBSTEPS} evenly spaced
+     * steps from each pose toward the next, then the newest pose itself, so the smear runs the
+     * whole way from the oldest place to where the thing is now.
+     */
+    public static double smearTotal(double[] w) {
+        double total = 0;
+        for (int i = 0; i + 1 < w.length; i++) {
+            for (int j = 0; j < TRAIL_SUBSTEPS; j++) {
+                double t = (double) j / TRAIL_SUBSTEPS;
+                total += w[i] + (w[i + 1] - w[i]) * t;
+            }
+        }
+        return w.length == 0 ? 0 : total + w[w.length - 1];
+    }
+
+    /**
+     * Weight per sample that makes a stroke: one object's worth of coverage for every object
+     * width the path covers. Samples per object width = samples x size / path length; each then
+     * weighs 1 / that (and 1 / the mean Fade weight, so Fade thins it rather than dims it all).
+     */
+    static double strokeScale(List<ItemMotionSampler.Affine> poses, double[] w) {
+        double path = 0, size = 0;
+        for (int i = 0; i < poses.size(); i++) {
+            ItemMotionSampler.Affine p = poses.get(i);
+            size += 0.5 * (Math.hypot(p.xx(), p.yx()) + Math.hypot(p.xy(), p.yy()));
+            if (i > 0) {
+                ItemMotionSampler.Affine q = poses.get(i - 1);
+                path += Math.hypot(p.tx() - q.tx(), p.ty() - q.ty());
+            }
+        }
+        size /= Math.max(1, poses.size());
+        double mean = 0;
+        for (double x : w) mean += x;
+        mean /= Math.max(1, w.length);
+        int samples = (w.length - 1) * TRAIL_SUBSTEPS + 1;
+        if (path <= 1e-6 || size <= 1e-6 || mean <= 1e-9) return 0;
+        double perWidth = Math.max(1.0, samples * size / path);
+        return 1.0 / (perWidth * mean);
     }
 
     /** Maps a top-left canvas pixel to a top-left source UV with its shutter weight. */

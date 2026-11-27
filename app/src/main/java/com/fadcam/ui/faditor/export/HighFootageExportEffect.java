@@ -32,7 +32,8 @@ import java.util.concurrent.Executors;
 
 /** Source-space High gather, before timeline retiming, crop, grade and compositing. */
 record HighFootageExportEffect(Uri uri, long startUs, long endUs, double speed,
-                               MotionShutter.Controls shutter) implements GlEffect {
+                               MotionShutter.Controls shutter,
+                               com.fadcam.ui.faditor.motion.ShutterKeys keys) implements GlEffect {
     private static final String TAG = "HighFootageExport";
 
     @Override public GlShaderProgram toGlShaderProgram(Context context, boolean hdr) {
@@ -164,7 +165,7 @@ record HighFootageExportEffect(Uri uri, long startUs, long endUs, double speed,
             MotionBreaks sourceCuts = fields.after() != null && fields.after().crossesCut()
                     ? new MotionBreaks.Builder().add(Math.round((next.sourceUs() - startUs) / speed)).build()
                     : MotionBreaks.none();
-            var taps = shutter.schedule(editorUs, periodUs, HighFootageGatherGl.MAX_TAPS,
+            var taps = keys.at(editorUs / 1000L, shutter).schedule(editorUs, periodUs, HighFootageGatherGl.MAX_TAPS,
                     fences, sourceCuts);
             if (taps == null) return false;
             var before = previousFlow.set(fields.before());

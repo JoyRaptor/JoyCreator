@@ -329,7 +329,7 @@ final class GlImageOverlayEffect implements GlEffect {
 
             var title = titleFor(item, timeMs, w, h);
             if (!title.raster.fits()) return false;
-            var plan = RigidTextureShutterPass.plan(item.getRigidMotionShutter(), title.sampler,
+            var plan = RigidTextureShutterPass.plan(item.rigidMotionShutterAt(timeMs), title.sampler,
                     timeUs, periodUs, title.breaks, w, h);
             if (plan == null) return false;
             if (title.uploadFailed) return false;

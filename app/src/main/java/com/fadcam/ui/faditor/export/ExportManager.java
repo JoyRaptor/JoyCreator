@@ -1039,9 +1039,10 @@ public class ExportManager {
                 || clip.hasMesh() || clip.hasCornerPin() || clip.effectiveCropFractions() != null
                 || (clip.isSpineTransformArmed() && clip.hasSpineTransform())) return false;
         var shutter = clip.getRigidMotionShutter();
+        var keys = clip.getRigidMotionShutterKeys();
         float speed = clip.getSpeedMultiplier();
         return Float.isFinite(speed) && speed > 0
-                && shutter.mixPercent() > 0 && shutter.angle() > 0 && shutter.angle() <= 360;
+                && keys.everBlurs(shutter) && keys.maxAngle(shutter) <= 360;
     }
 
     /**
@@ -5533,7 +5534,8 @@ public class ExportManager {
             var config = mediaItem.localConfiguration;
             if (config != null) {
                 videoEffects.add(0, new HighFootageExportEffect(config.uri, clipInMs * 1000L,
-                        (clipInMs + sourceDurationMs) * 1000L, speed, clip.getRigidMotionShutter()));
+                        (clipInMs + sourceDurationMs) * 1000L, speed, clip.getRigidMotionShutter(),
+                        clip.getRigidMotionShutterKeys()));
             }
         }
 

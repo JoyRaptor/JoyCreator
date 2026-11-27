@@ -11,11 +11,13 @@ import android.widget.SeekBar;
 import android.widget.TextView;
 
 import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
 import androidx.annotation.StringRes;
 
 import com.fadcam.R;
 import com.fadcam.ui.faditor.Studio;
 import com.fadcam.ui.faditor.motion.MotionShutter;
+import com.fadcam.ui.faditor.motion.ShutterKeys;
 import com.fadcam.ui.faditor.motion.ShutterStripModel;
 import com.fadcam.ui.faditor.tools.FineSeekBar;
 import com.fadcam.ui.faditor.tools.ObjectDrawer;
@@ -33,17 +35,26 @@ import java.util.Set;
  * means action, flat means identity"). The drawer around it keeps its own room colour.</p>
  *
  * <p>Packed tight on purpose: drawers cover the picture. Open, it is the header, the preset
- * chips, the shutter row and the Mix row, plus one slim footer line.</p>
+ * chips, the shutter row and the Mix row, plus one slim footer line. Shutter and Mix each have
+ * the effect cards' ‹◆› keyframe control: once a part has keys, editing it keys the playhead,
+ * exactly as an effect card's keyed slider does.</p>
  */
 public final class MotionBlurCard {
 
+    /** The object's fixed setting and its keys: what one undo step holds. */
+    public record State(@NonNull MotionShutter.Controls base, @NonNull ShutterKeys keys) {}
+
     /** What the card edits. The editor implements it for each kind of object. */
     public interface Host {
-        @NonNull MotionShutter.Controls controls();
+        @NonNull State state();
         /** Show {@code draft} in the preview while a control is moving. No undo step. */
-        void preview(@NonNull MotionShutter.Controls draft);
+        void preview(@NonNull State draft);
         /** Keep {@code after} as one undo step back to {@code before}. */
-        void commit(@NonNull MotionShutter.Controls before, @NonNull MotionShutter.Controls after);
+        void commit(@NonNull State before, @NonNull State after);
+        /** Absolute timeline ms of the playhead, the base the keys are stored in. */
+        long playheadMs();
+        /** Move the playhead (the ‹ › chevrons). */
+        void seekTo(long ms);
         /** Take the card off (blur off for this object). Recorded as an undo step. */
         void remove();
         /** Render the paused frame at export quality. */
@@ -55,17 +66,58 @@ public final class MotionBlurCard {
          * or 0 when the preview shows its blur.
          */
         @StringRes int cannotBlurReason();
+        /**
+         * §K.2: the one plain line when {@code c} asks for more than this object can draw yet
+         * (a long trail on filmed video or a puppet), or 0.
+         */
+        default @StringRes int cannotTrailReason(@NonNull MotionShutter.Controls c) { return 0; }
     }
+
+    /** The Streak preset (§K.2): eight frames back, fading out, one long smear. */
+    public static MotionShutter.Controls streak(@NonNull MotionShutter.Controls like) {
+        return like.withWindow(8 * 360, MotionShutter.Timing.TRAILING, 0)
+                .withLook(60, MotionShutter.Look.SMEAR, like.copies());
+    }
+
+    static boolean isStreak(@NonNull MotionShutter.Controls c) {
+        return c.angle() == 8 * 360 && c.fadePercent() == 60 && c.look() == MotionShutter.Look.SMEAR;
+    }
+
+    /** Folds opened this session, by object id. */
+    private static final Set<String> MORE_OPEN = new HashSet<>();
+
+    /** A key this close to the playhead counts as "on the key" (about two frames, as FxPanel). */
+    private static final long ON_KEY_MS = 40;
 
     /** Cards folded shut this session, by object id: a rebuild keeps them shut. */
     private static final Set<String> COLLAPSED = new HashSet<>();
 
+    /** The card's root: carries the playhead refresher the editor's scrub walk calls. */
+    private static final class CardRoot extends LinearLayout {
+        @Nullable java.util.function.LongConsumer onPlayhead;
+        CardRoot(Context c) { super(c); }
+    }
+
     private MotionBlurCard() {}
+
+    /**
+     * Re-read every Motion Blur card under {@code root} for a new playhead: keyed values and the
+     * diamonds follow the scrub. The editor calls it beside {@code FxPanel.refreshRows}.
+     */
+    public static void refresh(@Nullable View root, long playheadMs) {
+        if (root instanceof CardRoot c) {
+            if (c.onPlayhead != null) c.onPlayhead.accept(playheadMs);
+            return;
+        }
+        if (root instanceof android.view.ViewGroup vg) {
+            for (int i = 0; i < vg.getChildCount(); i++) refresh(vg.getChildAt(i), playheadMs);
+        }
+    }
 
     @NonNull
     public static View build(@NonNull Context ctx, @NonNull String objectId, @NonNull Host host) {
         float d = ctx.getResources().getDisplayMetrics().density;
-        LinearLayout card = new LinearLayout(ctx);
+        CardRoot card = new CardRoot(ctx);
         card.setOrientation(LinearLayout.VERTICAL);
         GradientDrawable bg = new GradientDrawable();
         bg.setColor(ObjectDrawer.Kit.CTL);
@@ -81,9 +133,10 @@ public final class MotionBlurCard {
         return card;
     }
 
-    private static void fill(@NonNull Context ctx, @NonNull LinearLayout card,
+    private static void fill(@NonNull Context ctx, @NonNull CardRoot card,
                              @NonNull String objectId, @NonNull Host host, float d) {
         card.removeAllViews();
+        card.onPlayhead = null;
         boolean collapsed = COLLAPSED.contains(objectId);
         Runnable rebuild = () -> fill(ctx, card, objectId, host, d);
 
@@ -123,7 +176,8 @@ public final class MotionBlurCard {
         card.addView(head);
         if (collapsed) return;
 
-        final MotionShutter.Controls[] now = {host.controls()};
+        final State[] st = {host.state()};
+        final long[] at = {host.playheadMs()};
 
         // ── preset chips ──
         LinearLayout chips = new LinearLayout(ctx);
@@ -133,8 +187,11 @@ public final class MotionBlurCard {
         int[] names = {R.string.studio_motion_preset_natural, R.string.studio_motion_preset_crisp,
                 R.string.studio_motion_preset_heavy, R.string.studio_motion_preset_trailing};
         TextView[] chipViews = new TextView[presets.length];
+        TextView streakChip = ObjectDrawer.Kit.chip(ctx, ctx.getString(R.string.studio_motion_preset_streak));
+        ObjectDrawer.Kit.pressable(streakChip);
+        ObjectDrawer.Kit.describe(streakChip, ctx.getString(R.string.studio_motion_preset_streak_hint));
 
-        // ── shutter row: label + value over each other, the strip, in Kit row shape ──
+        // ── shutter row: label + value over each other, the strip, its ‹◆› ──
         LinearLayout shutterRow = ObjectDrawer.Kit.row(ctx);
         LinearLayout labelCol = new LinearLayout(ctx);
         labelCol.setOrientation(LinearLayout.VERTICAL);
@@ -152,16 +209,104 @@ public final class MotionBlurCard {
         ShutterStripView strip = new ShutterStripView(ctx);
         shutterRow.addView(strip, new LinearLayout.LayoutParams(
                 0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
+        KeyControl shutterKeys = new KeyControl(ctx, d,
+                ctx.getString(R.string.studio_motion_shutter));
+        shutterRow.addView(shutterKeys.root);
+
+        // ── Mix row ──
+        LinearLayout mixRow = ObjectDrawer.Kit.row(ctx);
+        mixRow.addView(ObjectDrawer.Kit.rowLabel(ctx, ctx.getString(R.string.studio_motion_mix), 86));
+        FineSeekBar mix = new FineSeekBar(ctx);
+        mix.setMax(100);
+        ObjectDrawer.Kit.styleSlider(mix, ObjectDrawer.Kit.onFill(Studio.GO));
+        mixRow.addView(mix, new LinearLayout.LayoutParams(
+                0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
+        TextView mixValue = ObjectDrawer.Kit.value(ctx, 44);
+        mixRow.addView(mixValue);
+        mix.setContentDescription(ctx.getString(R.string.studio_motion_mix));
+        KeyControl mixKeys = new KeyControl(ctx, d, ctx.getString(R.string.studio_motion_mix));
+        mixRow.addView(mixKeys.root);
+
+        TextView trailNote = ObjectDrawer.Kit.note(ctx, "");
+        trailNote.setTextColor(Studio.CAREFUL);
+        trailNote.setPadding(Math.round(2 * d), 0, 0, Math.round(2 * d));
+
+        // ── More: Fade and Look (every blur, long or short), folded shut by default ──
+        LinearLayout more = new LinearLayout(ctx);
+        more.setOrientation(LinearLayout.VERTICAL);
+        more.setVisibility(MORE_OPEN.contains(objectId) ? View.VISIBLE : View.GONE);
+        LinearLayout fadeRow = ObjectDrawer.Kit.row(ctx);
+        fadeRow.addView(ObjectDrawer.Kit.rowLabel(ctx, ctx.getString(R.string.studio_motion_fade), 86));
+        FineSeekBar fade = new FineSeekBar(ctx);
+        fade.setMax(100);
+        ObjectDrawer.Kit.styleSlider(fade, ObjectDrawer.Kit.onFill(Studio.GO));
+        fade.setContentDescription(ctx.getString(R.string.studio_motion_fade_hint));
+        fadeRow.addView(fade, new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
+        TextView fadeValue = ObjectDrawer.Kit.value(ctx, 44);
+        fadeRow.addView(fadeValue);
+        more.addView(fadeRow);
+        LinearLayout lookRow = ObjectDrawer.Kit.row(ctx);
+        lookRow.addView(ObjectDrawer.Kit.rowLabel(ctx, ctx.getString(R.string.studio_motion_look), 86));
+        MotionShutter.Look[] looks = MotionShutter.Look.values();
+        int[] lookNames = {R.string.studio_motion_look_smear, R.string.studio_motion_look_copies,
+                R.string.studio_motion_look_both};
+        int[] lookHints = {R.string.studio_motion_look_smear_hint, R.string.studio_motion_look_copies_hint,
+                R.string.studio_motion_look_both_hint};
+        TextView[] lookChips = new TextView[looks.length];
+        for (int i = 0; i < looks.length; i++) {
+            lookChips[i] = ObjectDrawer.Kit.chip(ctx, ctx.getString(lookNames[i]));
+            ObjectDrawer.Kit.pressable(lookChips[i]);
+            ObjectDrawer.Kit.describe(lookChips[i], ctx.getString(lookHints[i]));
+            lookRow.addView(lookChips[i], ObjectDrawer.Kit.chipLp(ctx));
+        }
+        View lookGap = new View(ctx);
+        lookRow.addView(lookGap, new LinearLayout.LayoutParams(0, 1, 1f));
+        TextView fewer = ObjectDrawer.Kit.stepper(ctx, "−", ctx.getString(R.string.studio_motion_copies_fewer));
+        TextView copiesValue = ObjectDrawer.Kit.value(ctx, 18);
+        copiesValue.setGravity(Gravity.CENTER);
+        TextView moreCopies = ObjectDrawer.Kit.stepper(ctx, "+", ctx.getString(R.string.studio_motion_copies_more));
+        lookRow.addView(fewer);
+        lookRow.addView(copiesValue);
+        lookRow.addView(moreCopies);
+        more.addView(lookRow);
+
+        Runnable showLook = () -> {
+            MotionShutter.Controls b = st[0].base();
+            fade.setProgress(b.fadePercent());
+            fadeValue.setText(ctx.getString(R.string.studio_motion_percent, b.fadePercent()));
+            for (int i = 0; i < looks.length; i++) {
+                ObjectDrawer.Kit.setChipOn(lookChips[i], looks[i] == b.look(), Studio.GO);
+            }
+            boolean counted = b.look() != MotionShutter.Look.SMEAR;
+            copiesValue.setText(String.valueOf(b.copies()));
+            float a = counted ? 1f : 0.35f;
+            fewer.setAlpha(a);
+            moreCopies.setAlpha(a);
+            copiesValue.setAlpha(a);
+            fewer.setEnabled(counted && b.copies() > 2);
+            moreCopies.setEnabled(counted && b.copies() < 7);
+        };
 
         Runnable show = () -> {
-            MotionShutter.Preset current = ShutterStripModel.presetOf(now[0]);
+            MotionShutter.Controls now = st[0].keys().at(at[0], st[0].base());
+            MotionShutter.Preset current = now.isLongTrail() ? null : ShutterStripModel.presetOf(now);
             for (int i = 0; i < chipViews.length; i++) {
                 ObjectDrawer.Kit.setChipOn(chipViews[i], presets[i] == current, Studio.GO);
             }
-            String v = value(ctx, now[0]);
+            ObjectDrawer.Kit.setChipOn(streakChip, isStreak(now), Studio.GO);
+            @StringRes int trailWhy = host.cannotTrailReason(now);
+            trailNote.setVisibility(trailWhy == 0 ? View.GONE : View.VISIBLE);
+            if (trailWhy != 0) trailNote.setText(trailWhy);
+            showLook.run();
+            String v = value(ctx, now);
             shutterValue.setText(v);
-            strip.setControls(now[0]);
+            strip.setControls(now);
             strip.setContentDescription(ctx.getString(R.string.studio_motion_shutter) + ", " + v);
+            mix.setProgress(now.mixPercent());
+            mixValue.setText(ctx.getString(R.string.studio_motion_percent, now.mixPercent()));
+            ShutterKeys k = st[0].keys();
+            shutterKeys.show(k.shutterTimes(), at[0]);
+            mixKeys.show(k.mixTimes(), at[0]);
         };
 
         for (int i = 0; i < presets.length; i++) {
@@ -169,61 +314,96 @@ public final class MotionBlurCard {
             TextView chip = ObjectDrawer.Kit.chip(ctx, ctx.getString(names[i]));
             ObjectDrawer.Kit.pressable(chip);
             chip.setOnClickListener(v -> {
-                MotionShutter.Controls before = now[0];
-                MotionShutter.Controls after = ShutterStripModel.withPreset(before, preset);
+                State before = st[0];
+                MotionShutter.Controls now = before.keys().at(at[0], before.base());
+                State after = withShutter(before, ShutterStripModel.withPreset(now, preset), at[0]);
                 if (after.equals(before)) return;
-                now[0] = after;
+                st[0] = after;
                 show.run();
                 host.commit(before, after);
             });
             chipViews[i] = chip;
             chips.addView(chip, ObjectDrawer.Kit.chipLp(ctx));
         }
-        card.addView(chips);
-
-        final MotionShutter.Controls[] dragFrom = {null};
-        strip.setListener((c, done) -> {
-            if (dragFrom[0] == null) dragFrom[0] = now[0];
-            now[0] = c;
+        streakChip.setOnClickListener(v -> {
+            State before = st[0];
+            MotionShutter.Controls now = before.keys().at(at[0], before.base());
+            State after = new State(streak(before.base()), before.keys().hasShutterKeys()
+                    ? before.keys().withShutterKey(at[0], streak(now)) : before.keys());
+            if (after.equals(before)) return;
+            st[0] = after;
             show.run();
+            host.commit(before, after);
+        });
+        chips.addView(streakChip, ObjectDrawer.Kit.chipLp(ctx));
+        // Five chips: they scroll sideways on a narrow phone rather than wrap to a second line.
+        android.widget.HorizontalScrollView chipScroll = new android.widget.HorizontalScrollView(ctx);
+        chipScroll.setHorizontalScrollBarEnabled(false);
+        chipScroll.addView(chips);
+        card.addView(chipScroll);
+
+        final State[] dragFrom = {null};
+        strip.setListener((c, done) -> {
+            if (dragFrom[0] == null) dragFrom[0] = st[0];
+            st[0] = withShutter(dragFrom[0], c, at[0]);
+            shutterValue.setText(value(ctx, c));
             if (!done) {
-                host.preview(c);
+                host.preview(st[0]);
                 return;
             }
-            MotionShutter.Controls before = dragFrom[0];
+            State before = dragFrom[0];
             dragFrom[0] = null;
-            if (!c.equals(before)) host.commit(before, c);
+            show.run();
+            if (!st[0].equals(before)) host.commit(before, st[0]);
         });
         card.addView(shutterRow);
 
-        // ── Mix ──
-        LinearLayout mixRow = ObjectDrawer.Kit.row(ctx);
-        mixRow.addView(ObjectDrawer.Kit.rowLabel(ctx, ctx.getString(R.string.studio_motion_mix), 86));
-        FineSeekBar mix = new FineSeekBar(ctx);
-        mix.setMax(100);
-        ObjectDrawer.Kit.styleSlider(mix, ObjectDrawer.Kit.onFill(Studio.GO));
-        mix.setProgress(now[0].mixPercent());
-        mixRow.addView(mix, new LinearLayout.LayoutParams(
-                0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
-        TextView mixValue = ObjectDrawer.Kit.value(ctx, 44);
-        mixValue.setText(ctx.getString(R.string.studio_motion_percent, now[0].mixPercent()));
-        mixRow.addView(mixValue);
-        mix.setContentDescription(ctx.getString(R.string.studio_motion_mix));
         mix.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
-            MotionShutter.Controls before;
-            @Override public void onStartTrackingTouch(SeekBar s) { before = now[0]; }
+            State before;
+            @Override public void onStartTrackingTouch(SeekBar s) { before = st[0]; }
             @Override public void onProgressChanged(SeekBar s, int value, boolean user) {
-                if (!user) return;
-                now[0] = withMix(now[0], value);
+                if (!user || before == null) return;
+                st[0] = withMix(before, value, at[0]);
                 mixValue.setText(ctx.getString(R.string.studio_motion_percent, value));
-                host.preview(now[0]);
+                host.preview(st[0]);
             }
             @Override public void onStopTrackingTouch(SeekBar s) {
-                if (before != null && !before.equals(now[0])) host.commit(before, now[0]);
+                if (before != null && !before.equals(st[0])) host.commit(before, st[0]);
                 before = null;
+                show.run();
             }
         });
         card.addView(mixRow);
+
+        // ‹◆›: tap keys (or un-keys) the playhead; the chevrons jump to the next key.
+        shutterKeys.wire(host, () -> {
+            State before = st[0];
+            long hit = near(before.keys().shutterTimes(), at[0]);
+            State after = hit >= 0
+                    ? new State(before.base(), before.keys().withoutShutterKey(hit))
+                    : new State(before.base(), before.keys().withShutterKey(at[0],
+                            before.keys().at(at[0], before.base())));
+            st[0] = after;
+            show.run();
+            host.commit(before, after);
+        }, () -> st[0].keys().shutterTimes(), at);
+        mixKeys.wire(host, () -> {
+            State before = st[0];
+            long hit = near(before.keys().mixTimes(), at[0]);
+            State after = hit >= 0
+                    ? new State(before.base(), before.keys().withoutMixKey(hit))
+                    : new State(before.base(), before.keys().withMixKey(at[0],
+                            before.keys().at(at[0], before.base())));
+            st[0] = after;
+            show.run();
+            host.commit(before, after);
+        }, () -> st[0].keys().mixTimes(), at);
+
+        card.onPlayhead = ms -> {
+            if (ms == at[0]) return;
+            at[0] = ms;
+            if (dragFrom[0] == null) show.run();
+        };
 
         // ── D1: when the preview cannot show it, say why in one plain line ──
         @StringRes int reason = host.cannotBlurReason();
@@ -234,10 +414,65 @@ public final class MotionBlurCard {
             card.addView(why);
         }
 
-        // ── slim footer: the exact-frame action, right-aligned ──
+        card.addView(trailNote);
+
+        java.util.function.Consumer<MotionShutter.Controls> commitLook = next -> {
+            State before = st[0];
+            State after = new State(next, before.keys());
+            if (after.equals(before)) return;
+            st[0] = after;
+            show.run();
+            host.commit(before, after);
+        };
+        fade.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
+            State before;
+            @Override public void onStartTrackingTouch(SeekBar sb) { before = st[0]; }
+            @Override public void onProgressChanged(SeekBar sb, int value, boolean user) {
+                if (!user || before == null) return;
+                MotionShutter.Controls b = before.base();
+                st[0] = new State(b.withLook(value, b.look(), b.copies()), before.keys());
+                fadeValue.setText(ctx.getString(R.string.studio_motion_percent, value));
+                host.preview(st[0]);
+            }
+            @Override public void onStopTrackingTouch(SeekBar sb) {
+                if (before != null && !before.equals(st[0])) host.commit(before, st[0]);
+                before = null;
+                show.run();
+            }
+        });
+        for (int i = 0; i < looks.length; i++) {
+            MotionShutter.Look look = looks[i];
+            lookChips[i].setOnClickListener(v -> {
+                MotionShutter.Controls b = st[0].base();
+                commitLook.accept(b.withLook(b.fadePercent(), look, b.copies()));
+            });
+        }
+        fewer.setOnClickListener(v -> {
+            MotionShutter.Controls b = st[0].base();
+            commitLook.accept(b.withLook(b.fadePercent(), b.look(), b.copies() - 1));
+        });
+        moreCopies.setOnClickListener(v -> {
+            MotionShutter.Controls b = st[0].base();
+            commitLook.accept(b.withLook(b.fadePercent(), b.look(), b.copies() + 1));
+        });
+        card.addView(more);
+
+        // ── slim footer: "More" on the left, the exact-frame action on the right, one line ──
         LinearLayout foot = new LinearLayout(ctx);
         foot.setOrientation(LinearLayout.HORIZONTAL);
-        foot.setGravity(Gravity.END | Gravity.CENTER_VERTICAL);
+        foot.setGravity(Gravity.CENTER_VERTICAL);
+        TextView moreTab = ObjectDrawer.Kit.sectionLabel(ctx,
+                (more.getVisibility() == View.VISIBLE ? "▾ " : "▸ ") + ctx.getString(R.string.studio_motion_more));
+        ObjectDrawer.Kit.describe(moreTab, ctx.getString(R.string.studio_motion_more_hint));
+        moreTab.setPadding(Math.round(2 * d), Math.round(6 * d), Math.round(16 * d), Math.round(6 * d));
+        moreTab.setOnClickListener(v -> {
+            boolean open = more.getVisibility() != View.VISIBLE;
+            more.setVisibility(open ? View.VISIBLE : View.GONE);
+            if (open) MORE_OPEN.add(objectId); else MORE_OPEN.remove(objectId);
+            moreTab.setText((open ? "▾ " : "▸ ") + ctx.getString(R.string.studio_motion_more));
+        });
+        foot.addView(moreTab);
+        foot.addView(new View(ctx), new LinearLayout.LayoutParams(0, 1, 1f));
         TextView exact = new TextView(ctx);
         exact.setText(R.string.studio_motion_show_exact);
         exact.setTextColor(Studio.ON_GO);
@@ -258,6 +493,98 @@ public final class MotionBlurCard {
         card.addView(foot);
 
         show.run();
+    }
+
+    /**
+     * A shutter edit applied where it belongs: as a key at the playhead once the shutter has
+     * keys (an effect card's keyed slider does the same), else to the fixed setting.
+     */
+    @NonNull
+    static State withShutter(@NonNull State s, @NonNull MotionShutter.Controls c, long at) {
+        if (s.keys().hasShutterKeys()) return new State(s.base(), s.keys().withShutterKey(at, c));
+        return new State(s.base().withWindow(c.angle(), c.timing(), c.customPhase()), s.keys());
+    }
+
+    /** A Mix edit, keyed at the playhead once Mix has keys. */
+    @NonNull
+    static State withMix(@NonNull State s, int mix, long at) {
+        MotionShutter.Controls b = s.base();
+        if (s.keys().hasMixKeys()) {
+            return new State(b, s.keys().withMixKey(at,
+                    new MotionShutter.Controls(b.angle(), b.timing(), b.customPhase(), mix)));
+        }
+        return new State(b.withMix(mix), s.keys());
+    }
+
+    /** The key within {@link #ON_KEY_MS} of {@code at}, or -1. */
+    static long near(@NonNull long[] times, long at) {
+        long best = -1;
+        long bestGap = ON_KEY_MS + 1;
+        for (long t : times) {
+            long gap = Math.abs(t - at);
+            if (gap < bestGap) { best = t; bestGap = gap; }
+        }
+        return best;
+    }
+
+    /** The effect cards' ‹◆› cluster: jump to the previous key, key here, jump to the next. */
+    private static final class KeyControl {
+        final LinearLayout root;
+        final TextView prev, diamond, next;
+
+        KeyControl(@NonNull Context ctx, float d, @NonNull String what) {
+            root = new LinearLayout(ctx);
+            root.setOrientation(LinearLayout.HORIZONTAL);
+            root.setGravity(Gravity.CENTER_VERTICAL);
+            prev = glyph(ctx, "‹", d, 18);
+            diamond = glyph(ctx, "◇", d, 26);
+            next = glyph(ctx, "›", d, 18);
+            ObjectDrawer.Kit.describe(prev, ctx.getString(R.string.studio_motion_key_prev, what));
+            ObjectDrawer.Kit.describe(diamond, ctx.getString(R.string.studio_motion_key_toggle, what));
+            ObjectDrawer.Kit.describe(next, ctx.getString(R.string.studio_motion_key_next, what));
+            root.addView(prev);
+            root.addView(diamond);
+            root.addView(next);
+        }
+
+        void wire(@NonNull Host host, @NonNull Runnable toggle,
+                  @NonNull java.util.function.Supplier<long[]> times, @NonNull long[] at) {
+            diamond.setOnClickListener(v -> toggle.run());
+            prev.setOnClickListener(v -> {
+                long t = ShutterKeys.previous(times.get(), at[0] - ON_KEY_MS);
+                if (t >= 0) host.seekTo(t);
+            });
+            next.setOnClickListener(v -> {
+                long t = ShutterKeys.next(times.get(), at[0] + ON_KEY_MS);
+                if (t >= 0) host.seekTo(t);
+            });
+        }
+
+        /** Solid on a key (the app's keyed colour), hollow when keyed elsewhere, dim when none. */
+        void show(@NonNull long[] times, long at) {
+            boolean any = times.length > 0;
+            boolean here = near(times, at) >= 0;
+            diamond.setText(here ? "◆" : "◇");
+            diamond.setTextColor(here ? Studio.CAREFUL : any ? Studio.DRAWER_INK : Studio.DRAWER_LABEL);
+            int chevron = any ? Studio.DRAWER_INK : Studio.alpha(Studio.DRAWER_LABEL, 0x66);
+            prev.setTextColor(chevron);
+            next.setTextColor(chevron);
+            prev.setEnabled(any);
+            next.setEnabled(any);
+        }
+
+        private static TextView glyph(@NonNull Context ctx, @NonNull String g, float d, int wDp) {
+            TextView t = new TextView(ctx);
+            t.setText(g);
+            t.setTextSize(g.equals("◇") ? 14f : 15f);
+            t.setGravity(Gravity.CENTER);
+            t.setTextColor(Studio.DRAWER_LABEL);
+            android.util.TypedValue tv = new android.util.TypedValue();
+            ctx.getTheme().resolveAttribute(android.R.attr.selectableItemBackgroundBorderless, tv, true);
+            t.setBackgroundResource(tv.resourceId);
+            t.setLayoutParams(new LinearLayout.LayoutParams(Math.round(wDp * d), Math.round(36 * d)));
+            return t;
+        }
     }
 
     /**
@@ -309,6 +636,9 @@ public final class MotionBlurCard {
     /** "180° · centred", "90° · behind", "270° · ahead", "200° · custom" */
     @NonNull
     static String value(@NonNull Context ctx, @NonNull MotionShutter.Controls c) {
+        if (c.isLongTrail()) {
+            return ctx.getString(R.string.studio_motion_strip_back, Math.round(c.angle() / 360f));
+        }
         @StringRes int timing = switch (c.timing()) {
             case CENTERED -> R.string.studio_motion_timing_centred;
             case TRAILING -> R.string.studio_motion_timing_behind;
@@ -316,11 +646,6 @@ public final class MotionBlurCard {
             case CUSTOM -> R.string.studio_motion_timing_custom;
         };
         return ctx.getString(R.string.studio_motion_shutter_value, c.angle(), ctx.getString(timing));
-    }
-
-    @NonNull
-    private static MotionShutter.Controls withMix(@NonNull MotionShutter.Controls c, int mix) {
-        return new MotionShutter.Controls(c.angle(), c.timing(), c.customPhase(), mix);
     }
 
     @SuppressLint("ClickableViewAccessibility")

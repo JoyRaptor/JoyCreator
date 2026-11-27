@@ -27,7 +27,7 @@ Updated 11-27 by the lead.
 | Room skeleton: top bar, stage, panel, four stages | 3 | ✅ landed (fe069fb68) | slice 1 |
 | Menu, open, save into the Joy Creator folder, autosave | 3 | ✅ landed (4a2d01f22, 81dfbc6f1) | slice 1 |
 | Layers, parts, named undo / redo | 3 | ✅ landed (81dfbc6f1) | slice 1 |
-| The doors: layered file, loose pictures, a sheet, one drawing, Update the art | 5 | ✅ 3 of 5 landed (81dfbc6f1) | slice 1 |
+| The doors: layered file, loose pictures, a sheet, one drawing, Update the art | 5 | ✅ all 5 landed (layered file, loose pictures, Update the art 81dfbc6f1; one drawing + pin wizard 282cf25b0; sheet cutter: parts become pictures in Extras, zone choice and swap/loop modes owed); none tried on a phone | slice 1 |
 | Joybot tools for the room | 2 | ✅ landed (81dfbc6f1) | slice 1 |
 | Takes and voice engines | 3 | ✅ landed (81dfbc6f1) | slice 1 |
 | Studio's Undo names the step | 1 | ✅ landed (81dfbc6f1) | slice 1 |

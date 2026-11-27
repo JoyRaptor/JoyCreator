@@ -36,6 +36,8 @@ android {
         versionCode = 37
         versionName = "4.0.0"
         vectorDrawables.useSupportLibrary = true
+        // Instrumented tests (app/src/androidTest), run on the cloud emulator by .github/workflows/avatar-emulator.yml
+        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         
         // 16 KB native library alignment (Play, targetSdk 35+): our own libraries get the linker flag in
         // src/main/cpp/CMakeLists.txt; vosk 0.3.75 and MediaPipe 0.10.26.1 ship aligned libraries. Still open:

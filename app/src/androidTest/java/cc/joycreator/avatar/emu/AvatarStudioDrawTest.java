@@ -9,7 +9,7 @@ import android.graphics.Color;
 import android.graphics.RectF;
 import android.net.Uri;
 import android.util.Log;
-import android.util.Size;
+import androidx.media3.common.util.Size;
 import android.view.View;
 
 import androidx.annotation.NonNull;

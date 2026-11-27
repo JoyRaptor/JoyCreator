@@ -178,8 +178,9 @@ class SelectBench(private val canvas: JbCanvasView, private val runId: String, p
                 val after = centres()
                 val back = ids.all { id -> val b = before[id]; val a = after[id]; b != null && a != null } &&
                     wasSelected.all { id -> abs((after[id]?.second ?: 0f) - (before[id]?.second ?: 0f)) > 3f }
-                // D20 (gap G5): undo should keep the selection; reported, not failed, until Codex A4 lands.
-                report("undoMove", back, JSONObject().put("linesBack", back).put("selectionKeptD20", lines() == wasSelected))
+                // D20 (gap G5, fixed): undo keeps the selection, so losing it now fails the step (11-27).
+                val kept = lines() == wasSelected
+                report("undoMove", back && kept, JSONObject().put("linesBack", back).put("selectionKeptD20", kept))
                 next()
             }, 700)
         }
@@ -262,6 +263,57 @@ class SelectBench(private val canvas: JbCanvasView, private val runId: String, p
                                     hold { if (pastedDepth > d0) canvas.undo(); ui.postDelayed(next, 650) }
                                 }
                             }
+                        }
+                    }
+                }
+            }
+        }
+        // 11-27: Cut is ONE step; Undo brings the line back SELECTED (D20); Redo takes it away again.
+        step("cutUndoRedo") { next ->
+            val source = ids[2]
+            val (x, y) = screenMid(2)
+            g.tap(x, y, pen = true, settleMs = 600) {
+                undoDepth { d0 ->
+                    moreAction("cutUndoRedo", "Cut: copy the selected lines", next) {
+                        // The copy runs on the GL thread first; give it time before reading the drawing.
+                        ui.postDelayed({
+                            undoDepth { d1 ->
+                                val gone = source !in all()
+                                canvas.undo()
+                                ui.postDelayed({
+                                    val back = source in all()
+                                    val reselected = lines() == setOf(source)
+                                    canvas.redo()
+                                    ui.postDelayed({
+                                        val goneAgain = source !in all()
+                                        report("cutUndoRedo", gone && d1 == d0 + 1 && back && reselected && goneAgain &&
+                                            cc.joycreator.joybrush.android.select.LineSelectionClipboard.hasLines,
+                                            JSONObject().put("cutSteps", d1 - d0).put("gone", gone).put("undoBack", back)
+                                                .put("undoReselects", reselected).put("redoGone", goneAgain))
+                                        shot("09b_cut")
+                                        canvas.undo()   // put the line back for the steps that follow
+                                        ui.postDelayed(next, 650)
+                                    }, 700)
+                                }, 700)
+                            }
+                        }, 900)
+                    }
+                }
+            }
+        }
+        step("doneEnds") { next ->
+            val (x, y) = screenMid(1)
+            g.tap(x, y, pen = true, settleMs = 600) {
+                val done = g.labelled("Done: let go of the selection")
+                if (done == null || lines().isEmpty()) {
+                    report("doneEnds", false, JSONObject().put("why", if (done == null) "no Done chip" else "nothing selected")); next(); return@tap
+                }
+                undoDepth { d0 ->
+                    g.tapView(done, settleMs = 600) {
+                        undoDepth { d1 ->
+                            report("doneEnds", tool?.selection == null && d1 == d0,
+                                JSONObject().put("ended", tool?.selection == null).put("steps", d1 - d0))
+                            next()
                         }
                     }
                 }

@@ -48,8 +48,8 @@ ARGS=$(mktemp); RUNARGS=$(mktemp)
   printf -- '-sourcepath "%s"\n' "$SRC"; } > "$ARGS"
 printf -- '-cp "%s;%s"\n' "$OUT" "$CP" > "$RUNARGS"
 
-javac @"$ARGS" tools/jvm-harness/WorkLossStorageTest.java || exit 1
+javac @"$ARGS" tools/jvm-harness/WorkLossStorageTest.java tools/jvm-harness/SavedTimelineContentTest.java || exit 1
 # Positive control on the COMPILE itself — the run-matte lesson.
 [ -f "$OUT/WorkLossStorageTest.class" ] || { echo "no WorkLossStorageTest class — the compile did not run"; exit 1; }
 
-java @"$RUNARGS" WorkLossStorageTest
+java @"$RUNARGS" WorkLossStorageTest && java @"$RUNARGS" SavedTimelineContentTest

@@ -41,14 +41,9 @@ import java.util.regex.Pattern;
  * file. {@link #KEY_VERSION} folds the chain definition into the identity so any DSP change
  * invalidates prior artifacts instead of being mistaken for them.
  *
- * <h3>Timing: a bake is a drop-in for its source</h3>
- * Only {@code [startMs,endMs]} is processed, but the file keeps the SOURCE's clock: it opens
- * with {@code startMs} of silence, so source time T is file time T. The clip that switches to
- * the bake keeps its in/out points, cut spans, envelope and waveform keys, and all of them stay
- * true. Until 2026-11-10 the bake started at 0, so on any trimmed or split clip (in-point &gt; 0)
- * the fixed audio played early by the in-point, ran out before the out-point, and the
- * waveform lookups asked for a span past the end of the file and fell back to the old
- * (unfixed) picture. {@link #KEY_VERSION} was bumped so no old-style bake is reused.
+ * <h3>Timing</h3>
+ * v3 caches contain only the requested span. AudioClip rebases its source-clock edits
+ * when switching media. Older padded files retain their original coordinate system.
  *
  * <h3>Chains</h3>
  * <ul>
@@ -82,7 +77,7 @@ public class BakedAudioCache {
      * artifact can never be served as if it were made by the new DSP (same reasoning as
      * ReversedSegmentCache.KEY_VERSION).
      */
-    private static final String KEY_VERSION = "v2-aligned";
+    private static final String KEY_VERSION = "v3-segment";
 
     /** Single-pass FFT denoise. The value is the filter name passed after {@code -af}. */
     public static final String CHAIN_DENOISE = "afftdn";
@@ -224,7 +219,6 @@ public class BakedAudioCache {
         if (!f.exists()) return false;
         if (f.length() < MIN_VALID_BAKE_BYTES) {
             FLog.w(TAG, "Discarding undersized bake (" + f.length() + "B): " + f.getName());
-            f.delete();
             return false;
         }
         return true;
@@ -241,6 +235,44 @@ public class BakedAudioCache {
 
     // ── Bake ──────────────────────────────────────────────────────────────
 
+    private static final class Outcome {
+        final Result result;
+        final String error;
+        Outcome(Result result, String error) { this.result = result; this.error = error; }
+    }
+
+    private static final class Flight {
+        final java.util.concurrent.CompletableFuture<Outcome> done = new java.util.concurrent.CompletableFuture<>();
+        final java.util.concurrent.CopyOnWriteArrayList<ProgressListener> listeners = new java.util.concurrent.CopyOnWriteArrayList<>();
+        void report(float value) {
+            for (ProgressListener listener : listeners) {
+                try { listener.onProgress(value); }
+                catch (RuntimeException ignored) { /* A closed UI cannot cancel another caller's render. */ }
+            }
+        }
+    }
+
+    // Shared across drawer, AI and repair cache instances. Project directory is part of the key.
+    private static final java.util.concurrent.ConcurrentHashMap<File, Flight> flights = new java.util.concurrent.ConcurrentHashMap<>();
+
+    private Flight acquire(File projectDir, Request request, ProgressListener progress) {
+        File key = bakedFileFor(projectDir, request.sourceUri, request.startMs, request.endMs, request.chain);
+        Flight mine = new Flight();
+        Flight owner = flights.putIfAbsent(key, mine);
+        Flight flight = owner == null ? mine : owner;
+        if (progress != null) flight.listeners.add(progress);
+        if (owner == null) {
+            BakeCallback finish = (result, error) -> {
+                flights.remove(key, mine);
+                mine.done.complete(new Outcome(result, error));
+                mine.listeners.clear();
+            };
+            try { startBake(projectDir, request, mine::report, finish); }
+            catch (RuntimeException e) { finish.onComplete(null, "could not start audio bake: " + e.getMessage()); }
+        }
+        return flight;
+    }
+
     /**
      * Asynchronously bake (or reuse) the processed render of {@code [startMs,endMs]} of
      * {@code request.sourceUri} into the caller's project directory. Never blocks the
@@ -249,6 +281,10 @@ public class BakedAudioCache {
     public void bakeAsync(@NonNull File projectDir, @NonNull Request request,
                           @Nullable ProgressListener progress,
                           @NonNull BakeCallback callback) {
+        acquire(projectDir, request, progress).done.thenAccept(o -> callback.onComplete(o.result, o.error));
+    }
+
+    private void startBake(File projectDir, Request request, ProgressListener progress, BakeCallback callback) {
         File out = bakedFileFor(projectDir, request.sourceUri,
                 request.startMs, request.endMs, request.chain);
         if (isCached(projectDir, request.sourceUri,
@@ -266,9 +302,6 @@ public class BakedAudioCache {
                 + request.chain + " -> " + out.getName());
         File tmp = outTmp(out);
         long spanMs = request.endMs - request.startMs;
-        // The written file runs to endMs on the source's clock (see "Timing"), so a pass that
-        // writes it reports progress against endMs, not the span.
-        long writtenMs = request.endMs;
         if (CHAIN_LOUDNORM.equals(request.chain)) {
             StringBuilder logs = new StringBuilder();
             String measureCmd = measureCommand(input, request);
@@ -293,12 +326,12 @@ public class BakedAudioCache {
                 String applyCmd = bakeCommand(applyInput, request,
                         "loudnorm=" + m.asApplyParams(), tmp);
                 FLog.d(TAG, "async loudnorm pass2: ffmpeg " + applyCmd);
-                runPassAsync(request, out, tmp, applyCmd, progress, callback, 0.5f, writtenMs);
+                runPassAsync(request, out, tmp, applyCmd, progress, callback, 0.5f, spanMs);
             }, log -> collect(logs, log.getMessage()),
                     stats -> report(progress, stats, 0f, 0.5f, spanMs));
         } else {
             String cmd = bakeCommand(input, request, singlePassChain(request.chain), tmp);
-            runPassAsync(request, out, tmp, cmd, progress, callback, 0f, writtenMs);
+            runPassAsync(request, out, tmp, cmd, progress, callback, 0f, spanMs);
         }
     }
 
@@ -312,63 +345,19 @@ public class BakedAudioCache {
     public Result bakeSync(@NonNull File projectDir, @NonNull Request request,
                            @Nullable ProgressListener progress,
                            @Nullable String[] error) {
-        File out = bakedFileFor(projectDir, request.sourceUri,
-                request.startMs, request.endMs, request.chain);
-        if (isCached(projectDir, request.sourceUri,
-                request.startMs, request.endMs, request.chain)) {
-            FLog.d(TAG, "Cache HIT (sync): " + out.getName());
-            return result(request, out);
+        Flight flight = acquire(projectDir, request, progress);
+        try {
+            Outcome outcome = flight.done.get();
+            if (error != null && error.length > 0) error[0] = outcome.error;
+            return outcome.result;
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            return failSync(error, "audio bake wait interrupted");
+        } catch (java.util.concurrent.ExecutionException e) {
+            return failSync(error, "audio bake failed: " + e.getCause());
+        } finally {
+            if (progress != null) flight.listeners.remove(progress);
         }
-        String input = resolveInput(request.sourceUri);
-        if (input == null) {
-            return failSync(error, "source unreadable: " + request.sourceUri);
-        }
-        File tmp = outTmp(out);
-        long spanMs = request.endMs - request.startMs;
-        FFmpegSession session;
-        if (CHAIN_LOUDNORM.equals(request.chain)) {
-            StringBuilder logs = new StringBuilder();
-            String measureCmd = measureCommand(input, request);
-            FLog.d(TAG, "loudnorm pass1: ffmpeg " + measureCmd);
-            // FIX 2026-08-23 (review): FFmpegKit has no execute(cmd, logCb, statsCb)
-            // overload — the working call in TranscriptionEngine:517 is the 1-arg
-            // synchronous form. Logs are read off the finished session instead. This
-            // path is bakeSync (blocking), so per-frame progress had no UI to drive.
-            session = FFmpegKit.execute(measureCmd);
-            collect(logs, session.getAllLogsAsString());
-            if (!ReturnCode.isSuccess(session.getReturnCode())) {
-                tmp.delete();
-                return failSync(error, "loudnorm measure pass failed rc="
-                        + session.getReturnCode() + "; tail: " + tail(logs.toString()));
-            }
-            Measured m = parseMeasured(logs.toString());
-            if (m == null) {
-                return failSync(error, "loudnorm pass1 produced no measurable JSON block");
-            }
-            String applyInput = inputForAnotherPass(input, request.sourceUri);
-            if (applyInput == null) {
-                tmp.delete();
-                return failSync(error, "source unreadable for pass 2: " + request.sourceUri);
-            }
-            String applyCmd = bakeCommand(applyInput, request,
-                    "loudnorm=" + m.asApplyParams(), tmp);
-            FLog.d(TAG, "loudnorm pass2: ffmpeg " + applyCmd);
-            session = FFmpegKit.execute(applyCmd);
-        } else {
-            session = FFmpegKit.execute(
-                    bakeCommand(input, request, singlePassChain(request.chain), tmp));
-        }
-        boolean ok = ReturnCode.isSuccess(session.getReturnCode())
-                && tmp.exists() && tmp.length() >= MIN_VALID_BAKE_BYTES
-                && commit(tmp, out);
-        if (ok) {
-            FLog.i(TAG, "Bake OK (sync): " + out.getName()
-                    + " (" + out.length() / 1024 + " KB)");
-            return result(request, out);
-        }
-        tmp.delete();
-        return failSync(error, "bake failed rc=" + session.getReturnCode()
-                + "; tail: " + tail(session.getAllLogsAsString()));
     }
 
     // ── internals ─────────────────────────────────────────────────────────
@@ -380,7 +369,7 @@ public class BakedAudioCache {
         FFmpegKit.executeAsync(cmd, session -> {
             if (ReturnCode.isSuccess(session.getReturnCode())
                     && tmp.exists() && tmp.length() >= MIN_VALID_BAKE_BYTES
-                    && commit(tmp, out)) {
+                    && validAudio(tmp, spanMs) && commit(tmp, out)) {
                 FLog.i(TAG, "Bake OK: " + out.getName() + " (" + out.length() / 1024 + " KB)");
                 callback.onComplete(result(request, out), null);
             } else {
@@ -437,9 +426,7 @@ public class BakedAudioCache {
     @NonNull
     static String bakeCommand(@NonNull String input, @NonNull Request request,
                               @NonNull String chain, @NonNull File tmp) {
-        String align = request.startMs > 0
-                ? ",adelay=delays=" + request.startMs + ":all=1" : "";
-        return spanInput(input, request) + " -af \"" + spanTrim(request) + "," + chain + align
+        return spanInput(input, request) + " -af \"" + spanTrim(request) + "," + chain
                 + "\" " + encodeOutput(tmp.getAbsolutePath());
     }
 
@@ -460,7 +447,7 @@ public class BakedAudioCache {
     @NonNull
     private static String spanTrim(@NonNull Request request) {
         double fine = request.startMs / 1000.0 - coarseSeekS(request);
-        double durSec = Math.max(0.1, (request.endMs - request.startMs) / 1000.0);
+        double durSec = (request.endMs - request.startMs) / 1000.0;
         return String.format(Locale.US, "atrim=start=%.3f:duration=%.3f,asetpts=PTS-STARTPTS",
                 fine, durSec);
     }
@@ -512,12 +499,26 @@ public class BakedAudioCache {
     /** Temp sibling of the final bake — committed by rename only on success. */
     @NonNull
     private static File outTmp(@NonNull File out) {
-        return new File(out.getParentFile(), out.getName() + ".tmp");
+        return new File(out.getParentFile(), out.getName() + "." + java.util.UUID.randomUUID() + ".tmp");
+    }
+
+    private static boolean validAudio(File file, long expectedMs) {
+        android.media.MediaMetadataRetriever metadata = new android.media.MediaMetadataRetriever();
+        try {
+            metadata.setDataSource(file.getPath());
+            String duration = metadata.extractMetadata(android.media.MediaMetadataRetriever.METADATA_KEY_DURATION);
+            String audio = metadata.extractMetadata(android.media.MediaMetadataRetriever.METADATA_KEY_HAS_AUDIO);
+            return "yes".equalsIgnoreCase(audio) && duration != null
+                    && Math.abs(Long.parseLong(duration) - expectedMs) <= 150;
+        } catch (RuntimeException e) {
+            return false;
+        } finally {
+            try { metadata.release(); } catch (Exception ignored) { }
+        }
     }
 
     /** Atomic commit: rename the validated temp over the final name. */
     private static boolean commit(@NonNull File tmp, @NonNull File out) {
-        if (out.exists()) out.delete();
         return tmp.renameTo(out);
     }
 

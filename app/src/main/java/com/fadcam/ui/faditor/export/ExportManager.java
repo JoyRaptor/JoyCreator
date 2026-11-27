@@ -5462,7 +5462,7 @@ public class ExportManager {
                 /* isTransitionItem = */ false,
                 /* preOverlayExtra = */ null,
                 /* isLoopBeforeItem = */ false,
-                clipLocalStartMs);
+                clipLocalStartMs, Math.max(sourceDurationMs, timelineDurationMs));
 
         if (!audioProcessors.isEmpty() || !videoEffects.isEmpty()) {
             editedBuilder.setEffects(new Effects(audioProcessors, videoEffects));
@@ -5536,7 +5536,7 @@ public class ExportManager {
                 /* isTransitionItem = */ true,
                 /* preOverlayExtra = */ glTrans,
                 /* isLoopBeforeItem = */ false,
-                com.fadcam.ui.faditor.model.TimeMap.clipLocalMsAt(clip, transInMs));
+                com.fadcam.ui.faditor.model.TimeMap.clipLocalMsAt(clip, transInMs), Math.max(sourceDur, timelineDurMs));
 
         // Audio: mirror the outgoing clip's mute/volume. Previously the transition
         // segment carried the clip's ORIGINAL audio at full volume — so a muted clip
@@ -5677,7 +5677,7 @@ public class ExportManager {
                 canvasDims, waveformSlots,
                 /* isTransitionItem = */ false,
                 /* preOverlayExtra = */ null,
-                /* isLoopBeforeItem = */ isBefore);
+                /* isLoopBeforeItem = */ isBefore, 0L, Math.max(sourceSpanMs, playedMs));
 
         if (!audioProcessors.isEmpty() || !videoEffects.isEmpty()) {
             eb.setEffects(new Effects(audioProcessors, videoEffects));
@@ -5731,7 +5731,7 @@ public class ExportManager {
                 canvasDims, waveformSlots,
                 /* isTransitionItem = */ false,
                 /* preOverlayExtra = */ null,
-                /* isLoopBeforeItem = */ isBefore);
+                /* isLoopBeforeItem = */ isBefore, 0L, extensionMs);
 
         if (!videoEffects.isEmpty()) {
             eb.setEffects(new Effects(Collections.emptyList(), videoEffects));
@@ -6901,42 +6901,6 @@ public class ExportManager {
      * must not apply per-clip transforms, overlays, opacity, or the canvas
      * presentation — their job is to render the transition between two clips.</p>
      */
-    @NonNull
-    private List<Effect> assembleClipVideoEffects(@NonNull Clip clip,
-                                                  @NonNull FaditorProject project,
-                                                  long timelineCursorMs,
-                                                  int outW, int outH,
-                                                  @Nullable int[] canvasDims,
-                                                  @NonNull List<CompositeExportOverlay.WaveformSlot> allWaveformSlots,
-                                                  boolean isTransitionItem,
-                                                  @Nullable Effect preOverlayExtra) {
-        return assembleClipVideoEffects(clip, project, timelineCursorMs, outW, outH, canvasDims,
-                allWaveformSlots, isTransitionItem, preOverlayExtra,
-                /* isLoopBeforeItem = */ false);
-    }
-
-    /**
-     * @param isLoopBeforeItem true for a loop-BEFORE extension, which is emitted AHEAD of the
-     *        head-trimmed main item and is itself untrimmed. Its content therefore has NOT had
-     *        this clip's head transition taken out of it, so it must carry one term less of the
-     *        §2d correction than the main item does — otherwise overlays over a loop-before
-     *        extension on a post-seam clip render early by that transition. (Adversarial review
-     *        2026-08-03.)
-     */
-    private List<Effect> assembleClipVideoEffects(@NonNull Clip clip,
-                                                  @NonNull FaditorProject project,
-                                                  long timelineCursorMs,
-                                                  int outW, int outH,
-                                                  @Nullable int[] canvasDims,
-                                                  @NonNull List<CompositeExportOverlay.WaveformSlot> allWaveformSlots,
-                                                  boolean isTransitionItem,
-                                                  @Nullable Effect preOverlayExtra,
-                                                  boolean isLoopBeforeItem) {
-        return assembleClipVideoEffects(clip, project, timelineCursorMs, outW, outH, canvasDims,
-                allWaveformSlots, isTransitionItem, preOverlayExtra, isLoopBeforeItem,
-                /* clipLocalStartMs = */ 0L);
-    }
-
     /**
      * @param clipLocalStartMs where this item starts on the clip's own clock: non-zero only for
      *        a clip's main piece after a transition, whose head plays under the blend. The
@@ -6951,7 +6915,7 @@ public class ExportManager {
                                                   boolean isTransitionItem,
                                                   @Nullable Effect preOverlayExtra,
                                                   boolean isLoopBeforeItem,
-                                                  long clipLocalStartMs) {
+                                                  long clipLocalStartMs, long pieceDurationMs) {
         List<Effect> videoEffects = new ArrayList<>();
         // The export clock at which this clip's own clock reads 0 (may lie before this item).
         final long clipLocalOriginMs = timelineCursorMs - clipLocalStartMs;
@@ -7874,7 +7838,9 @@ public class ExportManager {
                     com.fadcam.ui.faditor.model.AdjustmentLayer al = v.item.getAdjustment();
                     // A layer with nothing to draw is skipped at BUILD time, not just gated per
                     // frame, so an empty layer costs no program and no pass at all.
-                    if (al == null || !al.rendersAnything()) continue;
+                    if (al == null || !al.rendersAnything()
+                            || !AdjustmentSpan.overlaps(al.getStartMs(), al.getDurationMs(),
+                                    timelineCursorMs, adjustmentOffset, pieceDurationMs)) continue;
                     int at = pipEffectStart + Math.min(pipsSeen, pipEffectCount) + inserted;
                     // R14: a layer with music-linked knobs hears the timeline (its own clock).
                     final String earsOwner = earsOwner();

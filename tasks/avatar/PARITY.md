@@ -9,7 +9,7 @@ Skipped on purpose: Landmarks (replaces "Match two angles"), face-capture intern
 |---|---|---|---|---|---|
 | 1 | 🟡 | Set up, eyes | Eyes card: Looking, Blink by itself / About every / Eyes lead the head / Blink now / Hold the blink / Centre the blink (`al-cards.js`) | Looking, Blink by itself / About every / Eyes lead / Blink now built 11-27; Hold the blink, Centre the blink owed | L |
 | 2 | ⬜ | Set up, eyelids | Add eyelids, Invisible / Drawn, tilt/cheek reach, Blink by closing the lids, Remove | none | M |
-| 3 | ⬜ | Set up, mouth | How it talks: Hinge / Squash / Swap, Open / Shut, Shuts to, Try: talk | only Guess the hinge | M |
+| 3 | 🟡 | Set up, mouth | How it talks: Hinge / Squash / Swap, Open / Shut, Shuts to, Try: talk | hinge or swap only, drawn open/shut, Swing, Shuts to, Guess again built 11-27; Squash switch, Try: talk, Same on every angle owed | M |
 | 4 | ⬜ | Set up, mouth shapes | Its shapes, This is the sound, Try a sound, Other mouths | none | M |
 | 5 | ⬜ | Set up, brows/jaw/nose | Lift, Drops, The face stretches with it, Depth | none | M |
 | 6 | ⬜ | Set up, head angles | Its angles pad, Move the dots, Mirror, Copy/Rename/Remove angle, Tip, Size | only Landmarks | L |
@@ -38,7 +38,7 @@ Skipped on purpose: Landmarks (replaces "Match two angles"), face-capture intern
 | 29 | ⬜ | Stage buttons | Onion skin | not there (spec) | S |
 | 30 | ⬜ | Motion, swing | Make it move by itself, Bendy/Stiff, Hangs down, Hangs from | no way to add a swing | M |
 | 31 | ⬜ | Motion, body | Breathing toggle, How deep, Never quite still | Breaths a minute only | S |
-| 32 | ⬜ | Set up, facing | Drawn facing Left/Front/Right, See it flipped, Turn around by itself | tick only if not front | S |
+| 32 | ✅ | Set up, facing | Drawn facing Left/Front/Right, See it flipped, Turn around by itself | tick only if not front | S |
 | 33 | ⬜ | Set up, body angles | Give the body its own angles, Follows the head | none | M |
 | 34 | ⬜ | Perform | Voice file | none (spec A7) | S |
 | 35 | 🟡 | Perform | Let go of everything (built 11-27); Show-off loop; voice meter | Let go only | S each |

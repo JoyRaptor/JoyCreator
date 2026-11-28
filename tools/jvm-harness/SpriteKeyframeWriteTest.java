@@ -79,6 +79,18 @@ public class SpriteKeyframeWriteTest {
         path.addPropertyKeyframeAt(KeyframeSet.ROTATION, 4000L, 20f);
         near(path.animatedCenterX(4000L), at4Before, "a rotate at 4 s keeps the sprite where it was at 4 s (it used to jump to its static X)");
 
+        // The sprite's own drag (an unselected sprite dragged directly): it starts from the pose the sprite has now, keys
+        // a keyed sprite as it moves, draws only the pose at this moment, and no longer keys the static pose on release.
+        try {
+            String v = new String(java.nio.file.Files.readAllBytes(java.nio.file.Paths.get(
+                    "app/src/main/java/com/fadcam/ui/faditor/sprite/SpriteOverlayView.java")), "UTF-8");
+            check(v.contains("startCenterX = hit.ownCenterX(currentTimeMs)"), "own drag: starts from the pose at this moment");
+            check(v.contains("manipulating.addPropertyKeyframeAt(com.fadcam.ui.faditor.keyframe.KeyframeSet.X, currentTimeMs"),
+                    "own drag: a keyed sprite is keyed as it moves");
+            check(!v.contains("live ? o.getCenterX()") && !v.contains("o.addKeyframeAt(currentTimeMs)"),
+                    "own drag: no static 'live' pose, no static pose keyed on release");
+        } catch (java.io.IOException e) { check(false, "read SpriteOverlayView: " + e); }
+
         System.out.println("SpriteKeyframeWrite: " + pass + " passed, " + fail + " failed");
         System.exit(fail == 0 ? 0 : 1);
     }

@@ -527,18 +527,25 @@ public class SpriteOverlayItem implements com.fadcam.ui.faditor.model.LinkFollow
     }
 
     /**
-     * G2 (gesture contract §2): keyframe-aware single-property write — mirrors
-     * {@code TextOverlayItem.addPropertyKeyframeAt} exactly (anchor the shared
-     * X/Y/SCALE pose tracks at this time, then write the one property; values
-     * clamped like the static setters).
+     * G2 (gesture contract §2): keyframe-aware single-property write, the same as
+     * {@code TextOverlayItem.addPropertyKeyframeAt}: SEED the shared X/Y/SCALE pose tracks at this
+     * time (so the timeline's X track has a diamond here), then write the one property; values
+     * clamped like the static setters.
+     *
+     * <p>Seed only, and from the pose the sprite HAS at this time (its own keyed values). This used
+     * to overwrite X, Y and SCALE at t on every write with the STATIC fields, the bug text lost on
+     * 08-12 (96ecf35fe) and the sprite kept: the transform box writes scale, rotation, X, then Y,
+     * so writing Y put X back to its static value (a dragged sprite stuck on one axis) and a
+     * rotate put position and size back to their statics, so the picture left the box (owner,
+     * 11-28: "the rotation box rotates out of the sprite").</p>
      */
     public void addPropertyKeyframeAt(@NonNull String property, long timelineMs, float value) {
         long t = localTime(timelineMs);
         com.fadcam.ui.faditor.keyframe.Easing ease =
                 com.fadcam.ui.faditor.keyframe.Easing.EASE_IN_OUT;
-        keyframes.getOrCreate(KeyframeSet.X).put(t, centerX, ease);
-        keyframes.getOrCreate(KeyframeSet.Y).put(t, centerY, ease);
-        keyframes.getOrCreate(KeyframeSet.SCALE).put(t, sizeFraction, ease);
+        seedPoseTrack(KeyframeSet.X, ownCenterX(timelineMs), t, ease);
+        seedPoseTrack(KeyframeSet.Y, ownCenterY(timelineMs), t, ease);
+        seedPoseTrack(KeyframeSet.SCALE, keyframes.valueAt(KeyframeSet.SCALE, t, sizeFraction), t, ease);
         float v = value;
         switch (property) {
             case KeyframeSet.OPACITY:
@@ -551,6 +558,16 @@ public class SpriteOverlayItem implements com.fadcam.ui.faditor.model.LinkFollow
                 break; // x/y/rotation are unclamped, like the static setters
         }
         keyframes.getOrCreate(property).put(t, v, ease);
+    }
+
+    /** Put {@code value} on {@code property} at {@code t} only when that track has no key there: an existing key is the person's. */
+    private void seedPoseTrack(@NonNull String property, float value, long t,
+                               @NonNull com.fadcam.ui.faditor.keyframe.Easing ease) {
+        com.fadcam.ui.faditor.keyframe.KeyframeTrack tr = keyframes.getOrCreate(property);
+        for (com.fadcam.ui.faditor.keyframe.Keyframe k : tr.keyframes) {
+            if (k.timeMs == t) return;
+        }
+        tr.put(t, value, ease);
     }
 
     // ── Undo snapshot (one undo step per preview gesture, house rule) ─────

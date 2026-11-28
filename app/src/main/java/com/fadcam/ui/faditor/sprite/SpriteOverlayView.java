@@ -137,8 +137,16 @@ public class SpriteOverlayView extends View {
                 new ScaleGestureDetector.SimpleOnScaleGestureListener() {
                     @Override public boolean onScale(ScaleGestureDetector d) {
                         if (manipulating != null) {
-                            manipulating.setSizeFraction(
-                                    manipulating.getSizeFraction() * d.getScaleFactor());
+                            SpriteOverlayItem m = manipulating;
+                            if (m.isArmed()) {
+                                // A keyed sprite is scaled from its key at this moment, not from its static size.
+                                float own = m.getKeyframes().valueAt(com.fadcam.ui.faditor.keyframe.KeyframeSet.SCALE,
+                                        m.toLocalMs(currentTimeMs), m.getSizeFraction());
+                                m.addPropertyKeyframeAt(com.fadcam.ui.faditor.keyframe.KeyframeSet.SCALE,
+                                        currentTimeMs, own * d.getScaleFactor());
+                            } else {
+                                m.setSizeFraction(m.getSizeFraction() * d.getScaleFactor());
+                            }
                             invalidate();
                         }
                         return true;
@@ -423,11 +431,14 @@ public class SpriteOverlayView extends View {
         SpriteSheetRenderer renderer = sheet != null
                 ? callback.lookupRenderer(o.getSheetId()) : null;
 
+        // Always the pose at this moment, the one the box and the export read. A drag writes the pose it shows (keys on a
+        // keyed sprite, the statics on an unkeyed one), so there is no separate "live" pose: drawing the statics while
+        // touched put a keyed sprite back to its un-keyed place under the finger (owner, 11-28).
         boolean live = o == manipulating;
-        float cx = r.left + (live ? o.getCenterX() : o.animatedCenterX(currentTimeMs)) * r.width();
-        float cy = r.top + (live ? o.getCenterY() : o.animatedCenterY(currentTimeMs)) * r.height();
-        float sizeFraction = live ? o.getSizeFraction() : o.animatedSizeFraction(currentTimeMs);
-        float rot = live ? o.getRotationDeg() : o.animatedRotation(currentTimeMs);
+        float cx = r.left + o.animatedCenterX(currentTimeMs) * r.width();
+        float cy = r.top + o.animatedCenterY(currentTimeMs) * r.height();
+        float sizeFraction = o.animatedSizeFraction(currentTimeMs);
+        float rot = o.animatedRotation(currentTimeMs);
         float alpha = live ? 1f
                 : Math.max(0f, Math.min(1f, o.animatedOpacity(currentTimeMs)));
 
@@ -523,8 +534,9 @@ public class SpriteOverlayView extends View {
                 beforeGesture = hit.snapshotTransform();
                 downRawX = e.getRawX();
                 downRawY = e.getRawY();
-                startCenterX = hit.getCenterX();
-                startCenterY = hit.getCenterY();
+                // The pose it has NOW (its keys at this moment, its own space), not its static position.
+                startCenterX = hit.ownCenterX(currentTimeMs);
+                startCenterY = hit.ownCenterY(currentTimeMs);
                 moved = false;
                 heldFired = false;
                 postDelayed(holdRunnable,
@@ -561,7 +573,13 @@ public class SpriteOverlayView extends View {
                     nx = snap(nx, true);
                     ny = snap(ny, false);
                 }
-                manipulating.setCenter(clamp(nx), clamp(ny));
+                if (manipulating.isArmed()) {
+                    // Keyed: the move IS a key at this moment, written as it happens, so what is drawn is what is kept.
+                    manipulating.addPropertyKeyframeAt(com.fadcam.ui.faditor.keyframe.KeyframeSet.X, currentTimeMs, clamp(nx));
+                    manipulating.addPropertyKeyframeAt(com.fadcam.ui.faditor.keyframe.KeyframeSet.Y, currentTimeMs, clamp(ny));
+                } else {
+                    manipulating.setCenter(clamp(nx), clamp(ny));
+                }
                 invalidate();
                 return true;
             }
@@ -588,11 +606,8 @@ public class SpriteOverlayView extends View {
                     callback.onSpriteTapped(o);
                 }
                 if (o != null && moved && e.getActionMasked() == MotionEvent.ACTION_UP) {
-                    if (o.isArmed()) {
-                        long t = snapEnabled ? snapTimeMs(currentTimeMs) : currentTimeMs;
-                        if (t != currentTimeMs) currentTimeMs = t;
-                        o.addKeyframeAt(currentTimeMs);
-                    }
+                    // A keyed sprite was keyed as it moved (X and Y at this moment). Keying the whole static pose here, as
+                    // this used to, put its keyed angle and size back to the statics on every drag.
                     if (beforeGesture != null) callback.onSpriteManipulated(o, beforeGesture);
                     callback.onSpriteChanged();
                 }

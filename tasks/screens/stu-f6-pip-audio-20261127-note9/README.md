@@ -1,5 +1,8 @@
 # STU-F6: two PiPs with sound, Note 9, 2026-11-27 (partly done)
 
+**CORRECTION 11-28 (read against the code, phone-free):** a PiP is silent BY DESIGN (SPEC_PIP_AUDIO, `Clip.overlayAudioEnabled` defaults false; PiPs are added with `audioMuted=true`, "pixels only", M-EXPORT-1). Sound is an opt-in: select the PiP, open its object menu, tap **Include audio** (`addPipAudioAction`, one undo step). So the silent export below is the intended default, NOT a fault, and my "FAIL" call below is withdrawn. What remains a real, smaller finding: the Volume panel's mute button and the "100%" readout do not reflect that opt-in (the panel read 100% on a silent PiP). The true F6 test is: Include audio on BOTH PiPs, export, decode for 440 Hz and 1320 Hz (still owed, needs the phone).
+
+
 Set-up: blank project, main clip 6 s (2000 Hz tone), PiP A (440 Hz, 8 s) and PiP B (1320 Hz, 8 s) added with Add > Video overlay (PiP), all start at 0.
 Checked with ffmpeg + a tone check (`tone_check.py`): the tone of each source is present in its source file.
 

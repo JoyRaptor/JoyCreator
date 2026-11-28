@@ -36,7 +36,8 @@ if ! python3 "$HERE_LIB/uia.py" count /tmp/ui.xml "stu4_gaps_test" | grep -qv '^
     dump audio_downloads
 fi
 tap_text "stu4_gaps_test" >/dev/null 2>&1 || { shot sound_not_found; exit 1; }
-settle 8
+settle 6
+tap_text "Eagerly" >/dev/null 2>&1; settle 8
 shot audio_added
 dump audio_added
 python3 "$HERE_LIB/uia.py" list /tmp/ui.xml | head -40

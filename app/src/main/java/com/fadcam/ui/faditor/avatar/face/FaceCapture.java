@@ -135,6 +135,7 @@ public final class FaceCapture {
      * are now. Public so a test can stand in for the camera.
      */
     public void onBody(@Nullable float[] xyv, float tall, double tSeconds) {
+        if (!shouldersOn) return;                                // (switched off: a reading still on its way is not a shrug)
         shoulders.reading(xyv, tall, tSeconds, bus.face().tuning().mirror, shoulderSens);
         lastBodyNanos = System.nanoTime();
     }

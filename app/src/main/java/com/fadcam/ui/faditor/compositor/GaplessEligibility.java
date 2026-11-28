@@ -15,11 +15,21 @@ public final class GaplessEligibility {
     /** Whether the baked reversed copy of a ping-pong clip is ready (null: unknown, so not ready). */
     public interface ReversedReady { boolean ready(Clip c); }
 
-    /** Today's rule: two or more clips, no transitions; loops only with their reverse ready. */
+    /**
+     * Plain cuts, NORMAL loops, PING_PONG loops whose reversed copy is baked, and image clips; no transitions. Two or more
+     * clips, or ONE clip with a loop extension: the engine's first job (07-02) was crossing cuts, so it asked for two
+     * clips, and when loops and the true ping-pong reverse were added to it a lone looped clip was never let in. It fell
+     * back to the legacy preview, which replays a ping-pong forward (STU-F7, Note 9, 11-28). One plain clip keeps the
+     * legacy path: it has nothing to gain.
+     */
     public static boolean eligible(@Nullable Timeline timeline, @Nullable ReversedReady reversed) {
         if (timeline == null) return false;
         int count = timeline.getClipCount();
-        if (count < 2) return false;
+        if (count == 0) return false;
+        if (count == 1) {
+            Clip only = timeline.getClip(0);
+            if (only == null || only.isImageClip() || !only.hasLoopExtension()) return false;
+        }
         if (timeline.getTransitions() != null && !timeline.getTransitions().isEmpty()) return false;
         for (int i = 0; i < count; i++) {
             Clip c = timeline.getClip(i);

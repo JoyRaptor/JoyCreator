@@ -325,46 +325,15 @@ public class MasterPlaybackEngine {
      * ({@code resolver.resolveReversed(clip) != null}), and IMAGE clips (played as native media3
      * image windows via {@code MediaItem.Builder#setImageDurationMs} — the same pipeline export
      * uses — so a freeze-frame/photo insert no longer punts the WHOLE project back to the legacy
-     * cold-re-prepare path; see road_map 🔴 P0 2026-07-07). Requires ≥2 clips and no transitions.
+     * cold-re-prepare path; see road_map 🔴 P0 2026-07-07). Two or more clips, or one clip with a loop extension
+     * (STU-F7), and no transitions.
      * A PING_PONG clip whose bake is missing/too-long makes the whole timeline ineligible (legacy
      * forward-tail path handles it until the bake completes and a rebuild re-checks). STILL clips
      * remain legacy (L3).
      */
     public static boolean isEligible(@Nullable Timeline timeline, @Nullable SourceResolver resolver) {
-        if (timeline == null) return false;
-        int count = timeline.getClipCount();
-        if (count < 2) return false;
-        if (timeline.getTransitions() != null && !timeline.getTransitions().isEmpty()) return false;
-        for (int i = 0; i < count; i++) {
-            Clip c = timeline.getClip(i);
-            if (c == null) return false;
-            if (c.isImageClip()) {
-                // A still frame is loop-mode-agnostic (looping/reversing a still is the still),
-                // so ANY image clip is served as one image window of its full visual duration.
-                if (c.getSourceUri() == null) return false;
-                continue;
-            }
-            // SHORT-SPEED-CLIP FREEZE — FIXED AT THE ROOT (2026-07-07). The f855e51 eligibility
-            // guard that used to bail short speed≠1 clips to the legacy path is REMOVED: the
-            // freeze was a cross-renderer deadlock in media3 (a first window whose post-Sonic
-            // audio undershoots the AudioTrack start threshold never starts the position clock;
-            // video then can't drain, the reading period can't advance, and no more audio ever
-            // arrives). The patched DefaultAudioSink now detects the never-started-track wedge
-            // and forces playout (media3-patched "short-first-window deadlock" patch) — REQUIRES
-            // the media3-exoplayer source substitution in settings.gradle.kts. Device-proven on
-            // SM-N960U: "bisect A 2x clip" (250ms@2x, froze permanently) now plays end-to-end
-            // with one ~400ms recovery hiccup; long-2x / image controls play with zero kicks.
-            int loopMode = c.getLoopMode();
-            if (loopMode == Clip.LOOP_MODE_OFF || loopMode == Clip.LOOP_MODE_NORMAL) continue;
-            if (loopMode == Clip.LOOP_MODE_PING_PONG) {
-                // Eligible ONLY when the reverse leg's baked file is cached. Not-yet-baked or
-                // guard-too-long → ineligible → legacy forward-tail until a rebuild re-checks.
-                if (resolver != null && resolver.resolveReversed(c) != null) continue;
-                return false;
-            }
-            return false; // STILL (L3) or anything else → legacy
-        }
-        return true;
+        // One rule, testable without a player (GaplessEligibilityTest).
+        return GaplessEligibility.eligible(timeline, resolver == null ? null : c -> resolver.resolveReversed(c) != null);
     }
 
     // ── Build / lifecycle ────────────────────────────────────────────────

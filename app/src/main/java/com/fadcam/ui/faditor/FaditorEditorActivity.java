@@ -8691,6 +8691,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 mode, clip.getLoopBeforeMs(), clip.getLoopAfterMs()));
         refreshLoopDrawer();
         editorTimeline.setTimeline(project.getTimeline(), selectedClipIndex);
+        refreshTotalTimeDisplay();   // a loop mode change can change the length (STU-F7)
         // L1: mode/extension changed the clip's loop-rep windows (or its gapless eligibility
         // entirely, e.g. switching to/from OFF/PING_PONG/STILL) — rebuild the gapless playlist
         // the same way the drag path (onLoopTrimFinished) and undo/redo
@@ -8730,6 +8731,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 mode, clip.getLoopBeforeMs(), clip.getLoopAfterMs()));
         refreshLoopDrawer();
         editorTimeline.setTimeline(project.getTimeline(), selectedClipIndex);
+        refreshTotalTimeDisplay();   // the extension is length: the total read 00:18 beside a 22 s clip (STU-F7)
         // L1: same reasoning as applyLoopMode above — the extension length changed, so the
         // gapless engine's playlist (rep count/boundaries) is stale until rebuilt.
         if (!clip.isImageClip()) {

@@ -68,7 +68,8 @@ public class AvatarStudioHandTest {
             .putExtra(RoomExportSheet.EXTRA_DROP_CHARACTER, CharacterLoader.assetRef(CharacterAssets.TOPPS))
             .putExtra(RoomExportSheet.EXTRA_DROP_KEY_COLOUR, 0)
             .putExtra(RoomExportSheet.EXTRA_OPEN_EXPORT, false);
-        try (ActivityScenario<FaditorEditorActivity> sc = ActivityScenario.launch(it)) {
+        ActivityScenario<FaditorEditorActivity> sc = ActivityScenario.launch(it);
+        try {
             // 1. Studio with Topps on the picture
             SpriteOverlayView layer = null;
             SpriteOverlayItem item = null;
@@ -150,6 +151,8 @@ public class AvatarStudioHandTest {
             assertTrue("Studio's preview plays the hand the finger moved (" + String.format(Locale.ROOT, "%.2f%%", moved * 100) + " changed)",
                 moved > 0.005);
         } finally {
+            if (Emu.find("Done", 1000) != null) Emu.tapText("Done", 500);   // the pop-up closes first
+            Emu.closeSoon(sc, 15000);
             Log.i(Emu.TAG, log.toString());
             try (java.io.FileOutputStream f = new java.io.FileOutputStream(new File(out, "hand.txt"))) { f.write(log.toString().getBytes("UTF-8")); }
         }

@@ -16,9 +16,8 @@ tap_text "Rename" >/dev/null 2>&1; settle 3; shot rename_dialog
 dump rename; python3 "$HERE_LIB/uia.py" list /tmp/ui.xml | head -14
 adb shell input keyevent KEYCODE_MOVE_END; for i in $(seq 1 12); do adb shell input keyevent KEYCODE_DEL; done
 adb shell input text "Renamed_one"; settle 1; shot rename_typed
-adb shell input keyevent KEYCODE_ENTER; settle 4
+adb shell input keyevent KEYCODE_BACK; settle 2; shot keyboard_hidden; tap_text "Rename" >/dev/null 2>&1; settle 4
 shot after_rename; dump after_rename; python3 "$HERE_LIB/uia.py" list /tmp/ui.xml | grep -i "renamed\|Drawing" | head
-adb shell input keyevent KEYCODE_BACK; settle 2
 echo "== C. Move to Trash"
 hold 270 440 1300; settle 4
 tap_text "Move to Trash" >/dev/null 2>&1; settle 4; shot after_trash

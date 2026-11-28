@@ -91,7 +91,7 @@ public final class SceneUi extends FrameLayout {
     private double animT, animDur;
     private boolean wasFrame;
     private SceneRoom room;
-    private java.util.List<cc.joycreator.avatar.scene.SceneStore.Entry> sceneList = new java.util.ArrayList<>();
+    private java.util.List<cc.joycreator.avatar.ui.SceneStore.Entry> sceneList = new java.util.ArrayList<>();
     private boolean sceneTex;
 
     public SceneUi(Context c, Host host) {
@@ -209,7 +209,7 @@ public final class SceneUi extends FrameLayout {
     public void refreshScenes() {
         final android.content.Context cx = getContext();
         com.fadcam.joyfolder.android.JoyFolderHome.io().execute(() -> {
-            final java.util.List<cc.joycreator.avatar.scene.SceneStore.Entry> l = cc.joycreator.avatar.scene.SceneStore.list(cx);
+            final java.util.List<cc.joycreator.avatar.ui.SceneStore.Entry> l = cc.joycreator.avatar.ui.SceneStore.list(cx);
             post(() -> {
                 sceneList = l;
                 sync(true);
@@ -417,7 +417,7 @@ public final class SceneUi extends FrameLayout {
                     () -> {
                         if (inScene()) room.close(true);
                     }, host::setUpCharacter, true);
-            for (cc.joycreator.avatar.scene.SceneStore.Entry e : sceneList) {
+            for (cc.joycreator.avatar.ui.SceneStore.Entry e : sceneList) {
                 final String path = e.path;
                 boolean on = inScene() && path.equals(room.pathNow());
                 card(cards, null, e.name, getContext().getString(R.string.avatar_sc_scene_hover, e.name), on, 0, side,

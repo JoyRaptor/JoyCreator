@@ -27,7 +27,6 @@ import cc.joycreator.avatar.scene.SceneClock;
 import cc.joycreator.avatar.scene.SceneDraw;
 import cc.joycreator.avatar.scene.SceneFile;
 import cc.joycreator.avatar.scene.SceneGeometry;
-import cc.joycreator.avatar.scene.SceneStore;
 import cc.joycreator.avatar.solve.Signals;
 import com.fadcam.joyfolder.android.JoyFolderHome;
 import com.fadcam.ui.faditor.Studio;
@@ -61,6 +60,9 @@ public final class SceneRoom {
 
         /** The four stage tabs should show this one chosen. */
         void stageChosen(int idx);
+
+        /** A scene was written to the folder (the list of scenes may have changed). */
+        void saved();
     }
 
     private final Host host;
@@ -267,7 +269,9 @@ public final class SceneRoom {
         for (Map.Entry<String, CharacterDoc> e : docs.entrySet()) chars.put(e.getKey(), e.getValue().json);
         JoyFolderHome.io().execute(() -> {
             String np = SceneStore.save(c, s, null, chars, null, p);
+            boolean first = p == null && np != null;
             if (np != null && scene == s) path = np;
+            if (first) main.post(host::saved);
         });
     }
 

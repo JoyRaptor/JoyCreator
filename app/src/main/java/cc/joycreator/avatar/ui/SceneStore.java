@@ -1,9 +1,11 @@
-package cc.joycreator.avatar.scene;
+package cc.joycreator.avatar.ui;
 
 import android.content.Context;
 import android.util.Log;
 
 import cc.joycreator.avatar.perform.Take;
+import cc.joycreator.avatar.scene.Scene;
+import cc.joycreator.avatar.scene.SceneFile;
 
 import com.fadcam.joyfolder.FileKind;
 import com.fadcam.joyfolder.FolderIndex;

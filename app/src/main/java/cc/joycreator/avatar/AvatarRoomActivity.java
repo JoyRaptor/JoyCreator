@@ -226,6 +226,11 @@ public final class AvatarRoomActivity extends Activity implements RoomMenu.Host,
             public void stageChosen(int idx) {
                 if (idx != stageIndex) selectStage(idx);
             }
+
+            @Override
+            public void saved() {
+                if (sceneUi != null) sceneUi.refreshScenes();
+            }
         }, sceneGl);
         stageBox.addView(sceneRoom.stageView(), new android.widget.FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
         stageBox.addView(buildStageTools(), new android.widget.FrameLayout.LayoutParams(px(44), ViewGroup.LayoutParams.WRAP_CONTENT, Gravity.END | Gravity.TOP));

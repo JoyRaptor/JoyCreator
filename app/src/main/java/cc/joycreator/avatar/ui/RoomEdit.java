@@ -108,14 +108,22 @@ public final class RoomEdit {
         return true;
     }
 
-    /** What a step keeps: the tree and the take (the pictures never change in a step, so they are not copied). */
+    /** Never copied by a step: the pictures (they never change in one, and they are the bulk of the file). */
+    private static final String PICTURES = "pictures";
+
+    /**
+     * What a step keeps: everything in the file but the pictures: the tree, the take, and what lives beside the tree (the
+     * settings, the stances, the colour sets, the buttons, the face pins). (The face session, 11-28: an undone face pin left its
+     * record behind, and an undone setting stayed, while only the tree and the take were kept.)
+     */
     private String tree() {
         try {
             JSONObject o = new JSONObject();
-            JSONObject r = doc.json.optJSONObject("root");
-            o.put("root", r == null ? new JSONObject() : r);
-            Object take = doc.json.opt("take");
-            if (take != null) o.put("take", take);
+            for (java.util.Iterator<String> it = doc.json.keys(); it.hasNext(); ) {
+                String k = it.next();
+                if (!PICTURES.equals(k)) o.put(k, doc.json.get(k));
+            }
+            if (!o.has("root")) o.put("root", new JSONObject());
             return o.toString();
         } catch (JSONException e) {
             return "{}";
@@ -125,9 +133,16 @@ public final class RoomEdit {
     private void restore(String text) {
         try {
             JSONObject o = new JSONObject(text);
-            doc.json.put("root", o.getJSONObject("root"));
-            if (o.has("take")) doc.json.put("take", o.get("take"));
-            else doc.json.remove("take");
+            List<String> gone = new ArrayList<>();
+            for (java.util.Iterator<String> it = doc.json.keys(); it.hasNext(); ) {
+                String k = it.next();
+                if (!PICTURES.equals(k) && !o.has(k)) gone.add(k);
+            }
+            for (String k : gone) doc.json.remove(k);
+            for (java.util.Iterator<String> it = o.keys(); it.hasNext(); ) {
+                String k = it.next();
+                doc.json.put(k, o.get(k));
+            }
             doc = doc.reread();
         } catch (JSONException e) {
             Log.w(TAG, "undo could not restore", e);

@@ -431,6 +431,14 @@ public final class SceneUi extends FrameLayout {
                         () -> room.select(id), () -> room.host().stageChosen(1), true);
             }
             add(cards, getContext().getString(R.string.avatar_sc_add_hover), idx, side, room::addCharacterSheet);
+            if (room.anyTake() || room.playingAll()) {
+                boolean on = room.playingAll();
+                addText(cards, on ? "\u25A0" : "\u25B6", getContext().getString(on ? R.string.avatar_sc_stop_all : R.string.avatar_sc_play_all), idx, side, () -> {
+                    if (room.playingAll()) room.stopAll();
+                    else room.playAll();
+                    sync(true);
+                });
+            }
         } else if (idx == 1) {                               // Character: the one in hand
             card(cards, host.characterPic(), host.characterName(), getContext().getString(R.string.avatar_sc_char_hover, host.characterName()), true, 1, side,
                     () -> {
@@ -507,8 +515,12 @@ public final class SceneUi extends FrameLayout {
     }
 
     private void add(LinearLayout row, String hover, int idx, boolean side, Runnable fn) {
+        addText(row, "+", hover, idx, side, fn);
+    }
+
+    private void addText(LinearLayout row, String text, String hover, int idx, boolean side, Runnable fn) {
         TextView a = new TextView(getContext());
-        a.setText("+");
+        a.setText(text);
         a.setGravity(Gravity.CENTER);
         a.setTextSize(18);
         a.setTextColor(PART_COLOR[idx]);

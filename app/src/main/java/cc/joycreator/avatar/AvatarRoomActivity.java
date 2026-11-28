@@ -238,6 +238,21 @@ public final class AvatarRoomActivity extends Activity implements RoomMenu.Host,
             public void saved() {
                 if (sceneUi != null) sceneUi.refreshScenes();
             }
+
+            @Override
+            public void handChanged(CharacterDoc d, Take take) {           // the performer works on this scene character now
+                character = d;
+                characterPath = null;
+                unsaved = false;
+                showCharacter();
+                inputs.recorder.setTake(take);
+                applyPanels();
+            }
+
+            @Override
+            public cc.joycreator.avatar.perform.TakeRecorder handRecorder() {
+                return inputs.recorder;
+            }
         }, sceneGl);
         stageBox.addView(sceneRoom.stageView(), new android.widget.FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
         stageBox.addView(buildStageTools(), new android.widget.FrameLayout.LayoutParams(px(44), ViewGroup.LayoutParams.WRAP_CONTENT, Gravity.END | Gravity.TOP));
@@ -455,11 +470,11 @@ public final class AvatarRoomActivity extends Activity implements RoomMenu.Host,
         if (layers == null || parts == null || performPanel == null) return;
         boolean matching = landmarks != null && landmarks.isOpen();
         boolean inScene = sceneRoom != null && sceneRoom.isOpen();         // a scene in hand has its own cards
-        boolean perform = !showLayers && !matching && !inScene && stageIndex >= 2;
+        boolean perform = !showLayers && !matching && (inScene ? stageIndex == 3 && sceneRoom.hand() != null : stageIndex >= 2);
         layers.setVisibility(showLayers && !matching && !inScene ? View.VISIBLE : View.GONE);
         parts.setVisibility(!showLayers && !matching && !perform && !inScene ? View.VISIBLE : View.GONE);
         performPanel.setVisibility(perform ? View.VISIBLE : View.GONE);
-        if (sceneRoom != null) sceneRoom.cardView().setVisibility(inScene && !matching ? View.VISIBLE : View.GONE);
+        if (sceneRoom != null) sceneRoom.cardView().setVisibility(inScene && !matching && !perform ? View.VISIBLE : View.GONE);
         if (landmarks != null) landmarks.view().setVisibility(matching ? View.VISIBLE : View.GONE);
         if (glStage != null) updateGl();
     }
@@ -1896,6 +1911,10 @@ public final class AvatarRoomActivity extends Activity implements RoomMenu.Host,
     }
 
     private void commitTake(String stepName) {
+        if (sceneRoom != null && sceneRoom.isOpen() && sceneRoom.hand() != null) {      // in a scene the take belongs to the scene
+            sceneRoom.takeKept(inputs.recorder.take());
+            return;
+        }
         if (edit == null) return;
         final Take t = inputs.recorder.take();
         edit.apply(stepName, doc -> {
@@ -1983,6 +2002,7 @@ public final class AvatarRoomActivity extends Activity implements RoomMenu.Host,
             walker.step(dt, S, glStage.anchors(), glStage.tips());
             S.flip = inputs.flip();
         }
+        if (sceneRoom != null && sceneRoom.isOpen()) sceneRoom.handSignals(S);       // the scene draws the one in hand from these
         glStage.frame(S, true, dt, stage.viewScale(), stage.viewX(), stage.viewY());
         Object tx = sig.get("turnX"), ty = sig.get("turnY");
         if (tx instanceof Number && ty instanceof Number) performPanel.showHead(((Number) tx).doubleValue(), ((Number) ty).doubleValue());

@@ -22,6 +22,8 @@ import androidx.appcompat.widget.TooltipCompat;
 import cc.joycreator.avatar.file.CharacterAssets;
 import cc.joycreator.avatar.file.CharacterDoc;
 import cc.joycreator.avatar.file.CharacterStore;
+import cc.joycreator.avatar.perform.Take;
+import cc.joycreator.avatar.perform.TakeRecorder;
 import cc.joycreator.avatar.scene.Scene;
 import cc.joycreator.avatar.scene.SceneClock;
 import cc.joycreator.avatar.scene.SceneDraw;
@@ -63,6 +65,12 @@ public final class SceneRoom {
 
         /** A scene was written to the folder (the list of scenes may have changed). */
         void saved();
+
+        /** A character is taken in hand: the room's own performer (stage, inputs, panel) works on it, with this take. */
+        void handChanged(CharacterDoc doc, Take take);
+
+        /** The room's own recorder (the one the Record and Play buttons run), for the one in hand. */
+        TakeRecorder handRecorder();
     }
 
     private final Host host;
@@ -88,6 +96,40 @@ public final class SceneRoom {
     private float[] frameRect;                                         // px, or null when the frame is off
     private boolean dirtyCard;
     private boolean toldNoFolder;
+    private final Map<String, Take> takes = new HashMap<>();             // each character's take in this scene, by cast item id
+    private String hand;                                                 // the cast item the room's performer is working on
+    private cc.joycreator.avatar.solve.Signals handSig;
+    private final ScenePlayers players = new ScenePlayers(new ScenePlayers.Env() {
+        @Override
+        public Scene scene() {
+            return scene;
+        }
+
+        @Override
+        public Map<String, CharacterDoc> docs() {
+            return docs;
+        }
+
+        @Override
+        public Map<String, Take> takes() {
+            return takes;
+        }
+
+        @Override
+        public String hand() {
+            return hand;
+        }
+
+        @Override
+        public TakeRecorder handRecorder() {
+            return host.handRecorder();
+        }
+
+        @Override
+        public double[] boxOf(String id) {
+            return boxes.get(id);
+        }
+    });
 
     public SceneRoom(Host host, SceneStage gl) {
         this.host = host;
@@ -143,7 +185,7 @@ public final class SceneRoom {
     /** A new scene on a set ({@code setKey}: meadow, room, night, studio, or "plain"), with a name, kept in the folder at once. */
     public void create(String setKey, String name) {
         Scene s = Scene.blank(Long.toString(System.currentTimeMillis(), 36), name, setKey);
-        show(s, null, new HashMap<>());
+        show(s, null, new HashMap<>(), new HashMap<>());
         scheduleSave(0);
     }
 
@@ -161,13 +203,16 @@ public final class SceneRoom {
                     CharacterDoc d = cc.joycreator.avatar.file.CharacterOpen.read(e.getValue().toString());
                     if (d != null) carried.put(e.getKey(), d);
                 }
-                show(r.scene, p, carried);
+                show(r.scene, p, carried, r.takes);
             });
         });
     }
 
-    private void show(Scene s, String p, Map<String, CharacterDoc> carried) {
+    private void show(Scene s, String p, Map<String, CharacterDoc> carried, Map<String, Take> tk) {
         close(false);
+        takes.clear();
+        takes.putAll(tk);
+        hand = null;
         scene = s;
         path = p;
         clock = new SceneClock(s);
@@ -253,6 +298,10 @@ public final class SceneRoom {
         Map<String, JSONObject> m = new LinkedHashMap<>();
         for (Map.Entry<String, CharacterDoc> e : docs.entrySet()) m.put(e.getKey(), e.getValue().json);
         gl.setCast(m);
+        if (hand == null && scene != null) for (JSONObject it : scene.cast()) if (docs.containsKey(it.optString("id"))) {
+            setHand(it.optString("id"));
+            break;
+        }
         dirtyCard = true;
     }
 
@@ -268,8 +317,9 @@ public final class SceneRoom {
         final String p = path;
         final Map<String, JSONObject> chars = new LinkedHashMap<>();
         for (Map.Entry<String, CharacterDoc> e : docs.entrySet()) chars.put(e.getKey(), e.getValue().json);
+        final Map<String, Take> tk = new HashMap<>(takes);
         JoyFolderHome.io().execute(() -> {
-            String np = SceneStore.save(c, s, null, chars, null, p);
+            String np = SceneStore.save(c, s, tk, chars, null, p);
             boolean first = p == null && np != null;
             if (np != null && scene == s) path = np;
             if (first) main.post(host::saved);
@@ -295,6 +345,7 @@ public final class SceneRoom {
     public void tick(double dt, int glassW, int glassH, float[] frame, float[] area, float[] picture) {
         if (scene == null) return;
         t += dt;
+        if (alive()) clock.tick(players, hand, dt);
         double[] fr = scene.frame();
         boolean live = alive();
         frameRect = frame;
@@ -367,7 +418,9 @@ public final class SceneRoom {
         if (d == null) return;
         SceneStage.Layer l = new SceneStage.Layer();
         l.actor = id;
-        l.signals = new Signals();
+        l.live = alive();
+        java.util.Map<String, Object> m = id.equals(hand) ? null : players.signalsFor(id);
+        l.signals = id.equals(hand) && handSig != null ? handSig : m != null ? SignalMap.toSignals(m, t, 0) : new Signals();
         double[] box = rest.get(id);
         if (box != null) {
             SceneGeometry.Place p = SceneDraw.place(scene, it, box, d.json.optJSONObject("settings"));
@@ -430,7 +483,7 @@ public final class SceneRoom {
                 case MotionEvent.ACTION_DOWN: {
                     String id = pick(e.getX(), e.getY());
                     if (id != null && !id.equals(sel)) {
-                        sel = id;
+                        select(id);
                         dirtyCard = true;
                     } else if (id == null && sel != null) {
                         sel = null;
@@ -512,7 +565,56 @@ public final class SceneRoom {
 
     void select(String id) {
         sel = id;
+        JSONObject it = id == null ? null : scene.item(id);
+        if (it != null && "cast".equals(it.optString("kind"))) setHand(id);
         rebuild();
+    }
+
+    /** The room's performer takes this character: Perform's controls (record, play, the joystick) work on it. */
+    void setHand(String id) {
+        if (id == null || id.equals(hand) || !docs.containsKey(id)) return;
+        hand = id;
+        host.handChanged(docs.get(id), takes.get(id));
+        dirtyCard = true;
+    }
+
+    public String hand() {
+        return hand;
+    }
+
+    /** Called by the room each frame with what the performer reads for the one in hand. */
+    public void handSignals(cc.joycreator.avatar.solve.Signals s) {
+        handSig = s;
+    }
+
+    /** A pass ended or a take was taken back or cleared: the one in hand's take is the scene's, kept with it. */
+    public void takeKept(Take tk) {
+        if (hand == null) return;
+        if (tk == null || tk.n == 0) takes.remove(hand);
+        else takes.put(hand, tk.copy());
+        players.forget(hand);
+        changed();
+    }
+
+    /** Play everyone from the start, together on the one clock. */
+    public void playAll() {
+        if (clock == null) return;
+        host.handRecorder().stop();
+        clock.forgetCamPass();
+        clock.playAll(players);
+    }
+
+    public void stopAll() {
+        if (clock != null) clock.stop(players, hand);
+        host.handRecorder().stop();
+    }
+
+    public boolean playingAll() {
+        return clock != null && clock.runPlay;
+    }
+
+    public boolean anyTake() {
+        return !takes.isEmpty() || (host.handRecorder().take() != null && hand != null);
     }
 
     Map<String, CharacterDoc> docs() {

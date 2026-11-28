@@ -82,6 +82,8 @@ class LayerColumnView(private val kit: ChromeKit, private val host: Host) : Line
     private var max = 0
     private var used = 0
     private val thumbs = HashMap<String, Bitmap>()
+    /** Layers that hold editable lines (Concepts parity item 5): their cells wear the lines mark, their rows say "lines". */
+    private val lined = HashSet<String>()
     private val maskThumbs = HashMap<String, Bitmap>()
     private var editingMask = false
     private var animationBoardId: String? = null
@@ -265,7 +267,7 @@ class LayerColumnView(private val kit: ChromeKit, private val host: Host) : Line
         fun refresh() {
             val layer = stack?.get(layerId) ?: return
             name.text = layer.name
-            sub.text = "${Math.round(layer.opacity * 100)}%  ${BlendNames.name(layer.blend)}"
+            sub.text = "${Math.round(layer.opacity * 100)}%  ${BlendNames.name(layer.blend)}" + if (layerId in lined) "  lines" else ""
             for ((action, iv) in icons) {
                 val on = when (action) {
                     LayerAction.TOGGLE_VISIBLE -> !layer.visible
@@ -317,6 +319,17 @@ class LayerColumnView(private val kit: ChromeKit, private val host: Host) : Line
 
     /** The K9 toggle, if this row has eligible content in the selected animation board. */
     fun animationMarkerFor(id: String): View? = markers[id]?.takeIf { it.visibility == VISIBLE }
+
+    /** The layers that hold editable lines now; the cells and rows that changed are redrawn. */
+    fun setLinedLayers(ids: Set<String>) {
+        if (ids == lined) return
+        lined.clear(); lined.addAll(ids)
+        cells.values.forEach { it.invalidate() }
+        infos.values.forEach { it.refresh() }
+    }
+
+    /** Whether layer [id]'s cell wears the lines mark (tests). */
+    fun showsLines(id: String): Boolean = id in lined
 
     fun setThumbnails(map: Map<String, Bitmap>) {
         thumbs.putAll(map)
@@ -592,6 +605,7 @@ class LayerColumnView(private val kit: ChromeKit, private val host: Host) : Line
 
             if (!layer.visible) drawEyeOff(c, r.right - kit.dp(9f), r.top + kit.dp(8f))
             if (layer.locked) drawLock(c, r.left + kit.dp(9f), r.top + kit.dp(8f))
+            if (layer.id in lined) drawLinesMark(c, r.left + kit.dp(if (layer.locked) 18f else 3f), r.top + kit.dp(3f))
             if (layer.opacity < 0.995f) corner(c, "${(layer.opacity * 100).roundToInt()}%", r.left + kit.dp(3f), r.bottom - kit.dp(3f), left = true)
             val short = BlendNames.short(layer.blend)
             if (short.isNotEmpty()) corner(c, short, r.right - kit.dp(3f), r.bottom - kit.dp(3f), left = false)
@@ -619,6 +633,18 @@ class LayerColumnView(private val kit: ChromeKit, private val host: Host) : Line
 
         /** A crossed eye: this layer is hidden. */
         /** A locked layer (LAYER_OPS L1): the padlock on a dark disc, top left, opposite the hidden eye. */
+        /** The same lines mark the brush strip wears (BrushModeBadge), on a dark pill: this layer holds editable lines. */
+        private fun drawLinesMark(c: Canvas, x: Float, y: Float) {
+            val side = kit.dp(12f)
+            paint.shader = null
+            paint.style = Paint.Style.FILL
+            paint.color = ColorUtils.setAlphaComponent(kit.p.ground, 180)
+            c.drawRoundRect(x, y, x + side, y + side, kit.dp(3f), kit.dp(3f), paint)
+            cc.joycreator.joybrush.android.select.BrushModeBadge.drawMark(c, paint, true, kit.p.drawerInk, x + kit.dp(1.5f), y + kit.dp(1.5f), side - kit.dp(3f))
+            paint.style = Paint.Style.FILL
+            paint.alpha = 255
+        }
+
         private fun drawLock(c: Canvas, cx: Float, cy: Float) {
             val r = kit.dp(6.5f)
             paint.color = ColorUtils.setAlphaComponent(kit.p.ground, 180)

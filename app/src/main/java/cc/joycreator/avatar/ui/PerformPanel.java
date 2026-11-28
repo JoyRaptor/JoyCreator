@@ -267,7 +267,11 @@ public final class PerformPanel extends ScrollView {
                 paintChip(micChip, false);
                 paintChip(faceChip, false);
                 paintChip(stickChip, true);
-                for (int i = 0; i < chipRow.getChildCount(); i++) chipRow.getChildAt(i).setPadding(px(12), 0, px(12), 0);
+                for (int i = 0; i < chipRow.getChildCount(); i++) {              // three pictures fit the middle column: 18 dp each, close together
+                    View ch = chipRow.getChildAt(i);
+                    ch.setPadding(px(7), 0, px(7), 0);
+                    ((LinearLayout.LayoutParams) ch.getLayoutParams()).rightMargin = px(3);
+                }
             } else chipRow.addView(stickChip);
         }
         // the face's own controls, there only while the camera is on: a private preview, Re-centre, Mirror
@@ -672,7 +676,8 @@ public final class PerformPanel extends ScrollView {
         if (t.getTag() instanceof Integer) {                         // a picture-only chip: the room's own vector, white, cyan cut-out when ON
             android.graphics.drawable.Drawable d = getContext().getDrawable((Integer) t.getTag()).mutate();
             d.setTint(on ? Studio.GROUND : 0xFFFFFFFF);
-            t.setCompoundDrawablesWithIntrinsicBounds(d, null, null, null);
+            d.setBounds(0, 0, px(18), px(18));
+            t.setCompoundDrawables(d, null, null, null);
         }
     }
 

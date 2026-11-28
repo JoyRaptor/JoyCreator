@@ -142,6 +142,7 @@ public final class StickSheet {
             HorizontalScrollView hs = new HorizontalScrollView(c);
             hs.setHorizontalScrollBarEnabled(false);
             LinearLayout row = new LinearLayout(c);
+            final TextView[] chosen = {null};
             for (Stick.Act a : acts) {
                 final String slot = s[0], slotName = s[1];
                 boolean on = a.key.equals(m.get(slot));
@@ -154,6 +155,7 @@ public final class StickSheet {
                 g.setCornerRadius(16 * dp);
                 g.setColor(on ? Studio.ARMED : 0xFF27272A);          // ON = solid cyan, the label punched out
                 chip.setBackground(g);
+                if (on) chosen[0] = chip;
                 chip.setTextColor(on ? Studio.GROUND : 0xFFD4D4D8);
                 TooltipCompat.setTooltipText(chip, slotName + ": " + a.title);
                 chip.setContentDescription(slotName + ": " + a.title);
@@ -167,6 +169,9 @@ public final class StickSheet {
             }
             hs.addView(row);
             body.addView(hs);
+            hs.post(() -> {                                                     // each row shows its chosen act
+                if (chosen[0] != null) hs.scrollTo(Math.max(0, chosen[0].getLeft() - (int) (8 * dp)), 0);
+            });
         }
         TextView note = new TextView(c);
         note.setText(c.getString(R.string.avatar_stick_note, characterName));

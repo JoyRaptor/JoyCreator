@@ -100,6 +100,9 @@ public class AvatarCardsTest {
             Emu.tap(tabs[3]);
             Emu.sleep(1500);
             shot("perform-joystick");
+            ui(() -> room.inHand((String) get("inHand")));              // put the part in hand away: its outline hides the picture
+            Emu.sleep(800);
+            shot("perform-joystick-clear");
             ui(() -> room.openStickGestures());
             Emu.sleep(1000);
             shot("perform-gestures-sheet");

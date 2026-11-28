@@ -1076,6 +1076,8 @@ public final class AvatarRoomActivity extends Activity implements RoomMenu.Host,
         stageIndex = idx;
         if (idx != 1) stopReshape();
         testMouth = 0;
+        if (parts != null) parts.scrollTo(0, 0);                    // a new stage opens at the top of its card
+        if (performPanel != null) performPanel.scrollTo(0, 0);
         for (int i = 0; i < 4; i++) {
             boolean on = i == idx;
             GradientDrawable g = new GradientDrawable();

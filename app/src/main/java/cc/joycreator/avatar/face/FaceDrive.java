@@ -45,6 +45,9 @@ public final class FaceDrive {
 
     private Mode mode = Mode.OFF;
     private boolean puff;                                     // the Puff button is held
+    private org.json.JSONObject maskSet;                      // the head wearing the face mask (FACE-2), or null
+    private boolean maskMirrored = true;
+    private float[] maskRest;
     private double[] zero;                                    // {face turnX, turnY, roll, pad x, pad y, pad roll} when the face took over
     private final Map<String, Double> smPt = new HashMap<>(), smEx = new HashMap<>();
 
@@ -79,6 +82,13 @@ public final class FaceDrive {
 
     public boolean puffing() {
         return puff;
+    }
+
+    /** The face mask (FACE-2): the head set wearing it (null: none), Mirror on, and the neutral face's points (or null). */
+    public void mask(org.json.JSONObject headSet, boolean mirrored, float[] restPoints) {
+        maskSet = headSet != null && MaskDrive.points(headSet) != null ? headSet : null;
+        maskMirrored = mirrored;
+        maskRest = restPoints;
     }
 
     /** Re-centre (with the camera's new neutral): the head moves from where the pad is now. */
@@ -142,6 +152,7 @@ public final class FaceDrive {
         smPt.clear();                                          // (a point no longer watched, a face pin removed, lets go)
         smPt.putAll(next);
         out.putAll(smPt);
+        if (maskSet != null) MaskDrive.drive(maskSet, smPt, maskMirrored, maskRest, out);   // FACE-2: the mask follows the points
         for (String n : EXPR) {
             double v = face == null ? 0 : expr(face, n);
             if (puff && n.equals("cheekPuff")) v = 1;           // (the Puff button)

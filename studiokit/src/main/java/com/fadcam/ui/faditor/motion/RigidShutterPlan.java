@@ -14,58 +14,37 @@ public record RigidShutterPlan(SweptBounds bounds, List<Tap> taps, Trail trail) 
         this(bounds, taps, null);
     }
 
-    /** Most key poses a trail carries (two uniform rows each in the trail pass). */
-    public static final int MAX_TRAIL_POSES = 12;
+    /** The tap counts the smooth pass is built for; a plan uses the smallest that is enough. */
+    public static final int[] TAP_PROGRAMS = {12, 24, 48, 64};
 
-    /** Steps the trail pass takes between neighbouring key poses for a Smear. */
-    public static final int TRAIL_SUBSTEPS = 4;
+    /** Most taps a smooth plan carries (the largest program). */
+    public static final int MAX_TAPS = 64;
 
-    /** Dense look at the path, to place the key poses where the thing moves most. */
-    static final int PATH_PROBES = 48;
+    /** Most taps spent on the smear itself; the rest are left for Copies and the sharp pose. */
+    public static final int MAX_SMEAR_TAPS = 48;
 
-    /** Below this turn (radians) between key poses a segment is a plain slide. */
-    static final double SLIDE_TURN = 0.01;
+    /** Wanted gap between neighbouring taps, in canvas pixels: closer than this reads as one streak. */
+    public static final double TAP_GAP_PX = 3.0;
+
+    /** Dense look at the path, to place taps where the thing moves most. */
+    static final int PATH_PROBES = 64;
 
     /**
-     * STU-7 §K.2: how the trail pass draws {@link #taps} (the key poses, oldest first, raw Fade
-     * weights). {@code smearScale} and {@code copyScale} turn those weights into the smear's and
-     * the copies' share; {@code sharp} is the weight of the sharp pose that Mix keeps on top.
-     * {@code segments} has one entry per pair of neighbouring poses: how to get from one to the
-     * next as a turn about a fixed point, so the smear follows arcs (see {@link Segment}).
+     * STU-7 §K.2: a smooth plan's taps are real poses at real moments, oldest first, each with
+     * its weight already scaled. {@code smooth[i]} says tap i is a smear tap whose edges soften
+     * toward the next smear tap (a copy or the sharp pose stays crisp). {@code program} is the
+     * tap count of the pass to draw it with.
      */
-    public record Trail(MotionShutter.Look look, double smearScale, double copyScale, double sharp,
-                        Tap sharpTap, List<Segment> segments) {
-        public Trail {
-            segments = List.copyOf(segments);
-        }
-    }
+    public record Trail(MotionShutter.Look look, boolean[] smooth, int program) {}
 
     /**
-     * The motion from one key pose to the next as a similarity about a fixed point: in complex
-     * numbers z' = p + r (z - p) with r = e^(logScale + i turn). Part of it, r^t, is the same turn
-     * and zoom about the same point, so the steps in between trace the true arc of a swing or a
-     * spin (a straight line for a plain slide). A slide (no turn, no zoom) is stored as
-     * {@code (dx, dy, 0, 0)}.
-     */
-    public record Segment(double x, double y, double logScale, double turn) {
-        public boolean slide() { return logScale == 0.0 && turn == 0.0; }
-
-        /** Canvas point {@code z} moved back by fraction {@code t} of this segment. */
-        public double[] back(double zx, double zy, double t) {
-            if (slide()) return new double[]{zx - t * x, zy - t * y};
-            double k = Math.exp(-t * logScale), a = -t * turn;
-            double c = Math.cos(a), s = Math.sin(a), dx = zx - x, dy = zy - y;
-            return new double[]{x + k * (c * dx - s * dy), y + k * (s * dx + c * dy)};
-        }
-    }
-
-    /**
-     * A stylised window (long trail, Fade, Copies) from real earlier poses. Null when nothing
-     * moves, as for the camera plan.
+     * A smooth plan: a stylised window (long trail, Fade, Copies), or a camera window whose six
+     * taps would show as copies. Every tap is the thing where it really was at that moment, so a
+     * swing or a spin is exact with no maths per pixel. Null when nothing moves.
      *
-     * <p>Smear: up to {@link #MAX_TRAIL_POSES} key poses, placed by how far the thing's corners
-     * travel (dense where it moves fast, so the swinging end of an arm gets more of them).
-     * Copies and Both: {@code copies} poses evenly spread in time, since a ghost is a moment.</p>
+     * <p>Smear taps are placed by how far the thing's corners travel (dense where it moves
+     * fast), as many as needed to keep neighbours about {@link #TAP_GAP_PX} apart, up to
+     * {@link #MAX_SMEAR_TAPS}. Copies are evenly spread in time, since a ghost is a moment.</p>
      */
     public static RigidShutterPlan prepareTrail(ItemMotionSampler sampler, long centerUs,
                                                 MotionShutter.Controls controls, long periodUs,
@@ -79,7 +58,16 @@ public record RigidShutterPlan(SweptBounds bounds, List<Tap> taps, Trail trail) 
                                                 MotionShutter.Controls controls, long periodUs,
                                                 MotionBreaks breaks, MotionBreaks sourceBreaks,
                                                 int width, int height) {
-        boolean smearOnly = controls.look() == MotionShutter.Look.SMEAR;
+        return prepareTrail(sampler, centerUs, controls, periodUs, breaks, sourceBreaks, width,
+                height, MAX_SMEAR_TAPS);
+    }
+
+    /** {@link #prepareTrail} taking at most {@code maxSmearTaps} smear taps (the live preview). */
+    public static RigidShutterPlan prepareTrail(ItemMotionSampler sampler, long centerUs,
+                                                MotionShutter.Controls controls, long periodUs,
+                                                MotionBreaks breaks, MotionBreaks sourceBreaks,
+                                                int width, int height, int maxSmearTaps) {
+        MotionShutter.Look look = controls.look();
         MotionShutter.Schedule dense = controls.trailPoses(centerUs, periodUs, PATH_PROBES, breaks,
                 sourceBreaks);
         if (dense.timesUs().length < 2) return null;
@@ -87,131 +75,86 @@ public record RigidShutterPlan(SweptBounds bounds, List<Tap> taps, Trail trail) 
         if (!finite(sharp)) return null;
         ItemMotionSampler.Affine sharpInverse = invert(sharp);
         if (sharpInverse == null) return null;
-
         ItemMotionSampler.Affine[] probe = new ItemMotionSampler.Affine[dense.timesUs().length];
+        double[] run = new double[probe.length];
         for (int i = 0; i < probe.length; i++) {
             probe[i] = sampler.at(dense.timesUs()[i]);
             if (!finite(probe[i])) return null;
+            if (i > 0) run[i] = run[i - 1] + travel(probe[i - 1], probe[i]);
         }
-        // Key poses at exact places along the probes (fractional probe positions), so equal
-        // travel gives equal gaps: snapping to whole probes made a steady slide lumpy.
-        double[] at = smearOnly ? byTravel(probe, MAX_TRAIL_POSES)
-                : evenly(probe.length, Math.min(MAX_TRAIL_POSES, controls.copies()));
-        // The turn so far at each probe, laps included: neighbouring probes are close enough
-        // that each one's own turn is under half a circle, so a fast spin keeps its direction.
-        double[] turned = new double[probe.length];
-        for (int i = 1; i < probe.length; i++) {
-            turned[i] = turned[i - 1] + segment(probe[i - 1], probe[i], Double.NaN).turn();
-        }
+        double path = run[run.length - 1];
+        if (path <= 1e-6) return null;
 
-        var all = new ArrayList<ItemMotionSampler.Affine>(at.length + 1);
-        var taps = new ArrayList<Tap>(at.length);
-        double[] w = new double[at.length];
-        double[] turnAt = new double[at.length];
-        boolean differs = false;
-        for (int i = 0; i < at.length; i++) {
-            long t = Math.round(lerp(dense.timesUs(), at[i]));
-            ItemMotionSampler.Affine pose = t == centerUs ? sharp : sampler.at(t);
-            if (!finite(pose)) return null;
-            ItemMotionSampler.Affine inverse = invert(pose);
-            if (inverse == null) return null;   // a vanished pose would break the smear chain
-            differs |= !pose.equals(sharp);
-            all.add(pose);
-            w[i] = lerp(dense.weights(), at[i]);
-            turnAt[i] = lerp(turned, at[i]);
-            taps.add(new Tap(inverse, w[i]));
-        }
-        if (!differs) return null;
-        var segments = new ArrayList<Segment>(at.length - 1);
-        for (int i = 0; i + 1 < all.size(); i++) {
-            segments.add(segment(all.get(i), all.get(i + 1), turnAt[i + 1] - turnAt[i]));
-        }
-        all.add(sharp);
-
-        double copies = 0;
-        for (double x : w) copies += x;
-        double smear = smearTotal(w);
         double mix = controls.mixPercent() / 100.0;
-        double smearScale = 0, copyScale = 0;
-        // A camera shutter spreads the object's light over its path (exposure: weights sum to
-        // one). A long trail is a stylised stroke: as solid as the object, thinning by Fade, so
-        // its samples weigh one object's worth per object width along the path (the pass clamps
-        // any overlap to full coverage).
-        double stroke = controls.isLongTrail() ? strokeScale(all.subList(0, all.size() - 1), w) : 0;
-        switch (controls.look()) {
-            case SMEAR -> smearScale = smear > 0 ? Math.max(mix / smear, mix * stroke) : 0;
-            case COPIES -> copyScale = copies > 0 ? mix / copies : 0;
-            case BOTH -> {
-                smearScale = smear > 0 ? 0.5 * Math.max(mix / smear, mix * stroke) : 0;
-                copyScale = copies > 0 ? 0.5 * mix / copies : 0;
-            }
-        }
-        // The arcs between poses bulge outside the poses' own boxes: bound the steps too.
-        var swept = new ArrayList<ItemMotionSampler.Affine>(all);
-        for (int i = 0; i < segments.size(); i++) {
-            for (int j = 1; j < TRAIL_SUBSTEPS; j++) {
-                swept.add(stepPose(all.get(i), segments.get(i), (double) j / TRAIL_SUBSTEPS));
-            }
-        }
-        SweptBounds bounds = SweptBounds.ofPoses(swept, width, height, 4.0);
-        return new RigidShutterPlan(bounds, taps, new Trail(controls.look(), smearScale, copyScale,
-                1.0 - mix, new Tap(sharpInverse, 1.0), segments));
-    }
+        var taps = new ArrayList<Tap>();
+        var smooth = new ArrayList<Boolean>();
+        var poses = new ArrayList<ItemMotionSampler.Affine>();
 
-    /** {@code from} moved forward by fraction {@code t} of {@code seg} (uv to canvas). */
-    public static ItemMotionSampler.Affine stepPose(ItemMotionSampler.Affine from, Segment seg, double t) {
-        // forward = R^t o from; R^t maps z to p + r^t (z - p), i.e. back() with -t
-        double[] o = seg.back(from.tx(), from.ty(), -t);
-        double[] ex = seg.back(from.tx() + from.xx(), from.ty() + from.yx(), -t);
-        double[] ey = seg.back(from.tx() + from.xy(), from.ty() + from.yy(), -t);
-        return new ItemMotionSampler.Affine(ex[0] - o[0], ey[0] - o[0], ex[1] - o[1], ey[1] - o[1],
-                o[0], o[1]);
+        // the smear: enough taps to keep them TAP_GAP_PX apart, placed by travel
+        if (look != MotionShutter.Look.COPIES) {
+            int n = (int) Math.max(2, Math.min(Math.min(MAX_SMEAR_TAPS, maxSmearTaps),
+                    Math.ceil(path / TAP_GAP_PX) + 1));
+            double[] at = byTravel(run, n);
+            double[] w = new double[n];
+            ItemMotionSampler.Affine[] p = new ItemMotionSampler.Affine[n];
+            for (int i = 0; i < n; i++) {
+                long t = Math.round(lerp(dense.timesUs(), at[i]));
+                p[i] = t == centerUs ? sharp : sampler.at(t);
+                if (!finite(p[i]) || invert(p[i]) == null) return null;
+                w[i] = lerp(dense.weights(), at[i]);
+            }
+            double total = 0;
+            for (double x : w) total += x;
+            // A camera window spreads the thing's light over its path (weights sum to Mix). A long
+            // trail is a stroke: about one thing's worth of cover per thing-width of path (the
+            // pass clamps overlap to full cover), thinning by Fade.
+            double scale = total > 0 ? mix / total : 0;
+            if (controls.isLongTrail()) scale = Math.max(scale, mix * strokeScale(p, w, path));
+            if (look == MotionShutter.Look.BOTH) scale *= 0.5;
+            for (int i = 0; i < n; i++) {
+                taps.add(new Tap(invert(p[i]), w[i] * scale));
+                smooth.add(i + 1 < n);
+                poses.add(p[i]);
+            }
+        }
+        // Copies: ghosts at evenly spaced moments, crisp
+        if (look != MotionShutter.Look.SMEAR) {
+            int n = Math.min(controls.copies(), MAX_TAPS - taps.size() - 1);
+            double[] at = evenly(probe.length, n);
+            double[] w = new double[at.length];
+            double total = 0;
+            for (int i = 0; i < at.length; i++) total += (w[i] = lerp(dense.weights(), at[i]));
+            double scale = total > 0 ? mix / total : 0;
+            if (look == MotionShutter.Look.BOTH) scale *= 0.5;
+            for (int i = 0; i < at.length; i++) {
+                long t = Math.round(lerp(dense.timesUs(), at[i]));
+                ItemMotionSampler.Affine pose = t == centerUs ? sharp : sampler.at(t);
+                if (!finite(pose) || invert(pose) == null) return null;
+                taps.add(new Tap(invert(pose), w[i] * scale));
+                smooth.add(false);
+                poses.add(pose);
+            }
+        }
+        // Mix keeps the sharp thing on top
+        if (mix < 1.0) {
+            taps.add(new Tap(sharpInverse, 1.0 - mix));
+            smooth.add(false);
+        }
+        poses.add(sharp);
+        boolean[] soft = new boolean[smooth.size()];
+        for (int i = 0; i < soft.length; i++) soft[i] = smooth.get(i);
+        int program = TAP_PROGRAMS[TAP_PROGRAMS.length - 1];
+        for (int size : TAP_PROGRAMS) if (size >= taps.size()) { program = size; break; }
+        SweptBounds bounds = SweptBounds.ofPoses(poses, width, height, 4.0);
+        return new RigidShutterPlan(bounds, taps, new Trail(look, soft, program));
     }
 
     /**
-     * The move from pose {@code a} to pose {@code b} (both uv to canvas) as a {@link Segment}.
-     * {@code laps} is the turn counted along the path (laps included), or NaN to take the
-     * shortest turn the two poses alone suggest.
+     * {@code n} positions along the probes (fractional probe indices, first 0, last the final
+     * probe) at equal shares of the travel run: dense where it moves fast.
      */
-    static Segment segment(ItemMotionSampler.Affine a, ItemMotionSampler.Affine b, double laps) {
-        ItemMotionSampler.Affine ai = invert(a);
-        // R = b o a^-1, canvas to canvas
-        double xx = b.xx() * ai.xx() + b.xy() * ai.yx();
-        double xy = b.xx() * ai.xy() + b.xy() * ai.yy();
-        double yx = b.yx() * ai.xx() + b.yy() * ai.yx();
-        double yy = b.yx() * ai.xy() + b.yy() * ai.yy();
-        double tx = b.xx() * ai.tx() + b.xy() * ai.ty() + b.tx();
-        double ty = b.yx() * ai.tx() + b.yy() * ai.ty() + b.ty();
-        // its nearest similarity: r = ((xx + yy) + i (yx - xy)) / 2
-        double re = 0.5 * (xx + yy), im = 0.5 * (yx - xy);
-        double turn = Math.atan2(im, re);
-        double logScale = Math.log(Math.max(1e-9, Math.hypot(re, im)));
-        if (!Double.isNaN(laps)) {
-            // same end pose, but the way round the path really went
-            turn += 2 * Math.PI * Math.round((laps - turn) / (2 * Math.PI));
-        }
-        if (Math.abs(turn) < SLIDE_TURN && Math.abs(logScale) < SLIDE_TURN) {
-            return new Segment(tx, ty, 0.0, 0.0);
-        }
-        // fixed point p = c / (1 - r); a whole lap leaves r at 1 and no point to find: the
-        // middle of the thing is the best guess (a spin about itself)
-        double dr = 1 - re, di = -im, den = dr * dr + di * di;
-        if (den < 1e-12) {
-            return new Segment(a.tx() + 0.5 * (a.xx() + a.xy()), a.ty() + 0.5 * (a.yx() + a.yy()),
-                    logScale, turn);
-        }
-        double px = (tx * dr + ty * di) / den, py = (ty * dr - tx * di) / den;
-        return new Segment(px, py, logScale, turn);
-    }
-
-    /**
-     * {@code n} positions along the probes (fractional probe indices, first 0 and last
-     * {@code count - 1}) at equal shares of how far the corners travel: dense where it moves fast.
-     */
-    static double[] byTravel(ItemMotionSampler.Affine[] probe, int n) {
-        int m = probe.length;
-        double[] run = new double[m];
-        for (int i = 1; i < m; i++) run[i] = run[i - 1] + travel(probe[i - 1], probe[i]);
+    static double[] byTravel(double[] run, int n) {
+        int m = run.length;
         double total = run[m - 1];
         if (total <= 1e-9) return evenly(m, n);
         double[] at = new double[Math.max(2, n)];
@@ -250,7 +193,7 @@ public record RigidShutterPlan(SweptBounds bounds, List<Tap> taps, Trail trail) 
     /**
      * Whether a camera shutter's own taps would show as separate copies: some corner moves more
      * than {@code px} canvas pixels between two of its taps. The pass then draws the camera
-     * window with the smooth trail program instead (same exposure, no copies).
+     * window from a smooth plan instead (same exposure, no copies).
      */
     public static boolean tapsWouldStep(ItemMotionSampler sampler, MotionShutter.Schedule schedule,
                                         double px) {
@@ -279,40 +222,22 @@ public record RigidShutterPlan(SweptBounds bounds, List<Tap> taps, Trail trail) 
     }
 
     /**
-     * What the trail pass sums for a Smear before scaling: {@link #TRAIL_SUBSTEPS} evenly spaced
-     * steps from each pose toward the next, then the newest pose itself, so the smear runs the
-     * whole way from the oldest place to where the thing is now.
+     * Weight per tap that makes a stroke: one thing's worth of cover for every thing-width the
+     * path covers. Taps per thing-width = size / gap; each weighs 1 / that (and 1 / the mean Fade
+     * weight, so Fade thins the stroke instead of dimming all of it).
      */
-    public static double smearTotal(double[] w) {
-        double total = 0;
-        for (int i = 0; i + 1 < w.length; i++) {
-            for (int j = 0; j < TRAIL_SUBSTEPS; j++) {
-                double t = (double) j / TRAIL_SUBSTEPS;
-                total += w[i] + (w[i + 1] - w[i]) * t;
-            }
-        }
-        return w.length == 0 ? 0 : total + w[w.length - 1];
-    }
-
-    /**
-     * Weight per sample that makes a stroke: one object's worth of coverage for every object
-     * width the path covers. Samples per object width = samples x size / path length; each then
-     * weighs 1 / that (and 1 / the mean Fade weight, so Fade thins it rather than dims it all).
-     */
-    static double strokeScale(List<ItemMotionSampler.Affine> poses, double[] w) {
-        double path = 0, size = 0;
-        for (int i = 0; i < poses.size(); i++) {
-            ItemMotionSampler.Affine p = poses.get(i);
+    static double strokeScale(ItemMotionSampler.Affine[] poses, double[] w, double path) {
+        double size = 0;
+        for (ItemMotionSampler.Affine p : poses) {
             size += 0.5 * (Math.hypot(p.xx(), p.yx()) + Math.hypot(p.xy(), p.yy()));
-            if (i > 0) path += travel(poses.get(i - 1), p);
         }
-        size /= Math.max(1, poses.size());
+        size /= Math.max(1, poses.length);
         double mean = 0;
         for (double x : w) mean += x;
         mean /= Math.max(1, w.length);
-        int samples = (w.length - 1) * TRAIL_SUBSTEPS + 1;
-        if (path <= 1e-6 || size <= 1e-6 || mean <= 1e-9) return 0;
-        double perWidth = Math.max(1.0, samples * size / path);
+        if (size <= 1e-6 || mean <= 1e-9) return 0;
+        double gap = path / Math.max(1, w.length - 1);
+        double perWidth = Math.max(1.0, size / gap);
         return 1.0 / (perWidth * mean);
     }
 

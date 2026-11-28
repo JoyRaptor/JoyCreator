@@ -56,7 +56,7 @@ public class AvatarFaceTest {
         public double base() { return base; }
     }
 
-    public static void main(String[] a) {
+    public static void main(String[] a) throws Exception {
         // ── the Face chip ──
         FaceDrive d = new FaceDrive();
         String seq = d.mode() + ">" + d.next() + ">" + d.next() + ">" + d.next();
@@ -297,11 +297,105 @@ public class AvatarFaceTest {
                         && "puff".equals(FaceDrive.ownerOf("face.cheekPuff")) && wrote.contains("puff") && !wrote.contains("facepins"),
                 "a pass with Puff held records the puff and nothing else of the face (" + wrote + ")");
 
+        // ── Check directions (the pilot's five moves): on a camera that hands the picture over mirrored, the moves come in
+        //    reversed; once checked, his right turn turns the head the same way as on a normal phone ──
+        double plain = dirsRun(false, false), fixedUp = dirsRun(true, true), unfixed = dirsRun(true, false);
+        check(Math.signum(plain) > 0 && Math.signum(unfixed) < 0 && Math.signum(fixedUp) == Math.signum(plain),
+                "Check directions: on a mirrored camera his right turn ran the wrong way (" + r(unfixed) + "); after the five moves it runs as on a normal phone (" + r(fixedUp) + " vs " + r(plain) + ")");
+        check(dirsAnswered == 4, "a move not made within eight seconds keeps its old direction, the rest are set (" + dirsAnswered + " of 5)");
+
+        // ── the face mask's drive (FACE-2, the pilot's al-mask.js drive and al-mask-poses.js weights) ──
+        org.json.JSONObject mset = new org.json.JSONObject("{\"type\":\"set\",\"marks\":{\"\":{\"pts\":[{\"n\":1,\"face\":[17]},{\"n\":2,\"face\":[61]},{\"n\":3,\"face\":[291]}],\"at\":{}}},"
+                + "\"face\":{\"poses\":[{\"id\":\"open\",\"face\":{\"1\":[0,0.2]}},{\"id\":\"wide\",\"face\":{\"2\":[-0.1,0],\"3\":[0.1,0]}}]}}");
+        double u = 0.75;                                                                // (mask units per point unit with no neutral points)
+        Map<String, Double> mpin = new HashMap<>(), mo = new HashMap<>();
+        mpin.put("pt.17.x", 0.05 / u); mpin.put("pt.17.y", 0.12 / u); mpin.put("pt.61.x", -0.03 / u); mpin.put("pt.61.y", 0.0); mpin.put("pt.291.x", 0.03 / u); mpin.put("pt.291.y", 0.0);
+        cc.joycreator.avatar.face.MaskDrive.drive(mset, mpin, false, null, mo);
+        check(Math.abs(mo.get("mp.open") - 0.6) < 0.01 && Math.abs(mo.get("mp.wide") - 0.3) < 0.01 && Math.abs(mo.get("mk.1.x") - 0.05) < 1e-6 && Math.abs(mo.get("mk.1.y")) < 0.01,
+                "the mask: how much of each pose your face holds (0.6 open, 0.3 wide), and what they do not explain follows directly (" + r(mo.get("mp.open")) + ", " + r(mo.get("mp.wide")) + ")");
+        mpin.put("pt.17.y", -0.12 / u);
+        cc.joycreator.avatar.face.MaskDrive.drive(mset, mpin, false, null, mo);
+        double neg = mo.get("mp.open"), negRest = mo.get("mk.1.y");
+        mpin.put("pt.17.y", 0.6 / u);
+        cc.joycreator.avatar.face.MaskDrive.drive(mset, mpin, false, null, mo);
+        check(neg == 0 && Math.abs(negRest + 0.12) < 1e-6 && Math.abs(mo.get("mp.open") - 1.5) < 1e-9 && Math.abs(mo.get("mk.1.y") - 0.3) < 1e-6,
+                "a pose is never held backwards (0) nor past 1.5; what is left over follows directly");
+        org.json.JSONObject noPoses = new org.json.JSONObject(mset.toString());
+        noPoses.getJSONObject("face").remove("poses");
+        Map<String, Double> m0 = new HashMap<>(), m1 = new HashMap<>();
+        cc.joycreator.avatar.face.MaskDrive.drive(noPoses, mpin, false, null, m0);
+        cc.joycreator.avatar.face.MaskDrive.drive(noPoses, mpin, true, null, m1);
+        check(Math.abs(m0.get("mk.2.x") + 0.03) < 1e-6 && Math.abs(m1.get("mk.2.x") - 0.03) < 1e-6,
+                "Mirror on: the mask's right side follows your left (" + r(m0.get("mk.2.x")) + " -> " + r(m1.get("mk.2.x")) + ")");
+        int[] wch = cc.joycreator.avatar.face.MaskDrive.watch(mset);
+        check(wch.length == 3 && java.util.Arrays.stream(wch).boxed().collect(java.util.stream.Collectors.toSet()).containsAll(java.util.Arrays.asList(17, 61, 291)),
+                "the camera watches the mask's face points, both sides of each");
+
+        // ── face pins (the model half of the pilot's al-facepins.js): bind, strength, the All pins dial, unbind, one piece ──
+        org.json.JSONObject fch = new org.json.JSONObject("{\"root\":{\"id\":\"r\",\"type\":\"group\",\"kids\":[{\"id\":\"hd\",\"type\":\"set\",\"role\":\"head\",\"pick\":{\"by\":\"turn\"},\"kids\":["
+                + "{\"id\":\"front\",\"type\":\"group\",\"at\":[0,0],\"kids\":[{\"id\":\"cheek\",\"type\":\"art\"}]}]}]}}");
+        org.json.JSONObject frontN = cc.joycreator.avatar.face.FacePins.node(fch.getJSONObject("root"), "front"), cheekN = cc.joycreator.avatar.face.FacePins.node(fch.getJSONObject("root"), "cheek");
+        org.json.JSONObject sheet = cc.joycreator.avatar.face.FacePins.sheetOf(fch, cheekN);
+        cc.joycreator.avatar.face.FacePins.sheetMesh(sheet);
+        sheet.getJSONObject("mesh").getJSONArray("pins").put(new org.json.JSONObject().put("id", "p1").put("x", 100).put("y", 120));
+        String fid = cc.joycreator.avatar.face.FacePins.bind(fch, sheet, "p1", 61, true, 60);
+        org.json.JSONArray fsh = sheet.getJSONArray("shapes");
+        check(sheet == frontN && sheet.getJSONObject("mesh").optBoolean("last") && fsh.length() == 2 && "pt.61.x".equals(fsh.getJSONObject(0).getString("sig")) && "pt.61.y".equals(fsh.getJSONObject(1).getString("sig"))
+                        && fsh.getJSONObject(0).getJSONObject("d").getJSONArray("p1").getDouble(0) == 60 && fsh.getJSONObject(1).getJSONObject("d").getJSONArray("p1").getDouble(1) == 60
+                        && "your right mouth corner".equals(cc.joycreator.avatar.face.FacePins.nameOf(61)) && fsh.getJSONObject(0).getString("name").contains("your right mouth corner")
+                        && java.util.Arrays.equals(cc.joycreator.avatar.face.FacePins.points(fch), new int[]{61}),
+                "a face pin on a slice goes on the head's whole drawing (one piece, bent last), two Shapes follow the point, named in his words");
+        cc.joycreator.avatar.face.FacePins.setGain(fch, fch.getJSONObject("root"), 2);
+        double afterDial = fsh.getJSONObject(0).getDouble("amt");
+        cc.joycreator.avatar.face.FacePins.strength(fch, fid, 0.5);
+        check(Math.abs(afterDial - 2.0) < 1e-9 && Math.abs(fsh.getJSONObject(0).getDouble("amt") - 1.0) < 1e-9 && Math.abs(cc.joycreator.avatar.face.FacePins.gain(fch) - 2) < 1e-9,
+                "the All pins dial scales every pin (1 x 2), and a pin's strength is times the dial (0.5 x 2)");
+        cc.joycreator.avatar.face.FacePins.unbind(fch, fid);
+        check(!fch.has("facePins") && sheet.getJSONArray("shapes").length() == 0 && sheet.getJSONObject("mesh").getJSONArray("pins").length() == 0,
+                "taking a face pin off takes its Shapes, and the pin made for it");
+        fch.put("settings", new org.json.JSONObject().put("faceSheet", false));
+        check(cc.joycreator.avatar.face.FacePins.sheetOf(fch, cheekN) == cheekN, "one piece off: the slice itself");
+
         System.out.println(fails == 0 ? "PASSED" : "FAILED " + fails);
         System.exit(fails == 0 ? 0 : 1);
     }
 
     /** A lane's value; a missing lane is NaN, so every comparison with it fails. */
+    static int dirsAnswered;
+
+    /** A face stage on a camera that may hand the picture over mirrored; optionally the five moves first (the fourth, lean,
+     *  never made); then a right turn: the head's turnX. */
+    static double dirsRun(boolean mirroredCamera, boolean check) {
+        FaceStage st = new FaceStage();
+        float m = mirroredCamera ? -1f : 1f;
+        double t = 0;
+        for (int i = 0; i < 20; i++, t += 1 / 15.0) st.process(raw(0, 0), t);          // the neutral
+        if (check) {
+            cc.joycreator.avatar.face.DirectionPrompts dp = new cc.joycreator.avatar.face.DirectionPrompts(new cc.joycreator.avatar.face.DirectionPrompts.Face() {
+                public void check(String what) { st.startDirectionCheck(what); }
+                public FaceCalibration.DirectionCheck last() { return st.lastDirectionCheck(); }
+            });
+            long now = 0;
+            dp.start(now);
+            for (int i = 0; i < 15 * 60 && dp.running(); i++, t += 1 / 15.0, now += 66_666_667L) {
+                Map<String, Float> f = raw(0, 0);
+                String what = cc.joycreator.avatar.face.DirectionPrompts.STEPS[dp.prompt()];
+                if (what.equals(FaceCalibration.HEAD_YAW)) f.put(FaceCalibration.HEAD_YAW, 3f + 20f * m);        // turning to his right
+                if (what.equals(FaceCalibration.HEAD_PITCH)) f.put(FaceCalibration.HEAD_PITCH, 8f + 20f);       // looking down
+                if (what.equals(FaceCalibration.HEAD_ROLL)) f.put(FaceCalibration.HEAD_ROLL, 20f * m);          // tilting to his right
+                if (what.equals("eye")) { f.put(mirroredCamera ? "eyeBlinkRight" : "eyeBlinkLeft", 0.9f); }   // his right eye shut
+                st.process(f, t);
+                dp.step(now);                                                              // (lean: not made, times out)
+            }
+            dirsAnswered = dp.answered();
+        }
+        Map<String, Float> out = null;
+        Map<String, Float> turn = raw(0, 0);
+        turn.put(FaceCalibration.HEAD_YAW, 3f + 25f * m);                                  // he turns to his right
+        for (int i = 0; i < 20; i++, t += 1 / 15.0) out = st.process(turn, t);
+        return out.get("turnX");
+    }
+
     static double gl(Map<String, Double> m, String k) {
         Double v = m == null ? null : m.get(k);
         return v == null ? Double.NaN : v;

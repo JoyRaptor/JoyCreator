@@ -751,7 +751,7 @@ public final class FxLivePreviewController {
         var sampler = MotionItemAdapters.spine(snapshot, startUs, width, height);
         return (timeUs, periodUs, w, h) -> {
             if (timeUs < startUs || timeUs >= endUs || w != width || h != height) return null;
-            var shutter = RigidTextureShutterPass.plan(snapshot.rigidMotionShutterAt(timeUs / 1000L),
+            var shutter = RigidTextureShutterPass.planPreview(snapshot.rigidMotionShutterAt(timeUs / 1000L),
                     sampler, timeUs, periodUs, fences, w, h);
             return shutter == null ? null : new RigidTextureShutterPass.Exposure(shutter, 1f);
         };
@@ -1327,7 +1327,7 @@ public final class FxLivePreviewController {
                             || w != width || h != height) return null;
                     float opacity = RigidPipMotion.opacity(snapshot, timeUs / 1000L);
                     if (opacity <= 0.001f) return null;
-                    var plan = RigidTextureShutterPass.plan(snapshot.rigidMotionShutterAt(timeUs / 1000L),
+                    var plan = RigidTextureShutterPass.planPreview(snapshot.rigidMotionShutterAt(timeUs / 1000L),
                             sampler, timeUs, periodUs, breaks, w, h);
                     return plan == null ? null : new RigidTextureShutterPass.Exposure(plan, opacity);
                 });
@@ -1428,7 +1428,7 @@ public final class FxLivePreviewController {
         var shutter = new FxPreviewTextureView.StillShutter(
                 RigidTextureShutterPass.Source.PREMULTIPLIED_OVERLAY, (timeUs, periodUs, w, h) -> {
                     if (timeUs < begin || timeUs >= end || w != width || h != height) return null;
-                    var plan = RigidTextureShutterPass.plan(snapshot.rigidMotionShutterAt(timeUs / 1000L),
+                    var plan = RigidTextureShutterPass.planPreview(snapshot.rigidMotionShutterAt(timeUs / 1000L),
                             sampler, timeUs, periodUs, breaks, w, h);
                     return plan == null ? null : new RigidTextureShutterPass.Exposure(
                             plan, RigidSpriteMotion.opacity(snapshot, timeUs / 1000L));
@@ -1514,7 +1514,7 @@ public final class FxLivePreviewController {
         var shutter = new FxPreviewTextureView.StillShutter(
                 RigidTextureShutterPass.Source.PICTURE, (timeUs, periodUs, w, h) -> {
                     if (timeUs < start || timeUs >= end || w != width || h != height) return null;
-                    var plan = RigidTextureShutterPass.plan(snapshot.rigidMotionShutterAt(timeUs / 1000L),
+                    var plan = RigidTextureShutterPass.planPreview(snapshot.rigidMotionShutterAt(timeUs / 1000L),
                             sampler, timeUs, periodUs, breaks, w, h);
                     return plan == null ? null : new RigidTextureShutterPass.Exposure(plan, 1f);
                 });

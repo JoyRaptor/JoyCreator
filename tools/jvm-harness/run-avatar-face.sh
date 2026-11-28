@@ -34,6 +34,8 @@ javac @"$ARGS" $(find tools/jvm-harness/joybot-bench/shim/org/json -name '*.java
 if grep -lE "^import android\." app/src/main/java/cc/joycreator/avatar/face/Face{Drive,Walk}.java; then
   echo "FAIL: an Android import leaked into the room's face logic"; exit 1
 fi
+# the emulator test plays the same take: its copy in the test assets must be the same file
+cmp -s tasks/avatar/golden/face-take-20261127.track.json app/src/androidTest/assets/avatar-face/face-take-20261127.track.json || { echo "FAIL: the emulator's copy of his face take differs from tasks/avatar/golden"; exit 1; }
 java @"$RUNARGS" AvatarFaceTest; RC=$?
 # the owner's real face take (tasks/avatar/golden/face-take-20261127.track.json), every move through the room as it runs
 java @"$RUNARGS" AvatarFaceTakeTest || RC=1

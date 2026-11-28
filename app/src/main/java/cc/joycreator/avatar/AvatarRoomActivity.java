@@ -50,7 +50,7 @@ import java.util.List;
  * Perform and recording are filled in by the later steps of slice 1; a control appears only when it works (a dead knob
  * is worse than a missing one).</p>
  */
-public final class AvatarRoomActivity extends Activity implements RoomMenu.Host, LayersView.Host, PartsView.Host, PerformPanel.Host, cc.joycreator.avatar.ui.LandmarksScreen.Host, cc.joycreator.avatar.ui.PinsLayer.Host, cc.joycreator.avatar.ui.BoxLayer.Host, cc.joycreator.avatar.ui.MotionSections.Host, cc.joycreator.avatar.ui.StanceCard.Host, cc.joycreator.avatar.ui.ReshapeLayer.Host {
+public final class AvatarRoomActivity extends Activity implements RoomMenu.Host, LayersView.Host, PartsView.Host, PerformPanel.Host, cc.joycreator.avatar.ui.LandmarksScreen.Host, cc.joycreator.avatar.ui.PinsLayer.Host, cc.joycreator.avatar.ui.BoxLayer.Host, cc.joycreator.avatar.ui.MotionSections.Host, cc.joycreator.avatar.ui.StanceCard.Host, cc.joycreator.avatar.ui.ReshapeLayer.Host, cc.joycreator.avatar.face.FacePinsLayer.Host, cc.joycreator.avatar.face.FacePinsSection.Host {
     private static final String TAG = "AvatarRoom";
     private static final int REQ_OPEN = 41;
     private static final int REQ_PICTURES = 42;
@@ -109,6 +109,12 @@ public final class AvatarRoomActivity extends Activity implements RoomMenu.Host,
     private final cc.joycreator.avatar.face.FaceWalk faceWalk = new cc.joycreator.avatar.face.FaceWalk();
     private cc.joycreator.avatar.face.FaceWalkDrawer faceWalkDrawer;
     private double[] bodyBox;                                   // the character's drawing at rest [x0, y0, x1, y1]
+    private org.json.JSONObject maskSet;                        // the turning head (it may wear the face mask, FACE-2)
+    // face pins in Set up (FACE-1): the section open, the point picked, the pin picked
+    private boolean facePinsOpen;
+    private int pendingPoint = -1;
+    private String pickedPin;
+    private final cc.joycreator.avatar.face.FacePinsLayer facePinsLayer = new cc.joycreator.avatar.face.FacePinsLayer(this);
     private cc.joycreator.avatar.face.WalkerLegs legs;
     private cc.joycreator.avatar.perform.Walker legsOf;
     private final Inputs inputs = new Inputs();
@@ -476,7 +482,7 @@ public final class AvatarRoomActivity extends Activity implements RoomMenu.Host,
     private void refreshPins() {
         if (stage == null || (landmarks != null && landmarks.isOpen())) return;
         boolean on = inHand != null && !showLayers;
-        stage.setLandmarks(on && stageIndex == 0 ? pins : on && stageIndex == 1 ? (reshaping ? reshapeLayer : box) : null);
+        stage.setLandmarks(on && stageIndex == 0 ? (facePinsOpen ? facePinsLayer : pins) : on && stageIndex == 1 ? (reshaping ? reshapeLayer : box) : null);
     }
 
     // ── Arrange: reshape with pins ────────────────────────────────────────────────────────────────
@@ -1048,6 +1054,7 @@ public final class AvatarRoomActivity extends Activity implements RoomMenu.Host,
         } else walker.refresh();
         stickSize();
         bodyBox = null;                                         // (walking with your face measures the drawing again)
+        maskSet = cc.joycreator.avatar.solve.MaskBend.headSet(d.json.optJSONObject("root"));   // FACE-2: the head that may wear the mask
         if (inputs.faceOn()) watchFacePins();
         stage.setSelected(inHand);
         layers.show(d, inHand);
@@ -1152,6 +1159,207 @@ public final class AvatarRoomActivity extends Activity implements RoomMenu.Host,
         inputs.faceDrive().recentre();                          // (and the head moves from where the pad is now)
     }
 
+    private cc.joycreator.avatar.face.DirectionPrompts dirPrompts;
+    private android.app.AlertDialog dirDialog;
+    private int dirShown = -1;
+    private static final int[] DIR_WORDS = {R.string.avatar_face_dir_yaw, R.string.avatar_face_dir_pitch, R.string.avatar_face_dir_roll,
+            R.string.avatar_face_dir_lean, R.string.avatar_face_dir_eye};
+
+    /** Check directions (the pilot's): five short moves, each read by itself; the frame loop moves them on. */
+    @Override
+    public void checkDirections() {
+        if (faceCapture == null || !inputs.faceOn()) return;
+        final com.fadcam.ui.faditor.avatar.face.FaceCapture fc = faceCapture;
+        dirPrompts = new cc.joycreator.avatar.face.DirectionPrompts(new cc.joycreator.avatar.face.DirectionPrompts.Face() {
+            @Override
+            public void check(String what) {
+                fc.checkDirection(what);
+            }
+
+            @Override
+            public com.fadcam.ui.faditor.avatar.face.FaceCalibration.DirectionCheck last() {
+                return fc.lastDirectionCheck();
+            }
+        });
+        dirShown = -1;
+        dirDialog = new android.app.AlertDialog.Builder(this, android.R.style.Theme_DeviceDefault_Dialog_Alert)
+                .setTitle(R.string.avatar_face_dirs_title)
+                .setMessage("")
+                .setNegativeButton(R.string.avatar_face_dirs_stop, (d, w) -> finishDirections())
+                .setCancelable(false)
+                .create();
+        dirDialog.show();
+        dirPrompts.start(System.nanoTime());
+        showDirection();
+    }
+
+    private void showDirection() {
+        if (dirDialog == null || dirPrompts == null || dirPrompts.prompt() < 0 || dirPrompts.prompt() == dirShown) return;
+        dirShown = dirPrompts.prompt();
+        dirDialog.setMessage(getString(R.string.avatar_face_dirs_step, dirShown + 1, DIR_WORDS.length, getString(DIR_WORDS[dirShown]))
+                + "\n\n" + getString(R.string.avatar_face_dirs_note));
+    }
+
+    private void finishDirections() {
+        if (dirPrompts == null) return;
+        int n = dirPrompts.answered();
+        dirPrompts.stop();
+        dirPrompts = null;
+        if (dirDialog != null && dirDialog.isShowing()) dirDialog.dismiss();
+        dirDialog = null;
+        Toast.makeText(this, n == 0 ? getString(R.string.avatar_face_dirs_none) : n == DIR_WORDS.length ? getString(R.string.avatar_face_dirs_all)
+                : getString(R.string.avatar_face_dirs_some, n, DIR_WORDS.length), Toast.LENGTH_LONG).show();
+    }
+
+    // ── face pins in Set up (FACE-1: the pilot's al-facepins.js card and markers) ──────────────────────────
+
+    @Override
+    public android.view.View facePinsSection(CharacterDoc.Node node) {
+        String r = node == null || node.role == null ? "" : node.role;
+        if (node == null || r.startsWith("arm") || r.startsWith("leg") || r.startsWith("hand") || r.startsWith("foot")) return null;
+        return new cc.joycreator.avatar.face.FacePinsSection(this, this);
+    }
+
+    @Override
+    public org.json.JSONObject character() {
+        return character == null ? new org.json.JSONObject() : character.json;
+    }
+
+    @Override
+    public boolean facePinsOpen() {
+        return facePinsOpen;
+    }
+
+    @Override
+    public void setFacePinsOpen(boolean on) {
+        facePinsOpen = on;
+        pendingPoint = -1;
+        refreshPins();
+        redraw();
+    }
+
+    @Override
+    public int pendingPoint() {
+        return pendingPoint;
+    }
+
+    @Override
+    public void pickPoint(int pt) {
+        pendingPoint = pt;
+    }
+
+    @Override
+    public String pickedFacePin() {
+        return pickedPin;
+    }
+
+    @Override
+    public void pickFacePin(String id) {
+        pickedPin = id;
+        if (character != null) parts.show(character, inHand, stageIndex);
+    }
+
+    /** Face-size units to the character's own: half the head's width, at least 20 (the pilot's). */
+    private double facePinScale() {
+        CharacterDoc.Node hd = null;
+        for (CharacterDoc.Node k : character == null ? java.util.Collections.<CharacterDoc.Node>emptyList() : allNodes()) if ("head".equals(k.role)) { hd = k; break; }
+        cc.joycreator.avatar.ui.PoseRenderer pr = stage.renderer();
+        double[] b = hd == null || pr == null ? null : pr.restBounds(hd);
+        return b == null || b.length < 4 ? 60 : Math.max(20, (b[2] - b[0]) * 0.5);
+    }
+
+    private java.util.List<CharacterDoc.Node> allNodes() {
+        java.util.List<CharacterDoc.Node> out = new java.util.ArrayList<>();
+        character.walk((n, depth, parent) -> out.add(n));
+        return out;
+    }
+
+    @Override
+    public void dropFacePin(String nodeId, double x, double y, int pt) {
+        final double k = facePinScale();
+        final String[] made = new String[1];
+        edit.apply(getString(R.string.avatar_step_facepin_add), d -> {
+            org.json.JSONObject n = d.find(nodeId).json;
+            cc.joycreator.avatar.face.FacePins.sheetMesh(n);
+            org.json.JSONObject pin = cc.joycreator.avatar.file.Reshape.dropPin(n, null, x, y, (nid, px, py, w) -> glStage.warpAt(nid, px, py, w));
+            made[0] = cc.joycreator.avatar.face.FacePins.bind(d.json, n, pin.getString("id"), pt, true, k);
+        });
+        pendingPoint = -1;
+        pickedPin = made[0];
+        if (inputs.faceOn()) watchFacePins();
+        if (character != null) parts.show(character, inHand, stageIndex);
+    }
+
+    @Override
+    public void moveFacePin(String nodeId, String pinId, double x, double y) {
+        edit.apply(getString(R.string.avatar_step_facepin_move), d -> {
+            org.json.JSONObject mesh = d.find(nodeId).json.getJSONObject("mesh");
+            org.json.JSONArray pins = mesh.getJSONArray("pins");
+            for (int i = 0; i < pins.length(); i++) {
+                org.json.JSONObject q = pins.getJSONObject(i);
+                if (pinId.equals(q.optString("id"))) { q.put("x", Math.round(x)); q.put("y", Math.round(y)); }
+            }
+        });
+    }
+
+    @Override
+    public void facePinStrength(String id, double v) {
+        edit.apply(getString(R.string.avatar_step_facepin_strength), d -> cc.joycreator.avatar.face.FacePins.strength(d.json, id, v));
+    }
+
+    @Override
+    public void removeFacePin(String id) {
+        edit.apply(getString(R.string.avatar_step_facepin_remove), d -> cc.joycreator.avatar.face.FacePins.unbind(d.json, id));
+        if (id.equals(pickedPin)) pickedPin = null;
+        if (character != null) parts.show(character, inHand, stageIndex);
+    }
+
+    @Override
+    public void allFacePins(double g) {
+        edit.apply(getString(R.string.avatar_step_facepins_all), d -> cc.joycreator.avatar.face.FacePins.setGain(d.json, d.json.getJSONObject("root"), g));
+    }
+
+    /** Face pins still on a single slice of a head (made before one piece) move onto the head's whole drawing, where they show. */
+    @Override
+    public void facePinsOnePiece() {
+        if (character == null) return;
+        final double k = facePinScale();
+        java.util.List<double[]> at = new java.util.ArrayList<>();
+        java.util.List<String[]> todo = new java.util.ArrayList<>();
+        org.json.JSONArray l = cc.joycreator.avatar.face.FacePins.list(character.json);
+        for (int i = 0; i < l.length(); i++) {
+            org.json.JSONObject q = l.optJSONObject(i);
+            CharacterDoc.Node n = character.find(q.optString("node"));
+            org.json.JSONObject sh = n == null ? null : cc.joycreator.avatar.face.FacePins.sheetOf(character.json, n.json);
+            if (n == null || sh == null || sh == n.json) continue;
+            org.json.JSONObject pin = null;
+            org.json.JSONObject mesh = n.json.optJSONObject("mesh");
+            org.json.JSONArray pins = mesh == null ? null : mesh.optJSONArray("pins");
+            for (int j = 0; pins != null && j < pins.length(); j++) if (q.optString("pin").equals(pins.optJSONObject(j).optString("id"))) pin = pins.optJSONObject(j);
+            double[] m = glStage.matrix(n.id), ms = glStage.matrix(sh.optString("id"));
+            if (pin == null || m == null || ms == null) continue;
+            double px = m[0] * pin.optDouble("x") + m[2] * pin.optDouble("y") + m[4], py = m[1] * pin.optDouble("x") + m[3] * pin.optDouble("y") + m[5];
+            double det = ms[0] * ms[3] - ms[1] * ms[2];
+            if (Math.abs(det) < 1e-9) continue;
+            double ix = px - ms[4], iy = py - ms[5];
+            at.add(new double[]{(ms[3] * ix - ms[2] * iy) / det, (-ms[1] * ix + ms[0] * iy) / det, q.optInt("point"), q.has("amt") ? q.optDouble("amt", 1) : 1});
+            todo.add(new String[]{q.optString("id"), sh.optString("id")});
+        }
+        if (todo.isEmpty()) return;
+        edit.apply(getString(R.string.avatar_step_facepins_one_piece), d -> {
+            for (int i = 0; i < todo.size(); i++) {
+                double[] t = at.get(i);
+                cc.joycreator.avatar.face.FacePins.unbind(d.json, todo.get(i)[0]);
+                org.json.JSONObject sh = d.find(todo.get(i)[1]).json;
+                cc.joycreator.avatar.face.FacePins.sheetMesh(sh);
+                org.json.JSONObject pin = cc.joycreator.avatar.file.Reshape.dropPin(sh, null, t[0], t[1], (nid, px, py, w) -> glStage.warpAt(nid, px, py, w));
+                String nid = cc.joycreator.avatar.face.FacePins.bind(d.json, sh, pin.getString("id"), (int) t[2], true, k);
+                cc.joycreator.avatar.face.FacePins.strength(d.json, nid, t[3]);
+            }
+        });
+        if (character != null) parts.show(character, inHand, stageIndex);
+    }
+
     /** The face camera watches the points the character's face pins follow (their lanes ride a take as the pilot's). */
     private void watchFacePins() {
         if (faceCapture == null || character == null) return;
@@ -1161,6 +1369,7 @@ public final class AvatarRoomActivity extends Activity implements RoomMenu.Host,
             org.json.JSONObject p = fp.optJSONObject(i);
             if (p != null && p.has("point")) pts.add(p.optInt("point"));
         }
+        for (int v : cc.joycreator.avatar.face.MaskDrive.watch(maskSet)) pts.add(v);   // FACE-2: the face mask's points too
         int[] a = new int[pts.size()];
         int j = 0;
         for (int v : pts) a[j++] = v;
@@ -1415,7 +1624,10 @@ public final class AvatarRoomActivity extends Activity implements RoomMenu.Host,
             int cls = mic.currentVisemeClassIndex();
             inputs.micHeard(Float.isNaN(db) ? 0 : Math.max(0, Math.min(1, (db + 50) / 40)), cls >= 0 && cls < MIC_SHAPES.length ? MIC_SHAPES[cls] : "Neutral");
         }
-        if (inputs.faceOn() && faceCapture != null) inputs.faceSaw(faceCapture.sample(System.nanoTime()));
+        if (inputs.faceOn() && faceCapture != null) {
+            inputs.faceSaw(faceCapture.sample(System.nanoTime()));
+            inputs.faceDrive().mask(maskSet, faceMirror(), faceCapture.restPoints());   // FACE-2: the mask, as Mirror and your neutral are now
+        }
         java.util.Map<String, Object> sig = inputs.frame(dt, System.currentTimeMillis());
         lastSignals = sig;
         stage.setSignals(sig);
@@ -1423,6 +1635,10 @@ public final class AvatarRoomActivity extends Activity implements RoomMenu.Host,
         if ((frameNo++ & 31) == 0) stickSize();
         if (stick != null) stick.step(dt);
         if (walker != null) faceWalkStep(dt);
+        if (dirPrompts != null) {                              // Check directions moves on as each move is read
+            if (dirPrompts.step(System.nanoTime()) || !inputs.faceOn()) finishDirections();
+            else showDirection();
+        }
         if (walker != null && (walker.canWalk() || walker.travels())) {
             walker.step(dt, S, glStage.anchors(), glStage.tips());
             S.flip = inputs.flip();

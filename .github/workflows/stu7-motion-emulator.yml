@@ -172,6 +172,8 @@ jobs:
           echo "app: $APK"; echo "tests: $TAPK"
           adb -e install -r -g "$APK"
           adb -e install -r "$TAPK"
+          # keep both, so the same build can be run on a real phone (the Note 9 timing run)
+          mkdir -p emu-out/apk && cp "$APK" emu-out/apk/app.apk && cp "$TAPK" emu-out/apk/tests.apk
 
       - name: Run the motion blur tests
         id: run
@@ -184,7 +186,8 @@ jobs:
             trail) CLASSES=com.fadcam.ui.faditor.motion.emu.MotionTrailGlTest ;;
             card)  CLASSES=com.fadcam.ui.faditor.motion.emu.MotionCardScreenshotTest ;;
             gallery) CLASSES=com.fadcam.ui.faditor.motion.emu.MotionGalleryTest ;;
-            *)     CLASSES=com.fadcam.ui.faditor.motion.emu.MotionTrailGlTest,com.fadcam.ui.faditor.motion.emu.MotionCardScreenshotTest,com.fadcam.ui.faditor.motion.emu.MotionGalleryTest ;;
+            timing) CLASSES=com.fadcam.ui.faditor.motion.emu.MotionTimingTest ;;
+            *)     CLASSES=com.fadcam.ui.faditor.motion.emu.MotionTrailGlTest,com.fadcam.ui.faditor.motion.emu.MotionCardScreenshotTest,com.fadcam.ui.faditor.motion.emu.MotionGalleryTest,com.fadcam.ui.faditor.motion.emu.MotionTimingTest ;;
           esac
           ARGS=(-e class "$CLASSES")
           [ "$FAULT" != none ] && ARGS+=(-e fault "$FAULT")

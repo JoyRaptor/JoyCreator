@@ -20,11 +20,11 @@ on:
         required: true
         default: joy-creator
       tests:
-        description: "all, draw (AvatarDrawParityTest), room (AvatarRoomSmokeTest), studio (AvatarStudioDrawTest), send (AvatarSendToStudioTest: room to Studio), hand (AvatarStudioHandTest: a finger on a hand in Studio), or a test class name"
+        description: "all, draw (AvatarDrawParityTest), room (AvatarRoomSmokeTest), studio (AvatarStudioDrawTest), send (AvatarSendToStudioTest: room to Studio), hand (AvatarStudioHandTest: a finger on a hand in Studio), face (AvatarFaceReplayTest: his face take in the room), or a test class name"
         required: false
         default: all
       fault:
-        description: "Planted fault to prove the tests can fail: none, shift (one piece drawn 2 px off) or rest (Studio draws only the standing picture)"
+        description: "Planted fault to prove the tests can fail: none, shift (one piece drawn 2 px off), rest (Studio draws only the standing picture) or flip (the face test plays his head turns the other way round)"
         required: false
         default: none
       device:
@@ -214,8 +214,9 @@ jobs:
             studio) CLASSES=cc.joycreator.avatar.emu.AvatarStudioDrawTest ;;
             send) CLASSES=cc.joycreator.avatar.emu.AvatarSendToStudioTest ;;
             hand) CLASSES=cc.joycreator.avatar.emu.AvatarStudioHandTest ;;
-            all)  CLASSES=cc.joycreator.avatar.emu.AvatarDrawParityTest,cc.joycreator.avatar.emu.AvatarRoomSmokeTest,cc.joycreator.avatar.emu.AvatarStudioDrawTest ;;
-            *)    [[ "$TESTS" =~ ^[A-Za-z]+$ ]] || { echo "tests: all, draw, room, studio or one test class name"; exit 1; }
+            face) CLASSES=cc.joycreator.avatar.emu.AvatarFaceReplayTest ;;
+            all)  CLASSES=cc.joycreator.avatar.emu.AvatarDrawParityTest,cc.joycreator.avatar.emu.AvatarRoomSmokeTest,cc.joycreator.avatar.emu.AvatarStudioDrawTest,cc.joycreator.avatar.emu.AvatarFaceReplayTest ;;
+            *)    [[ "$TESTS" =~ ^[A-Za-z]+$ ]] || { echo "tests: all, draw, room, studio, send, hand, face or one test class name"; exit 1; }
                   CLASSES="cc.joycreator.avatar.emu.$TESTS" ;;
           esac
           ARGS=(-e class "$CLASSES" -e msaa "$MSAA" -e orientation "$ORIENT")

@@ -58,7 +58,7 @@ It replaces the stale October list (`SELECT_LINES_GAPS_20261023.md`): G2, G4, G5
 | Concepts shows | JoyBrush today | Side |
 |---|---|---|
 | The current brush, and whether it is vector or raster, always in view | **Only inside the brush drawer** (a 12 dp badge per tile, `BrushModeBadge`). The strip's brush button shows no lines-or-pixels mark. | UI |
-| Which layers hold lines | **Missing** (a layer row shows opacity and blend only) | UI |
+| Which layers hold lines | **Built 11-27:** a layer that holds editable lines wears the strip's lines mark in the layer column and says "lines" in its pulled-out row (`LayerColumnLinesTagTest`). Phone look owed. | UI (done) |
 
 ## UI-side work, in the order an artist hits it
 
@@ -66,7 +66,7 @@ It replaces the stale October list (`SELECT_LINES_GAPS_20261023.md`): G2, G4, G5
 2. **Show the "Editable lines" switch only where the canvas will honour it.** Build `canSwitch` on `LineAdmission`, so nobody turns it on and is then refused.
 3. **A stroke eraser built on Select's hit test and its one-step delete.** No engine work.
 4. **Select same colour / same brush,** from the More menu.
-5. **A "lines" tag on layer rows.**
+5. **A "lines" tag on layer rows.** Done 11-27.
 
 Fixes go to `joy-creator` in steps, each with host tests. Progress is logged below.
 

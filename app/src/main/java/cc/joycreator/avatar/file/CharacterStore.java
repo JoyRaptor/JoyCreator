@@ -67,6 +67,57 @@ public final class CharacterStore {
         }
     }
 
+    /** A copy of a character in the folder, named "... copy" and with a uid of its own. Returns the new path, or null. Call on the folder thread. */
+    public static String copy(Context c, String path) {
+        CharacterDoc d = read(c, path);
+        if (d == null) return null;
+        try {
+            d.json.put("name", (d.name.isEmpty() ? "New character" : d.name) + " copy");
+            d.json.put("uid", UUID.randomUUID().toString().replace("-", "").substring(0, 12));
+            return save(c, CharacterOpen.read(d.json.toString()), null);
+        } catch (Exception e) {
+            Log.w(TAG, "character not copied", e);
+            return null;
+        }
+    }
+
+    /** Gives a character in the folder another name (its file is renamed to match). Returns the new path, or null. Call on the folder thread. */
+    public static String rename(Context c, String path, String newName) {
+        CharacterDoc d = read(c, path);
+        if (d == null || newName == null || newName.trim().isEmpty()) return null;
+        try {
+            d.json.put("name", newName.trim());
+            String rel = save(c, CharacterOpen.read(d.json.toString()), path);
+            JoyFolder jf = JoyFolderHome.open(c);
+            if (rel == null || jf == null) return rel;
+            String dir = rel.contains("/") ? rel.substring(0, rel.lastIndexOf('/')) : "";
+            String want = jf.freeName(dir, ReadableNames.sanitize(newName.trim()) + FileKind.CHARACTER.ending());
+            if (!rel.endsWith("/" + want) && !rel.equals(want) && jf.fs.rename(rel, want)) {
+                String moved = dir.isEmpty() ? want : dir + "/" + want;
+                JoyFs.Entry e = jf.fs.stat(moved);
+                if (e != null) jf.index.put(moved, e.size, e.modified, null, null);
+                jf.saveIndex();
+                return moved;
+            }
+            return rel;
+        } catch (Exception e) {
+            Log.w(TAG, "character not renamed", e);
+            return null;
+        }
+    }
+
+    /** Takes a character out of the folder, into the trash of the folder (it can be got back). True when done. Call on the folder thread. */
+    public static boolean remove(Context c, String path) {
+        try {
+            JoyFolder jf = JoyFolderHome.open(c);
+            if (jf == null) return false;
+            return jf.trash(path, System.currentTimeMillis()) != null;
+        } catch (Exception e) {
+            Log.w(TAG, "character not removed", e);
+            return false;
+        }
+    }
+
     /**
      * Writes the character into the folder: over {@code path} when it has one, else as a new file named for it.
      * Returns the path, or null when the folder could not be reached (the caller says one plain sentence).

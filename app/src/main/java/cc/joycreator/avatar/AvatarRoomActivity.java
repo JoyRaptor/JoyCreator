@@ -2550,6 +2550,21 @@ public final class AvatarRoomActivity extends Activity implements RoomMenu.Host,
     }
 
     @Override
+    public void characterAction(CharacterStore.Entry entry, String what, String arg) {
+        JoyFolderHome.io().execute(() -> {
+            boolean ok;
+            if (what.equals("copy")) ok = CharacterStore.copy(this, entry.path) != null;
+            else if (what.equals("rename")) ok = CharacterStore.rename(this, entry.path, arg) != null;
+            else ok = CharacterStore.remove(this, entry.path);
+            main.post(() -> {
+                if (isFinishing()) return;
+                Toast.makeText(this, ok ? R.string.avatar_card_done : R.string.avatar_card_failed, Toast.LENGTH_SHORT).show();
+                openMenu();
+            });
+        });
+    }
+
+    @Override
     public void newFromWholeDrawing() {
         Intent i = new Intent(Intent.ACTION_OPEN_DOCUMENT).addCategory(Intent.CATEGORY_OPENABLE).setType("image/*");
         try {

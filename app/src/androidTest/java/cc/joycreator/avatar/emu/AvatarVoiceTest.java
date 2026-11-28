@@ -61,17 +61,44 @@ public class AvatarVoiceTest {
                     throw new RuntimeException(e);
                 }
             });
-            boolean playing = false;
-            int changed = 0;
-            for (int k = 0; k < 10; k++) {
-                Emu.sleep(300);
-                if (field(a[0], "voicePlayer") != null) playing = true;
-                Bitmap s = Emu.screen();
-                if (k == 4) Emu.save(s, new File(out, "2-playing.png"));
-                s.recycle();
+            // the planted fault (-e fault rest): the sound is not wired to the mouth (every frame's opening is zero)
+            if ("rest".equals(Emu.fault())) {
+                Field vo = AvatarRoomActivity.class.getDeclaredField("voiceOpen");
+                vo.setAccessible(true);
+                Emu.ins().runOnMainSync(() -> {
+                    try {
+                        float[] z = (float[]) vo.get(a[0]);
+                        if (z != null) java.util.Arrays.fill(z, 0f);
+                    } catch (Exception e) {
+                        throw new RuntimeException(e);
+                    }
+                });
             }
+            boolean playing = false;
+            double lo = 9, hi = -9;
+            int opened = 0, shut = 0;
+            for (int k = 0; k < 50; k++) {                                 // 2.5 s of the room's own mouth signal, every 50 ms
+                Emu.sleep(50);
+                if (field(a[0], "voicePlayer") != null) playing = true;
+                Object sig = field(a[0], "lastSignals");
+                Object mv = sig instanceof java.util.Map ? ((java.util.Map<?, ?>) sig).get("mouth") : null;
+                if (mv instanceof Number && field(a[0], "voicePlayer") != null) {
+                    double v = ((Number) mv).doubleValue();
+                    lo = Math.min(lo, v);
+                    hi = Math.max(hi, v);
+                    if (v > 0.2) opened++;
+                    if (v < 0.05) shut++;
+                }
+                if (k == 20) {
+                    Bitmap shot = Emu.screen();
+                    Emu.save(shot, new File(out, "2-playing.png"));
+                    shot.recycle();
+                }
+            }
+            Log.i(Emu.TAG, "voice file: playing " + playing + ", mouth signal from " + lo + " to " + hi + ", open in " + opened + " samples, shut in " + shut);
             assertTrue("the room started playing the sound (voicePlayer is set)", playing);
-            Log.i(Emu.TAG, "voice file: playing " + playing);
+            assertTrue("the mouth opens on the speech parts (peak " + hi + ", open in " + opened + " samples)", hi > 0.3 && opened >= 5);
+            assertTrue("and closes in the gaps (low " + lo + ", shut in " + shut + " samples)", lo < 0.05 && shut >= 5);
             assertNotNull(before);
         }
     }

@@ -674,29 +674,12 @@ public final class PerformPanel extends ScrollView {
     }
 
     private TextView chip(Context c, String text, String hover, View.OnClickListener tap) {
-        TextView t = new TextView(c);
-        t.setText(text);
-        t.setTextSize(12);
-        RoomType.control(t);
-        t.setGravity(Gravity.CENTER);
-        t.setPadding(px(12), 0, px(12), 0);
-        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, px(32));
-        lp.rightMargin = px(6);
-        t.setLayoutParams(lp);
-        t.setOnClickListener(tap);
-        TooltipCompat.setTooltipText(t, hover);
-        t.setContentDescription(hover);
-        paintChip(t, false);
-        return t;
+        return RoomChip.make(c, text, false, hover, tap);
     }
 
     /** ON = solid cyan with the label punched out to the ground colour. */
     private void paintChip(TextView t, boolean on) {
-        GradientDrawable g = new GradientDrawable();
-        g.setCornerRadius(px(16));
-        g.setColor(on ? Studio.ARMED : Studio.RAISED);
-        t.setBackground(g);
-        t.setTextColor(on ? Studio.GROUND : Studio.LABEL);
+        RoomChip.paint(t, on);
     }
 
     private TextView label(String s) {

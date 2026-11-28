@@ -188,23 +188,8 @@ public final class FacePinsSection extends LinearLayout {
 
     /** ON = solid cyan with the label punched out; off = the zinc pill. */
     private TextView chip(String text, boolean on, String hover, View.OnClickListener tap) {
-        TextView t = new TextView(getContext());
-        t.setText(text);
-        t.setTextSize(12);
-        t.setGravity(Gravity.CENTER);
-        t.setPadding(px(12), 0, px(12), 0);
-        GradientDrawable g = new GradientDrawable();
-        g.setCornerRadius(px(16));
-        g.setColor(on ? Studio.ARMED : Studio.RAISED);
-        t.setBackground(g);
-        t.setTextColor(on ? Studio.GROUND : Studio.LABEL);
-        LayoutParams lp = new LayoutParams(LayoutParams.WRAP_CONTENT, px(32));
-        lp.rightMargin = px(6);
-        lp.topMargin = px(4);
-        t.setLayoutParams(lp);
-        t.setOnClickListener(tap);
-        TooltipCompat.setTooltipText(t, hover);
-        t.setContentDescription(hover);
+        TextView t = cc.joycreator.avatar.ui.RoomChip.make(getContext(), text, on, hover, tap);
+        ((LinearLayout.LayoutParams) t.getLayoutParams()).topMargin = px(4);
         return t;
     }
 

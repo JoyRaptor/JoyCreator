@@ -444,23 +444,7 @@ public final class PartsView extends ScrollView {
     }
 
     private View chip(String text, boolean on, View.OnClickListener tap, String hover) {
-        TextView t = new TextView(getContext());
-        t.setText(text);
-        t.setTextSize(12);
-        t.setGravity(Gravity.CENTER);
-        t.setPadding(px(12), 0, px(12), 0);
-        t.setTextColor(on ? Studio.GROUND : Studio.LABEL);
-        GradientDrawable g = new GradientDrawable();
-        g.setCornerRadius(px(16));
-        g.setColor(on ? Studio.ARMED : Studio.RAISED);
-        t.setBackground(g);
-        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, px(32));
-        lp.rightMargin = px(6);
-        t.setLayoutParams(lp);
-        t.setOnClickListener(tap);
-        TooltipCompat.setTooltipText(t, hover);
-        t.setContentDescription(hover);
-        return t;
+        return RoomChip.make(getContext(), text, on, hover, tap);
     }
 
     private TextView heading(String s) {

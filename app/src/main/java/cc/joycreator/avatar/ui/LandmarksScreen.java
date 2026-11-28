@@ -1,8 +1,6 @@
 package cc.joycreator.avatar.ui;
 
 import android.content.Context;
-import android.graphics.drawable.GradientDrawable;
-import android.view.Gravity;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.HorizontalScrollView;
@@ -372,23 +370,7 @@ public final class LandmarksScreen implements StageView.LandmarkLayer {
     }
 
     private TextView chip(String text, boolean on, String hover, View.OnClickListener tap) {
-        TextView t = new TextView(c);
-        t.setText(text);
-        t.setTextSize(12);
-        t.setGravity(Gravity.CENTER);
-        t.setPadding(px(12), 0, px(12), 0);
-        t.setTextColor(on ? Studio.GROUND : Studio.LABEL);
-        GradientDrawable g = new GradientDrawable();
-        g.setCornerRadius(px(16));
-        g.setColor(on ? Studio.ARMED : Studio.RAISED);
-        t.setBackground(g);
-        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, px(32));
-        lp.rightMargin = px(6);
-        t.setLayoutParams(lp);
-        t.setOnClickListener(tap);
-        TooltipCompat.setTooltipText(t, hover);
-        t.setContentDescription(hover);
-        return t;
+        return RoomChip.make(c, text, on, hover, tap);
     }
 
     private TextView heading(String s) {

@@ -865,6 +865,41 @@ public final class AvatarRoomActivity extends Activity implements RoomMenu.Host,
     }
 
     @Override
+    public void renameNode(String nodeId) {
+        CharacterDoc.Node n = character == null ? null : character.find(nodeId);
+        if (n == null) return;
+        promptText(getString(R.string.avatar_rename_title), n.name, name -> edit.apply(getString(R.string.avatar_step_rename_part), d -> d.find(nodeId).json.put("name", name)));
+    }
+
+    @Override
+    public void removeNode(String nodeId) {
+        final CharacterDoc.Node n = character == null ? null : character.find(nodeId);
+        if (n == null) return;
+        final String label = n.name.isEmpty() ? n.id : n.name;
+        new android.app.AlertDialog.Builder(this, android.R.style.Theme_DeviceDefault_Dialog_Alert)
+                .setTitle(getString(R.string.avatar_remove_title, label))
+                .setMessage(R.string.avatar_remove_body)
+                .setPositiveButton(R.string.avatar_remove, (dl, w) -> {
+                    edit.apply(getString(R.string.avatar_step_remove_part, label), d -> {
+                        final org.json.JSONArray[] holder = {null};
+                        d.walk((k, depth, parent) -> {
+                            if (k.id.equals(nodeId) && parent != null) holder[0] = parent.json.optJSONArray("kids");
+                        });
+                        org.json.JSONArray ks = holder[0];
+                        for (int i = 0; ks != null && i < ks.length(); i++) if (nodeId.equals(ks.getJSONObject(i).optString("id"))) {
+                            ks.remove(i);
+                            break;
+                        }
+                    });
+                    if (nodeId.equals(inHand)) inHand = null;
+                    refreshPins();
+                    parts.show(character, inHand, stageIndex);
+                })
+                .setNegativeButton(android.R.string.cancel, null)
+                .show();
+    }
+
+    @Override
     public void addStance() {
         promptText(getString(R.string.avatar_name_stance), getString(R.string.avatar_name_stance_default), name -> {
             final String[] made = {null};

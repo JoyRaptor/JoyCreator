@@ -168,7 +168,7 @@ class StrokeEraserTool(
                 when {
                     pieces.isEmpty() -> removed += address
                     pieces.size == 1 && pieces[0].id == id -> shortened += cc.joycreator.joybrush.core.stroke.AddressedStroke(address, pieces[0])
-                    pieces[0].id == id -> cuts += cc.joycreator.joybrush.androidkit.lines.LineCutPlan.Cut(address, pieces)
+                    pieces[0].id == id -> Unit   // FAIL-FIRST PROBE (never land): a middle cut is dropped, as before
                 }
             }
         }

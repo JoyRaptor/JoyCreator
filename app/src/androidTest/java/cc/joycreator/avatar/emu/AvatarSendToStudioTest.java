@@ -137,9 +137,19 @@ public class AvatarSendToStudioTest {
             Emu.sleep(2500);
             shot(out, "0-picker", log);
             Emu.tapText("JoyTest", 15000);
-            Emu.sleep(1500);
-            Emu.tapText("Use this folder", 10000);
-            Emu.tapText("Allow", 10000);
+            // the picker opens the folder a moment later: until then "Use this folder" is greyed out (the top of storage
+            // cannot be chosen), so wait for the top's "Can't use this folder" card to go, then tap; tap again if no Allow came
+            long until = System.currentTimeMillis() + 15000;
+            while (System.currentTimeMillis() < until && Emu.find("Can’t use this folder", 300) != null) Emu.sleep(500);
+            Emu.sleep(1000);
+            shot(out, "0-picker-joytest", log);
+            boolean asked = false;
+            for (int i = 0; i < 3 && !asked; i++) {
+                Emu.tapText("Use this folder", 10000);
+                asked = Emu.find("Allow", 5000) != null;
+            }
+            shot(out, "0-picker-allow", log);
+            Emu.tapText("Allow", 5000);
             long end = System.currentTimeMillis() + 30000;
             while (System.currentTimeMillis() < end && !JoyFolderHome.isReachable(app)) Emu.sleep(500);
             Emu.sleep(3000);   // the folder's first index

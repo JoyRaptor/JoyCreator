@@ -6542,6 +6542,12 @@ public class ExportManager {
                         + " (clipMuted=" + ac.isMuted() + ")");
                 continue;
             }
+            // STU-C3: a source with no sound track (a silent video laid on a sound lane) is skipped as a muted clip is:
+            // a sound-only item with nothing in it fails the whole export. Its place is kept by the gap logic below.
+            if (audioDurationMsOf(seekableUriFor(ac.getSourceUri())) <= 0) {
+                FLog.d(TAG, "buildAudioSequence: skipping audio clip " + ac.getId() + " (its source has no sound track)");
+                continue;
+            }
 
             // FILE time, not editor time (STU-5 D5, 2026-11-12). The pictures are overlapped at
             // every transition, so after two 0.6 s transitions a voiceover placed at 12 s on the

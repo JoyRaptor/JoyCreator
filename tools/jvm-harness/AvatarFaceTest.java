@@ -424,6 +424,17 @@ public class AvatarFaceTest {
         check(moreSens.get("shrug") > lessSens.get("shrug") + 0.3,
                 "Shoulder sensitivity: higher, the same shrug lifts further (" + r(lessSens.get("shrug")) + " at 0.5x, " + r(moreSens.get("shrug")) + " at 2x)");
 
+        // the app's notice for Google's models names them by their hashes (Apache 2.0 asks for the licence beside them)
+        String notice = new String(java.nio.file.Files.readAllBytes(java.nio.file.Paths.get("app/src/main/assets/licenses/mediapipe-models.txt")), java.nio.charset.StandardCharsets.UTF_8);
+        boolean named = notice.contains("Apache License") && notice.contains("Version 2.0, January 2004");
+        for (String m : new String[]{"face_landmarker.task", "pose_landmarker_lite.task"}) {
+            byte[] dig = java.security.MessageDigest.getInstance("SHA-256").digest(java.nio.file.Files.readAllBytes(java.nio.file.Paths.get("app/src/main/assets/mediapipe/" + m)));
+            StringBuilder hex = new StringBuilder();
+            for (byte x : dig) hex.append(String.format("%02x", x));
+            named &= notice.contains(m) && notice.contains(hex.toString());
+        }
+        check(named, "the MediaPipe notice in the app carries the licence and both models' true hashes (a swapped model must update it)");
+
         // Motion's Try: a shrug to see without the camera, while the finger is on it
         Inputs ti = new Inputs();
         long tnow = 0;

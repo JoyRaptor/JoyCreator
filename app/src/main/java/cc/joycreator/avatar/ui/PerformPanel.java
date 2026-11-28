@@ -439,7 +439,7 @@ public final class PerformPanel extends ScrollView {
             column.addView(weather);
             SeekBar sb = new SeekBar(c);
             sb.setMax(200);
-            sb.setProgress(100);
+            sb.setProgress(100 + (int) Math.round(in.windNow() * 100));
             sb.getProgressDrawable().setTint(Studio.ARMED);
             sb.getThumb().setTint(Studio.ARMED);
             sb.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
@@ -466,7 +466,7 @@ public final class PerformPanel extends ScrollView {
         letGo.setPadding(0, px(10), 0, 0);
         letGo.addView(chip(c, c.getString(R.string.avatar_let_go), c.getString(R.string.avatar_hover_let_go), v -> {
             in.letGoOfEverything();
-            paintChips();
+            bind(doc, takeBar);                                           // the cards are drawn again at rest: Weather says still
         }));
         column.addView(letGo);
         // alive by itself: the character's own habits (tick boxes: on or off, never two equals)

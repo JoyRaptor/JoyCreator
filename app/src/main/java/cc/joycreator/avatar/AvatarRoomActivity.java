@@ -2138,20 +2138,25 @@ public final class AvatarRoomActivity extends Activity implements RoomMenu.Host,
 
     @Override
     public void restack(String id, int by) {
+        restackDone(id, by);
+    }
+
+    /** Moves the part in the stack; false when it was already as far as it goes (nothing changed, no step). */
+    private boolean restackDone(String id, int by) {
         CharacterDoc.Node node = character.find(id);
-        if (node == null) return;
+        if (node == null) return false;
         final CharacterDoc.Node[] parent = {null};
         character.walk((n, d, p) -> {
             if (n.id.equals(id)) parent[0] = p;
         });
-        if (parent[0] == null) return;
+        if (parent[0] == null) return false;
         final String parentId = parent[0].id;
         final int count = parent[0].kids.size();
         int at = 0;
         for (int i = 0; i < count; i++) if (parent[0].kids.get(i).id.equals(id)) at = i;
         final int from = at;
         final int to = by == Integer.MIN_VALUE ? 0 : by == Integer.MAX_VALUE ? count - 1 : Math.max(0, Math.min(count - 1, at + by));
-        if (to == from) return;
+        if (to == from) return false;
         String label = node.name.isEmpty() ? node.id : node.name;
         int word = by == Integer.MIN_VALUE ? R.string.avatar_step_very_back : by == Integer.MAX_VALUE ? R.string.avatar_step_very_front
                 : by < 0 ? R.string.avatar_step_back_one : R.string.avatar_step_forward_one;
@@ -2166,6 +2171,7 @@ public final class AvatarRoomActivity extends Activity implements RoomMenu.Host,
             }
             doc.find(parentId).json.put("kids", rebuilt);
         });
+        return true;
     }
 
     @Override
@@ -2261,13 +2267,20 @@ public final class AvatarRoomActivity extends Activity implements RoomMenu.Host,
         int by = h.contains("very back") ? Integer.MIN_VALUE : h.contains("very front") ? Integer.MAX_VALUE
                 : h.contains("back") ? -1 : h.contains("forward") || h.contains("front") ? 1 : 0;
         if (by == 0) return "";
-        restack(n.id, by);
-        return "Moved " + (n.name.isEmpty() ? n.id : n.name) + " " + h + ".";
+        String nm = n.name.isEmpty() ? n.id : n.name;
+        return restackDone(n.id, by) ? "Moved " + nm + " " + h + "." : nm + " is already as far " + (by < 0 ? "back" : "forward") + " as it goes.";
     }
 
     /** Saves into the Joy Creator folder now (the same as Menu, Save). */
-    void joybotSave() {
-        saveNow();
+    void joybotSave(java.util.function.Consumer<String> done) {
+        if (character == null) {
+            done.accept(null);
+            return;
+        }
+        saveCurrent(rel -> {
+            if (!isFinishing()) Toast.makeText(this, rel == null ? R.string.avatar_cannot_save : R.string.avatar_saved, Toast.LENGTH_SHORT).show();
+            done.accept(rel);
+        });
     }
 
     private void autosaveNow() {

@@ -347,6 +347,11 @@ public final class Inputs implements Walker.Body {
     }
 
     /** The Breeze slider: -1 (left) to 1 (right). */
+    /** The breeze now, -1..1 (the Weather slider is drawn at it, so a rebuilt card never says "still" while the wind blows). */
+    public double windNow() {
+        return wind;
+    }
+
     public void breeze(double v, long nowMs) {
         wind = Math.abs(v) < 0.06 ? 0 : Math.max(-1, Math.min(1, v));
         windUntil = nowMs + HOLD_WIND_MS;

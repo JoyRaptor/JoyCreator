@@ -307,5 +307,7 @@ Perform by talking, turning the head on the pad, tapping buttons and walking the
     <string name="avatar_step_mouth_everywhere">Mouth: same on every angle</string>
     <string name="avatar_step_add_follow">Add a follow</string>
     <string name="avatar_step_remove_follow">Remove a follow</string>
+    <string name="avatar_walk_settings">Walk settings</string>
+    <string name="avatar_hover_walk_settings">Stride, body bob, heel and toe</string>
 </resources>
 

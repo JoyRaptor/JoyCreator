@@ -134,7 +134,7 @@ public final class PerformPanel extends ScrollView {
     private final List<TextView> moodChips = new ArrayList<>();
     private final List<String> moodNames = new ArrayList<>();
     private TextView micChip, faceChip, recentreChip, mirrorChip;
-    private boolean compact;
+    private boolean compact, walkOpen;
     private LinearLayout faceRow, shoulderBox;
     private int faceWords = R.string.avatar_face;
     private final List<TextView> tickBoxes = new ArrayList<>();
@@ -326,6 +326,18 @@ public final class PerformPanel extends ScrollView {
             row.addView(stickPad);
         }
         column.addView(row);
+        if (walkWithFace != null && host.motion() != null) {                  // the walk's settings, there while performing: Walk settings
+            LinearLayout wrow = new LinearLayout(c);
+            wrow.setPadding(0, px(4), 0, px(4));
+            TextView wchip = chip(c, c.getString(R.string.avatar_walk_settings), c.getString(R.string.avatar_hover_walk_settings), v -> {
+                walkOpen = !walkOpen;
+                bind(doc, takeBar);
+            });
+            paintChip(wchip, walkOpen);
+            wrow.addView(wchip);
+            column.addView(wrow);
+            if (walkOpen) WalkSections.add(c, column, doc, host.motion(), dp);
+        }
 
         // moods: only for a character that has eyelids
         if (hasRole(doc, "lidU") || hasRole(doc, "lidL")) {

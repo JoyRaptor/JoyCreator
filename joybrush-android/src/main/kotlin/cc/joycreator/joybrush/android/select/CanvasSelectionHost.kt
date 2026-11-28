@@ -384,7 +384,7 @@ class CanvasSelectionHost(
         if (all.toSet().size != all.size) return refuse("Those lines can't be changed together.")
         if (all.any { find(it) == null }) return refuse(GONE)
         if (cuts.any { it.pieces.size < 2 || it.pieces[0].id != it.address.recordId }) return refuse("Those lines can't be changed together.")
-        checkDrawable(shortened + cuts.flatMap { c -> c.pieces.map { AddressedStroke(c.address, it) } })?.let { return refuse(it) }
+        checkDrawable(shortened + cuts.flatMap { c -> c.pieces.map { AddressedStroke(c.address.copy(recordId = it.id), it) } })?.let { return refuse(it) }
         return submit(LineEdit.Split(shortened, removed.toSet(), cuts))
     }
 

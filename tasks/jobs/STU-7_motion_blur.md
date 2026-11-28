@@ -13,14 +13,19 @@ merged plan's.
 
 ## Resume here
 
-- **Later (owner 11-28):** live motion blur on puppets in the Avatar Studio room only if it can be made cheap; it is not today (3-4 puppet redraws a frame at 2-15 ms each). Nice-to-have after everything else.
-- **Owner of the job:** Claude (Opus 5.5) since 2026-11-27; Codex ran out of usage and handed off ([C6_CUT_HANDOFF](../motionblur/C6_CUT_HANDOFF.md)). Card build on `claude/stu7-card-20261127`.
-- **Active step:** C6 in-file hard-cut fence. C5 physical parity and C7 release gates remain open.
-- **Candidate:** `codex/stu7-finish-20261125` at `ea236f311`.
-- **Last landed:** C4 `3c0179278` and gated C7 Help and Joybot `51b838070`.
-- **Next action:** Capture `boxing-original` and `boxing-changed` on pinned Android APK `dfef8d1f7` and compare the raw High frame at 1,200,000 µs.
-- **Owner asks:** Look #1 and final defaults approval are open.
-- [Branch register](../motionblur/BRANCHES.md) · [Claude handoff](../motionblur/C6_CUT_HANDOFF.md) · [Channel](../motionblur/CHANNEL.md).
+- **Owner of the job:** Claude (Opus 5.5) since 2026-11-27. Codex is gone (11-28). Its branches were checked, and nothing more is owed ([register](../motionblur/BRANCHES.md#claude-takeover-check-2026-11-28)).
+- **State (11-28):** the card, keys, long trails, Streak, More (Fade / Look) and character blur are all on `joy-creator` (last code `2341b1e64`). They stay hidden behind `studio_motion_blur`.
+- **Owner asks:**
+  - His look on the Note 9, using the [review page](../design/STU7-motion-blur-review.html) and the test APK from `claude/stu7-phonecheck-20261127` (`2de9c218e`; never land it).
+  - Install only when he says he is back: press Home first, and restore his APK afterwards.
+  - His OK is the green light: delete the `studio_motion_blur` line from `app/src/main/assets/launch/hidden_features.json`.
+- **On install:** re-time the 24-tap live preview with `MotionTimingTest` (it is an estimate for now, about 12.8 ms at 1080p).
+- **Later:**
+  - The effect-layer card (needs True layer order).
+  - C5 physical parity.
+  - C7 replay on the release candidate.
+  - Live puppet blur in the Avatar Studio room, only if it can be made cheap (owner, 11-28).
+- [Branch register](../motionblur/BRANCHES.md) · [Channel](../motionblur/CHANNEL.md).
 
 ### No-loss rules (binding while Codex runs the job)
 1. **Landmark = commit + push + a channel entry + this block updated**, in that order, every time.

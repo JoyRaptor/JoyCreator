@@ -36,7 +36,7 @@ internal class LoadSteps(
             // Exceptions only: an Error (out of memory) goes on up as it did from the one-task load.
             try { unit() } catch (e: Exception) { next = units.size; onFailed(e); return }
             next++
-            if (next < units.size && clock() - began >= budgetNanos) break
+            // FAIL-FIRST PROBE (never land): every unit in one task, as the load was
         }
         if (!alive()) return
         if (next < units.size) {

@@ -1238,12 +1238,21 @@ public final class AvatarRoomActivity extends Activity implements RoomMenu.Host,
         if (character != null && stageIndex >= 2) performPanel.bind(character, stageIndex == 3);
     }
 
+    /** The line under the picture: what this stage is for, and who is on it (the pilot's coach line for the stage). */
+    private void paintHint() {
+        if (stage == null || character == null) return;
+        int[] words = {R.string.avatar_coach_setup, R.string.avatar_coach_arrange, R.string.avatar_coach_motion, R.string.avatar_coach_perform};
+        String name = character.name.isEmpty() ? getString(R.string.avatar_untitled) : character.name;
+        stage.setHint(getString(words[Math.max(0, Math.min(3, stageIndex))], name));
+    }
+
     private void selectStage(int idx) {
         if (landmarks != null && landmarks.isOpen()) closeLandmarks();
         if (inputs.recorder.recording() && idx < 2) endRecord();     // a pass belongs to Motion and Perform
         if (idx < 2 && inputs.micOn()) micOff();                     // the microphone listens only in Motion and Perform
         if (idx < 2 && inputs.faceOn()) faceOff();                   // and so does the camera
         stageIndex = idx;
+        paintHint();
         if (idx != 1) stopReshape();
         testMouth = 0;
         clearTried();
@@ -1297,7 +1306,7 @@ public final class AvatarRoomActivity extends Activity implements RoomMenu.Host,
         shoulderHinted = false;
         feedInputs(character);
         pathName.setText(character.name.isEmpty() ? getString(R.string.avatar_untitled) : character.name);
-        stage.setHint(getString(R.string.avatar_hint_character, character.name.isEmpty() ? getString(R.string.avatar_untitled) : character.name));
+        paintHint();
         paintSaveDot();
     }
 
@@ -2536,6 +2545,21 @@ public final class AvatarRoomActivity extends Activity implements RoomMenu.Host,
                 showCharacter();
                 setLayersShown(true);
                 main.postDelayed(autosave, 1500);
+            });
+        });
+    }
+
+    @Override
+    public void characterAction(CharacterStore.Entry entry, String what, String arg) {
+        JoyFolderHome.io().execute(() -> {
+            boolean ok;
+            if (what.equals("copy")) ok = CharacterStore.copy(this, entry.path) != null;
+            else if (what.equals("rename")) ok = CharacterStore.rename(this, entry.path, arg) != null;
+            else ok = CharacterStore.remove(this, entry.path);
+            main.post(() -> {
+                if (isFinishing()) return;
+                Toast.makeText(this, ok ? R.string.avatar_card_done : R.string.avatar_card_failed, Toast.LENGTH_SHORT).show();
+                openMenu();
             });
         });
     }

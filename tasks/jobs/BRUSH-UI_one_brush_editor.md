@@ -308,8 +308,7 @@ All other brush properties follow below, as now. Owner's design: build to the mo
   Cloud: jb-core 3026, androidkit 1394, android 642 pass.
 - **§L after shots taken 11-28** (Note 9, c470ca7df): `tasks/screens/brush-editor-20261127/after_*.png`. Calligraphy and
   paint now share one editor. Still owed: a real pen comparing a picture-tip mode's stage stroke with the drawing's.
-- **Whole lines eraser phone check:** `SelectBench` step `wholeLinesEraser` (+ `wholeLinesEraserUndo`) written (83a5ed563,
-  APK built; landed 9c2353200 with jb-android 644 pass) but not run: the Note 9 was held by another lane, then dropped
-  off adb (11-28 11:40, offline; the Wi-Fi reconnect could not reach it; it needs a USB plug). Run with
-  `am start -n com.fadcam.beta/com.fadcam.joybrush.JoyBrushBenchActivity --es jb_bench select --es jb_select_run_id <32 hex> --ez jb_no_shots true`
-  and read `adb logcat -s JoyBrushPerf | grep wholeLines`.
+- **Whole lines eraser: PASSED on the Note 9, 11-28** (APK 83a5ed563, SelectBench run 0563f1ed…, `--ez jb_no_shots true`):
+  picked through the strip's Eraser and the Whole lines row, one pen stroke across two of three crossing lines removed
+  exactly those two (5 lines -> 3) as ONE undo step; one Undo brought both back (5 lines, depth restored). The whole
+  Select bench passed 25/25. Log: `tasks/screens/brush-editor-20261127/whole_lines_eraser_note9_20261128.log`.

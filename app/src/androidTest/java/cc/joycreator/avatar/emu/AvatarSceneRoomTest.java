@@ -42,7 +42,13 @@ public class AvatarSceneRoomTest {
             AvatarRoomActivity[] a = new AvatarRoomActivity[1];
             sc.onActivity(x -> a[0] = x);
             View root = a[0].getWindow().getDecorView();
-            Emu.tap(byDesc(root, "The director"));
+            View chair = null;
+            for (int i = 0; i < 60 && chair == null; i++) {                     // a slow emulator takes its time to lay the room out
+                chair = byDesc(root, "The director");
+                if (chair == null) Emu.sleep(1000);
+            }
+            assertNotNull("the director's chair button", chair);
+            Emu.tap(chair);
             Emu.sleep(600);
             Emu.tap(byText(root, "Scene"));
             Emu.sleep(1200);

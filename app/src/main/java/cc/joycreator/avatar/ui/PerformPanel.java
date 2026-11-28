@@ -134,6 +134,7 @@ public final class PerformPanel extends ScrollView {
     private final List<TextView> moodChips = new ArrayList<>();
     private final List<String> moodNames = new ArrayList<>();
     private TextView micChip, faceChip, recentreChip, mirrorChip;
+    private boolean compact;
     private LinearLayout faceRow, shoulderBox;
     private int faceWords = R.string.avatar_face;
     private final List<TextView> tickBoxes = new ArrayList<>();
@@ -197,7 +198,8 @@ public final class PerformPanel extends ScrollView {
         row.addView(pad);
         LinearLayout side = new LinearLayout(c);
         side.setOrientation(LinearLayout.VERTICAL);
-        side.setPadding(px(12), 0, 0, 0);
+        compact = host.stick() != null && host.stickOpen();                 // two pads share the width: the middle column steps in, as the pilot's
+        side.setPadding(px(compact ? 6 : 12), 0, 0, 0);
         side.addView(holdButton(c, c.getString(R.string.avatar_hold_to_talk), c.getString(R.string.avatar_hover_hold_to_talk), new Hold() {
             @Override
             public void down() {
@@ -254,9 +256,12 @@ public final class PerformPanel extends ScrollView {
                 bind(doc, takeBar);
             });
             paintChip(stickChip, host.stickOpen());
-            if (host.stickOpen()) {                                          // two pads share the width: the Joystick chip comes first (it closes the pad) and all three sit closer
+            if (compact) {                                                   // Mic, Face and Joystick become pictures only (their words are in their hover labels)
                 chipRow.addView(stickChip, 0);
-                for (int i = 0; i < chipRow.getChildCount(); i++) chipRow.getChildAt(i).setPadding(px(9), 0, px(9), 0);
+                micChip.setText("\uD83C\uDFA4");
+                faceChip.setText("\uD83D\uDE42");
+                stickChip.setText("\uD83D\uDD79");
+                for (int i = 0; i < chipRow.getChildCount(); i++) chipRow.getChildAt(i).setPadding(px(12), 0, px(12), 0);
             } else chipRow.addView(stickChip);
         }
         // the face's own controls, there only while the camera is on: a private preview, Re-centre, Mirror
@@ -474,7 +479,7 @@ public final class PerformPanel extends ScrollView {
             paintChip(faceChip, in.faceOn());
             int words = !in.faceOn() ? R.string.avatar_face : in.faceDrive().mode() == cc.joycreator.avatar.face.FaceDrive.Mode.TALK
                     ? R.string.avatar_face_talk : R.string.avatar_face_always;
-            if (words != faceWords) {
+            if (words != faceWords && !compact) {
                 faceWords = words;
                 faceChip.setText(words);
             }
@@ -593,7 +598,7 @@ public final class PerformPanel extends ScrollView {
         TextView t = new TextView(c);
         t.setText(text);
         t.setGravity(Gravity.CENTER);
-        t.setTextSize(14);
+        t.setTextSize(compact ? 12 : 14);
         paintHold(t, false);
         t.setOnTouchListener((v, e) -> {
             switch (e.getActionMasked()) {

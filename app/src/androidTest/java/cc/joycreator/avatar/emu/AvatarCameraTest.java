@@ -175,6 +175,8 @@ public class AvatarCameraTest {
                 }
                 check(plan.refused && find(a, a.getString(R.string.avatar_cams_refused)) != null && find(a, a.getString(R.string.avatar_cams_one)) != null,
                         where + ": one plain line says so, and One camera for both is offered");
+                check(onScreen(find(a, a.getString(R.string.avatar_cams_refused))) && onScreen(find(a, a.getString(R.string.avatar_cams_one))),
+                        "...where it is seen: the line and One camera for both are on screen, not scrolled below the chips just tapped");
                 shot(out, "04-refused");
                 tapText(a, a.getString(R.string.avatar_cams_one));
                 Emu.sleep(1500);
@@ -290,6 +292,17 @@ public class AvatarCameraTest {
         Emu.ins().runOnMainSync(() -> v.requestRectangleOnScreen(new Rect(0, 0, v.getWidth(), v.getHeight()), true));
         Emu.sleep(300);
         Emu.tap(v);
+    }
+
+    /** All of the view is on the screen now (not scrolled out of the panel). */
+    private static boolean onScreen(View v) {
+        if (v == null) return false;
+        boolean[] all = new boolean[1];
+        Emu.ins().runOnMainSync(() -> {
+            Rect r = new Rect();
+            all[0] = v.getGlobalVisibleRect(r) && r.height() >= v.getHeight() - 1 && r.width() >= v.getWidth() - 1;
+        });
+        return all[0];
     }
 
     /** The Perform panel laid out again for the character (what the room does after a step). */

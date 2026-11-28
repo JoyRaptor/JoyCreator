@@ -1,0 +1,320 @@
+{
+  "selected": [
+    {
+      "id": "linen-1",
+      "label": "Fine linen canvas 1",
+      "sourceSha256": "21812dfa0422da727e539bb56d534c6a43687a7913542fadb6ce23ff99f6258c",
+      "note": "",
+      "alreadyExpanded": false
+    },
+    {
+      "id": "linen-2",
+      "label": "Fine linen canvas 2",
+      "sourceSha256": "a8c97627176fd9ace120c86d2f75007d30be4ac2e230fe5732e09c6ab9011841",
+      "note": "",
+      "alreadyExpanded": false
+    },
+    {
+      "id": "linen-3",
+      "label": "Fine linen canvas 3",
+      "sourceSha256": "2020dfed0b9f96230f4a0214f9392a1d468ad2e39ab4500f2d5f3bfcfcdb7807",
+      "note": "",
+      "alreadyExpanded": false
+    },
+    {
+      "id": "duck-1",
+      "label": "Cotton duck canvas 1",
+      "sourceSha256": "e27bd3c30e477030f4bccc0e1cd74fcf92e9eb5151109bc51b43dd41e6517d0b",
+      "note": "",
+      "alreadyExpanded": false
+    },
+    {
+      "id": "duck-2",
+      "label": "Cotton duck canvas 2",
+      "sourceSha256": "c5f03e688dc282d2bccf11ade2ddb6be29d7912b6ba5530546a3c0a6347723db",
+      "note": "",
+      "alreadyExpanded": false
+    },
+    {
+      "id": "duck-3",
+      "label": "Cotton duck canvas 3",
+      "sourceSha256": "b8407052a8554f06659b459c80fa48d63ec774ad3a4152182fc037c599df2559",
+      "note": "",
+      "alreadyExpanded": false
+    },
+    {
+      "id": "jute-2",
+      "label": "Rough jute canvas 2",
+      "sourceSha256": "cfa634cf8877793f21799fd92999f082ead829fa7766fe87281ecdbd07dc1122",
+      "note": "",
+      "alreadyExpanded": false
+    },
+    {
+      "id": "jute-3",
+      "label": "Rough jute canvas 3",
+      "sourceSha256": "39bb95dec2560867ea597442863615250255bbf9b8473420b01ee3daebaad5c2",
+      "note": "",
+      "alreadyExpanded": false
+    },
+    {
+      "id": "papyrus-1",
+      "label": "Papyrus 1",
+      "sourceSha256": "812d2e5e5c66a96c573a80b028c0b660d8e8fc03dab6fcfb2da2b82d068b57db",
+      "note": "",
+      "alreadyExpanded": false
+    },
+    {
+      "id": "papyrus-2",
+      "label": "Papyrus 2",
+      "sourceSha256": "df1c0fd1a81a2a6a93021ee11f09ca242c73958cc21742a314e1248cb8629b88",
+      "note": "",
+      "alreadyExpanded": false
+    },
+    {
+      "id": "papyrus-3",
+      "label": "Papyrus 3",
+      "sourceSha256": "7525042abb6963be86f7b307fd3c733a4ebe0107dd7d57a4883880e912775b0f",
+      "note": "",
+      "alreadyExpanded": false
+    },
+    {
+      "id": "parchment-1",
+      "label": "Parchment 1",
+      "sourceSha256": "ce4c727dd5b38273d20ce214bdabe53f491fb554a06775d372ab3014cc4a0523",
+      "note": "",
+      "alreadyExpanded": false
+    },
+    {
+      "id": "parchment-2",
+      "label": "Parchment 2",
+      "sourceSha256": "251c377e85d7bf264de1362b9b23fa0b26db50a88ca49d5e4e9cfbc5059bcae8",
+      "note": "",
+      "alreadyExpanded": false
+    },
+    {
+      "id": "parchment-3",
+      "label": "Parchment 3",
+      "sourceSha256": "216095947af3239de1fc453eaf243772b301feaf3e202342c9074f9ff625525a",
+      "note": "",
+      "alreadyExpanded": false
+    },
+    {
+      "id": "silk-1",
+      "label": "Silk 1",
+      "sourceSha256": "d2bf5a38ed8af31ccb189494e5b6292568129edddc777e1d01a7e3c2d604e0bb",
+      "note": "",
+      "alreadyExpanded": false
+    },
+    {
+      "id": "silk-2",
+      "label": "Silk 2",
+      "sourceSha256": "1d223a51b48512f714a7a80845f03243b431aa325adbad38bdab91eaa83016eb",
+      "note": "",
+      "alreadyExpanded": false
+    },
+    {
+      "id": "silk-3",
+      "label": "Silk 3",
+      "sourceSha256": "72964c5356d961a61f068126442d40eaa4413166ec89e23f2f376a583740a05f",
+      "note": "",
+      "alreadyExpanded": false
+    },
+    {
+      "id": "fabric-1",
+      "label": "General fabric 1",
+      "sourceSha256": "83dbe8e161865ce497af24d0a968190e433707b6996c01d90ce2a158be09e01d",
+      "note": "",
+      "alreadyExpanded": false
+    },
+    {
+      "id": "fabric-2",
+      "label": "General fabric 2",
+      "sourceSha256": "938607e5ae359d2084a5afbe2fb37a558de7acc2e8d8089e6b7a897d0bb10df7",
+      "note": "",
+      "alreadyExpanded": false
+    },
+    {
+      "id": "fabric-3",
+      "label": "General fabric 3",
+      "sourceSha256": "26f57c0b55e6fd30bcbee927c5e3b18602393ea545156f822ae005a7423d3cf0",
+      "note": "",
+      "alreadyExpanded": false
+    },
+    {
+      "id": "cement-1",
+      "label": "Cement 1",
+      "sourceSha256": "f17c1b1eeb003f81e797da80eac2166af5b58e2d1272d303e6b8963aa87d5a66",
+      "note": "",
+      "alreadyExpanded": false
+    },
+    {
+      "id": "expanded-handled",
+      "label": "Gently handled \u2014 D /126px",
+      "sourceSha256": "cec922cc738bb0b4b1c57c27a2499368c7a208a8f2cc4a166ac74dff5b171f22",
+      "note": "",
+      "alreadyExpanded": true
+    },
+    {
+      "id": "expanded-light",
+      "label": "Lightly crumpled and flattened \u2014 D /126px",
+      "sourceSha256": "504f3a396cf42bdea0d4453ea022c503e85df7ed63dcfdef9059d0e56dad847e",
+      "note": "",
+      "alreadyExpanded": true
+    },
+    {
+      "id": "expanded-firm",
+      "label": "Firmly crumpled and flattened \u2014 D /126px",
+      "sourceSha256": "9abd9191d82793ab0c79aec68d7d6b6cefde95b807b9098a32d2096a5859ebd8",
+      "note": "",
+      "alreadyExpanded": true
+    },
+    {
+      "id": "earlier-chalkboard_black_01",
+      "label": "chalkboard black 01",
+      "sourceSha256": "2e2d96546d6ddb8ddfa2b4e00d71b028c7462d6eed93b794eb59144387348452",
+      "note": "",
+      "alreadyExpanded": false
+    },
+    {
+      "id": "earlier-chalkboard_green_02",
+      "label": "chalkboard green 02",
+      "sourceSha256": "2774c162cd439bff5ed76871aa8c98753795371e8c4d6c533469b9d30eae281d",
+      "note": "less scuffmarks",
+      "alreadyExpanded": false
+    },
+    {
+      "id": "earlier-chalkboard_green_03",
+      "label": "chalkboard green 03",
+      "sourceSha256": "97510b56a51c810ae386540d8944a3fa006c9b925058114b497e7b10f0c2a085",
+      "note": "",
+      "alreadyExpanded": false
+    },
+    {
+      "id": "earlier-construction_tan_01",
+      "label": "construction tan 01",
+      "sourceSha256": "161a995c5dd13eb6f1f620096efac84b837fb3069ac3289a1d6104e2474a4c24",
+      "note": "",
+      "alreadyExpanded": false
+    },
+    {
+      "id": "earlier-construction_tan_02",
+      "label": "construction tan 02",
+      "sourceSha256": "70964166a44af880f90889f92fc3821f197305af0c86b0cedae745006d204d71",
+      "note": "",
+      "alreadyExpanded": false
+    },
+    {
+      "id": "earlier-construction_tan_03",
+      "label": "construction tan 03",
+      "sourceSha256": "6c03defff12f970fad2147dea10056cc8576123f145dd6b7e5025a4caba59ca7",
+      "note": "",
+      "alreadyExpanded": false
+    },
+    {
+      "id": "earlier-papyrus_01",
+      "label": "papyrus 01",
+      "sourceSha256": "2d6e03fd75cf38fc2b10ca263ef8eb7a2da2c00d1f6c0d5f1f8b22e5595044f4",
+      "note": "",
+      "alreadyExpanded": false
+    },
+    {
+      "id": "earlier-papyrus_02",
+      "label": "papyrus 02",
+      "sourceSha256": "e7d1ab9d3e64651c8fb9ae07917741b6142fdef46dac1ea61cd4103b2596cb83",
+      "note": "",
+      "alreadyExpanded": false
+    },
+    {
+      "id": "earlier-papyrus_03",
+      "label": "papyrus 03",
+      "sourceSha256": "49370a65ac4425d9ecbb6158ff9bf526e48de0f14456a1a4739bb023fd48fc0d",
+      "note": "",
+      "alreadyExpanded": false
+    },
+    {
+      "id": "earlier-rice_cool_01",
+      "label": "rice cool 01",
+      "sourceSha256": "24e3a32bbd76e7baf9c1f7b0869a48b983c98a4352893587be4877aaca2c0ee3",
+      "note": "",
+      "alreadyExpanded": false
+    },
+    {
+      "id": "earlier-rice_cool_02",
+      "label": "rice cool 02",
+      "sourceSha256": "33ca186b1257e22b0dc9ec4f54b652e6e52ebf143b74879a9895f1653a7ce06c",
+      "note": "",
+      "alreadyExpanded": false
+    },
+    {
+      "id": "earlier-rice_cream_01",
+      "label": "rice cream 01",
+      "sourceSha256": "0c448b96a641daffa85c56fd69d9b4bf39bf42b5275f25c8fc1c996abc0fa029",
+      "note": "",
+      "alreadyExpanded": false
+    },
+    {
+      "id": "earlier-sugarcane_01",
+      "label": "sugarcane 01",
+      "sourceSha256": "04f8df5388b8d5e455985a1b368b1334c5b37c3c9e1ee50f68e88ff676453d2a",
+      "note": "",
+      "alreadyExpanded": false
+    },
+    {
+      "id": "earlier-sugarcane_02",
+      "label": "sugarcane 02",
+      "sourceSha256": "b80def2dbf5275d434d9598eb63106ff7af1ce17c36f52af71e5675458a1ecb9",
+      "note": "",
+      "alreadyExpanded": false
+    },
+    {
+      "id": "owner-1",
+      "label": "cardbord01",
+      "sourceSha256": "1725bc1a3bac69c182a0729e78235d488ad53f1336d759ec0f30ca13be27f7f8",
+      "note": "",
+      "alreadyExpanded": false
+    },
+    {
+      "id": "owner-2",
+      "label": "chalkbord-black-ChatGPT Image Oct 5, 2026, 11_08_28 PM",
+      "sourceSha256": "b9ec1194098c4f01f7da82968b901d7def7a6bbd5bb42119a4c11558d04ea6e9",
+      "note": "",
+      "alreadyExpanded": false
+    },
+    {
+      "id": "owner-4",
+      "label": "construction paper-blue",
+      "sourceSha256": "ac703a7599fcd67b19ae2ccf4eb93467ed1e163f00356a3e351e548f33e25161",
+      "note": "",
+      "alreadyExpanded": false
+    },
+    {
+      "id": "owner-7",
+      "label": "ricepaper03-tan-ChatGPT Image Oct 5, 2026, 11_05_38 PM",
+      "sourceSha256": "1c80dff0eb385ee8d603f578f5696756a8ff576e8813f1f2cb5b52ee0a74bdde",
+      "note": "",
+      "alreadyExpanded": false
+    },
+    {
+      "id": "owner-8",
+      "label": "ricepaper04n-ChatGPT Image Oct 5, 2026, 11_05_38 PM",
+      "sourceSha256": "10cd5fa4ea765df148e332826ed870a992ecfa80bf04fb876cfa3ae6514176d6",
+      "note": "",
+      "alreadyExpanded": false
+    },
+    {
+      "id": "owner-9",
+      "label": "thai-ChatGPT Image Oct 5, 2026, 11_08_59 PM",
+      "sourceSha256": "ac46537e2f51a08f948a99db625a9bc9fa48f4560f81ede3a9224b54fa25dd67",
+      "note": "",
+      "alreadyExpanded": false
+    },
+    {
+      "id": "owner-10",
+      "label": "thai02-ChatGPT Image Oct 5, 2026, 11_08_59 PM",
+      "sourceSha256": "e770afff426e4e0328b2f143e483dc1585c21cf7ab1ccdb3dd175a54db29f7a3",
+      "note": "",
+      "alreadyExpanded": false
+    }
+  ],
+  "role": "Evaluation only; not shipping selection; no existing id replacement."
+}

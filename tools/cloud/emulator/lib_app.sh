@@ -69,3 +69,21 @@ seed_picture_project() {
     shot seed_done
     return 0
 }
+
+# choose_folder: give the app a Joy Creator folder on the emulator (Settings > Joy Creator folder > Make my Joy Creator folder).
+# The system picker opens at the storage root, which Android will not hand out, so the Documents folder is entered first.
+# Needs the system file picker enabled and the first-run intro already passed. Returns 1 (after a shot) if a step is missing.
+choose_folder() {
+    adb shell pm enable com.android.documentsui >/dev/null 2>&1 || true
+    tap_text "Setup" >/dev/null 2>&1; settle 4
+    tap_text "Joy Creator folder" >/dev/null 2>&1; settle 5
+    tap_text "Make my Joy Creator folder" >/dev/null 2>&1 || { shot folder_no_button; return 1; }
+    settle 5
+    tap_text "=Documents" >/dev/null 2>&1 || tap_text "Documents" >/dev/null 2>&1 || { shot folder_no_documents; return 1; }
+    settle 3
+    shot folder_in_documents
+    tap_text "ALLOW ACCESS TO" >/dev/null 2>&1 || tap_text "Allow access to" >/dev/null 2>&1; settle 3
+    tap_text "=ALLOW" >/dev/null 2>&1 || tap_text "ALLOW" >/dev/null 2>&1; settle 5
+    shot folder_chosen
+    return 0
+}

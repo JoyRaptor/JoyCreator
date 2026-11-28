@@ -309,7 +309,8 @@ public final class SceneRoom {
         Map<String, JSONObject> m = new LinkedHashMap<>();
         for (Map.Entry<String, CharacterDoc> e : docs.entrySet()) m.put(e.getKey(), e.getValue().json);
         gl.setCast(m);
-        if (hand == null && scene != null) for (JSONObject it : scene.cast()) if (docs.containsKey(it.optString("id"))) {
+        if (scene != null && sel != null && docs.containsKey(sel) && scene.item(sel) != null && "cast".equals(scene.item(sel).optString("kind"))) setHand(sel);   // the one just brought in
+        else if (hand == null && scene != null) for (JSONObject it : scene.cast()) if (docs.containsKey(it.optString("id"))) {
             setHand(it.optString("id"));
             break;
         }

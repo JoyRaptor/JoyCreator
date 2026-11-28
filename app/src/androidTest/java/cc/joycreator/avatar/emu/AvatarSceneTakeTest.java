@@ -50,24 +50,24 @@ public class AvatarSceneTakeTest {
             assertNotNull("the director's chair button", chair);
             Emu.tap(chair);
             Emu.sleep(600);
-            Emu.tap(byText(root, "Scene"));
+            Emu.tap(mustText(root, "Scene"));
             Emu.sleep(600);
-            Emu.tap(byText(root, "Character"));
+            Emu.tap(mustText(root, "Character"));
             Emu.sleep(1000);
-            Emu.tap(byDesc(root, "Make a new scene on a set"));
+            Emu.tap(must(root, "Make a new scene on a set"));
             Emu.sleep(900);
             assertTrue("Meadow", click("Meadow"));
             Emu.sleep(2500);
-            Emu.tap(byText(root, "Arrange"));
+            Emu.tap(mustText(root, "Arrange"));
             Emu.sleep(1000);
             for (String who : new String[]{"Topps", "Pip"}) {
-                Emu.tap(byText(root, "+ Character"));
+                Emu.tap(mustText(root, "+ Character"));
                 Emu.sleep(1500);
                 assertTrue(who, click(who));
                 Emu.sleep(3000);
             }
             shot(out, "1-two-characters");
-            Emu.tap(byText(root, "Perform"));
+            Emu.tap(mustText(root, "Perform"));
             Emu.sleep(2000);
             shot(out, "2-perform-in-the-scene");
             // the first one in hand records a pass with the room's own Record button
@@ -75,7 +75,7 @@ public class AvatarSceneTakeTest {
             assertNotNull("the room's Record button works in a scene (Perform's panel)", rec);
             Emu.tap(rec);
             Emu.sleep(3000);
-            Emu.tap(byDesc(root, "Record a pass"));
+            Emu.tap(must(root, "Record a pass"));
             Emu.sleep(1500);
             assertEquals("one take in the scene", 1, takes(a[0]));
             // the second takes the hand and records
@@ -83,9 +83,9 @@ public class AvatarSceneTakeTest {
             assertNotNull("Pip's card on the Character part", pip);
             Emu.tap(pip);
             Emu.sleep(1500);
-            Emu.tap(byDesc(root, "Record a pass"));
+            Emu.tap(must(root, "Record a pass"));
             Emu.sleep(3000);
-            Emu.tap(byDesc(root, "Record a pass"));
+            Emu.tap(must(root, "Record a pass"));
             Emu.sleep(1500);
             assertEquals("two takes in the scene", 2, takes(a[0]));
             shot(out, "3-two-takes");
@@ -95,10 +95,22 @@ public class AvatarSceneTakeTest {
             Emu.sleep(1500);
             shot(out, "4-playing-together");
             assertTrue("the scene is playing", call(a[0], "playingAll"));
-            Emu.tap(byDesc(root, "Stop the scene"));
+            Emu.tap(must(root, "Stop the scene"));
             Emu.sleep(1000);
             assertFalse("the scene stopped", call(a[0], "playingAll"));
         }
+    }
+
+    private static View must(View root, String desc) {
+        View v = byDesc(root, desc);
+        assertNotNull("no shown view described \"" + desc + "\"", v);
+        return v;
+    }
+
+    private static View mustText(View root, String text) {
+        View v = byText(root, text);
+        assertNotNull("no tappable text \"" + text + "\"", v);
+        return v;
     }
 
     private static int takes(AvatarRoomActivity a) throws Exception {

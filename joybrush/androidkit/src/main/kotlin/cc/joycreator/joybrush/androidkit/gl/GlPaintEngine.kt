@@ -21,6 +21,7 @@ import cc.joycreator.joybrush.core.stroke.LineAddress
 import cc.joycreator.joybrush.androidkit.gl.lines.RecordedScene
 import cc.joycreator.joybrush.androidkit.gl.lines.BoardItemFlatten
 import cc.joycreator.joybrush.androidkit.gl.lines.LineBake
+import cc.joycreator.joybrush.androidkit.gl.lines.LineCutMoves
 import cc.joycreator.joybrush.androidkit.gl.lines.LineCommit
 import cc.joycreator.joybrush.androidkit.gl.lines.LineEditBudget
 import cc.joycreator.joybrush.androidkit.gl.lines.LineItems
@@ -3748,27 +3749,8 @@ class GlPaintEngine(
                 val cel = engineCel(layer, plane)
                 val plan = cc.joycreator.joybrush.androidkit.lines.LineCutPlan.plan(nativeLines.lines(plane), nativeLines.slabSeqs(plane), ofPlane)
                 plans[plane] = plan
-                for (l in nativeLines.lines(plane)) {
-                    val to = plan.moves[l.seq] ?: continue
-                    lines += UndoLog.LineChange(layer.id, cel, l.id, CelComposer.Line(l.seq, l), CelComposer.Line(to, l.copy(seq = to)))
-                    footprints[plane to l.id] = nativeLines.footprint(plane, l.id)
-                }
-                // A slab that moves goes to its new place as a copy: history keeps the texture it had (UndoLog.SlabChange),
-                // the live slab owns the copy. One change per (seq, tile), from what was there to what is there now.
-                val before = HashMap<Pair<Long, Long>, UndoLog.SlabValue<Int>>()
-                val after = HashMap<Pair<Long, Long>, UndoLog.SlabValue<Int>>()
-                for (q in nativeLines.slabSeqs(plane)) {
-                    val to = plan.moves[q] ?: continue
-                    val slab = nativeLines.slab(plane, q) ?: continue
-                    for ((key, tex) in slab.tiles) {
-                        before[q to key] = UndoLog.SlabValue(tex, slab.op)
-                        val copy = copyOfTile(tex).also(copies::add)
-                        after[to to key] = UndoLog.SlabValue(copy, slab.op)
-                    }
-                }
-                for (at in (before.keys + after.keys).toSet()) {
-                    slabs += UndoLog.SlabChange(layer.id, cel, at.second, at.first, before[at], after[at])
-                }
+                val made = LineCutMoves.of(nativeLines, plane, layer.id, cel, plan) { tex -> copyOfTile(tex).also(copies::add) }
+                lines += made.lines; slabs += made.slabs; footprints += made.footprints
             }
         } catch (e: Throwable) {
             copies.forEach(::recycleLayerTex)

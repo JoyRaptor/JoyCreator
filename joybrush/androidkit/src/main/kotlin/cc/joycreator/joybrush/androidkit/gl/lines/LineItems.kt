@@ -54,7 +54,10 @@ internal object LineItems {
             }
         }
         try {
-            for (c in lines) if (lineTarget(c) == null) setLine(planeOf(c.layerId, c.celId), c.id, null)
+            // Every changed line leaves first, then each is put at its target: lines that change places (a cut line's pieces
+            // make room above them, 11-28) would otherwise meet each other's seq on the way. A line's widened footprint is
+            // kept by id across this (NativeLines.extras), so the end state is what a direct put gives.
+            for (c in lines) setLine(planeOf(c.layerId, c.celId), c.id, null)
             for (c in slabs) if (slabTarget(c) == null) setSlabTile(c, null)
             for (c in slabs) slabTarget(c)?.let { setSlabTile(c, it) }
             for (c in lines) lineTarget(c)?.let { setLine(planeOf(c.layerId, c.celId), c.id, it.record) }

@@ -19,8 +19,8 @@ tap 540 1250; settle 2
 shot pin2
 dump pin2
 python3 "$HERE_LIB/uia.py" list /tmp/ui.xml | head -60
-# key the selected pin with the diamond
-tap_text "Key" >/dev/null 2>&1 || tap_text "diamond" >/dev/null 2>&1 || tap_text "Add key" >/dev/null 2>&1
+# key the selected pin with the diamond in the drawer header (custom drawn: by position, 1080x2220 frame)
+tap 837 135
 settle 2
 shot keyed
 dump keyed
@@ -34,11 +34,15 @@ tap 540 700; settle 2
 tap_text "pins" >/dev/null 2>&1 || tap_text "Puppet" >/dev/null 2>&1
 settle 2
 shot badge
-# a live take: a slow drag of the pin placed second
-swipe 540 1250 700 1150 1500; settle 3
+# a live take: a slow drag of the second pin ("Base", seen at about 694,1155 on this frame)
+swipe 694 1155 860 1000 2500; settle 3
 shot after_drag
 dump after_drag
-python3 "$HERE_LIB/uia.py" list /tmp/ui.xml | head -60
-# replay: a second drag and a frame later
-swipe 540 1250 380 1300 1500; settle 3
-shot after_drag2
+python3 "$HERE_LIB/uia.py" list /tmp/ui.xml | head -40
+# scrub back to the start (tap the timeline's left end) and photograph the posed frame, then play
+tap 60 1660; settle 2
+shot at_zero
+tap 540 1670; settle 3
+shot playing
+settle 2
+shot playing2

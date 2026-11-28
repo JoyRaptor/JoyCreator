@@ -23,6 +23,7 @@ public final class BackdropGl {
             + "void main(){ vec4 col = useTex > 0.5 ? vec4(texture2D(tx, vt).rgb, 1.0) : vc; gl_FragColor = col; }";
 
     private int prog, aP, aT, aC, uSz, uTex, uUse, texId;
+    private boolean logged;
     private Bitmap pending;
     private int texW, texH;
     private final FloatBuffer buf = ByteBuffer.allocateDirect(4 * 8 * 4).order(ByteOrder.nativeOrder()).asFloatBuffer();
@@ -45,6 +46,9 @@ public final class BackdropGl {
         GLES20.glAttachShader(prog, shader(GLES20.GL_VERTEX_SHADER, VS));
         GLES20.glAttachShader(prog, shader(GLES20.GL_FRAGMENT_SHADER, FS));
         GLES20.glLinkProgram(prog);
+        int[] ok = new int[1];
+        GLES20.glGetProgramiv(prog, GLES20.GL_LINK_STATUS, ok, 0);
+        if (ok[0] == 0) android.util.Log.w("AvatarRoom", "backdrop program: " + GLES20.glGetProgramInfoLog(prog));
         aP = GLES20.glGetAttribLocation(prog, "p");
         aT = GLES20.glGetAttribLocation(prog, "t");
         aC = GLES20.glGetAttribLocation(prog, "c");
@@ -106,6 +110,8 @@ public final class BackdropGl {
         GLES20.glClearColor(0, 0, 0, 1);
         GLES20.glClear(GLES20.GL_COLOR_BUFFER_BIT);
         GLES20.glDisable(GLES20.GL_BLEND);
+        GLES20.glBindBuffer(GLES20.GL_ARRAY_BUFFER, 0);                 // the character's drawing leaves its own buffers bound: these vertices are client-side
+        GLES20.glBindBuffer(GLES20.GL_ELEMENT_ARRAY_BUFFER, 0);
         GLES20.glUseProgram(prog);
         GLES20.glUniform2f(uSz, width, height);
         float[] black = {0, 0, 0};
@@ -121,6 +127,11 @@ public final class BackdropGl {
             GLES20.glUniform1f(uUse, 0f);
             // the pilot's stage: #1a1a22 high in the picture, #0d0d10 in the middle, #050507 at the foot (a vertical wash)
             quad(pic[0], pic[1], pic[2], pic[3], new float[]{0, 0, 1, 1}, new float[]{0.078f, 0.078f, 0.098f}, new float[]{0.027f, 0.027f, 0.04f});
+        }
+        int err = GLES20.glGetError();
+        if (err != 0 && !logged) {
+            logged = true;
+            android.util.Log.w("AvatarRoom", "backdrop GL error " + err + " (texture " + texId + " " + texW + "x" + texH + ")");
         }
     }
 

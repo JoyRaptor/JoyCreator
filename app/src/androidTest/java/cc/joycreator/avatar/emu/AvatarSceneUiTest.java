@@ -84,20 +84,15 @@ public class AvatarSceneUiTest {
             Emu.sleep(1200);
             shot(out, "6-back-to-wide");
 
-            // hold the frame button: the sheet; choose 9:16: the strip comes from the side
+            // hold the frame button: the sheet (a dialog, its own window); choose 9:16: the strip comes from the side
             View fb = byDesc(root, "The frame is on");
             Emu.ins().runOnMainSync(fb::performLongClick);
-            Emu.sleep(1000);
-            assertTrue("the frame's sheet opens on a long press", hasText(root, "The shape"));
+            Emu.sleep(1200);
+            assertNotNull("the frame's sheet opens on a long press", node("The shape"));
             shot(out, "7-frame-sheet");
-            View nine = byText(root, "9:16");
-            assertNotNull("the 9:16 shape in the sheet", nine);
-            Emu.tap(nine);
+            assertTrue("the 9:16 shape in the sheet", click("9:16"));
             Emu.sleep(800);
-            Emu.ins().runOnMainSync(() -> {
-                View done = byText(root, "Done");
-                if (done != null) done.performClick();
-            });
+            assertTrue("Done closes the sheet", click("Done"));
             Emu.sleep(1800);
             shot(out, "8-upright-frame-strip-from-the-side");
             View strip = stripView(root);
@@ -151,6 +146,20 @@ public class AvatarSceneUiTest {
     private static int stripParts(View root) {
         View s = stripView(root);
         return s instanceof ViewGroup ? ((ViewGroup) s).getChildCount() : 0;
+    }
+
+    /** A node of whatever window is in front (a dialog is its own window, not part of the room's views). */
+    private static android.view.accessibility.AccessibilityNodeInfo node(String text) {
+        android.view.accessibility.AccessibilityNodeInfo r = Emu.ins().getUiAutomation().getRootInActiveWindow();
+        if (r == null) return null;
+        List<android.view.accessibility.AccessibilityNodeInfo> l = r.findAccessibilityNodeInfosByText(text);
+        return l == null || l.isEmpty() ? null : l.get(0);
+    }
+
+    private static boolean click(String text) {
+        android.view.accessibility.AccessibilityNodeInfo n = node(text);
+        while (n != null && !n.isClickable()) n = n.getParent();
+        return n != null && n.performAction(android.view.accessibility.AccessibilityNodeInfo.ACTION_CLICK);
     }
 
     private static Object field(Object o, String name) throws Exception {

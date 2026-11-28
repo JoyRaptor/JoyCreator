@@ -59,6 +59,13 @@ import java.util.List;
  */
 public final class AdjustmentLayerGlEffect implements GlEffect {
 
+    /**
+     * TESTS ONLY (GL-MASK): stands in for a GPU whose fragment uniforms hold at most this many mask
+     * shapes in one program. A program asked for more fails to compile, as it would there.
+     */
+    @androidx.annotation.VisibleForTesting
+    public static volatile int testShapeBudget = Integer.MAX_VALUE;
+
     @NonNull private final Context context;
     @NonNull private final AdjustmentLayer layer;
     private final long editorTimeOffsetMs;
@@ -203,6 +210,11 @@ public final class AdjustmentLayerGlEffect implements GlEffect {
                 int[] outFbo = new int[1];
                 GLES20.glGetIntegerv(GLES20.GL_FRAMEBUFFER_BINDING, outFbo, 0);
 
+                // GL-MASK fallback: the masks are folded into a coverage picture first, a few
+                // shapes a pass, and the composite reads it (see ensurePrograms).
+                int cover = coverChunk > 0 && cs != null && !cs.masks.isEmpty()
+                        ? drawCover(shapes, maskGeo4, maskRot2, maskCorner, maskFeather, maskOps) : 0;
+
                 int src = inputTexId;
                 int stepCount = steps.size();
                 for (int i = 0; i < stepCount; i++) {
@@ -229,6 +241,7 @@ public final class AdjustmentLayerGlEffect implements GlEffect {
                     // pass reads uBaseSampler, so on every intermediate pass the driver strips
                     // it and media3 throws looking the name up in the linked program.
                     setSampler(p, "uBaseSampler", inputTexId, 1);
+                    if (last && cover != 0) setSampler(p, FxGlSource.U_MASK_COVER, cover, 3);
                     setF2(p, "uTexel", 1f / width, 1f / height);
                     setF(p, "uAspect", (float) width / (float) height);
                     setF(p, "uTime", editorMs / 1000f);
@@ -465,16 +478,23 @@ public final class AdjustmentLayerGlEffect implements GlEffect {
             key.append('m').append(maskShapes);
             if (!steps.isEmpty() && key.toString().equals(sourceKey)) return true;
 
-            if (!buildSteps(plan, maskShapes)) {
+            releaseCover();
+            if (!buildSteps(plan, maskShapes, false)) {
                 // A many-shape mask is the one thing here that can outgrow a GPU's fragment
-                // uniform budget, and losing the grade entirely would be worse than the
-                // shape-0-only render this replaced. Retry at one shape, and remember what
-                // compiled so drawFrame uploads exactly that many.
-                if (maskShapes <= 1 || !buildSteps(plan, 1)) {
+                // uniform budget (GL-MASK, Codex audit round 4). Every shape still counts: the
+                // masks are folded into a coverage picture in passes of as many shapes as one
+                // program holds, and the composite reads that picture.
+                if (maskShapes > 1 && buildCover(plan, maskShapes)) {
+                    compiledShapes = maskShapes;
+                } else if (maskShapes <= 1 || !buildSteps(plan, 1, false)) {
                     degraded = true;
                     return false;
+                } else {
+                    // Last resort, as before: a grade through the first shape beats no grade.
+                    FLog.w("AdjustmentLayer", "the mask passes would not compile either; only the first of "
+                            + maskShapes + " mask shapes is drawn");
+                    compiledShapes = 1;
                 }
-                compiledShapes = 1;
             } else {
                 compiledShapes = maskShapes;
             }
@@ -486,7 +506,8 @@ public final class AdjustmentLayerGlEffect implements GlEffect {
         private int compiledShapes = 1;
 
         /** Compile every render of {@code plan} at {@code maskShapes}; false if any failed. */
-        private boolean buildSteps(@NonNull FxCompiler.Plan plan, int maskShapes) {
+        private boolean buildSteps(@NonNull FxCompiler.Plan plan, int maskShapes,
+                                   boolean coverFromTexture) {
             releaseSteps();
             try {
                 for (int i = 0; i < plan.passes.size(); i++) {
@@ -495,7 +516,7 @@ public final class AdjustmentLayerGlEffect implements GlEffect {
                     int renders = Math.max(1, pa.repeats);
                     for (int r = 0; r < renders; r++) {
                         boolean lastRender = lastPass && r == renders - 1;
-                        GlProgram prog = compile(pa, lastRender, maskShapes);
+                        GlProgram prog = compile(pa, lastRender, maskShapes, coverFromTexture);
                         // Horizontal first, then vertical — the order the kernel weights assume.
                         float dx = (renders > 1 && r == 1) ? 0f : 1f;
                         float dy = (renders > 1 && r == 1) ? 1f : 0f;
@@ -521,9 +542,12 @@ public final class AdjustmentLayerGlEffect implements GlEffect {
          */
         @NonNull
         private GlProgram compile(@NonNull FxCompiler.Pass pa, boolean composite,
-                                  int maskShapes) throws GlUtil.GlException {
+                                  int maskShapes, boolean coverFromTexture) throws GlUtil.GlException {
+            if (composite && !coverFromTexture && maskShapes > testShapeBudget) {
+                throw new GlUtil.GlException("test: " + maskShapes + " mask shapes exceed this GPU's budget");
+            }
             GlProgram prog = new GlProgram(VERTEX_SHADER,
-                    FxGlSource.fragment(pa, KERNEL_HALF, composite, maskShapes));
+                    FxGlSource.fragment(pa, KERNEL_HALF, composite, maskShapes, coverFromTexture));
             // The quad. Without it GlProgram throws "call setBuffer before bind" on first draw.
             prog.setBufferAttribute("aFramePosition",
                     GlUtil.getNormalizedCoordinateBounds(), 4);
@@ -536,6 +560,94 @@ public final class AdjustmentLayerGlEffect implements GlEffect {
             }
             steps.clear();
             sourceKey = null;
+        }
+
+        // ── GL-MASK: the masks folded in passes ─────────────────────────────────────
+
+        /** Shapes per cover pass; 0 = the composite folds the masks itself (the usual case). */
+        private int coverChunk;
+        @androidx.annotation.Nullable private GlProgram coverProgram;
+        /** Two coverage pictures, ping-ponged pass to pass: {tex, fbo} each; made on first use. */
+        @NonNull private final int[][] coverTargets = new int[2][];
+
+        /**
+         * The fallback: the stack's renders compiled with a composite that reads its mask coverage
+         * from a texture, and one fold program holding as many shapes as compile (from one short of
+         * the whole mask down to one). False if either cannot be had.
+         */
+        private boolean buildCover(@NonNull FxCompiler.Plan plan, int maskShapes) {
+            if (!buildSteps(plan, 1, true)) return false;
+            for (int chunk = maskShapes - 1; chunk >= 1; chunk--) {
+                try {
+                    if (chunk > testShapeBudget) continue;
+                    GlProgram prog = new GlProgram(VERTEX_SHADER, FxGlSource.maskChunkFragment(chunk));
+                    prog.setBufferAttribute("aFramePosition", GlUtil.getNormalizedCoordinateBounds(), 4);
+                    coverProgram = prog;
+                    coverChunk = chunk;
+                    FLog.w("AdjustmentLayer", "the whole mask (" + maskShapes + " shapes) would not compile in one"
+                            + " program; folding it in passes of " + chunk);
+                    return true;
+                } catch (Exception e) {
+                    FLog.w("AdjustmentLayer", "mask pass of " + chunk + " shape(s) failed to compile: " + e);
+                }
+            }
+            releaseSteps();
+            return false;
+        }
+
+        /**
+         * Fold this frame's {@code shapes} masks into a coverage picture, {@link #coverChunk} a
+         * pass, in their order; returns the picture holding the result.
+         */
+        private int drawCover(int shapes, @NonNull float[] geo4, @NonNull float[] rot2,
+                              @NonNull float[] corner, @NonNull float[] feather,
+                              @NonNull float[] ops) throws GlUtil.GlException {
+            GlProgram p = java.util.Objects.requireNonNull(coverProgram);
+            int chunk = coverChunk;
+            int result = 0;
+            for (int at = 0, k = 0; at < shapes; at += chunk, k++) {
+                int n = Math.min(chunk, shapes - at);
+                int[] target = coverTarget(k % 2);
+                int[] previous = coverTarget((k + 1) % 2);
+                GlUtil.focusFramebufferUsingCurrentContext(target[1], width, height);
+                p.use();
+                setSampler(p, "uMaskPrev", previous[0], 0);
+                setF2(p, "uTexel", 1f / width, 1f / height);
+                setF(p, "uMaskSeed", at == 0 ? 1f : 0f);
+                setF(p, "uMaskChunk", n);
+                p.bindAttributesAndUniforms();
+                uploadMaskArrays(p, chunk, slice(geo4, at * 4, chunk * 4), slice(rot2, at * 2, chunk * 2),
+                        slice(corner, at, chunk), slice(feather, at, chunk), slice(ops, at, chunk));
+                GLES20.glDrawArrays(GLES20.GL_TRIANGLE_STRIP, 0, 4);
+                GlUtil.checkGlError();
+                result = target[0];
+            }
+            return result;
+        }
+
+        /** [length] floats of [a] from [from], zeros past its end. */
+        @NonNull
+        private static float[] slice(@NonNull float[] a, int from, int length) {
+            float[] out = new float[length];
+            System.arraycopy(a, from, out, 0, Math.max(0, Math.min(length, a.length - from)));
+            return out;
+        }
+
+        @NonNull
+        private int[] coverTarget(int i) throws GlUtil.GlException {
+            if (coverTargets[i] == null) {
+                int tex = GlUtil.createTexture(width, height, /* useHighPrecisionColorComponents= */ false);
+                coverTargets[i] = new int[]{tex, GlUtil.createFboForTexture(tex)};
+            }
+            return coverTargets[i];
+        }
+
+        private void releaseCover() {
+            if (coverProgram != null) {
+                try { coverProgram.delete(); } catch (Exception ignored) { }
+                coverProgram = null;
+            }
+            coverChunk = 0;
         }
 
         private void passthrough(int inputTexId) throws VideoFrameProcessingException {
@@ -577,6 +689,13 @@ public final class AdjustmentLayerGlEffect implements GlEffect {
                     try { GlUtil.deleteTexture(pp[0]); } catch (Exception ignored) { }
                 }
                 pingPong.clear();
+                releaseCover();
+                for (int i = 0; i < coverTargets.length; i++) {
+                    if (coverTargets[i] == null) continue;
+                    try { GlUtil.deleteTexture(coverTargets[i][0]); } catch (Exception ignored) { }
+                    GLES20.glDeleteFramebuffers(1, new int[]{coverTargets[i][1]}, 0);
+                    coverTargets[i] = null;
+                }
                 if (passProgram != null) passProgram.delete();
             } catch (Exception e) {
                 throw new VideoFrameProcessingException(e);

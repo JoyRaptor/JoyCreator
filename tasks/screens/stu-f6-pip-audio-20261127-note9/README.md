@@ -20,3 +20,16 @@ Status for STU-1: F6 stays open (export default drops PiP sound; panel shows a w
 
 ## 11-28 re-run with Include audio ON for both PiPs (hover-1, Note 9): export STILL has no PiP sound
 How: hold each PiP on the timeline (opens its object drawer), tap the red speaker icon; the lane header then shows a speaker and the saved project has `overlayAudioEnabled: true` on both PiPs (`audioMuted: true` stays, as designed). Export (video, defaults): `Untitled audio 5 2.mp4`, 5.97 s audio. Export trace lists three AUDIO_SOURCEs (main + both PiPs, 44.1 kHz mono AAC). Decoded with `tone_check.py`: only the main clip's 2000 Hz is present; 440 Hz and 1320 Hz are at about -105 dB. **FAIL: an opted-in PiP's sound does not reach the export** (the code path `buildOverlayAudioSequence` exists; cause not found). Possibly the same family as the ping-pong export not using the new rule: a stale build or a path that skips it; needs the export owner. Preview not measured.
+
+## 11-28 re-run 2 on build `9e04c1a40`: blue PiP sound reaches the export; the two PiPs are laid end to end, not together (FAULT)
+Both PiPs have Include audio on. In each PiP's drawer the sound icon now un-mutes (red speaker turns white speaker, one Undo step, lane header shows a speaker; `rerun2_red_pip_drawer_speaker_unmuted.png`), and a Volume row (100%) appears in the drawer. For this run the red PiP (A, 440 Hz) was un-muted first and the blue PiP (B, 1320 Hz) second; both start at 0 s, each 8 s long, over a 6 s main clip (2000 Hz). Export (`Untitled audio 5 3.mp4`), tone level per second (FFT amplitude):
+| seconds | 440 Hz (A) | 1320 Hz (B) | 2000 Hz (main) |
+|---|---|---|---|
+| 0 to 5 | 0 | about 2030 | about 2028 |
+| 6 to 7 | 0 | about 2033 | 0 |
+| 8 to 14 | about 2035 | 0 | 0 |
+- **Progress:** a PiP's sound now reaches the export (before the fix: nothing).
+- **FAULT 1: the two PiPs' sound is placed one after the other** (B for 0 to 8 s, then A for 8 to 16 s), not mixed together from 0 s as the picture-in-picture lanes are. Two simultaneous PiPs each with sound can never be heard at once.
+- **FAULT 2: the exported audio runs 15.96 s while the video is 6.0 s** (ffprobe), so the file's audio outlasts its picture by about 10 s.
+- The main clip's 2000 Hz stays at its normal level (about 2028, the same as each PiP's tone), so adjusting a PiP did not change the main clip's volume in this run (no volume slider was moved).
+Row STU-F6: **still FAIL** (sequential placement, audio longer than video). Likely place to look: `buildOverlayAudioSequence` (lays each PiP after a running cursor in one sequence); it needs one parallel sequence per overlapping PiP lane (as the sound lanes have) and a cap at the project length.

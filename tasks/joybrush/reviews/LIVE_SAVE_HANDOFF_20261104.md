@@ -64,3 +64,15 @@ attempt. Do not apply the earlier555 count to this source. Current command:
 The init selects WorkingSave*, WriterMemoryFailureBinding, StrokeSaveClock and
 CanvasBoundSaveGuard. Expected27cases if both new tests execute. The installed
 phone remains exact f84dec80f; do not claim this extraction was installed.
+
+## Closed 2026-11-28 (Engine perf lane, Claude Opus 5.5; Codex is gone)
+
+- The barrier is on `joy-creator` since 11-04 (ae96a5b22, 7bc87378b): a reopen waits for the outgoing save of the same
+  file (`workingSaves.whenSettled`, JoyBrushActivity), and JBX-36 streaming saves (75404b92a) build on it.
+- The two commits left on `lead/live-goal-20261104` were a test seam and this note. The seam (`writeSaveContents`)
+  no longer fits: the save switch was reworked since (carrying saves, streaming saves, checked exports), so it is not
+  carried. Its tests are: `CopyWriterFailureTest` (51dd5e128) drives today's real `writeCopy` through a destination
+  that fails as it opens (lost place, out of memory) and requires a whole archive built first, the failure handed back
+  and no temporary left. Shown to fail first: with the temporary left behind on purpose (probe branch
+  `claude/livesave-failfirst`, never landed) both cases fail at that check; on the real code jb-android 644/644.
+- `lead/live-goal-20261104` holds nothing more to land.

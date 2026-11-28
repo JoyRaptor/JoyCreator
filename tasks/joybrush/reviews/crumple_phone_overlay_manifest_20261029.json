@@ -1,0 +1,101 @@
+{
+  "files": [
+    {
+      "file": "height_eval_expanded_firm.png",
+      "source": "C:\\Users\\JoyRaptor\\.codex\\visualizations\\2026\\10\\01\\01a0f85c-d650-7f61-82d4-ba5eed71ea4f\\approved-surfaces-20261029\\evaluation-pack\\assets\\height_eval_expanded_firm.png",
+      "sha256": "286543d201f6ab16932226ecba68e56db865b5186fd51b983bfc0668e5ec7573",
+      "bytes": 2369455,
+      "mode": "L",
+      "width": 2048,
+      "height": 2048,
+      "format": "PNG"
+    },
+    {
+      "file": "fluid_eval_expanded_firm.png",
+      "source": "C:\\Users\\JoyRaptor\\.codex\\visualizations\\2026\\10\\01\\01a0f85c-d650-7f61-82d4-ba5eed71ea4f\\approved-surfaces-20261029\\evaluation-pack\\assets\\fluid_eval_expanded_firm.png",
+      "sha256": "8b6ffde90ad0045b31f54182e9bdc1fefc5f8022b0f9fe0db9474a836d11e559",
+      "bytes": 553153,
+      "mode": "RGBA",
+      "width": 512,
+      "height": 512,
+      "format": "PNG"
+    },
+    {
+      "file": "look_eval_expanded_firm.jpg",
+      "source": "C:\\Users\\JoyRaptor\\.codex\\visualizations\\2026\\10\\01\\01a0f85c-d650-7f61-82d4-ba5eed71ea4f\\approved-surfaces-20261029\\evaluation-pack\\assets\\look_eval_expanded_firm.jpg",
+      "sha256": "28cc24e11f1100bd44505bee5eb81a2682bf4112774253c80735dbe469c49b70",
+      "bytes": 903017,
+      "mode": "RGB",
+      "width": 2048,
+      "height": 2048,
+      "format": "JPEG"
+    },
+    {
+      "file": "surface_eval_expanded_firm_p1k.png",
+      "source": "C:\\Users\\JoyRaptor\\.codex\\visualizations\\2026\\10\\01\\01a0f85c-d650-7f61-82d4-ba5eed71ea4f\\approved-surfaces-20261029\\evaluation-pack\\profile-firm-1024\\surface_eval_expanded_firm_p1k.png",
+      "sha256": "976a22744ba3f4f31636422ee959c72d0e6df13d1f3a178165b58f912a1f638d",
+      "bytes": 2697286,
+      "mode": "RGBA",
+      "width": 1024,
+      "height": 1024,
+      "format": "PNG"
+    },
+    {
+      "file": "fluid_eval_expanded_firm_p1k.png",
+      "source": "C:\\Users\\JoyRaptor\\.codex\\visualizations\\2026\\10\\01\\01a0f85c-d650-7f61-82d4-ba5eed71ea4f\\approved-surfaces-20261029\\evaluation-pack\\profile-firm-1024\\fluid_eval_expanded_firm_p1k.png",
+      "sha256": "a31e14c8715dfacde2d7b8096ab556b26d3fd0bb0821f25de50a92a6b745215c",
+      "bytes": 175176,
+      "mode": "RGBA",
+      "width": 256,
+      "height": 256,
+      "format": "PNG"
+    },
+    {
+      "file": "look_eval_expanded_firm_p1k.jpg",
+      "source": "C:\\Users\\JoyRaptor\\.codex\\visualizations\\2026\\10\\01\\01a0f85c-d650-7f61-82d4-ba5eed71ea4f\\approved-surfaces-20261029\\evaluation-pack\\profile-firm-1024\\look_eval_expanded_firm_p1k.jpg",
+      "sha256": "0be0fa5a948f2bc9f851e903172595cd3cae089ae22799a154d310d60c17d36a",
+      "bytes": 265968,
+      "mode": "RGB",
+      "width": 1024,
+      "height": 1024,
+      "format": "JPEG"
+    },
+    {
+      "file": "surface_eval_expanded_firm_p512.png",
+      "source": "C:\\Users\\JoyRaptor\\.codex\\visualizations\\2026\\10\\01\\01a0f85c-d650-7f61-82d4-ba5eed71ea4f\\approved-surfaces-20261029\\evaluation-pack\\profile-firm-512\\surface_eval_expanded_firm_p512.png",
+      "sha256": "20b7a6bc5e253dc6ff6852c539ccb8b554cd6482b2a0d574225f2ad8707bc189",
+      "bytes": 573557,
+      "mode": "RGBA",
+      "width": 512,
+      "height": 512,
+      "format": "PNG"
+    },
+    {
+      "file": "fluid_eval_expanded_firm_p512.png",
+      "source": "C:\\Users\\JoyRaptor\\.codex\\visualizations\\2026\\10\\01\\01a0f85c-d650-7f61-82d4-ba5eed71ea4f\\approved-surfaces-20261029\\evaluation-pack\\profile-firm-512\\fluid_eval_expanded_firm_p512.png",
+      "sha256": "bcc4f8f76440195211396926d0e064fbdfb4f944e7a129cd93fcf9238af3c79e",
+      "bytes": 51530,
+      "mode": "RGBA",
+      "width": 128,
+      "height": 128,
+      "format": "PNG"
+    },
+    {
+      "file": "look_eval_expanded_firm_p512.jpg",
+      "source": "C:\\Users\\JoyRaptor\\.codex\\visualizations\\2026\\10\\01\\01a0f85c-d650-7f61-82d4-ba5eed71ea4f\\approved-surfaces-20261029\\evaluation-pack\\profile-firm-512\\look_eval_expanded_firm_p512.jpg",
+      "sha256": "5593c48e00b112c043c21cf428f647a6bbb912f05689c731180a0dd8041cfc09",
+      "bytes": 72879,
+      "mode": "RGB",
+      "width": 512,
+      "height": 512,
+      "format": "JPEG"
+    }
+  ],
+  "encodedBytes": 7662021,
+  "entries": 3,
+  "modeledGpuRgba8WithMipsBytes": 60555252,
+  "modeledDecodedBaseRgbaBytes": 45416448,
+  "limits": "Models exclude existing cache, other app resources, driver allocation/padding and CPU upload/mipmap temporaries. Not measured residency.",
+  "addedRuntimeAssetBytes": 0,
+  "apkDeltaMeasured": false
+}

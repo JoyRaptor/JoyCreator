@@ -115,4 +115,5 @@ T1 is a possible cause of the four black tiles of 10-31, not a shown one. A dele
 
 `mediaAtlasLedgerProbe` with watercolour: 87 tiles differ between two roomy runs, so water has no exact answer and the probe is inconclusive. 18 tiles differ beyond those, before and after the park fix. Oil is exact: 0 tiles differ. Water parity needs a run with a fixed clock before T2 and T3 can be proved.
 
+- Status 11-28: E1 fixed on `joy-creator` (the reopen waits for the outgoing save, WorkingSaveBarrier; closed in [the live-save handoff](../joybrush/reviews/LIVE_SAVE_HANDOFF_20261104.md)).
 - Status 11-12: E1 is Codex's (JB-LIVE-SAVE), E2 fixed (export catches running out of memory), E3 on [ATLAS-SOLID](ATLAS-SOLID_never_refuse.md), E4 belongs to the save lane, E6 and E7 fixed, E5 handed to Codex on the board.

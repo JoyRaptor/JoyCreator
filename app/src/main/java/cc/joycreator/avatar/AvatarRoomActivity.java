@@ -1338,6 +1338,7 @@ public final class AvatarRoomActivity extends Activity implements RoomMenu.Host,
         if (landmarks != null) landmarks.refresh(d);
         syncTake(d);
         performPanel.refreshSettings(d);
+        syncCameras();                                          // (cameras per tracker: an undone choice opens the camera it names)
         if (fromEdit) {
             unsaved = true;
             editStamp++;
@@ -1722,8 +1723,56 @@ public final class AvatarRoomActivity extends Activity implements RoomMenu.Host,
 
     /** The face capture, made when first asked for (its settings are this phone's; the camera starts only with Face). */
     private com.fadcam.ui.faditor.avatar.face.FaceCapture faceCaptureNow() {
-        if (faceCapture == null) faceCapture = new com.fadcam.ui.faditor.avatar.face.FaceCapture(this);
+        if (faceCapture == null) {
+            faceCapture = new com.fadcam.ui.faditor.avatar.face.FaceCapture(this);
+            faceCapture.setOnCamerasKnown(() -> {                   // (cameras per tracker: the chips can show now)
+                if (stageIndex >= 2 && character != null) performPanel.bind(character, stageIndex == 3);
+            });
+            syncCameras();
+        }
         return faceCapture;
+    }
+
+    // ── cameras per tracker (the owner, 11-27: one person acts the body, another does the face) ─────────────
+
+    @Override
+    public java.util.List<String> cameraChoices() {
+        return faceCaptureNow().cameraChoices();
+    }
+
+    @Override
+    public String faceCamera() {
+        org.json.JSONObject st = character == null ? null : character.json.optJSONObject("settings");
+        return st == null ? com.fadcam.ui.faditor.avatar.face.CameraPlan.FRONT : st.optString("faceCamera", com.fadcam.ui.faditor.avatar.face.CameraPlan.FRONT);
+    }
+
+    @Override
+    public String bodyCamera() {
+        org.json.JSONObject st = character == null ? null : character.json.optJSONObject("settings");
+        return st == null ? faceCamera() : st.optString("bodyCamera", faceCamera());   // (one camera for both until chosen)
+    }
+
+    @Override
+    public void setCamera(boolean body, String key) {
+        int word = "back-wide".equals(key) ? R.string.avatar_cam_back_wide : "back".equals(key) ? R.string.avatar_cam_back : R.string.avatar_cam_front;
+        edit.apply(getString(body ? R.string.avatar_step_body_camera : R.string.avatar_step_face_camera, getString(word)),
+                d -> setPath(d.json, body ? "settings.bodyCamera" : "settings.faceCamera", key));   // (the step's listener opens it and redraws the chips)
+    }
+
+    @Override
+    public boolean camerasRefused() {
+        return faceCapture != null && faceCapture.camerasRefused();
+    }
+
+    private String camerasSeen;
+
+    /** The face capture follows the character's camera choices (a step, an undo, another character); the panel too. */
+    private void syncCameras() {
+        if (faceCapture == null || character == null) return;
+        String now = faceCamera() + "/" + bodyCamera();
+        faceCapture.setCameras(faceCamera(), bodyCamera());
+        if (camerasSeen != null && !camerasSeen.equals(now) && stageIndex >= 2) performPanel.bind(character, stageIndex == 3);
+        camerasSeen = now;
     }
 
     @Override
@@ -1805,7 +1854,7 @@ public final class AvatarRoomActivity extends Activity implements RoomMenu.Host,
 
     private void faceOn() {
         try {
-            if (faceCapture == null) faceCapture = new com.fadcam.ui.faditor.avatar.face.FaceCapture(this);
+            faceCaptureNow();
             faceCapture.setPreview(facePreview instanceof com.fadcam.ui.faditor.avatar.MediaPipeTrackingSource.PreviewSink ? (com.fadcam.ui.faditor.avatar.MediaPipeTrackingSource.PreviewSink) facePreview : null, false);
             faceCapture.start();
             inputs.face(true);

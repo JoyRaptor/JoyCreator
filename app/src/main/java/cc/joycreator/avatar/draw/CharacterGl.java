@@ -235,6 +235,8 @@ public final class CharacterGl {
             if (mk0 != null && !mk0.key.equals(last)) { paintMask(mk0, pics); last = mk0.key; }
             one(it, it.a, tint != null ? tint.of(it) : null, mk0 != null, pics);
         }
+        GLES20.glDisableVertexAttribArray(P.p);                      // (both are buffer-backed, so harmless as they were; but nothing that draws
+        GLES20.glDisableVertexAttribArray(P.t);                      // next, in this context, should inherit them enabled)
     }
 
     private void toneUniforms(Prog L, SolveOut out, View v) {

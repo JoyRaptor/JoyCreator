@@ -1620,3 +1620,14 @@ was away) as "decided: …" so it can be overturned later.
   - ping-pong and still loops, and a loop touching a transition;
   - mesh and corner pin.
 - **Not started:** the longer-than-one-frame video trail (plan 1.3).
+
+### 2026-11-28 Claude (Opus 5.5) → STU-7 K.3 paused on the usage limit
+- Branch `claude/stu7-display-modes-20261128`: part 1/2 is pushed at `4a7893105`.
+  - Covers: model Off and Export only (saved); the preview skips Export only; the exact frame at rest.
+  - Not landed and not verified.
+  - It still needs a merge of `origin/joy-creator` (the video reach landing changed `FxLivePreviewController`).
+- The helper was stopped mid fail-first run. Any later card-header commits sat only in its worktree `.claude/worktrees/agent-aac57075a3f895b84`; check there before redoing.
+- Next:
+  1. Finish part 2: the card header (tap icon for on/off with a grey icon, hold to peek, Export only chip).
+  2. Emulator and Studio CI, then land.
+  3. Then plan step 2 (True layer order release) and step 3 (effect-layer card).

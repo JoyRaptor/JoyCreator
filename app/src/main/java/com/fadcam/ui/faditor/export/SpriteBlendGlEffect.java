@@ -867,7 +867,7 @@ final class SpriteBlendGlEffect implements GlEffect {
 
         /** The character drawn at {@code timeMs} into the cell texture (redrawn every frame). */
         private boolean prepareCharacterTexture(float aspect, long timeMs) {
-            var puppet = characterFor();
+            var puppet = frame.characterFor();
             if (puppet == null) return false;
             // sized for the export frame: the longer side at most the frame's, capped at 1024
             int side = Math.min(1024, Math.max(frameW, frameH));

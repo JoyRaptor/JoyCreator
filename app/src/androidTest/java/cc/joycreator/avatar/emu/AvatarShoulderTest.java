@@ -99,6 +99,7 @@ public class AvatarShoulderTest {
             }, "body-readings");
             feeder.start();
             Emu.sleep(2500);
+            openFaceSheet(a);                                            // (Shoulders, Mirror: in the face sheet)
             View tick = find(a, a.getString(R.string.avatar_shoulders));
             check(tick != null, "Perform, with the face on: the Shoulders tick box is there");
             CharacterDoc d1 = character(a);
@@ -166,6 +167,7 @@ public class AvatarShoulderTest {
             // Motion: Try, Arms lift (one undo step) and Shrugs off
             feeding = false;
             feeder.join(2000);
+            closeFaceSheet(a);
             Emu.tap(tabs[2]);
             Emu.sleep(2000);
             assertEquals("Motion is open", 2, (int) (Integer) field(a, "stageIndex"));
@@ -339,7 +341,11 @@ public class AvatarShoulderTest {
     /** The view showing exactly this text (the first shown), or null. */
     private static View find(AvatarRoomActivity a, String txt) {
         View[] hit = new View[1];
-        Emu.ins().runOnMainSync(() -> hit[0] = find(a.getWindow().getDecorView(), txt));
+        View sheet = sheetRoot(a);                                       // (the face sheet first, while it is open)
+        Emu.ins().runOnMainSync(() -> {
+            if (sheet != null) hit[0] = find(sheet, txt);
+            if (hit[0] == null) hit[0] = find(a.getWindow().getDecorView(), txt);
+        });
         return hit[0];
     }
 
@@ -350,6 +356,33 @@ public class AvatarShoulderTest {
             if (r != null) return r;
         }
         return null;
+    }
+
+    /** The face sheet's window while it is open (the face's settings live there), or null. */
+    private static View sheetRoot(AvatarRoomActivity a) {
+        try {
+            Object sheet = field(field(a, "performPanel"), "faceSheet");
+            Object d = sheet == null ? null : field(sheet, "dialog");
+            return d == null ? null : ((android.app.Dialog) d).getWindow().getDecorView();
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
+    /** Face settings by a real tap: the sheet behind the Face chip. */
+    private static void openFaceSheet(AvatarRoomActivity a) {
+        if (sheetRoot(a) != null) return;
+        View chip = find(a, a.getString(R.string.avatar_face_settings));
+        org.junit.Assert.assertNotNull("the Face settings chip shows while the face is on", chip);
+        Emu.tap(chip);
+        Emu.sleep(1200);
+    }
+
+    /** The sheet closed with the Back key (a sheet takes a touch outside it, so the stage tabs need it gone). */
+    private static void closeFaceSheet(AvatarRoomActivity a) {
+        if (sheetRoot(a) == null) return;
+        Emu.ins().sendKeyDownUpSync(android.view.KeyEvent.KEYCODE_BACK);
+        Emu.sleep(800);
     }
 
     /** Scrolls the view into sight, then a real tap on it (a row's label: the tap reaches the row). */

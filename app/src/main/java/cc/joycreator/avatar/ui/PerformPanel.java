@@ -156,12 +156,10 @@ public final class PerformPanel extends ScrollView {
     private final List<String> buttonIds = new ArrayList<>();
     private final List<TextView> moodChips = new ArrayList<>();
     private final List<String> moodNames = new ArrayList<>();
-    private TextView micChip, faceChip, recentreChip, mirrorChip;
+    private TextView micChip, faceChip, faceSettingsChip;
+    private FaceSheet faceSheet;                                    // the face's settings, behind the Face chip
     private boolean compact, walkOpen;
     private final List<Hold> activeHolds = new ArrayList<>();                  // hold buttons with a finger on them now
-    private LinearLayout faceRow, shoulderBox, cameraBox;
-    private final List<TextView> cameraChips = new ArrayList<>();
-    private final List<String[]> cameraKeys = new ArrayList<>();      // {key, "b" for the body's row}
     private int faceWords = R.string.avatar_face;
     private final List<TextView> tickBoxes = new ArrayList<>();
     private final List<String[]> tickKeys = new ArrayList<>();   // {settings key, "t" when a missing key means on}
@@ -302,76 +300,18 @@ public final class PerformPanel extends ScrollView {
                 }
             } else chipRow.addView(stickChip);
         }
-        // the face's own controls, there only while the camera is on: a private preview, Re-centre, Mirror
-        faceRow = new LinearLayout(c);
-        faceRow.setGravity(Gravity.CENTER_VERTICAL);
-        faceRow.setVisibility(View.GONE);
-        View preview = host.facePreview();
-        if (preview != null) {
-            if (preview.getParent() instanceof ViewGroup) ((ViewGroup) preview.getParent()).removeView(preview);
-            faceRow.addView(preview, new LinearLayout.LayoutParams(px(72), px(54)));
-        }
-        recentreChip = chip(c, c.getString(R.string.avatar_recentre), c.getString(R.string.avatar_hover_recentre), v -> host.recentreFace());
-        mirrorChip = chip(c, c.getString(R.string.avatar_mirror), c.getString(R.string.avatar_hover_mirror), v -> {
-            host.setFaceMirror(!host.faceMirror());
-            paintChips();
+        // the face's settings live in a sheet behind the Face chip (the owner, 11-28: no half-width column of them): a chip
+        // while the face is on, and a long press on Face
+        if (faceSheet == null) faceSheet = new FaceSheet((android.app.Activity) c, host);
+        faceSettingsChip = chip(c, c.getString(R.string.avatar_face_settings), c.getString(R.string.avatar_hover_face_settings), v -> faceSheet.open());
+        faceSettingsChip.setVisibility(View.GONE);
+        chipRow.addView(faceSettingsChip, chipRow.indexOfChild(faceChip) + 1);
+        faceChip.setOnLongClickListener(v -> {
+            if (!host.inputs().faceOn()) return false;
+            faceSheet.open();
+            return true;
         });
-        LinearLayout faceChips = new LinearLayout(c);
-        faceChips.setOrientation(LinearLayout.VERTICAL);
-        faceChips.setPadding(px(8), 0, 0, 0);
-        faceChips.addView(recentreChip);
-        faceChips.addView(mirrorChip);
-        faceChips.addView(chip(c, c.getString(R.string.avatar_face_dirs), c.getString(R.string.avatar_hover_face_dirs), v -> host.checkDirections()));
-        faceRow.addView(faceChips);
-        LinearLayout.LayoutParams fl = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
-        fl.topMargin = px(6);
-        side.addView(faceRow, fl);
-        // SHRUG-1: Shoulders (the pilot's tick box beside Mirror) and, while on, how little shrug makes a full one
-        shoulderBox = null;
-        if (host.shouldersShown()) {
-            shoulderBox = new LinearLayout(c);
-            shoulderBox.setOrientation(LinearLayout.VERTICAL);
-            shoulderBox.setVisibility(View.GONE);
-            boolean shOn = host.shouldersOn();
-            shoulderBox.addView(WalkSections.tick(c, c.getString(R.string.avatar_shoulders), shOn, c.getString(R.string.avatar_hover_shoulders), dp, v -> {
-                host.setShouldersOn(v);
-                bind(doc, takeBar);
-            }));
-            if (shOn && host instanceof ShrugSections.Host) shoulderBox.addView(ShrugSections.sensitivity(c, (ShrugSections.Host) host, dp));
-            side.addView(shoulderBox);
-        }
-        // cameras per tracker (the owner, 11-27): which camera reads the face, which the body; only where there is a choice
-        cameraBox = null;
-        cameraChips.clear();
-        cameraKeys.clear();
-        List<String> cams = host.cameraChoices();
-        if (cams != null && cams.size() > 1) {
-            cameraBox = new LinearLayout(c);
-            cameraBox.setOrientation(LinearLayout.VERTICAL);
-            cameraBox.setVisibility(View.GONE);
-            cameraBox.addView(cameraRow(c, false, cams));
-            if (host.shouldersShown() && host.shouldersOn()) cameraBox.addView(cameraRow(c, true, cams));
-            if (host.camerasRefused()) {
-                TextView why = label(c.getString(R.string.avatar_cams_refused));
-                why.setTextColor(0xFFD4D4D8);
-                cameraBox.addView(why);
-                LinearLayout one = new LinearLayout(c);
-                one.addView(chip(c, c.getString(R.string.avatar_cams_one), c.getString(R.string.avatar_hover_cams_one),
-                        v -> host.setCamera(true, host.faceCamera())));
-                cameraBox.addView(one);
-                // said where it is seen: after a change in this stage the line and its chip come into view (it appears below
-                // the chips just tapped); a stage that opens stays at its top
-                if (!newStage) post(() -> why.requestRectangleOnScreen(
-                        new android.graphics.Rect(0, 0, why.getWidth(), why.getHeight() + one.getHeight()), false));
-            }
-            side.addView(cameraBox);
-            paintCameras();
-        }
         View walkWithFace = host.faceWalkDrawer();
-        if (walkWithFace != null) {
-            if (walkWithFace.getParent() instanceof ViewGroup) ((ViewGroup) walkWithFace.getParent()).removeView(walkWithFace);
-            side.addView(walkWithFace);
-        }
         row.addView(side, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
         stickPad = null;
         if (host.stick() != null && host.stickOpen()) {                      // the second pad, for the other thumb
@@ -481,43 +421,13 @@ public final class PerformPanel extends ScrollView {
             column.addView(tickRow(c, "autoFlip", false, R.string.avatar_turns_around, R.string.avatar_hover_turns_around));
         refreshSettings(doc);
         paintChips();
+        if (faceSheet != null && faceSheet.isOpen()) faceSheet.rebuild();
         if (newStage) post(() -> scrollTo(0, 0));
-    }
-
-    /** One tracker's camera chips: its label, then a chip for each camera this phone has. */
-    private View cameraRow(Context c, boolean body, List<String> cams) {
-        LinearLayout box = new LinearLayout(c);
-        box.setOrientation(LinearLayout.VERTICAL);
-        box.addView(label(c.getString(body ? R.string.avatar_body_camera : R.string.avatar_face_camera)));
-        HorizontalScrollView hs = new HorizontalScrollView(c);
-        hs.setHorizontalScrollBarEnabled(false);
-        LinearLayout row = new LinearLayout(c);
-        for (String key : cams) {
-            int word = "back-wide".equals(key) ? R.string.avatar_cam_back_wide : "back".equals(key) ? R.string.avatar_cam_back : R.string.avatar_cam_front;
-            int what = "back-wide".equals(key) ? R.string.avatar_hover_cam_back_wide : "back".equals(key) ? R.string.avatar_hover_cam_back : R.string.avatar_hover_cam_front;
-            TextView t = chip(c, c.getString(word), c.getString(body ? R.string.avatar_hover_body_camera : R.string.avatar_hover_face_camera, c.getString(what)),
-                    v -> host.setCamera(body, key));
-            cameraChips.add(t);
-            cameraKeys.add(new String[]{key, body ? "b" : "f"});
-            row.addView(t);
-        }
-        hs.addView(row);
-        box.addView(hs);
-        return box;
-    }
-
-    /** The chosen camera of each row, solid cyan. */
-    private void paintCameras() {
-        String f = host.faceCamera(), b = host.bodyCamera();
-        for (int i = 0; i < cameraChips.size(); i++) {
-            String[] k = cameraKeys.get(i);
-            paintChip(cameraChips.get(i), k[0].equals("b".equals(k[1]) ? b : f));
-        }
     }
 
     /** Reads the habits' tick boxes from the character (after an undo or redo changed them). */
     public void refreshSettings(CharacterDoc doc) {
-        paintCameras();
+        if (faceSheet != null) faceSheet.paint();
         JSONObject st = doc.json.optJSONObject("settings");
         for (int i = 0; i < tickBoxes.size(); i++) {
             String key = tickKeys.get(i)[0];
@@ -593,10 +503,11 @@ public final class PerformPanel extends ScrollView {
                 faceChip.setText(words);
             }
         }
-        if (faceRow != null) faceRow.setVisibility(in.faceOn() ? View.VISIBLE : View.GONE);
-        if (shoulderBox != null) shoulderBox.setVisibility(in.faceOn() ? View.VISIBLE : View.GONE);
-        if (cameraBox != null) cameraBox.setVisibility(in.faceOn() ? View.VISIBLE : View.GONE);
-        if (mirrorChip != null) paintChip(mirrorChip, host.faceMirror());
+        if (faceSettingsChip != null) faceSettingsChip.setVisibility(in.faceOn() ? View.VISIBLE : View.GONE);
+        if (faceSheet != null && faceSheet.isOpen()) {
+            if (!in.faceOn()) faceSheet.close();                         // (the camera let go: nothing in the sheet works)
+            else faceSheet.paint();
+        }
     }
 
     // ── the take bar ──────────────────────────────────────────────────────────────────────────────

@@ -141,7 +141,7 @@ public final class FaceDrive {
         boolean body = face != null && cameraOn() && g(face, "body") > 0.5f;
         for (String k : SHRUGS) {
             Float v = cameraOn() && face != null ? face.get(k) : null;
-            if (v != null) { o.lanes.put(k, (double) v); shrugSeen = true; }
+            if (v != null && Float.isFinite(v)) { o.lanes.put(k, (double) v); shrugSeen = true; }   // (a take is JSON: numbers only, X6 P3)
             else if (shrugSeen) o.lanes.put(k, 0.0);
         }
         o.shoulders = body;
@@ -154,7 +154,7 @@ public final class FaceDrive {
         Map<String, Double> want = new LinkedHashMap<>();
         if (face != null) {                                   // the points the camera watches, where they are now
             for (Map.Entry<String, Float> e : face.entrySet())
-                if (e.getKey().startsWith(POINT) && e.getValue() != null && !e.getValue().isNaN()) want.put(e.getKey(), (double) e.getValue());
+                if (e.getKey().startsWith(POINT) && e.getValue() != null && Float.isFinite(e.getValue())) want.put(e.getKey(), (double) e.getValue());
         } else for (String k : smPt.keySet()) want.put(k, 0.0);   // no face driving: every point eases back to rest
         Map<String, Double> next = new LinkedHashMap<>();
         for (Map.Entry<String, Double> e : want.entrySet()) {
@@ -197,7 +197,7 @@ public final class FaceDrive {
 
     private static double g(Map<String, Float> f, String k) {
         Float v = f.get(k);
-        return v == null || v.isNaN() ? 0 : v;
+        return v == null || !Float.isFinite(v) ? 0 : v;                // (NaN and infinity are not values: X6 P3)
     }
 
     private static double clamp(double v, double a, double b) {

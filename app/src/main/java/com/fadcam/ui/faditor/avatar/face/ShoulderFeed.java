@@ -36,7 +36,8 @@ public final class ShoulderFeed {
      * someone facing you), as {@link FaceTuning#mirror}. {@code sensitivity}: 1 as built, 2 = half the movement.
      */
     public synchronized void reading(@Nullable float[] xyv, float tall, double t, boolean mirror, float sensitivity) {
-        float[] d = ShoulderStage.drops(xyv, tall);
+        float[] d = Float.isFinite(tall) ? ShoulderStage.drops(xyv, tall) : null;
+        if (d != null && (!Float.isFinite(d[0]) || !Float.isFinite(d[1]))) d = null;   // (not a number is no body: the smoothing would keep it)
         stage.setSensitivity(sensitivity);
         Map<String, Float> o = stage.process(d, t, mirror);
         double dt = Double.isNaN(lastReadT) ? 0 : Math.max(0, Math.min(1, t - lastReadT));

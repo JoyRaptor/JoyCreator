@@ -237,6 +237,9 @@ public class AvatarFaceReplayTest {
             shot(out, "18-face-pin-placed");
             check(fpl.length() == 1 && fpl.getJSONObject(0).getInt("point") == 61, "a face pin made by real taps: his right mouth corner, on Topps's head (" + fpl.length() + " pins)");
             check(a.pendingPoint() < 0, "...and the point is used (a new tap needs a new point)");
+            String pinHover = a.getString(R.string.avatar_hover_facepins_pick, FacePins.nameOf(61)), pinHover2 = a.getString(R.string.avatar_hover_facepins_unpick, FacePins.nameOf(61));
+            check(saysOnHover(a, FacePins.nameOf(61), pinHover) || saysOnHover(a, FacePins.nameOf(61), pinHover2),
+                    "the pin's name in the list says on hover what a tap does (X6 audit: \"" + pinHover + "\" or \"" + pinHover2 + "\")");
             Emu.tap(tabs[3]);                                            // Perform: his smile pulls the pin's point
             Emu.sleep(1500);
             // (Set up let the camera go, as the room does; on again as the room's Face chip would, minus the camera itself:
@@ -499,6 +502,20 @@ public class AvatarFaceReplayTest {
         Emu.ins().runOnMainSync(() -> v.requestRectangleOnScreen(new Rect(0, 0, v.getWidth(), v.getHeight()), true));
         Emu.sleep(300);
         Emu.tap(v);
+    }
+
+    /** Some shown view with exactly this text has this hover label. */
+    private static boolean saysOnHover(AvatarRoomActivity a, String txt, String hover) {
+        boolean[] yes = new boolean[1];
+        Emu.ins().runOnMainSync(() -> yes[0] = saysOnHover(a.getWindow().getDecorView(), txt, hover));
+        return yes[0];
+    }
+
+    private static boolean saysOnHover(View v, String txt, String hover) {
+        if (v instanceof TextView && txt.contentEquals(((TextView) v).getText()) && v.isShown()
+                && android.os.Build.VERSION.SDK_INT >= 26 && v.getTooltipText() != null && hover.contentEquals(v.getTooltipText())) return true;
+        if (v instanceof ViewGroup) for (int i = 0; i < ((ViewGroup) v).getChildCount(); i++) if (saysOnHover(((ViewGroup) v).getChildAt(i), txt, hover)) return true;
+        return false;
     }
 
     /** Scrolls a view into sight, then a real tap on it (a chip scrolled above the panel's top would take the tap elsewhere). */

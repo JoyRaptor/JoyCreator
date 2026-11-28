@@ -644,7 +644,15 @@ object DrawingLibrary {
         val th = max(1, (r.h * scale).roundToInt())
         val paper = full.paper.color.takeIf { Regex("^#[0-9a-fA-F]{6}$").matches(it) } ?: "#FFFFFF"
         val look = paperLookOf(full.paper)
-        val source = TileSource { layer, cel, tx, ty -> contents.tiles[Triple(layer, cel, DocOps.key(tx, ty))] }
+        // The rows go down the picture, so the tiles one band of rows needs are kept while it is drawn: a tile still in its
+        // file (thumbnailOfFile) is read once, not once a row.
+        val recent = object : LinkedHashMap<Triple<String, String, String>, ByteArray?>(64, 0.75f, true) {
+            override fun removeEldestEntry(eldest: MutableMap.MutableEntry<Triple<String, String, String>, ByteArray?>) = size > 48
+        }
+        val source = TileSource { layer, cel, tx, ty ->
+            val key = Triple(layer, cel, DocOps.key(tx, ty))
+            if (recent.containsKey(key)) recent[key] else contents.tiles[key].also { recent[key] = it }
+        }
         val out = IntArray(tw * th)
         for (oy in 0 until th) {
             val sy = min(r.h - 1, ((oy + 0.5f) / scale).toInt())

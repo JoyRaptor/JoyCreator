@@ -98,6 +98,18 @@ public class AvatarSceneTakeTest {
             Emu.tap(must(root, "Stop the scene"));
             Emu.sleep(1000);
             assertFalse("the scene stopped", call(a[0], "playingAll"));
+            // shots: the Shots part turns the frame on; a two-shot and a close-up on Topps move the camera
+            Emu.tap(mustText(root, "Shots"));
+            Emu.sleep(1500);
+            Emu.tap(must(root, "Two-shot"));
+            Emu.sleep(2500);
+            shot(out, "5-two-shot");
+            Emu.tap(must(root, "Close on Topps"));
+            Emu.sleep(2500);
+            shot(out, "6-close-on-topps");
+            Emu.tap(must(root, "Wide. Tap to go there"));
+            Emu.sleep(2000);
+            shot(out, "7-wide-again");
         }
     }
 

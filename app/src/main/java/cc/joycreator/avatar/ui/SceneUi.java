@@ -224,7 +224,6 @@ public final class SceneUi extends FrameLayout {
         setVisibility(VISIBLE);
         buttons.setVisibility(perf ? VISIBLE : GONE);
         java.util.List<String> parts = perf ? new java.util.ArrayList<String>(prefs.parts()) : new java.util.ArrayList<String>();
-        if (inScene()) parts.remove("sh");                  // shots of a scene come with its clock
         boolean side = SceneGeometry.aspect(prefs.emptyShape) < 0.999 || (Math.abs(SceneGeometry.aspect(prefs.emptyShape) - 1) < 0.001 && lastSide);
         String sig = perf + "|" + parts + "|" + prefs.glide + "|" + prefs.frame + "|" + prefs.emptyShape + "|" + shot + "|" + host.characterName() + "|" + side + "|" + menuOpen + "|" + prefs.air + "|" + (room == null ? "" : room.signature()) + "|" + sceneList.size();
         if (!force && sig.equals(stripSig)) return;
@@ -285,7 +284,7 @@ public final class SceneUi extends FrameLayout {
     private void buildMenu(boolean perf) {
         menu.removeAllViews();
         menu.setVisibility(menuOpen && perf ? VISIBLE : GONE);
-        int nChips = inScene() ? 2 : 3;
+        int nChips = 3;
         String[] keys = {"sc", "ch", "sh"};
         int[] names = {R.string.avatar_sc_part_sc, R.string.avatar_sc_part_ch, R.string.avatar_sc_part_sh};
         int[] tips = {R.string.avatar_sc_tip_sc, R.string.avatar_sc_tip_ch, R.string.avatar_sc_tip_sh};
@@ -443,6 +442,14 @@ public final class SceneUi extends FrameLayout {
             card(cards, host.characterPic(), host.characterName(), getContext().getString(R.string.avatar_sc_char_hover, host.characterName()), true, 1, side,
                     () -> {
                     }, host::setUpCharacter, false);
+        } else if (inScene()) {                              // Shots of the scene: Wide, Two-shot, a close-up on each one, yours
+            for (cc.joycreator.avatar.scene.SceneClock.ShotInfo s : room.shots()) {
+                final String key = s.key;
+                String name = "close".equals(s.kind) ? getContext().getString(R.string.avatar_sc_close_on, s.name) : "wide".equals(s.kind) ? getContext().getString(R.string.avatar_sc_wide) : s.name;
+                card(cards, null, "wide".equals(s.kind) ? getContext().getString(R.string.avatar_sc_wide) : s.name, getContext().getString(R.string.avatar_sc_shot_hover, name), key.equals(room.shotKey()), 2, side,
+                        () -> room.goShot(key, prefs.glide ? 0.8 : 0), () -> {
+                        }, true);
+            }
         } else {                                             // Shots
             String[][] shots = shotList();
             for (String[] s : shots) {

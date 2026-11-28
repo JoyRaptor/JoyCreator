@@ -99,6 +99,7 @@ public final class SceneRoom {
     private float[] frameRect;                                         // px, or null when the frame is off
     private boolean dirtyCard;
     private boolean toldNoFolder;
+    private SceneClock.Cam cam = new SceneClock.Cam();
     private final Map<String, Take> takes = new HashMap<>();             // each character's take in this scene, by cast item id
     private final Map<String, String> pictureData = new LinkedHashMap<>();      // the pictures you added, as the scene file keeps them
     private String hand;                                                 // the cast item the room's performer is working on
@@ -371,7 +372,8 @@ public final class SceneRoom {
             cx = (area[0] + area[2]) / 2;
             cy = (area[1] + area[3]) / 2;
         }
-        double[] V = SceneDraw.view(f, cx, cy, new SceneClock.Cam());
+        cam = live && frame != null ? clock.camNow(players, fr, dt) : new SceneClock.Cam();      // a shot's camera, only where the frame is
+        double[] V = SceneDraw.view(f, cx, cy, cam);
         List<SceneStage.Layer> out = new ArrayList<>();
         SceneDraw.Layers L = SceneDraw.layers(scene);
         for (JSONObject it : L.backs) pane(out, it, 0.22, V, true);
@@ -396,7 +398,7 @@ public final class SceneRoom {
         if (b == null) return;
         SceneDraw.Quad q = SceneDraw.pane(it, b.getWidth(), b.getHeight());
         double par = it.has("par") ? it.optDouble("par") : dpar;
-        double[] Vp = SceneDraw.view(f, cx, cy, SceneDraw.paneCam(new SceneClock.Cam(), par));
+        double[] Vp = SceneDraw.view(f, cx, cy, SceneDraw.paneCam(cam, par));
         SceneStage.Layer l = new SceneStage.Layer();
         l.img = img;
         l.idx = q.idx;
@@ -695,6 +697,22 @@ public final class SceneRoom {
         host.handRecorder().stop();
     }
 
+    // ── shots ──
+    public List<SceneClock.ShotInfo> shots() {
+        return clock == null ? new ArrayList<SceneClock.ShotInfo>() : clock.shots(players);
+    }
+
+    public String shotKey() {
+        return clock == null ? "wide" : clock.shot;
+    }
+
+    /** Go to a shot (while the one in hand records, the cut is written on the scene's camera lane). */
+    public void goShot(String key, double ease) {
+        if (clock == null) return;
+        TakeRecorder r = host.handRecorder();
+        if (clock.goShot(players, key, ease, r.recording() ? r.clock() : Double.NaN)) changed();
+    }
+
     public boolean playingAll() {
         return clock != null && clock.runPlay;
     }
@@ -738,7 +756,7 @@ public final class SceneRoom {
     /** What the strip shows of the scene: changes when who is in it, who is in hand or its name changes. */
     public String signature() {
         if (scene == null) return "";
-        StringBuilder b = new StringBuilder(scene.name()).append('|').append(sel).append('|').append(path);
+        StringBuilder b = new StringBuilder(scene.name()).append('|').append(sel).append('|').append(path).append('|').append(shotKey());
         for (JSONObject it : scene.cast()) b.append('|').append(it.optString("id")).append(it.optString("name"));
         return b.toString();
     }

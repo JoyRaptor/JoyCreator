@@ -34,6 +34,18 @@ final class FeatureSections {
         for (CharacterDoc.Node k : n.kids) byRole(k, roles, out);
     }
 
+    /** Only the parts whose first link is the lift or the drop itself (a slide up and down): a follow added first must not be overwritten. */
+    private static void keepLifters(List<CharacterDoc.Node> list) {
+        List<CharacterDoc.Node> keep = new ArrayList<>();
+        for (CharacterDoc.Node n : list) {
+            JSONArray l = n.json.optJSONArray("links");
+            JSONObject f = l == null ? null : l.optJSONObject(0);
+            if (f != null && "y".equals(f.optString("prop", "y"))) keep.add(n);
+        }
+        list.clear();
+        list.addAll(keep);
+    }
+
     private static double linkAmt(CharacterDoc.Node n, double def) {
         JSONArray l = n.json.optJSONArray("links");
         JSONObject f = l == null ? null : l.optJSONObject(0);
@@ -44,14 +56,18 @@ final class FeatureSections {
         if (has(node.role, "browL", "browR")) {
             List<CharacterDoc.Node> br = new ArrayList<>();
             byRole(doc.root, java.util.Arrays.asList("browL", "browR"), br);
+            keepLifters(br);
+            if (br.isEmpty()) return;
             col.addView(MotionSections.label(c, "Brows", dp));
-            col.addView(MotionSections.slider(c, "Lift", 0, 16, 0.5, br.isEmpty() ? 4 : -linkAmt(br.get(0), -4), v -> String.format(Locale.US, "%.1f px", v), "How far the brows lift with surprise and when the mouth opens wide",
+            col.addView(MotionSections.slider(c, "Lift", 0, 16, 0.5, -linkAmt(br.get(0), -4), v -> String.format(Locale.US, "%.1f px", v), "How far the brows lift with surprise and when the mouth opens wide",
                     v -> host.setMany("Brows lift", links(br, -v)), dp));
         } else if ("jaw".equals(node.role)) {
             List<CharacterDoc.Node> jw = new ArrayList<>();
             byRole(doc.root, java.util.Arrays.asList("jaw"), jw);
+            keepLifters(jw);
+            if (jw.isEmpty()) return;
             col.addView(MotionSections.label(c, "Jaw", dp));
-            col.addView(MotionSections.slider(c, "Drops", 0, 14, 0.5, jw.isEmpty() ? 3 : linkAmt(jw.get(0), 3), v -> String.format(Locale.US, "%.1f px", v), "How far the jaw drops as the mouth opens, so the chin joins in",
+            col.addView(MotionSections.slider(c, "Drops", 0, 14, 0.5, linkAmt(jw.get(0), 3), v -> String.format(Locale.US, "%.1f px", v), "How far the jaw drops as the mouth opens, so the chin joins in",
                     v -> host.setMany("Jaw drops", links(jw, v)), dp));
         } else {
             List<CharacterDoc.Node> list = new ArrayList<>();

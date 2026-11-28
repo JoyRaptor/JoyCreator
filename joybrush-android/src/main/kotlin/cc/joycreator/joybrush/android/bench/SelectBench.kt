@@ -497,7 +497,8 @@ class SelectBench(private val canvas: JbCanvasView, private val runId: String, p
                                                 report("partCut", l2.size == 2 && d1 == d0 + 1 && ordered && awayEqual && undoExact && redoExact,
                                                     JSONObject().put("pieces", l2.size).put("undoSteps", d1 - d0).put("underL3", ordered)
                                                         .put("awayFromTheCutUnchanged", awayEqual).put("undoExact", undoExact).put("redoExact", redoExact)
-                                                        .put("notes", notes.joinToString(" | ")))
+                                                        .put("notes", notes.joinToString(" | "))
+                                                        .put("awayDiff", if (cut != null) awayDiff(before, cut) else JSONObject()))
                                                 next()
                                             }
                                         }
@@ -622,14 +623,32 @@ class SelectBench(private val canvas: JbCanvasView, private val runId: String, p
     /** Wait at least [minMs], then until [cond] holds or [maxMs] has passed in all, then run [then]. */
     /** What the drawing holds ([all]: every tile, look, slab and line, by name) and its pictures with the band [half] doc px
      * either side of x [cutX] blanked ([away]), for partCut. */
-    private class Digest(val all: Map<String, Long>, val away: Map<String, Long>)
+    private class Digest(val all: Map<String, Long>, val away: Map<String, Long>, val awayBytes: Map<String, ByteArray>)
+
+    /** Where [a] and [b] differ away from the cut: each picture's name, pixels that differ, the largest channel step. */
+    private fun awayDiff(a: Digest, b: Digest): JSONObject {
+        val out = JSONObject()
+        for (k in (a.away.keys + b.away.keys).toSortedSet()) {
+            if (a.away[k] == b.away[k]) continue
+            val x = a.awayBytes[k]; val y = b.awayBytes[k]
+            if (x == null || y == null) { out.put(k, "only " + (if (x == null) "after" else "before")); continue }
+            var n = 0; var most = 0
+            for (i in x.indices step 4) {
+                var d = 0
+                for (j in 0 until 4) d = maxOf(d, kotlin.math.abs((x[i + j].toInt() and 0xFF) - (y[i + j].toInt() and 0xFF)))
+                if (d > 0) { n++; most = maxOf(most, d) }
+            }
+            out.put(k, "$n px, up to $most")
+        }
+        return out
+    }
 
     private fun digest(cutX: Double, half: Double, then: (Digest?) -> Unit) {
         canvas.snapshot({ c ->
             if (!active) return@snapshot
             fun crc(b: ByteArray) = java.util.zip.CRC32().also { it.update(b) }.value
             val size = cc.joycreator.joybrush.core.paint.Tiles.SIZE
-            val all = HashMap<String, Long>(); val away = HashMap<String, Long>()
+            val all = HashMap<String, Long>(); val away = HashMap<String, Long>(); val awayBytes = HashMap<String, ByteArray>()
             fun picture(kind: String, key: Any, name: String, bytes: ByteArray) {
                 all[kind + "|" + key] = crc(bytes)
                 val tx = name.substringBefore('_').toIntOrNull() ?: return
@@ -638,13 +657,13 @@ class SelectBench(private val canvas: JbCanvasView, private val runId: String, p
                 for (y in 0 until size) for (x in 0 until size) {
                     if (kotlin.math.abs(x0 + x + 0.5 - cutX) <= half) { val i = (y * size + x) * 4; copy[i] = 0; copy[i + 1] = 0; copy[i + 2] = 0; copy[i + 3] = 0 }
                 }
-                away[kind + "|" + key] = crc(copy)
+                away[kind + "|" + key] = crc(copy); awayBytes[kind + "|" + key] = copy
             }
             for ((k, b) in c.tiles) picture("tile", k, k.third, b)
             for ((k, b) in c.looks) picture("look", k, k.third, b)
             for ((k, b) in c.slabs) all["slab|" + k] = crc(b)
             for ((k, l) in c.strokes) all["lines|" + k] = crc(cc.joycreator.joybrush.core.stroke.StrokeCodec.encodeAll(l))
-            then(Digest(all, away))
+            then(Digest(all, away, awayBytes))
         }, { then(null) }, keepWet = true)
     }
 

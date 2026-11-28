@@ -92,6 +92,7 @@ public final class AvatarRoomActivity extends Activity implements RoomMenu.Host,
     private int frameNo;
     private cc.joycreator.avatar.ui.LandmarksScreen landmarks;
     private cc.joycreator.avatar.ui.SolverStage glStage;
+    private cc.joycreator.avatar.ui.SceneUi sceneUi;
     private boolean glWorks = true;
     private Object glPictures;
     private final java.util.Map<String, String> forced = new java.util.HashMap<>();
@@ -189,6 +190,9 @@ public final class AvatarRoomActivity extends Activity implements RoomMenu.Host,
             }
         });
         stageBox.addView(buildStageTools(), new android.widget.FrameLayout.LayoutParams(px(44), ViewGroup.LayoutParams.WRAP_CONTENT, Gravity.END | Gravity.TOP));
+        sceneUi = new cc.joycreator.avatar.ui.SceneUi(this, new cc.joycreator.avatar.ui.SceneHost(this, () -> stageIndex == 3, () -> character, this::characterName,
+                () -> characterPath, () -> stage, () -> glStage, () -> selectStage(1)));      // the frame, the director's chair and the strip (slice 3)
+        stageBox.addView(sceneUi, new android.widget.FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
         left.addView(stageBox, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f));
         root.addView(left, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, 1f));
 
@@ -1394,6 +1398,7 @@ public final class AvatarRoomActivity extends Activity implements RoomMenu.Host,
     };
 
     private void frame(double dt) {
+        if (sceneUi != null) sceneUi.tick(dt);                  // the frame, the strip and the shot's camera (slice 3)
         if (stageIndex < 2) {                                   // building: the still pose, nothing moving
             stage.setSignals(null);
             glStage.frame(null, false, dt, stage.viewScale(), stage.viewX(), stage.viewY());

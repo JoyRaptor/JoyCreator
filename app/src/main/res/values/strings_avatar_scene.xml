@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Avatar Studio scenes (slice 3): the frame button, the director's chair, the strip, the frame's sheet. Words as the web pilot has them. -->
+<resources>
+    <string name="avatar_sc_frame_on">The frame is on (%1$s). Tap to hide it. Hold for its shapes and margins.</string>
+    <string name="avatar_sc_frame_off">Show the frame (%1$s): where the picture\'s edges are. Hold for its shapes and margins.</string>
+    <string name="avatar_sc_chair">The director\'s chair: Scene, Character and Shots on the strip</string>
+    <string name="avatar_sc_part_sc">Scene</string>
+    <string name="avatar_sc_part_ch">Character</string>
+    <string name="avatar_sc_part_sh">Shots</string>
+    <string name="avatar_sc_tip_sc">Scenes: the empty scene and yours. Tap one to change scene.</string>
+    <string name="avatar_sc_tip_ch">Who is in the scene. Tap one to take it in hand.</string>
+    <string name="avatar_sc_tip_sh">Shots: where the camera is. They need the frame.</string>
+    <string name="avatar_sc_chip_show">Show %1$s on the strip. %2$s</string>
+    <string name="avatar_sc_chip_hide">Hide %1$s on the strip. %2$s</string>
+    <string name="avatar_sc_empty">Empty</string>
+    <string name="avatar_sc_empty_hover">The empty scene: the plain stage with one character. It is where you are. Tap again to arrange the character on it.</string>
+    <string name="avatar_sc_char_hover">%1$s is in hand: your fingers and voice move them. Tap again (or hold) to set them up.</string>
+    <string name="avatar_sc_shot_hover">%1$s. Tap to go there; hold (or tap it again) to set it up.</string>
+    <string name="avatar_sc_wide">Wide</string>
+    <string name="avatar_sc_close_on">Close on %1$s</string>
+    <string name="avatar_sc_keep_shot">Keep the view the camera has now as a shot</string>
+    <string name="avatar_sc_cut">Cut</string>
+    <string name="avatar_sc_cut_hover">A shot changes at once</string>
+    <string name="avatar_sc_glide">Glide</string>
+    <string name="avatar_sc_glide_hover">The camera eases to the shot</string>
+    <string name="avatar_sc_cutglide">How the camera goes to a shot</string>
+    <string name="avatar_sc_kept">Kept as “%1$s”. Hold its card to name it.</string>
+    <string name="avatar_sc_frame_title">The frame</string>
+    <string name="avatar_sc_frame_show">Show the frame</string>
+    <string name="avatar_sc_frame_show_sub">Where the picture\'s edges are. It only shows them: nothing on the stage moves.</string>
+    <string name="avatar_sc_shape">The shape</string>
+    <string name="avatar_sc_margins">Margins</string>
+    <string name="avatar_sc_margin_off">None</string>
+    <string name="avatar_sc_margin_off_hover">Just the frame</string>
+    <string name="avatar_sc_margin_title">Title safe</string>
+    <string name="avatar_sc_margin_title_hover">The classic margins: keep action inside the cyan line and words inside the pink one</string>
+    <string name="avatar_sc_margin_social">App buttons</string>
+    <string name="avatar_sc_margin_social_hover">About where an app lays its own buttons and words over an upright video. Every app differs: treat it as a guide.</string>
+    <string name="avatar_sc_size">Its size</string>
+    <string name="avatar_sc_air">Room round the frame</string>
+    <string name="avatar_sc_air_sub">The earlier way: a margin all round, so a character part-way out is still on the screen. Off, the frame is as big as the screen allows.</string>
+    <string name="avatar_sc_frame_note">Changing the shape moves nothing: the frame is a window on the same stage. Export cuts the picture to it. This is the empty scene\'s frame; each scene keeps its own.</string>
+    <string name="avatar_sc_shot_remove">Remove</string>
+    <string name="avatar_sc_shot_use">Use the view now</string>
+    <string name="avatar_sc_shot_keep">Keep the view as a shot</string>
+    <string name="avatar_sc_shot_note_own">Your shot. To frame it again, close this, drag the empty stage or pinch, then use the view.</string>
+    <string name="avatar_sc_shot_note_auto">This shot is worked out by itself. To make your own: close this, drag the empty stage or pinch, then keep the view.</string>
+    <string name="avatar_sc_shot_name">The name of this shot</string>
+    <string name="avatar_sc_done">Done</string>
+</resources>

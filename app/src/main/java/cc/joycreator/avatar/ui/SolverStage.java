@@ -52,6 +52,9 @@ public final class SolverStage extends GLSurfaceView implements GLSurfaceView.Re
     private volatile double clock, breath, dt = 1 / 60.0;
     private volatile float viewS = 1, viewX, viewY;
     private Failure failure;
+    // the frame's texture behind the character (scene slice): a null picture rectangle means the plain surface as always
+    private final cc.joycreator.avatar.draw.BackdropGl backdrop = new cc.joycreator.avatar.draw.BackdropGl();
+    private volatile float[] backdropPic;
 
     // owned by the GL thread
     private BitmapPics pics;
@@ -79,6 +82,13 @@ public final class SolverStage extends GLSurfaceView implements GLSurfaceView.Re
     public void setCharacter(CharacterDoc d, boolean samePictures) {
         pendingNewPictures = !samePictures;
         pendingCharacter = snapshot(d.json);
+        requestRender();
+    }
+
+    /** Video Studio's canvas texture behind the picture (pic = its rectangle in pixels), or none: {@code pic == null}. */
+    public void setBackdrop(android.graphics.Bitmap texture, float[] pic) {
+        if (texture != null) backdrop.setTexture(texture);
+        backdropPic = pic;
         requestRender();
     }
 
@@ -162,6 +172,7 @@ public final class SolverStage extends GLSurfaceView implements GLSurfaceView.Re
     public void onSurfaceCreated(GL10 g, EGLConfig c) {
         if (gl != null) gl.release();
         gl = new CharacterGl();
+        backdrop.release();
         if (pics != null) gl.forget();
         broken = false;
     }
@@ -208,6 +219,9 @@ public final class SolverStage extends GLSurfaceView implements GLSurfaceView.Re
             lastOrder = ord;
             lastAnchor = new HashMap<>(s.anchor);
             lastTips = new HashMap<>(s.tips);
+            float[] bp = backdropPic;
+            if (bp != null) backdrop.draw(width, height, bp);
+            gl.keep = bp != null;
             gl.draw(out, pics, new CharacterGl.View(viewS, viewX, viewY), null, 0, width, height);
         } catch (RuntimeException e) {
             Log.w(TAG, "the GPU drawing stopped", e);
@@ -222,6 +236,7 @@ public final class SolverStage extends GLSurfaceView implements GLSurfaceView.Re
         super.onPause();
         queueEvent(() -> {
             if (gl != null) gl.release();
+            backdrop.release();
             gl = null;
         });
     }

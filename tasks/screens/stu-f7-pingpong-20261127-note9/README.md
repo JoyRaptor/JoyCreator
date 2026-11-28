@@ -1,0 +1,8 @@
+# STU-F7 loop / ping-pong on the Note 9 (11-27, hover-1 lane): FAIL on "true reverse" in the export
+
+**Setup.** Project "Untitled 7" (two 18 s clips of a picture that prints its own time and frame number). Select the first clip, Loop tool (bottom toolbar), choose **Ping-pong** (the chip turns solid cyan, `loop_drawer_pingpong_selected.png`), then "Extend to end" three times (the clip label went from 18 s to 22 s). Export (video, 720p, Low, defaults): `Untitled 7 PP.mp4`, Export Complete 100%, 39.4 s, 1182 frames.
+**Check (decoded on the PC, OpenCV, every frame):**
+- No black frames (brightness 31 to 34 in every frame) and no frozen frames (no frame-to-frame difference below 0.02, median 0.81): **no-black check PASS**.
+- **Reverse check FAIL.** The extra seconds after the first 18 s (frames 540 to 659) are not the clip played backwards: frame 580 is pixel-identical to frame 40 (difference 0.0), frame 600 to frame 60, frame 640 to frame 100, i.e. the clip's own start played FORWARD again (a loop). A true ping-pong would put frame 580 on frame 498 (mirror about the end; measured mirror error about 2.0 against 0.0 for the forward restart). So the export lays a forward repeat where the plan expects a reversed leg.
+- Preview was not compared here, so this is the export only; the plan's "preview and export disagree" question (PLAN_LOOP_PINGPONG point 3) is open either way.
+**Not run:** forced-failure drill, reverse-leg audio listen, over-30-second guard, the live "+N loops" readout, and the other plan items (each needs its own setup). Row STU-F7: **seven checks, two done (no black frames, no frozen frames): FAIL on true reverse.**

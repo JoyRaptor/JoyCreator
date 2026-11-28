@@ -84,4 +84,13 @@ public final class PreviewClock {
         long mediaLen = Math.max(1L, a.getOutPointMs() - a.getInPointMs());
         return mediaLen - blendMediaMs(tl, seam);
     }
+
+    /**
+     * Where, in the media time of the pass through the clip now playing, the blend at {@code seam} opens; the pass started
+     * [passStartVisualMs] into the clip's visual length (its loop-before, plus the passes already played). Today's
+     * rule: on every pass, at the clip's end.
+     */
+    public static long blendOpensAtInPass(@NonNull Timeline tl, int seam, long passStartVisualMs) {
+        return blendStartMediaMs(tl, seam);
+    }
 }

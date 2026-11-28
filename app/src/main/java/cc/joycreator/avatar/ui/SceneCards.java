@@ -156,6 +156,9 @@ final class SceneCards {
     private View addRow(Scene sc) {
         LinearLayout row = new LinearLayout(c);
         row.addView(chip("+ " + s(R.string.avatar_sc_character), false, s(R.string.avatar_sc_add_hover), () -> addCharacter(sc)));
+        row.addView(chip("+ " + s(R.string.avatar_sc_pic_back), false, s(R.string.avatar_sc_pic_back_hover), () -> room.pick("back")));
+        row.addView(chip("+ " + s(R.string.avatar_sc_pic_obj), false, s(R.string.avatar_sc_pic_obj_hover), () -> room.pick("obj")));
+        row.addView(chip("+ " + s(R.string.avatar_sc_pic_front), false, s(R.string.avatar_sc_pic_front_hover), () -> room.pick("front")));
         return scrolled(row);
     }
 

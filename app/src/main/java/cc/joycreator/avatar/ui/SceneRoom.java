@@ -22,6 +22,8 @@ import androidx.appcompat.widget.TooltipCompat;
 import cc.joycreator.avatar.file.CharacterAssets;
 import cc.joycreator.avatar.file.CharacterDoc;
 import cc.joycreator.avatar.file.CharacterStore;
+import cc.joycreator.avatar.perform.Take;
+import cc.joycreator.avatar.perform.TakeRecorder;
 import cc.joycreator.avatar.scene.Scene;
 import cc.joycreator.avatar.scene.SceneClock;
 import cc.joycreator.avatar.scene.SceneDraw;
@@ -63,6 +65,15 @@ public final class SceneRoom {
 
         /** A scene was written to the folder (the list of scenes may have changed). */
         void saved();
+
+        /** A character is taken in hand: the room's own performer (stage, inputs, panel) works on it, with this take. */
+        void handChanged(CharacterDoc doc, Take take);
+
+        /** The room's own recorder (the one the Record and Play buttons run), for the one in hand. */
+        TakeRecorder handRecorder();
+
+        /** Ask for pictures from a file (the system picker); the answer comes to {@link SceneRoom#picturesChosen}. */
+        void pickPictures(String kind);
     }
 
     private final Host host;
@@ -88,6 +99,42 @@ public final class SceneRoom {
     private float[] frameRect;                                         // px, or null when the frame is off
     private boolean dirtyCard;
     private boolean toldNoFolder;
+    private SceneClock.Cam cam = new SceneClock.Cam();
+    private final Map<String, Take> takes = new HashMap<>();             // each character's take in this scene, by cast item id
+    private final Map<String, String> pictureData = new LinkedHashMap<>();      // the pictures you added, as the scene file keeps them
+    private String hand;                                                 // the cast item the room's performer is working on
+    private cc.joycreator.avatar.solve.Signals handSig;
+    private final ScenePlayers players = new ScenePlayers(new ScenePlayers.Env() {
+        @Override
+        public Scene scene() {
+            return scene;
+        }
+
+        @Override
+        public Map<String, CharacterDoc> docs() {
+            return docs;
+        }
+
+        @Override
+        public Map<String, Take> takes() {
+            return takes;
+        }
+
+        @Override
+        public String hand() {
+            return hand;
+        }
+
+        @Override
+        public TakeRecorder handRecorder() {
+            return host.handRecorder();
+        }
+
+        @Override
+        public double[] boxOf(String id) {
+            return boxes.get(id);
+        }
+    });
 
     public SceneRoom(Host host, SceneStage gl) {
         this.host = host;
@@ -143,7 +190,7 @@ public final class SceneRoom {
     /** A new scene on a set ({@code setKey}: meadow, room, night, studio, or "plain"), with a name, kept in the folder at once. */
     public void create(String setKey, String name) {
         Scene s = Scene.blank(Long.toString(System.currentTimeMillis(), 36), name, setKey);
-        show(s, null, new HashMap<>());
+        show(s, null, new HashMap<>(), new HashMap<>());
         scheduleSave(0);
     }
 
@@ -161,13 +208,23 @@ public final class SceneRoom {
                     CharacterDoc d = cc.joycreator.avatar.file.CharacterOpen.read(e.getValue().toString());
                     if (d != null) carried.put(e.getKey(), d);
                 }
-                show(r.scene, p, carried);
+                for (Map.Entry<String, String> e : r.pictures.entrySet()) {
+                    Bitmap b = decodeData(e.getValue());
+                    if (b != null) {
+                        pictures.put(e.getKey(), b);
+                        pictureData.put(e.getKey(), e.getValue());
+                    }
+                }
+                show(r.scene, p, carried, r.takes);
             });
         });
     }
 
-    private void show(Scene s, String p, Map<String, CharacterDoc> carried) {
+    private void show(Scene s, String p, Map<String, CharacterDoc> carried, Map<String, Take> tk) {
         close(false);
+        takes.clear();
+        takes.putAll(tk);
+        hand = null;
         scene = s;
         path = p;
         clock = new SceneClock(s);
@@ -253,6 +310,11 @@ public final class SceneRoom {
         Map<String, JSONObject> m = new LinkedHashMap<>();
         for (Map.Entry<String, CharacterDoc> e : docs.entrySet()) m.put(e.getKey(), e.getValue().json);
         gl.setCast(m);
+        if (scene != null && sel != null && docs.containsKey(sel) && scene.item(sel) != null && "cast".equals(scene.item(sel).optString("kind"))) setHand(sel);   // the one just brought in
+        else if (hand == null && scene != null) for (JSONObject it : scene.cast()) if (docs.containsKey(it.optString("id"))) {
+            setHand(it.optString("id"));
+            break;
+        }
         dirtyCard = true;
     }
 
@@ -268,8 +330,10 @@ public final class SceneRoom {
         final String p = path;
         final Map<String, JSONObject> chars = new LinkedHashMap<>();
         for (Map.Entry<String, CharacterDoc> e : docs.entrySet()) chars.put(e.getKey(), e.getValue().json);
+        final Map<String, Take> tk = new HashMap<>(takes);
+        final Map<String, String> pd = new LinkedHashMap<>(pictureData);
         JoyFolderHome.io().execute(() -> {
-            String np = SceneStore.save(c, s, null, chars, null, p);
+            String np = SceneStore.save(c, s, tk, chars, pd, p);
             boolean first = p == null && np != null;
             if (np != null && scene == s) path = np;
             if (first) main.post(host::saved);
@@ -295,6 +359,7 @@ public final class SceneRoom {
     public void tick(double dt, int glassW, int glassH, float[] frame, float[] area, float[] picture) {
         if (scene == null) return;
         t += dt;
+        if (alive()) clock.tick(players, hand, dt);
         double[] fr = scene.frame();
         boolean live = alive();
         frameRect = frame;
@@ -307,7 +372,8 @@ public final class SceneRoom {
             cx = (area[0] + area[2]) / 2;
             cy = (area[1] + area[3]) / 2;
         }
-        double[] V = SceneDraw.view(f, cx, cy, new SceneClock.Cam());
+        cam = live && frame != null ? clock.camNow(players, fr, dt) : new SceneClock.Cam();      // a shot's camera, only where the frame is
+        double[] V = SceneDraw.view(f, cx, cy, cam);
         List<SceneStage.Layer> out = new ArrayList<>();
         SceneDraw.Layers L = SceneDraw.layers(scene);
         for (JSONObject it : L.backs) pane(out, it, 0.22, V, true);
@@ -332,7 +398,7 @@ public final class SceneRoom {
         if (b == null) return;
         SceneDraw.Quad q = SceneDraw.pane(it, b.getWidth(), b.getHeight());
         double par = it.has("par") ? it.optDouble("par") : dpar;
-        double[] Vp = SceneDraw.view(f, cx, cy, SceneDraw.paneCam(new SceneClock.Cam(), par));
+        double[] Vp = SceneDraw.view(f, cx, cy, SceneDraw.paneCam(cam, par));
         SceneStage.Layer l = new SceneStage.Layer();
         l.img = img;
         l.idx = q.idx;
@@ -348,6 +414,8 @@ public final class SceneRoom {
 
     private void obj(List<SceneStage.Layer> out, JSONObject it, double[] V) {
         String img = it.optString("img", "");
+        org.json.JSONArray loop = it.optJSONArray("frames");                 // several pictures as one object are a loop
+        if (loop != null && loop.length() > 0) img = loop.optString((int) (t * Math.max(1, it.optDouble("fps", 8))) % loop.length(), img);
         Bitmap b = pictures.get(img);
         if (b == null) return;
         SceneDraw.Quad q = SceneDraw.object(scene, it, b.getWidth(), b.getHeight(), t);
@@ -367,7 +435,9 @@ public final class SceneRoom {
         if (d == null) return;
         SceneStage.Layer l = new SceneStage.Layer();
         l.actor = id;
-        l.signals = new Signals();
+        l.live = alive();
+        java.util.Map<String, Object> m = id.equals(hand) ? null : players.signalsFor(id);
+        l.signals = id.equals(hand) && handSig != null ? handSig : m != null ? SignalMap.toSignals(m, t, 0) : new Signals();
         double[] box = rest.get(id);
         if (box != null) {
             SceneGeometry.Place p = SceneDraw.place(scene, it, box, d.json.optJSONObject("settings"));
@@ -430,7 +500,7 @@ public final class SceneRoom {
                 case MotionEvent.ACTION_DOWN: {
                     String id = pick(e.getX(), e.getY());
                     if (id != null && !id.equals(sel)) {
-                        sel = id;
+                        select(id);
                         dirtyCard = true;
                     } else if (id == null && sel != null) {
                         sel = null;
@@ -512,7 +582,143 @@ public final class SceneRoom {
 
     void select(String id) {
         sel = id;
+        JSONObject it = id == null ? null : scene.item(id);
+        if (it != null && "cast".equals(it.optString("kind"))) setHand(id);
         rebuild();
+    }
+
+    /** The room's performer takes this character: Perform's controls (record, play, the joystick) work on it. */
+    void setHand(String id) {
+        if (id == null || id.equals(hand) || !docs.containsKey(id)) return;
+        hand = id;
+        host.handChanged(docs.get(id), takes.get(id));
+        dirtyCard = true;
+    }
+
+    public String hand() {
+        return hand;
+    }
+
+    /** Called by the room each frame with what the performer reads for the one in hand. */
+    public void handSignals(cc.joycreator.avatar.solve.Signals s) {
+        handSig = s;
+    }
+
+    /** A pass ended or a take was taken back or cleared: the one in hand's take is the scene's, kept with it. */
+    public void takeKept(Take tk) {
+        if (hand == null) return;
+        if (tk == null || tk.n == 0) takes.remove(hand);
+        else takes.put(hand, tk.copy());
+        players.forget(hand);
+        changed();
+    }
+
+    // ── pictures from a file ──
+    private static Bitmap decodeData(String text) {
+        try {
+            int comma = text.indexOf(',');
+            byte[] raw = android.util.Base64.decode(text.substring(comma + 1), android.util.Base64.DEFAULT);
+            return android.graphics.BitmapFactory.decodeByteArray(raw, 0, raw.length);
+        } catch (RuntimeException e) {
+            return null;
+        }
+    }
+
+    /** The system picker answered ({@code kind}: back, obj or front): read them down to a size the phone can hold, then put them in the scene. */
+    public void picturesChosen(final String kind, final List<android.net.Uri> uris) {
+        final Scene s = scene;
+        if (s == null || uris.isEmpty()) return;
+        JoyFolderHome.io().execute(() -> {
+            final Map<String, Bitmap> got = new LinkedHashMap<>();
+            final Map<String, String> data = new LinkedHashMap<>();
+            for (android.net.Uri u : uris) {
+                try {
+                    Bitmap b = readSampled(u, 1600);
+                    if (b == null) continue;
+                    String id = "i" + Long.toString(System.nanoTime(), 36);
+                    java.io.ByteArrayOutputStream o = new java.io.ByteArrayOutputStream();
+                    boolean alpha = b.hasAlpha();
+                    b.compress(alpha ? Bitmap.CompressFormat.PNG : Bitmap.CompressFormat.JPEG, 88, o);
+                    data.put(id, "data:" + (alpha ? "image/png" : "image/jpeg") + ";base64," + android.util.Base64.encodeToString(o.toByteArray(), android.util.Base64.NO_WRAP));
+                    got.put(id, b);
+                } catch (java.io.IOException | RuntimeException | OutOfMemoryError e) {
+                    android.util.Log.w("AvatarRoom", "picture not read", e);
+                }
+            }
+            main.post(() -> {
+                if (scene != s) return;
+                if (got.isEmpty()) {
+                    host.toast(c.getString(com.fadcam.R.string.avatar_sc_pic_failed));
+                    return;
+                }
+                pictures.putAll(got);
+                pictureData.putAll(data);
+                gl.addPictures(got);
+                List<String> ids = new ArrayList<>(got.keySet());
+                Bitmap first = got.get(ids.get(0));
+                JSONObject it = s.addPictures(kind, "obj".equals(kind) ? ids : ids.subList(0, 1), first.getHeight(), null, 0.5);
+                if (it != null) {
+                    select(it.optString("id"));
+                    edited();
+                }
+            });
+        });
+    }
+
+    private Bitmap readSampled(android.net.Uri u, int longSide) throws java.io.IOException {
+        android.graphics.BitmapFactory.Options o = new android.graphics.BitmapFactory.Options();
+        o.inJustDecodeBounds = true;
+        try (java.io.InputStream in = c.getContentResolver().openInputStream(u)) {
+            android.graphics.BitmapFactory.decodeStream(in, null, o);
+        }
+        int sample = 1;
+        while (Math.max(o.outWidth, o.outHeight) / (sample * 2) >= longSide) sample *= 2;
+        o = new android.graphics.BitmapFactory.Options();
+        o.inSampleSize = sample;
+        try (java.io.InputStream in = c.getContentResolver().openInputStream(u)) {
+            return android.graphics.BitmapFactory.decodeStream(in, null, o);
+        }
+    }
+
+    void pick(String kind) {
+        host.pickPictures(kind);
+    }
+
+    /** Play everyone from the start, together on the one clock. */
+    public void playAll() {
+        if (clock == null) return;
+        host.handRecorder().stop();
+        clock.forgetCamPass();
+        clock.playAll(players);
+    }
+
+    public void stopAll() {
+        if (clock != null) clock.stop(players, hand);
+        host.handRecorder().stop();
+    }
+
+    // ── shots ──
+    public List<SceneClock.ShotInfo> shots() {
+        return clock == null ? new ArrayList<SceneClock.ShotInfo>() : clock.shots(players);
+    }
+
+    public String shotKey() {
+        return clock == null ? "wide" : clock.shot;
+    }
+
+    /** Go to a shot (while the one in hand records, the cut is written on the scene's camera lane). */
+    public void goShot(String key, double ease) {
+        if (clock == null) return;
+        TakeRecorder r = host.handRecorder();
+        if (clock.goShot(players, key, ease, r.recording() ? r.clock() : Double.NaN)) changed();
+    }
+
+    public boolean playingAll() {
+        return clock != null && clock.runPlay;
+    }
+
+    public boolean anyTake() {
+        return !takes.isEmpty() || (host.handRecorder().take() != null && hand != null);
     }
 
     Map<String, CharacterDoc> docs() {
@@ -550,7 +756,7 @@ public final class SceneRoom {
     /** What the strip shows of the scene: changes when who is in it, who is in hand or its name changes. */
     public String signature() {
         if (scene == null) return "";
-        StringBuilder b = new StringBuilder(scene.name()).append('|').append(sel).append('|').append(path);
+        StringBuilder b = new StringBuilder(scene.name()).append('|').append(sel).append('|').append(path).append('|').append(shotKey());
         for (JSONObject it : scene.cast()) b.append('|').append(it.optString("id")).append(it.optString("name"));
         return b.toString();
     }

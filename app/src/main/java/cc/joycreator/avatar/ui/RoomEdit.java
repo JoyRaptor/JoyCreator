@@ -75,7 +75,9 @@ public final class RoomEdit {
             restore(before);
             return false;
         }
-        undo.add(new Step(name, before, tree()));
+        String after = tree();
+        if (after.equals(before)) return true;                      // nothing changed: no step, so Undo never needs an extra press
+        undo.add(new Step(name, before, after));
         if (undo.size() > KEEP) undo.remove(0);
         redo.clear();
         listener.changed(doc);

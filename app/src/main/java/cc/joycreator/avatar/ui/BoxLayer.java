@@ -182,6 +182,15 @@ public final class BoxLayer implements StageView.LandmarkLayer {
         drag(x, y, last);
     }
 
+    @Override
+    public void cancelDrag() {
+        CharacterDoc.Node n = node();
+        if (n == null || mode < 0) return;
+        mode = -1;
+        host.live(n.id, dx0, dy0, rot0, sc0);                     // back where it was; nothing was stepped
+        host.redraw();
+    }
+
     private void drag(float x, float y, boolean last) {
         CharacterDoc.Node n = node();
         RectF b = n == null ? null : bounds(n);

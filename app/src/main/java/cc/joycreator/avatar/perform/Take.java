@@ -33,6 +33,16 @@ public final class Take {
         return n / (double) fps;
     }
 
+    /**
+     * The take as the file keeps it after a pass: the lanes are this take's, but a take's voice (a recording made with it, in the pilot or
+     * Studio) stays. The phone never makes a voice, so a pass must not erase one.
+     */
+    public JSONObject toJson(JSONObject before) throws JSONException {
+        JSONObject fresh = toJson();
+        if (before != null && before.has("voice") && !fresh.has("voice")) fresh.put("voice", before.get("voice"));
+        return fresh;
+    }
+
     public JSONObject toJson() throws JSONException {
         JSONObject lanes = new JSONObject();
         for (Map.Entry<String, List<Object>> e : ch.entrySet()) {

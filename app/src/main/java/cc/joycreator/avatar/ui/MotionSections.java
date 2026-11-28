@@ -48,6 +48,10 @@ public final class MotionSections {
         default void removeLink(String nodeId, int index) {
         }
 
+        /** Makes the part swing: kind "bendy" (hair, tails) or "stiff" (chain links, charms); the root and tip are guessed from the pixels. One named undo step. */
+        default void makeSwing(String nodeId, String kind) {
+        }
+
         /** A blink right now, to see it. */
         default void blinkNow() {
         }
@@ -68,8 +72,30 @@ public final class MotionSections {
         }
         if (inHand != null && "head".equals(inHand.role)) head(c, col, inHand, host, dp);
         if (inHand != null) FollowSections.add(c, col, doc, inHand, host, dp);
+        if (inHand != null && "set".equals(inHand.type) && ("cycle".equals(inHand.pickBy) || "default".equals(inHand.pickBy))) {          // frames of a loop
+            final String sid = inHand.id;
+            final JSONObject pk = inHand.json.optJSONObject("pick");
+            final boolean looped = "cycle".equals(inHand.pickBy);
+            col.addView(label(c, "Loop", dp));
+            col.addView(WalkSections.tick(c, "Its drawings are frames of a loop", looped, "It plays through its drawings, top to bottom, over and over", dp, v -> {
+                host.setValue(sid, "pick.by", v ? "cycle" : "default", "Frames of a loop");
+                if (v && (pk == null || !pk.has("fps"))) host.setValue(sid, "pick.fps", 12, "Frames of a loop");
+            }));
+            if (looped)
+                col.addView(slider(c, "Loop speed", 1, 30, 1, pk == null ? 12 : pk.optDouble("fps", 12), v -> Math.round(v) + " a second", "How many frames a second it plays",
+                        v -> host.setValue(sid, "pick.fps", Math.round(v), "Loop speed"), dp));
+        }
         if (swinger != null) swing(c, col, swinger, host, dp);
-        else col.addView(note(c, inHand == null ? "Take a part in hand to see how it moves by itself." : "This part does not swing. Hair, feathers, a tail or a chain can.", dp));
+        else if (inHand == null) col.addView(note(c, "Take a part in hand to see how it moves by itself.", dp));
+        else {
+            final String hid = inHand.id;
+            col.addView(label(c, "Make it move by itself", dp));
+            col.addView(note(c, "It moves when whatever it is fixed to moves. Hair, feathers, a tail or a chain can.", dp));
+            LinearLayout kinds = new LinearLayout(c);
+            kinds.addView(chip(c, "Bendy", false, "Hair, a braid, a feather, a tail, a ribbon: it bends along its length", dp, v -> host.makeSwing(hid, "bendy")));
+            kinds.addView(chip(c, "Stiff", false, "A chain link, an earring, a charm: it never bends, it swings and rattles", dp, v -> host.makeSwing(hid, "stiff")));
+            col.addView(scroll(c, kinds));
+        }
 
         JSONObject st = doc.json.optJSONObject("settings");
         if (st == null) st = new JSONObject();
@@ -98,8 +124,10 @@ public final class MotionSections {
         col.addView(scroll(c, face));
         final boolean auto = st.optBoolean("autoFlip", false);
         col.addView(WalkSections.tick(c, "Turn around by itself", auto, "When the head turns the other way the whole character flips, so one three-quarter drawing faces both ways", dp, v -> {
-            if (v && "front".equals(facing)) host.setValue(null, "settings.facing", "left", "Drawn facing left");
-            host.setValue(null, "settings.autoFlip", v, "Turn around by itself");
+            java.util.List<Object[]> items = new java.util.ArrayList<>();                    // one undo step
+            if (v && "front".equals(facing)) items.add(new Object[]{null, "settings.facing", "left"});
+            items.add(new Object[]{null, "settings.autoFlip", v});
+            host.setMany("Turn around by itself", items);
         }));
         if (auto)
             col.addView(slider(c, "Flips past", 0.1, 0.9, 0.05, st.optDouble("flipAt", 0.4), v -> Math.round(v * 100) + "% turned", "How far the head has turned when the whole character flips",

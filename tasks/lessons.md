@@ -1322,3 +1322,5 @@ When the owner asks to conserve review credits, keep concurrency small, checkpoi
 
 ## 2026-11-27: align the device matrix with the owner’s Android target (STU-7)
 - Keep the supported platform and the physical performance floor distinct. The available Snapdragon Note 9 anchors timing checks. Use the existing Android test fleet to broaden coverage, and report evidence by device and OS. A device the owner has explicitly ruled out is recorded as untested outside the required matrix.
+
+- 11-28 (Avatar lead): a UI port split across fast sessions passed every parity test yet looked unlike Studio (emoji icons, half-empty columns, off-spec radii); the owner caught it. Rule: name one session as the look owner from day one, using Studio's own drawables, sizes and palette, with before/after emulator screenshots judged against Studio, checked by the lead at each landing.

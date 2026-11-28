@@ -92,4 +92,13 @@
     <string name="avatar_sc_new_title">A new scene on which set?</string>
     <string name="avatar_sc_scene_hover">%1$s. Tap to open it.</string>
     <string name="avatar_sc_not_kept">This scene could not be kept. Choose your Joy Creator folder first, then change it again.</string>
+    <string name="avatar_sc_play_all">Play the whole scene: everyone plays their take together</string>
+    <string name="avatar_sc_stop_all">Stop the scene</string>
+    <string name="avatar_sc_pic_back">Backdrop</string>
+    <string name="avatar_sc_pic_back_hover">A picture from a file behind everyone, as the set</string>
+    <string name="avatar_sc_pic_obj">Object</string>
+    <string name="avatar_sc_pic_obj_hover">A picture from a file that stands on the floor. Several pictures at once make a loop.</string>
+    <string name="avatar_sc_pic_front">Foreground</string>
+    <string name="avatar_sc_pic_front_hover">A picture from a file in front of everyone, like leaves at the edge</string>
+    <string name="avatar_sc_pic_failed">That picture could not be read.</string>
 </resources>

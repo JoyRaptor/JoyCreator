@@ -95,8 +95,10 @@ the build. This also fixes the odd frame at the cut (preview shows the second cl
   the check says 1 s shorter, 2 layers; Move moves both, Leave leaves both and the project stays ripple, Move in a gap
   project moves them and it stays gap, Ask keeps today's behaviour, nothing after the point is nothing to ask.
 
-**11-28, the owner's options page:** [tasks/design/STU-5-ripple-check-options.html](../design/STU-5-ripple-check-options.html)
-(published artifact https://claude.ai/artifact/A1HgBPYo5BPxCn9XD8GvzK). Three placements at true size on the Note 9's width
-in Studio's colours: A a strip under the timeline (nothing moves until he answers), B a flag at the cut (default applies,
-tap to change), C do the default and keep a one-tap way back. Swaps: wording (sentence / short / question), default
-(move / leave), "don't ask again" (tick box in the check / Settings only). His copied picks line decides the build.
+**11-28, the owner's options page (ONE page, merged):** [tasks/design/STU-5-ripple-check-options.html](../design/STU-5-ripple-check-options.html),
+published https://claude.ai/artifact/A1HgBPYo5BPxCn9XD8GvzK. It replaces "Transition Length Picks"
+(https://claude.ai/artifact/EuHzwwqmrFq4CyCdAEUs6g, 11-27, now points to it) and covers every edit that changes the
+length (transition, trim, speed, loop, delete or insert a clip). Rows: A where the check appears (A1 strip over the
+timeline, A2 inside the edit's own sheet, A3 card at the cut, A4 flag at the cut, A5 do the default with a one-tap way
+back), B wording, C default, D don't ask again, E what you see once it stops asking, F the layers glow. A true-size
+Studio strip plays every pick live. His copied line ("Length-change picks: …") decides the build.

@@ -61,24 +61,17 @@ public class AvatarVoiceTest {
                     throw new RuntimeException(e);
                 }
             });
-            // the planted fault (-e fault rest): the sound is not wired to the mouth (every frame's opening is zero)
-            if ("rest".equals(Emu.fault())) {
-                Field vo = AvatarRoomActivity.class.getDeclaredField("voiceOpen");
-                vo.setAccessible(true);
-                Emu.ins().runOnMainSync(() -> {
-                    try {
-                        float[] z = (float[]) vo.get(a[0]);
-                        if (z != null) java.util.Arrays.fill(z, 0f);
-                    } catch (Exception e) {
-                        throw new RuntimeException(e);
-                    }
-                });
-            }
             boolean playing = false;
             double lo = 9, hi = -9;
             int opened = 0, shut = 0;
             for (int k = 0; k < 80; k++) {                                 // 4 s of the room's own mouth signal, every 50 ms
                 Emu.sleep(50);
+                if ("rest".equals(Emu.fault())) {                           // the planted fault: the sound is not wired to the mouth (every opening zero), applied as soon as it exists
+                    Field vo = AvatarRoomActivity.class.getDeclaredField("voiceOpen");
+                    vo.setAccessible(true);
+                    float[] z = (float[]) vo.get(a[0]);
+                    if (z != null) java.util.Arrays.fill(z, 0f);
+                }
                 if (field(a[0], "voicePlayer") != null) playing = true;
                 Object sig = field(a[0], "lastSignals");
                 Object mv = sig instanceof java.util.Map ? ((java.util.Map<?, ?>) sig).get("mouth") : null;

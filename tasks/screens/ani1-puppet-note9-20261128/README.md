@@ -9,3 +9,10 @@ Picture: `ani1_figure…png` from Downloads (a stick figure with a pink tail; th
 | What the picture does during and after the take | **FAULT / known engine item:** the figure collapses: head and body shrink to a sliver, the legs become a thin spike, the arms hang apart, the pin sits far from what is left (`after_take_collapsed.png`, `take_recording_contact_sheet.png`). The pin was dragged about 300 px left from the waist. This matches the finish ledger's open engine row C6 (sliver triangles). The tail did not visibly swing. |
 | Replay of the take, tape drags, bone tap | NOT DONE: the collapsed figure made a replay meaningless; needs a smaller drag first, or a re-run on the engine fix. |
 Suggested re-run: a drag of about 60 px, then Play from 0:00, with a screen recording as in `stu-f7-preview-rerun-note9-20261128`.
+
+## Re-run with a small drag (~60 px), later the same day
+Project "Untitled 11" (6 s blue clip + the same figure on an image layer, pins "Neck" and a Dangle "R.Knee"). Puppet badge tapped first, then a 2 s drag of the Neck pin by about 60 px with a screen recording (`small_drag_60px_contact_sheet.png`, one picture every 0.67 s).
+- The recording shows the take starting ("Neck - Pin", "Recording - let go to stop") and then, still within the first second, the same collapse: head and body vanish, arms tilt apart, legs shrink to a spike. So the collapse is NOT a large-drag problem; any pin drag on this picture does it.
+- A toast says "Kept 0 of 1 keys" after the drag.
+- Likely cause (not proven): the test picture is made of separate shapes (the app's own warning: "2 separate pieces: only the largest is rigged"), so the rig covers only one piece. A figure with overlapping, connected parts (`test_figure_connected_parts.png`, pushed to the phone's Downloads as `ani1_connected_tail.png`) was drawn for the next try but I did not get it into a project: a chain of blind taps opened Joybot instead.
+- Replay, tape drags and bone tap: still NOT proven.

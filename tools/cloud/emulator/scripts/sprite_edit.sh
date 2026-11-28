@@ -9,10 +9,12 @@ for label in "Start creating" "Continue" "Skip" "Not now"; do tap_text "$label" 
 settle 3
 choose_folder || echo "choose_folder stopped early"
 adb shell am force-stop "$PKG"; settle 3; launch_app; settle 10
+tap_text "Got it" >/dev/null 2>&1; settle 2      # What's New sheet after the folder step
 tap_text "Home" >/dev/null 2>&1; settle 3
 tap_text "Open the library" >/dev/null 2>&1; settle 6; shot library_with_sheet
 dump library; python3 "$HERE_LIB/uia.py" list /tmp/ui.xml | head -20
 adb shell am force-stop "$PKG"; settle 3; launch_app; settle 10
+tap_text "Got it" >/dev/null 2>&1; settle 2
 tap_text "Home" >/dev/null 2>&1; settle 3
 tap_text "Joybot" >/dev/null 2>&1 || tap 1020 105; settle 4
 wait_for "Create something" 25 >/dev/null; tap_text "Create something" >/dev/null 2>&1; settle 3

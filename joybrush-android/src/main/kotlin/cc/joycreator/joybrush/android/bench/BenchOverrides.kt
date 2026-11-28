@@ -21,6 +21,25 @@ internal object BenchBrushOverride {
 }
 
 /**
+ * Debug bench only (`jb_stick`, the Proto Pencil 2 retune ON the phone, owner 11-28): a JSON object whose keys replace
+ * the job brush's pencil numbers for this run, a stick field (`build`, `tipR`, `face` ...) or a tuning field
+ * (`pressDepth`, `leadSoftX`, `transferExp` ...), so a retune needs no new build. Never an installed brush.
+ */
+internal object BenchStick {
+    fun apply(preset: BrushPreset, json: String?): BrushPreset {
+        if (json.isNullOrBlank()) return preset
+        val override = org.json.JSONObject(json)
+        val root = org.json.JSONObject(cc.joycreator.joybrush.core.brush.BrushJson.encode(preset))
+        val stick = root.optJSONObject("media")?.optJSONObject("stick")
+            ?: throw IllegalArgumentException("jb_stick needs a pencil (a media brush with a stick)")
+        val tuning = stick.optJSONObject("tuning") ?: org.json.JSONObject().also { stick.put("tuning", it) }
+        val stickKeys = setOf("tipR", "tipMax", "side1", "side2", "face", "soft", "rInf", "blend", "build")
+        for (k in override.keys()) (if (k in stickKeys) stick else tuning).put(k, override.get(k))
+        return cc.joycreator.joybrush.core.brush.BrushJson.decodeChecked(root.toString())
+    }
+}
+
+/**
  * Debug bench only: `unibrush:<slug>` (say `unibrush:texture`) names one of the Unibrush modes, which the app keeps hidden
  * until switch-on (UnibrushActivation). Any other name is not ours: the caller looks it up as it always did.
  */

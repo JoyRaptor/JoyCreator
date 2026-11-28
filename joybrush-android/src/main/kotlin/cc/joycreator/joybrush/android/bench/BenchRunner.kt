@@ -176,7 +176,9 @@ class BenchRunner(private val canvas: JbCanvasView, private val spec: Spec,
                /** Debug-only resolved nominal stamp size; null retains the actual recipe. */
                val sizeOverridePx: Float? = null,
                /** `jb_bench_under`: the brush that draws the test stroke's colour stripes (cases `tstripe*`), e.g. a soft airbrush. */
-               val under: String? = null) {
+               val under: String? = null,
+               /** `jb_stick`: pencil numbers laid over the job brush's stick for this run (BenchStick). */
+               val stick: String? = null) {
         init {
             BenchBrushOverride.requireSize(sizeOverridePx)
             require(sizeOverridePx == null || cases.all { it in setOf("turns", "fastC", "slowC", "scribble", "spiral", "topScribble", "blue1", "blue2", "blue3", "lineParity") }) {
@@ -294,7 +296,7 @@ class BenchRunner(private val canvas: JbCanvasView, private val spec: Spec,
             val p = mode ?: all.firstOrNull { it.id.equals(b, true) } ?: all.firstOrNull { it.name.equals(b, true) }
             if (p == null) { Log.w(TAG, "no brush '$b'"); continue }
             if (mode != null) unibrush = true
-            val effective = BenchBrushOverride.resolve(p, spec.sizeOverridePx)
+            val effective = BenchStick.apply(BenchBrushOverride.resolve(p, spec.sizeOverridePx), spec.stick)
             // The contact sheet (BrushSetCases): `setA` / `setB` draw in the cell of the brush's place in the list.
             val cell = spec.brushes.indexOf(b)
             // The test stroke's stripes are laid by `jb_bench_under` when given (paint already on the paper), the rest by this brush.
@@ -1278,6 +1280,7 @@ class BenchRunner(private val canvas: JbCanvasView, private val spec: Spec,
                 streamSaves = intent.getBooleanExtra("jb_stream_saves", false),
                 sheetWave = intent.getStringExtra("jb_sheet_wave")?.toDoubleOrNull()?.coerceIn(0.0, 4.0),
                 under = intent.getStringExtra("jb_bench_under")?.takeIf { it.isNotBlank() },
+                stick = intent.getStringExtra("jb_stick")?.takeIf { it.isNotBlank() },
                 then = intent.getStringExtra("jb_bench_then")?.split(';')?.map { it.trim() }?.filter { it.isNotEmpty() }.orEmpty(),
                 board = intent.getStringExtra("jb_bench_board"),
                 wcWholeTiles = intent.getBooleanExtra("jb_wc_whole_tiles", false),

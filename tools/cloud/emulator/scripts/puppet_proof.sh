@@ -34,15 +34,15 @@ tap 540 700; settle 2
 tap_text "pins" >/dev/null 2>&1 || tap_text "Puppet" >/dev/null 2>&1
 settle 2
 shot badge
-# a live take: a slow drag of the second pin ("Base", seen at about 694,1155 on this frame)
-swipe 694 1155 860 1000 2500; settle 3
+# a live take: a slow drag of the second pin (the lower pin, at 540,1250)
+swipe 540 1250 760 1080 2500; settle 3
 shot after_drag
 dump after_drag
 python3 "$HERE_LIB/uia.py" list /tmp/ui.xml | head -40
 # scrub back to the start (tap the timeline's left end) and photograph the posed frame, then play
-tap 60 1660; settle 2
+swipe 100 1760 40 1760 300; settle 2
 shot at_zero
-tap 540 1670; settle 3
+tap 542 1672; settle 3
 shot playing
 settle 2
 shot playing2

@@ -228,12 +228,18 @@ public final class AvatarRoomActivity extends Activity implements RoomMenu.Host,
                 glStage.setVisibility(shown ? View.GONE : View.VISIBLE);
                 stage.setVisibility(shown ? View.GONE : View.VISIBLE);
                 applyPanels();
+                if (edit != null) paintUndo();                       // Undo and Redo follow the scene, or the character again
                 if (sceneUi != null) sceneUi.roomChanged();
             }
 
             @Override
             public void stageChosen(int idx) {
                 if (idx != stageIndex) selectStage(idx);
+            }
+
+            @Override
+            public void historyChanged() {
+                paintUndo();
             }
 
             @Override
@@ -339,12 +345,12 @@ public final class AvatarRoomActivity extends Activity implements RoomMenu.Host,
         menu.setOnClickListener(v -> openMenu());
         bar.addView(menu, new LinearLayout.LayoutParams(px(36), px(36)));
         undoButton = roundButton("\u21B6", getString(R.string.avatar_hover_undo_none));
-        undoButton.setOnClickListener(v -> { if (edit != null && edit.undo()) rebindCards(); });
+        undoButton.setOnClickListener(v -> { if (sceneRoom != null && sceneRoom.isOpen()) sceneRoom.undo(false); else if (edit != null && edit.undo()) rebindCards(); });
         LinearLayout.LayoutParams ul = new LinearLayout.LayoutParams(px(36), px(36));
         ul.leftMargin = px(8);
         bar.addView(undoButton, ul);
         redoButton = roundButton("\u21B7", getString(R.string.avatar_hover_redo_none));
-        redoButton.setOnClickListener(v -> { if (edit != null && edit.redo()) rebindCards(); });
+        redoButton.setOnClickListener(v -> { if (sceneRoom != null && sceneRoom.isOpen()) sceneRoom.undo(true); else if (edit != null && edit.redo()) rebindCards(); });
         bar.addView(redoButton, ul);
         // the save dot (spec A2): never says "saved" for a character nobody has saved; says so on a long press or hover
         saveDot = new View(this);
@@ -2034,7 +2040,8 @@ public final class AvatarRoomActivity extends Activity implements RoomMenu.Host,
     }
 
     private void paintUndo() {
-        String u = edit.undoName(), r = edit.redoName();
+        boolean inScene = sceneRoom != null && sceneRoom.isOpen();              // a scene in hand has its own history
+        String u = inScene ? sceneRoom.undoLabel() : edit.undoName(), r = inScene ? sceneRoom.redoLabel() : edit.redoName();
         paintHistoryButton(undoButton, u == null ? getString(R.string.avatar_hover_undo_none) : getString(R.string.avatar_hover_undo, u), u != null);
         paintHistoryButton(redoButton, r == null ? getString(R.string.avatar_hover_redo_none) : getString(R.string.avatar_hover_redo, r), r != null);
     }

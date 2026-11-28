@@ -72,6 +72,9 @@ public final class SceneRoom {
         /** The room's own recorder (the one the Record and Play buttons run), for the one in hand. */
         TakeRecorder handRecorder();
 
+        /** The scene's own undo history changed (the room's Undo and Redo buttons follow it). */
+        void historyChanged();
+
         /** Ask for pictures from a file (the system picker); the answer comes to {@link SceneRoom#picturesChosen}. */
         void pickPictures(String kind);
     }
@@ -102,6 +105,7 @@ public final class SceneRoom {
     private SceneClock.Cam cam = new SceneClock.Cam();
     private final Map<String, Take> takes = new HashMap<>();             // each character's take in this scene, by cast item id
     private final Map<String, String> pictureData = new LinkedHashMap<>();      // the pictures you added, as the scene file keeps them
+    private final Map<String, JSONObject> carriedRaw = new LinkedHashMap<>();   // the characters the file carried, as they were read
     private String hand;                                                 // the cast item the room's performer is working on
     private cc.joycreator.avatar.solve.Signals handSig;
     private final ScenePlayers players = new ScenePlayers(new ScenePlayers.Env() {
@@ -204,6 +208,8 @@ public final class SceneRoom {
                     return;
                 }
                 Map<String, CharacterDoc> carried = new HashMap<>();
+                carriedRaw.clear();
+                carriedRaw.putAll(r.characters);
                 for (Map.Entry<String, JSONObject> e : r.characters.entrySet()) {
                     CharacterDoc d = cc.joycreator.avatar.file.CharacterOpen.read(e.getValue().toString());
                     if (d != null) carried.put(e.getKey(), d);
@@ -328,8 +334,9 @@ public final class SceneRoom {
         final Scene s = scene;
         if (s == null) return;
         final String p = path;
-        final Map<String, JSONObject> chars = new LinkedHashMap<>();
-        for (Map.Entry<String, CharacterDoc> e : docs.entrySet()) chars.put(e.getKey(), e.getValue().json);
+        final Map<String, JSONObject> read = new LinkedHashMap<>();
+        for (Map.Entry<String, CharacterDoc> e : docs.entrySet()) read.put(e.getKey(), e.getValue().json);
+        final Map<String, JSONObject> chars = SceneFile.mergeCharacters(read, carriedRaw);
         final Map<String, Take> tk = new HashMap<>(takes);
         final Map<String, String> pd = new LinkedHashMap<>(pictureData);
         JoyFolderHome.io().execute(() -> {
@@ -346,6 +353,7 @@ public final class SceneRoom {
 
     /** Called after every change to the scene's document. */
     private void changed() {
+        host.historyChanged();
         scheduleSave(1400);
         dirtyCard = true;
     }
@@ -695,6 +703,24 @@ public final class SceneRoom {
     public void stopAll() {
         if (clock != null) clock.stop(players, hand);
         host.handRecorder().stop();
+    }
+
+    /** The room's Undo and Redo while a scene is open: the scene's own history, one step each. */
+    public void undo(boolean redo) {
+        if (scene == null) return;
+        String what = scene.undo(redo);
+        if (what == null) return;
+        if (sel != null && scene.item(sel) == null) sel = null;
+        castChanged();
+        edited();
+    }
+
+    public String undoLabel() {
+        return scene == null ? null : scene.undoLabel();
+    }
+
+    public String redoLabel() {
+        return scene == null ? null : scene.redoLabel();
     }
 
     // ── shots ──

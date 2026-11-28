@@ -35,6 +35,8 @@ public final class SceneFile {
         /** What is wrong, in plain sentences (empty = it follows every rule). */
         public final List<String> problems = new ArrayList<>();
         public final List<String> upgraded = new ArrayList<>();
+        /** Carried characters that do not follow the format: they stay in the file untouched and are not drawn. */
+        public final List<String> unreadable = new ArrayList<>();
 
         public boolean ok() {
             return scene != null && problems.isEmpty();
@@ -52,7 +54,12 @@ public final class SceneFile {
             }
             CharacterFile.Upgraded up = CharacterFile.upgradeScene(doc);
             p.upgraded.addAll(up.report);
-            for (FormatCheck.Problem q : FormatCheck.check(up.doc)) p.problems.add(q.say);
+            JSONObject carriedNow = up.doc.optJSONObject("characters");
+            for (FormatCheck.Problem q : FormatCheck.check(up.doc)) {
+                String id = q.where == null || !q.where.contains(" › ") ? null : q.where.substring(0, q.where.indexOf(" › "));
+                if (id != null && carriedNow != null && carriedNow.has(id)) continue;        // a carried character that cannot be read must not stop the scene from opening
+                p.problems.add(q.say);
+            }
             if (!p.problems.isEmpty()) return p;
             JSONObject d = up.doc;
             JSONObject takes = d.optJSONObject("takes"), chars = d.optJSONObject("characters"), pics = d.optJSONObject("pictures");
@@ -67,7 +74,10 @@ public final class SceneFile {
             for (Iterator<String> it = keys(chars); it.hasNext(); ) {
                 String k = it.next();
                 JSONObject c = chars.optJSONObject(k);
-                if (c != null) p.characters.put(k, c);
+                if (c != null) {
+                    p.characters.put(k, c);
+                    if (!FormatCheck.check(c).isEmpty()) p.unreadable.add(k);      // kept as it is; the room leaves it out of the picture
+                }
             }
             for (Iterator<String> it = keys(pics); it.hasNext(); ) {
                 String k = it.next();
@@ -106,6 +116,17 @@ public final class SceneFile {
             o.put("pictures", pi);
         }
         return o;
+    }
+
+    /**
+     * The characters a scene writes: what the room could read (its current files) laid over what the scene file carried, so a
+     * carried character the room could not read is kept exactly as it was instead of being erased by the next save.
+     */
+    public static Map<String, JSONObject> mergeCharacters(Map<String, JSONObject> read, Map<String, JSONObject> carried) {
+        Map<String, JSONObject> out = new LinkedHashMap<>();
+        if (carried != null) out.putAll(carried);
+        if (read != null) out.putAll(read);
+        return out;
     }
 
     /** The readable file name: {@code <Name>.scene.json}, characters the file system dislikes taken out. */

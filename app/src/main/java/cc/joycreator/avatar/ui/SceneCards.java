@@ -165,15 +165,15 @@ final class SceneCards {
     void addCharacter(Scene sc) {
         final Context cx = c;
         JoyFolderHome.io().execute(() -> {
-            final List<CharacterStore.Entry> mine = CharacterStore.list(cx);
+            final List<String[]> pick = new java.util.ArrayList<>();                          // {label, uid, stock}
+            pick.add(new String[]{"Topps", null, "topps"});
+            pick.add(new String[]{"Pip", null, "pip"});
+            for (CharacterStore.Entry e : CharacterStore.list(cx)) {                            // read here, not on the main thread
+                cc.joycreator.avatar.file.CharacterDoc d = CharacterStore.read(cx, e.path);
+                String u = d == null ? "" : d.json.optString("uid", "");
+                if (!u.isEmpty()) pick.add(new String[]{e.name, u, null});
+            }
             new android.os.Handler(android.os.Looper.getMainLooper()).post(() -> {
-                final List<String[]> pick = new java.util.ArrayList<>();                       // {label, uid, stock}
-                pick.add(new String[]{"Topps", null, "topps"});
-                pick.add(new String[]{"Pip", null, "pip"});
-                for (CharacterStore.Entry e : mine) {
-                    CharacterDoc0 d = CharacterDoc0.of(cx, e);
-                    if (d != null) pick.add(new String[]{e.name, d.uid, null});
-                }
                 String[] names = new String[pick.size()];
                 for (int i = 0; i < names.length; i++) names[i] = pick.get(i)[0];
                 new AlertDialog.Builder(cx).setTitle(s(R.string.avatar_sc_add_title)).setItems(names, (dlg, i) -> {
@@ -187,22 +187,6 @@ final class SceneCards {
                 }).setNegativeButton(android.R.string.cancel, null).show();
             });
         });
-    }
-
-    /** A character on the shelf: just the name and the uid its file carries. */
-    private static final class CharacterDoc0 {
-        final String uid;
-
-        CharacterDoc0(String uid) {
-            this.uid = uid;
-        }
-
-        static CharacterDoc0 of(Context c, CharacterStore.Entry e) {
-            cc.joycreator.avatar.file.CharacterDoc d = CharacterStore.read(c, e.path);
-            if (d == null) return null;
-            String u = d.json.optString("uid", "");
-            return u.isEmpty() ? null : new CharacterDoc0(u);
-        }
     }
 
     private void set(Scene sc, String id, String key, Object v) {

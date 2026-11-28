@@ -77,7 +77,7 @@ public final class FaceWalkDrawer extends LinearLayout {
         upBox = row(c, R.string.avatar_face_walk_up, R.string.avatar_face_walk_up_sub, R.string.avatar_hover_face_walk_up, () -> walk.setUpClose(!walk.upClose()));
         note = new TextView(c);
         note.setTextSize(11);
-        note.setTextColor(0xFF71717A);
+        note.setTextColor(Studio.INK_FAINT);
         note.setPadding(0, px(2), 0, px(4));
         boxes.addView(note);
         addView(boxes);
@@ -121,7 +121,7 @@ public final class FaceWalkDrawer extends LinearLayout {
         TextView s = new TextView(c);
         s.setText(sub);
         s.setTextSize(11);
-        s.setTextColor(0xFF71717A);
+        s.setTextColor(Studio.INK_FAINT);
         words.addView(t);
         words.addView(s);
         row.addView(words, new LayoutParams(0, LayoutParams.WRAP_CONTENT, 1f));

@@ -41,4 +41,10 @@ java @"$RUNARGS" AvatarFaceTest; RC=$?
 java @"$RUNARGS" AvatarFaceTakeTest || RC=1
 # cameras per tracker (the owner, 11-27): which cameras a phone offers, what opens for the face and the body
 java @"$RUNARGS" CameraPlanTest || RC=1
+# the face's controls take their greys from the palette where it names them (X6 audit: Studio.INK, INK_DIM, INK_FAINT)
+for f in app/src/main/java/cc/joycreator/avatar/face/*.java app/src/main/java/cc/joycreator/avatar/ui/ShrugSections.java; do
+  src="$f"; rel="${f#app/src/main/java/}"
+  if [ -n "$PLANT" ] && [ -f "$PLANT/$rel" ]; then src="$PLANT/$rel"; fi
+  if grep -qE "0xFF(A1A1AA|71717A|E4E4E7)" "$src"; then echo "FAIL  $rel writes a grey the palette names (Studio.INK, INK_DIM, INK_FAINT)"; RC=1; fi
+done
 exit $RC

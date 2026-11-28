@@ -116,6 +116,9 @@ public final class FacePinsSection extends LinearLayout {
                 host.pickFacePin(picked ? null : id);
                 build();
             });
+            String hover = c.getString(picked ? R.string.avatar_hover_facepins_unpick : R.string.avatar_hover_facepins_pick, FacePins.nameOf(q.optInt("point")));
+            TooltipCompat.setTooltipText(name, hover);                     // (X6 audit: the pin's name is a button, so it says what it does)
+            name.setContentDescription(hover);
             row.addView(name, new LayoutParams(0, LayoutParams.WRAP_CONTENT, 1f));
             row.addView(chip(c.getString(R.string.avatar_facepins_remove), false, c.getString(R.string.avatar_hover_facepins_remove), v -> host.removeFacePin(id)));
             addView(row);
@@ -138,7 +141,7 @@ public final class FacePinsSection extends LinearLayout {
         row.setGravity(Gravity.CENTER_VERTICAL);
         TextView t = new TextView(c);
         t.setTextSize(12);
-        t.setTextColor(0xFFA1A1AA);
+        t.setTextColor(Studio.INK_DIM);
         t.setText(title + "  " + String.format(java.util.Locale.ROOT, "%.1f", now));
         row.addView(t, new LayoutParams(px(120), LayoutParams.WRAP_CONTENT));
         SeekBar sb = new SeekBar(c);
@@ -169,7 +172,7 @@ public final class FacePinsSection extends LinearLayout {
         TextView t = new TextView(getContext());
         t.setText(s);
         t.setTextSize(11);
-        t.setTextColor(0xFF71717A);
+        t.setTextColor(Studio.INK_FAINT);
         t.setPadding(0, px(12), 0, px(4));
         return t;
     }
@@ -178,7 +181,7 @@ public final class FacePinsSection extends LinearLayout {
         TextView t = new TextView(getContext());
         t.setText(s);
         t.setTextSize(13);
-        t.setTextColor(0xFFA1A1AA);
+        t.setTextColor(Studio.INK_DIM);
         t.setPadding(0, px(4), 0, px(6));
         return t;
     }

@@ -280,7 +280,7 @@ final class SpriteBlendGlEffect implements GlEffect {
                 // Missing art or an empty moment: the export omits, exactly as the Canvas
                 // pass does (it continues past sheets it cannot load and cells it cannot
                 // resolve). The preview's placeholder is a preview affordance, not a pixel.
-                if (p == null && (sheet == null || r == null
+                if (p == null && characterFor() == null && (sheet == null || r == null
                         || cell == com.fadcam.ui.faditor.sprite.SpriteFrameResolver.NO_CELL)) {
                     return frames.empty(frameW, frameH);
                 }
@@ -755,7 +755,7 @@ final class SpriteBlendGlEffect implements GlEffect {
                     cell = com.fadcam.ui.faditor.sprite.SpriteFrameResolver.resolveCellAt(
                             sheet, item, timelineMs);
                 }
-                if (p == null && (sheet == null || r == null
+                if (p == null && frame.characterFor() == null && (sheet == null || r == null
                         || cell == com.fadcam.ui.faditor.sprite.SpriteFrameResolver.NO_CELL)) {
                     return null;
                 }

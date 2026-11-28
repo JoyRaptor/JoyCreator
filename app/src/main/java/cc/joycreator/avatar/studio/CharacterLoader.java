@@ -29,13 +29,21 @@ public final class CharacterLoader {
         public final String ref;
         public final CharacterDoc doc;
         public final CharacterPictures.Beside beside;
+        /** When the file was last changed as it was read (0 for a built-in one). */
+        final long modified;
+        volatile long checkedAt;
 
-        Loaded(String ref, CharacterDoc doc, CharacterPictures.Beside beside) {
+        Loaded(String ref, CharacterDoc doc, CharacterPictures.Beside beside, long modified) {
             this.ref = ref;
             this.doc = doc;
             this.beside = beside;
+            this.modified = modified;
+            this.checkedAt = System.currentTimeMillis();
         }
     }
+
+    /** How often a kept character's file is looked at again, at most (a stat in the person's folder). */
+    static final long CHECK_MS = 2000;
 
     private static final Map<String, Loaded> CACHE = new LinkedHashMap<String, Loaded>(8, 0.75f, true) {
         @Override
@@ -53,10 +61,13 @@ public final class CharacterLoader {
     /** The character, or null when it cannot be found or read (the item then shows its standing picture). */
     public static Loaded load(Context c, String ref) {
         if (ref == null) return null;
+        Loaded kept;
         synchronized (CACHE) {
-            Loaded l = CACHE.get(ref);
-            if (l != null) return l;
+            kept = CACHE.get(ref);
         }
+        // the room saved the character again (its file changed): read it again, so Studio's preview and export both
+        // draw the character as it is now, never one each (X6 M6)
+        if (kept != null && (ref.startsWith(ASSET) || !changed(c.getApplicationContext(), kept))) return kept;
         Loaded l = read(c.getApplicationContext(), ref);
         if (l != null) synchronized (CACHE) {
             CACHE.put(ref, l);
@@ -70,11 +81,41 @@ public final class CharacterLoader {
         }
     }
 
+    /** True when the file behind a kept character changed since it was read (looked at once in {@link #CHECK_MS}). */
+    static boolean changed(Context c, Loaded l) {
+        long now = System.currentTimeMillis();
+        if (now - l.checkedAt < CHECK_MS) return false;
+        l.checkedAt = now;
+        long m = modifiedOf(c, l.ref);
+        return m != 0 && m != l.modified;
+    }
+
+    /** The character as Studio has it now: {@code l} itself, or a newer read when its file changed (null: unchanged). */
+    public static Loaded newer(Context c, Loaded l) {
+        if (l == null || l.ref.startsWith(ASSET) || !changed(c.getApplicationContext(), l)) return null;
+        Loaded n = read(c.getApplicationContext(), l.ref);
+        if (n != null) synchronized (CACHE) {
+            CACHE.put(l.ref, n);
+        }
+        return n;
+    }
+
+    private static long modifiedOf(Context c, String ref) {
+        try {
+            JoyFolder jf = JoyFolderHome.open(c);
+            com.fadcam.joyfolder.JoyFs.Entry e = jf == null ? null : jf.fs.stat(ref);
+            return e == null ? 0 : e.modified;
+        } catch (Exception e) {
+            return 0;
+        }
+    }
+
     private static Loaded read(Context c, String ref) {
         try {
             if (ref.startsWith(ASSET)) {
-                return new Loaded(ref, CharacterAssets.load(c, ref.substring(ASSET.length())), null);
+                return new Loaded(ref, CharacterAssets.load(c, ref.substring(ASSET.length())), null, 0);
             }
+            long modified = modifiedOf(c, ref);
             CharacterDoc d = CharacterStore.read(c, ref);
             if (d == null) return null;
             final String dir = Placement.parentOf(ref);
@@ -86,7 +127,7 @@ public final class CharacterLoader {
                     return null;
                 }
             };
-            return new Loaded(ref, d, beside);
+            return new Loaded(ref, d, beside, modified);
         } catch (Exception e) {
             Log.w(TAG, "character not found: " + ref, e);
             return null;

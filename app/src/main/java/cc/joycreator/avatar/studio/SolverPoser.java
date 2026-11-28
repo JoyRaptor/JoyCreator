@@ -48,6 +48,7 @@ public final class SolverPoser implements CharacterPoser {
     private OffscreenCharacterGl gl;
     private boolean broken;
     private double lastT = Double.NaN;
+    private Bitmap last;                    // the picture of lastT (OffscreenCharacterGl's own, reused on the next draw)
     private volatile java.util.Map<String, double[]> tips = java.util.Collections.emptyMap();
     private volatile double[] rootM;
 
@@ -75,17 +76,24 @@ public final class SolverPoser implements CharacterPoser {
             if (gl == null) {
                 gl = new OffscreenCharacterGl(Math.max(1, Math.round(doc.w * scale)), Math.max(1, Math.round(doc.h * scale)));
             }
-            double dt = Double.isNaN(lastT) ? 1 / 30.0 : Math.max(0, Math.min(MAX_DT, seconds - lastT));
+            // the same moment again (a redraw while paused, the preview's picture made twice, a little player jitter
+            // back): the same picture, the springs not stepped again, so a paused preview stays what the export draws (X6 M4)
+            if (last != null && !last.isRecycled() && !Double.isNaN(lastT) && seconds <= lastT) {
+                c.drawBitmap(last, new Rect(0, 0, gl.width(), gl.height()), new RectF(0, 0, doc.w, doc.h), paint);
+                return;
+            }
+            double dt = Double.isNaN(lastT) ? 1 / 30.0 : Math.min(MAX_DT, seconds - lastT);
             lastT = seconds;
             Signals s = SignalMap.toSignals(signals == null ? java.util.Collections.emptyMap() : signals, seconds,
                 breathes ? Math.sin(seconds * 2 * Math.PI * breathRate) : 0);
             CharacterSolver.Opt opt = new CharacterSolver.Opt();
             opt.live = true;
-            opt.dt = dt > 0 ? dt : 1 / 30.0;
+            opt.dt = dt;
             SolveOut out = solver.eval(s, opt);
             tips = new java.util.HashMap<>(s.tips);
             rootM = out.rootM;
             Bitmap b = gl.draw(out, pics, scale);
+            last = b;
             c.drawBitmap(b, new Rect(0, 0, gl.width(), gl.height()), new RectF(0, 0, doc.w, doc.h), paint);
         } catch (RuntimeException | OutOfMemoryError e) {
             Log.w(TAG, "the GPU drawing could not run here; the standing picture draws instead", e);
@@ -108,8 +116,10 @@ public final class SolverPoser implements CharacterPoser {
 
     @Override
     public synchronized void rewind() {
-        if (solver != null) solver = new CharacterSolver(doc.json, pics);
+        // springs and fades back to the start; the meshes and distance fields made from the pictures are kept (X6 M5)
+        if (solver != null) solver.restart();
         lastT = Double.NaN;
+        last = null;
     }
 
     @Override
@@ -121,6 +131,7 @@ public final class SolverPoser implements CharacterPoser {
     }
 
     private void releaseGl() {
+        last = null;
         if (gl != null) {
             try {
                 gl.release();

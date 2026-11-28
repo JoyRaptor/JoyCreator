@@ -375,6 +375,14 @@ public final class Inputs implements Walker.Body {
         moodNow = MOODS.get("Neutral");
         headHeld = talking = blinkHold = false;
         trig.clear();
+        // the hands go home too (the pilot's resetPose: handL = handR = null); a new character never inherits the last
+        // one's hand places (X6 P13)
+        for (int i = 0; i < 2; i++) {
+            handTo[i] = null;
+            handSm[i] = null;
+            handHeld[i] = false;
+        }
+        handsUsed = false;
     }
 
     // ── a pass ────────────────────────────────────────────────────────────────────────────────────

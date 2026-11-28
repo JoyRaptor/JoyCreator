@@ -71,6 +71,13 @@ public final class PartsView extends ScrollView {
         default void tryMouth(double v) {
         }
 
+        /** "What it is": rename the part (asks for the name) or take it out (asks first): one named undo step each. */
+        default void renameNode(String nodeId) {
+        }
+
+        default void removeNode(String nodeId) {
+        }
+
         /** What Motion and the eyes' card write through (null: none). */
         default MotionSections.Host motion() {
             return null;
@@ -157,6 +164,13 @@ public final class PartsView extends ScrollView {
     // ── Set up: its drawings ──────────────────────────────────────────────────────────────────────
 
     private void setUp(CharacterDoc doc, CharacterDoc.Node node) {
+        LinearLayout what = new LinearLayout(getContext());                  // What it is: its name, and a way to take it out
+        what.addView(chip(getContext().getString(R.string.avatar_rename), false, v -> host.renameNode(node.id), getContext().getString(R.string.avatar_hover_rename)));
+        what.addView(chip(getContext().getString(R.string.avatar_remove), false, v -> host.removeNode(node.id), getContext().getString(R.string.avatar_hover_remove)));
+        HorizontalScrollView whatScroll = new HorizontalScrollView(getContext());
+        whatScroll.setHorizontalScrollBarEnabled(false);
+        whatScroll.addView(what);
+        column.addView(whatScroll);
         if (EyeSections.isEye(node) && host.motion() != null) EyeSections.add(getContext(), column, doc, host.motion(), dp);
         if (FeatureSections.applies(node) && host.motion() != null) FeatureSections.add(getContext(), column, doc, node, host.motion(), dp);
         if (MouthSections.isMouth(node) && host.motion() != null) MouthSections.add(getContext(), column, node, host.motion(), host, dp);

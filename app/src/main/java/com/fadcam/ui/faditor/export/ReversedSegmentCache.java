@@ -7,6 +7,7 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
 import com.arthenica.ffmpegkit.FFmpegKit;
+import com.arthenica.ffmpegkit.FFmpegKitConfig;
 import com.arthenica.ffmpegkit.FFmpegSession;
 import com.arthenica.ffmpegkit.ReturnCode;
 import com.fadcam.FLog;
@@ -152,11 +153,6 @@ public class ReversedSegmentCache {
             FLog.d(TAG, "Reversed segment cache HIT: " + out.getName());
             return out;
         }
-        if (inputFile == null || !inputFile.exists() || !inputFile.canRead()) {
-            FLog.w(TAG, "Cannot bake reverse — input file missing/unreadable for "
-                    + sourceUri);
-            return null;
-        }
         if (out.exists()) out.delete();
 
         FLog.i(TAG, "Baking reversed segment [" + inPointMs + "," + outPointMs + "]ms -> "
@@ -167,8 +163,12 @@ public class ReversedSegmentCache {
         // of that clip played the cut-off piece. The name keeps its ending so ffmpeg knows the format.
         final File finalOut = out;
         out = new File(finalOut.getParentFile(), "part-" + finalOut.getName());
-        String[] attempts = buildCommandChain(inputFile.getAbsolutePath(),
-                out.getAbsolutePath(), inPointMs, outPointMs);
+        final String[] attempts = attemptsFor(sourceUri, inputFile, out, inPointMs, outPointMs);
+        if (attempts == null) {
+            FLog.w(TAG, "Cannot bake reverse — input file missing/unreadable for "
+                    + sourceUri);
+            return null;
+        }
         long t0 = System.currentTimeMillis();
         for (int attempt = 0; attempt < attempts.length; attempt++) {
             String cmd = attempts[attempt];
@@ -222,13 +222,12 @@ public class ReversedSegmentCache {
             callback.onBakeComplete(true, out, false);
             return;
         }
-        if (inputFile == null || !inputFile.exists() || !inputFile.canRead()) {
+        final String[] attempts = attemptsFor(sourceUri, inputFile, out, inPointMs, outPointMs);
+        if (attempts == null) {
             callback.onBakeComplete(false, null, false);
             return;
         }
         if (out.exists()) out.delete();
-        final String[] attempts = buildCommandChain(inputFile.getAbsolutePath(),
-                out.getAbsolutePath(), inPointMs, outPointMs);
         FLog.i(TAG, "Async baking reversed segment [" + inPointMs + "," + outPointMs + "]ms -> "
                 + out.getName());
         runAsyncAttempt(attempts, 0, out, System.currentTimeMillis(), callback);
@@ -266,6 +265,36 @@ public class ReversedSegmentCache {
                 runAsyncAttempt(attempts, attemptIdx + 1, out, t0, callback);
             }
         }, log -> { /* ffmpeg logs — muted to avoid spam */ }, stats -> { /* progress unused */ });
+    }
+
+    /**
+     * The bake's commands, one per attempt, each reading the clip its own way (STU-F7, 11-28): its file when there is one
+     * on disk; otherwise, for a {@code content://} clip (Downloads, the Joy Creator folder), a SAF read parameter, a fresh
+     * one for every attempt, because FFmpegKit closes a SAF descriptor when its session ends. Such a clip was never baked
+     * before, so every ping-pong leg of it played forward. Null when the clip cannot be read either way.
+     */
+    @Nullable
+    private String[] attemptsFor(@NonNull Uri sourceUri, @Nullable File inputFile, @NonNull File out,
+                                 long inPointMs, long outPointMs) {
+        String[] attempts = new String[ATTEMPT_NAMES.length];
+        for (int i = 0; i < attempts.length; i++) {
+            String input;
+            if (inputFile != null && inputFile.exists() && inputFile.canRead()) {
+                input = inputFile.getAbsolutePath();
+            } else if ("content".equals(sourceUri.getScheme())) {
+                try {
+                    input = FFmpegKitConfig.getSafParameterForRead(context, sourceUri);
+                } catch (Exception e) {
+                    FLog.w(TAG, "SAF parameter failed for " + sourceUri + ": " + e.getMessage());
+                    return null;
+                }
+                if (input == null) return null;
+            } else {
+                return null;
+            }
+            attempts[i] = buildCommandChain(input, out.getAbsolutePath(), inPointMs, outPointMs)[i];
+        }
+        return attempts;
     }
 
     /** Human-readable names for each attempt in {@link #buildCommandChain}, for logging. */

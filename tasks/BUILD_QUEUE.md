@@ -4,8 +4,7 @@ The owner, 11-23: "get agents building round the clock to get Joy Creator done. 
 but constant building." The orchestrator keeps **about three Claude lanes building at once**. When one finishes, the
 next job down this list starts. **Each lane pulls its own next job**: when it finishes, it claims the next unclaimed
 row that fits (phone-free unless a phone is free) and carries on in the same session. The orchestrator's hourly
-check-in nudges any lane that has gone idle. (New sessions can't be started from an automated turn, so lanes chain.) Codex takes the hard builds (prompts given to the
-owner 11-23) on its own budget.
+check-in nudges any lane that has gone idle. (New sessions can't be started from an automated turn, so lanes chain.) Codex is gone (owner 11-28): its work lands with Claude.
 
 **Owner 11-23 evening: the app comes first.** No more website or sizzle-video work until the app is done; the
 website draft stays as it is. Pick app jobs only.
@@ -32,7 +31,7 @@ hardest work.
 | 9 | Studio phone backlog and the 41-check sweep (14 features never looked at) | [STU-1](jobs/STU-1_studio_phone_backlog.md) | yes | waits for a phone |
 | 10 | Joybot create-tree landings not yet seen: image, tile, sprite, perspective, sprite edit, find | [BOT-7](jobs/BOT-7_lobby_wizard_and_room_colours.md) | yes | waits for a phone |
 | 11 | Engine round 4 last three checks (save, wet undo, wet map) | engine-r4 lane | yes | waits for the Note 9 |
-| 12 | Land Codex's branches as they appear (audit round 5, sparse leaving save, load split, mask multipass, title transfer) | `tasks/audits/codex/` | depends | as they come |
+| 12 | Wrap up everything Codex held (owner 11-28: Codex is gone) | `tasks/audits/codex/CODEX_BRANCH_WRAPUP_20261128.md` | depends | 11-28: old branches to the Land-Codex lane; engine goal (live save, mask multipass, load split, Concepts engine items) to the Engine perf lane on Opus; stu7 to Motion blur |
 | 13 | No lost work: fix the remaining findings of the work-loss report, each with a test that fails first | [SAFE-1](jobs/SAFE-1_work_loss.md) | at the end | second pass built 11-23: 7 findings fixed with tests, kept-copy restore function, 4 suites now in the cloud run; phone list owed; open items in the report |
 | 14 | Joybot help: a help topic for every STATE feature on the HYG-5 owed list (text and help data) | [BOT-2](jobs/BOT-2_joybot_everywhere.md) | no | done 11-23: seven topics + harness cases, 1311 pass |
 | 15 | FadCam inventory: every package, screen, service and resource from FadCam, with a keep/rebuild/replace/cut verdict | [FREE-1](jobs/FREE-1_fadcam_inventory.md) | no | refreshed 11-23 (addendum to the 10-28 inventory); owner has not seen the plan |

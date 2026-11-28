@@ -21,14 +21,14 @@ Skipped on purpose: Landmarks (replaces "Match two angles"), face-capture intern
 | 12 | ⬜ | Motion, Showing now | Showing now strip, Flip elbow, Mend its pins | none | M |
 | 13 | ✅ | Motion, ground and walking | Drops to all fours, Jumps, Which limbs walk, Stride, Step height, Rise and fall, Heel to toe, Lean, Arm swing, Falls back, Smaller far away, Turns to face, Ground, Floats (`al-ground.js`) | none | L |
 | 14 | ⬜ | Set up, colour sets | From a picture, Add by hand, See it, Pick on the picture, Becomes/Reaches/More colour/Lighter, How it arrives (`al-tone.js`) | none (shader and Inputs support them) | L |
-| 15 | ⬜ | Perform, walking | Walking / Floating label and the walk settings | Walk with your face drawer only | M |
+| 15 | 🟡 | Perform, walking | Walking / Floating label and the walk settings | Walk settings chip under the pads (built 11-28); Walking / Floating label owed | M |
 | 16 | 🟡 | Set up, shapes | Add pins around it, How far, Bouncy, Add a shape, Handles in Perform | Reshape with pins only (built 11-27); no named shapes | L |
 | 17 | ✅ | Motion, follows | Follows: signal to property, Bouncy, Back and forth, How much | none | L |
 | 18 | ⬜ | Arrange, masks | Show only inside, Hide where | none | M |
 | 19 | ⬜ | Set up, carried / looks | Carried by, Its looks, Make this its usual look, Change its picture | none | M |
 | 20 | ⬜ | Motion, loop / stream | Loop speed; Stream (How many, Each lasts, Drifts, Fades out, Sways) | none | M |
 | 21 | ⬜ | Set up, round shape | per layer: Turns, Nods, lies flat, stands off, on the back | round head sliders only | M |
-| 22 | ⬜ | Set up, what it is | What is this?, Rename, Remove, Pin it again | Layers list hides/shows only | M |
+| 22 | 🟡 | Set up, what it is | What is this?, Rename, Remove, Pin it again | Rename and Remove (built 11-28); What is this? and Pin it again owed | M |
 | 23 | ⬜ | Arrange, size and turn | Fit it by hand, readout, Size/Turn/Mirror sliders | heading + hint; Put it back always shown | S |
 | 24 | ⬜ | Whole stage | labelled body map, path tabs | chips row, one path line (spec A2) | L |
 | 25 | ⬜ | Arrange, stance row | picture per stance, A new stance sheet | chips in the card | M |

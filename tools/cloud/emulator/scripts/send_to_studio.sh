@@ -19,8 +19,11 @@ shot board_ready
 dump board; python3 "$HERE_LIB/uia.py" list /tmp/ui.xml | head -60
 # the board's own bar has a send-to-Studio icon (the film-and-arrow one); find it by its words
 send_it() {
-    tap_text "Studio" >/dev/null 2>&1 || tap_text "Send" >/dev/null 2>&1 || tap_text "Export" >/dev/null 2>&1 || { echo "no send control found"; return 1; }
+    tap_text "Export this board" >/dev/null 2>&1 || { echo "no export control found"; return 1; }
     settle 4
+    # the export sheet: "This board" with the Send to Studio chip, then the big Export button
+    tap_text "=Send to Studio" 1 >/dev/null 2>&1 || tap_text "Send to Studio" >/dev/null 2>&1; settle 2
+    tap_text "=Export" >/dev/null 2>&1; settle 8
 }
 echo "== 1. back out of the chooser"
 send_it; shot chooser; dump chooser; python3 "$HERE_LIB/uia.py" list /tmp/ui.xml | head -30

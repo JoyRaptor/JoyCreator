@@ -65,7 +65,7 @@ tap_text "Library" >/dev/null 2>&1; settle 4
 shot library
 dump library
 python3 "$HERE_LIB/uia.py" list /tmp/ui.xml | head -30
-tap_text "Untitled audio" >/dev/null 2>&1 || tap_text "Untitled" >/dev/null 2>&1; settle 9
+tap 277 411; settle 9   # the Library card has no text node of its own
 tap 789 1218 ; settle 1   # the waveform question may come again on reopen
 shot reopened
 dump reopened

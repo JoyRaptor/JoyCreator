@@ -576,6 +576,7 @@ public final class AdjustmentLayerGlEffect implements GlEffect {
          * the whole mask down to one). False if either cannot be had.
          */
         private boolean buildCover(@NonNull FxCompiler.Plan plan, int maskShapes) {
+            if (true) return false;   // FAIL-FIRST PROBE (never land): the fallback is off, as before the fix
             if (!buildSteps(plan, 1, true)) return false;
             for (int chunk = maskShapes - 1; chunk >= 1; chunk--) {
                 try {

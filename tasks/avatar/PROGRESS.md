@@ -62,6 +62,6 @@ Updated 11-27 by the lead.
 | Several characters, shots, walking on and off, the joystick in a scene | 8 | ⬜ | after slice 1 |
 | Exporting a scene; Send to Studio not flattened | 5 | ⬜ | after slice 1 |
 | **Finishing** | | | |
-| Second audit (Codex) and its fixes | 5 | ⬜ | Codex + lead |
+| Second audit and its fixes (X6; Codex gone, Claude since 11-28) | 5 | 🟡 audit done 11-28 (`tasks/audits/claude/AVA_X6_20261128.md`, five reviews, ~90 findings); every lost-work finding in the room and the auditor's code fixed with a check that fails first; scenes S1-S5 asked, smaller items open with their owners | Claude (X2/X3 session) + owners |
 | Android emulator tests on GitHub (`cloud-build.ps1 avatar-emu`: draw parity against the pilot, room smoke with real taps) | 3 | ✅ landed 11-27 | Claude (X2/X3 session) |
 | The phone run: everything on the Note 9, then the owner's look | 5 | ⬜ | lead |

@@ -145,6 +145,7 @@ public final class PartsView extends ScrollView {
 
     private void setUp(CharacterDoc doc, CharacterDoc.Node node) {
         if (EyeSections.isEye(node) && host.motion() != null) EyeSections.add(getContext(), column, doc, host.motion(), dp);
+        if (MouthSections.isMouth(node) && host.motion() != null) MouthSections.add(getContext(), column, node, host.motion(), host, dp);
         column.addView(body(getContext().getString(R.string.avatar_pins_hint)));
         // pins guessed from the pixels, one tap to guess again
         LinearLayout guess = new LinearLayout(getContext());

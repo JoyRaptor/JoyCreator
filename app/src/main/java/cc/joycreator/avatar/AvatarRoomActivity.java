@@ -58,6 +58,7 @@ public final class AvatarRoomActivity extends Activity implements RoomMenu.Host,
     private static final int REQ_UPDATE = 46;
     private static final int REQ_WHOLE = 47;
     private static final int REQ_SHEET = 48;
+    private static final int REQ_VOICE = 49;
     private static final int REQ_SCENEPIC = 49;               // pictures for a scene (slice 3)
     private String scenePicKind = "obj";
 
@@ -92,6 +93,10 @@ public final class AvatarRoomActivity extends Activity implements RoomMenu.Host,
     private org.json.JSONObject walkerDoc;
     private cc.joycreator.avatar.perform.Stick stick;
     private int frameNo;
+    private android.media.MediaPlayer voicePlayer;                        // Voice file: a sound that plays while the mouth talks to it
+    private float[] voiceOpen;
+    private String[] voiceVis;
+    private long voiceStart;
     private double testMouth;                                          // Try: talk, on Set up
     private String testVis;                                            // Try a sound, on Set up
     private cc.joycreator.avatar.ui.LandmarksScreen landmarks;
@@ -1445,6 +1450,75 @@ public final class AvatarRoomActivity extends Activity implements RoomMenu.Host,
     }
 
     @Override
+    public void voiceFile() {
+        Intent i = new Intent(Intent.ACTION_OPEN_DOCUMENT).addCategory(Intent.CATEGORY_OPENABLE).setType("audio/*");
+        try {
+            startActivityForResult(i, REQ_VOICE);
+        } catch (Exception e) {
+            Log.w(TAG, "no file picker", e);
+        }
+    }
+
+    /** The sound is read into a mouth for every frame (Studio's own lip-sync), then plays while the mouth follows it. */
+    private void startVoice(final Uri uri) {
+        stopVoice();
+        micOff();
+        JoyFolderHome.io().execute(() -> {
+            long ms = 0;
+            try {
+                android.media.MediaMetadataRetriever mr = new android.media.MediaMetadataRetriever();
+                mr.setDataSource(this, uri);
+                String d = mr.extractMetadata(android.media.MediaMetadataRetriever.METADATA_KEY_DURATION);
+                mr.release();
+                ms = d == null ? 0 : Long.parseLong(d);
+            } catch (Exception e) {
+                Log.w(TAG, "sound length unknown", e);
+            }
+            final int n = (int) Math.min(Take.FPS * 600L, Math.ceil(ms / 1000.0 * Take.FPS) + 1);
+            main.post(() -> {
+                if (isFinishing() || n < 2) {
+                    Toast.makeText(this, R.string.avatar_voice_none, Toast.LENGTH_LONG).show();
+                    return;
+                }
+                cc.joycreator.avatar.studio.SoundLips.read(this, uri, t -> t, n, res -> {
+                    if (isFinishing()) return;
+                    if (res == null) {
+                        Toast.makeText(this, R.string.avatar_voice_none, Toast.LENGTH_LONG).show();
+                        return;
+                    }
+                    try {
+                        android.media.MediaPlayer mp = new android.media.MediaPlayer();
+                        mp.setDataSource(this, uri);
+                        mp.prepare();
+                        voiceOpen = (float[]) res[0];
+                        voiceVis = (String[]) res[1];
+                        voicePlayer = mp;
+                        inputs.mic(true);
+                        voiceStart = android.os.SystemClock.uptimeMillis();
+                        mp.start();
+                    } catch (Exception e) {
+                        Log.w(TAG, "sound did not play", e);
+                        Toast.makeText(this, R.string.avatar_voice_none, Toast.LENGTH_LONG).show();
+                    }
+                });
+            });
+        });
+    }
+
+    private void stopVoice() {
+        if (voicePlayer == null) return;
+        try {
+            voicePlayer.release();
+        } catch (RuntimeException e) {
+            Log.w(TAG, "sound did not stop cleanly", e);
+        }
+        voicePlayer = null;
+        voiceOpen = null;
+        voiceVis = null;
+        inputs.mic(false);
+    }
+
+    @Override
     public void toggleFace() {
         if (inputs.faceOn()) {                                  // the pilot's chip: always, then only while talking, then off
             if (inputs.faceDrive().mode() == cc.joycreator.avatar.face.FaceDrive.Mode.ALWAYS) {
@@ -2071,7 +2145,11 @@ public final class AvatarRoomActivity extends Activity implements RoomMenu.Host,
             glStage.frame(null, false, dt, stage.viewScale(), stage.viewX(), stage.viewY());
             return;
         }
-        if (inputs.micOn() && mic != null) {
+        if (voicePlayer != null) {                                       // a sound is playing: the mouth is its mouth
+            int fi = (int) ((android.os.SystemClock.uptimeMillis() - voiceStart) * Take.FPS / 1000L);
+            if (voiceOpen == null || fi >= voiceOpen.length || !voicePlayer.isPlaying()) stopVoice();
+            else inputs.micHeard(voiceOpen[fi], voiceVis[fi]);
+        } else if (inputs.micOn() && mic != null) {
             float db = mic.currentAudioDb();
             int cls = mic.currentVisemeClassIndex();
             inputs.micHeard(Float.isNaN(db) ? 0 : Math.max(0, Math.min(1, (db + 50) / 40)), cls >= 0 && cls < MIC_SHAPES.length ? MIC_SHAPES[cls] : "Neutral");
@@ -2327,6 +2405,7 @@ public final class AvatarRoomActivity extends Activity implements RoomMenu.Host,
         glStage.onPause();
         looping = false;
         micOff();                                               // the microphone's light goes out with the room
+        stopVoice();                                            // and a sound stops
         faceOff();                                              // and so does the camera's
         if (inputs.recorder.recording()) endRecord();          // leaving the room ends a pass; nothing keeps listening
         main.removeCallbacks(autosave);
@@ -2871,6 +2950,10 @@ public final class AvatarRoomActivity extends Activity implements RoomMenu.Host,
                 for (int i = 0; i < data.getClipData().getItemCount(); i++) uris.add(data.getClipData().getItemAt(i).getUri());
             else if (data.getData() != null) uris.add(data.getData());
             sceneRoom.picturesChosen(scenePicKind, uris);
+            return;
+        }
+        if (req == REQ_VOICE && res == RESULT_OK && data != null && data.getData() != null) {
+            startVoice(data.getData());
             return;
         }
         if (req == REQ_SHEET && res == RESULT_OK && data != null && data.getData() != null) {

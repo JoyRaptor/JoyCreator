@@ -137,6 +137,10 @@ public final class PerformPanel extends ScrollView {
         /** The Mic chip: lip-sync to the microphone (asks for the permission the first time). */
         void toggleMic();
 
+        /** The Voice file chip: pick a sound file; it plays and the mouth talks to it (the same lip-sync as Studio's). */
+        default void voiceFile() {
+        }
+
         /** The Face chip: the face camera drives head, eyes, brows and mouth (asks for the camera the first time). */
         void toggleFace();
 
@@ -272,6 +276,8 @@ public final class PerformPanel extends ScrollView {
         LinearLayout chipRow = new LinearLayout(c);
         chipScroll.addView(chipRow);
         side.addView(chipScroll, ml);
+        TextView voiceChip = chip(c, c.getString(R.string.avatar_voice_file), c.getString(R.string.avatar_hover_voice_file), v -> host.voiceFile());
+        side.addView(voiceChip, ml);
         chipRow.addView(micChip);
         faceChip = chip(c, c.getString(R.string.avatar_face), c.getString(R.string.avatar_hover_face_cycle), v -> host.toggleFace());
         faceWords = R.string.avatar_face;                               // (a new chip: its words follow the mode from the next paint)

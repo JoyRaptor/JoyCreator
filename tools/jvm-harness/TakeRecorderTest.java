@@ -131,6 +131,19 @@ public class TakeRecorderTest {
         } catch (Exception e) {
             ok(false, "a take survives being written and read as text: " + e);
         }
+        // X6 M1: the longest take counts from the pass's start, not from the take's start: Studio starts a pass at the
+        // playhead's place in the take, which can be past 2:00, and the pass must not end on its first frame
+        TakeRecorder late = new TakeRecorder();
+        Take long0 = new Take();
+        long0.n = 30 * 200;
+        late.setTake(long0);
+        late.record();
+        late.scrubTo(150);
+        for (int f = 0; f < 30; f++) late.step(DT, live(f / 100.0, 1.0, "Aa"), NAMES, owners("head"));
+        ok(late.recording(), "a pass begun 150 s into the take is still recording a second later");
+        for (int f = 0; f < (int) ((TakeRecorder.MAX_SECONDS + 1) / DT); f++) late.step(DT, live(0, 1.0, "Aa"), NAMES, owners("head"));
+        ok(!late.recording(), "a pass still ends by itself after the longest take");
+
         System.out.println((fail > 0 ? "FAILED " : "PASSED ") + pass + " checks, " + fail + " failures");
         System.exit(fail > 0 ? 1 : 0);
     }

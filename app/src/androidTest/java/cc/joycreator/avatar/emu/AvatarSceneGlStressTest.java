@@ -71,9 +71,11 @@ public class AvatarSceneGlStressTest {
             }
             assertTrue("Topps", ok);
             Emu.sleep(3000);
-            Emu.tap(byDesc(root, "Show the frame"));
             Emu.tap(byText(root, "Perform"));
             Emu.sleep(1500);
+            View fb = byDesc(root, "Show the frame");
+            if (fb != null) Emu.tap(fb);                        // the frame draws the backdrop texture too
+            Emu.sleep(1000);
             for (int i = 0; i < 150; i++) {                      // thirty seconds of drawing with the collector forced hard
                 Runtime.getRuntime().gc();
                 System.runFinalization();

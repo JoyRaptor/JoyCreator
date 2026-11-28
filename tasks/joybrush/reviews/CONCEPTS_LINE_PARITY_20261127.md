@@ -102,7 +102,7 @@ Fixes go to `joy-creator` in steps, each with host tests. Progress is logged bel
   - **`JbCanvasView` change:** only one read-only getter (`fingersDraw`).
   - **Tests:** `StrokeEraseHitTest` 6, `StrokeEraserToolTest` 6; the shipped-brush lists now include the new folder.
   - **Paint is untouched by this eraser;** the ordinary eraser rubs out paint. Erasing part of a line and keeping the pieces as lines is still engine work.
-  - **Phone check owed:** on the Note 9, draw three crossing lines, pick Eraser, then Whole lines, and stroke across two of them. Both should go at once and one Undo should bring both back. SelectBench runs only on the phone, so it has not been run.
+  - **Phone check PASSED 11-28** (Note 9, SelectBench `wholeLinesEraser`): the stroke took the two lines it crossed as one step, one Undo brought both back; bench 25/25. Log: `tasks/screens/brush-editor-20261127/whole_lines_eraser_note9_20261128.log`.
 - **UI step 5 is not done:** the "lines" tag on layer rows. The row subtitle shows only on wide-screen pulled-out rows, and keeping it current needs a refresh hook on every line edit. It is low value for the cost; listed for the layer-column owner.
 
 ## Slice eraser and partial erase: read 11-27, engine-side (one small piece)

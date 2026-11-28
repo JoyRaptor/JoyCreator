@@ -31782,6 +31782,12 @@ public class FaditorEditorActivity extends AppCompatActivity {
                         @Override public String loadedVideoClipId() {
                             return playerManager == null ? null : playerManager.getLoadedClipId();
                         }
+                        @Override public long legacyLoopOffsetMs() {
+                            // The legacy loop wrap (onPlaybackTick isAtEnd) adds one pass per
+                            // seekTo(0); the gapless engine never advances it.
+                            return playerManager == null || playerManager.isGapless()
+                                    ? -1L : loopVisualOffsetMs;
+                        }
                         @Override public com.fadcam.ui.faditor.model.Clip clipAtPlayhead() {
                             return clipUnderPlayhead();
                         }

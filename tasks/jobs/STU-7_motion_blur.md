@@ -13,6 +13,7 @@ merged plan's.
 
 ## Resume here
 
+- **Later (owner 11-28):** live motion blur on puppets in the Avatar Studio room only if it can be made cheap; it is not today (3-4 puppet redraws a frame at 2-15 ms each). Nice-to-have after everything else.
 - **Owner of the job:** Claude (Opus 5.5) since 2026-11-27; Codex ran out of usage and handed off ([C6_CUT_HANDOFF](../motionblur/C6_CUT_HANDOFF.md)). Card build on `claude/stu7-card-20261127`.
 - **Active step:** C6 in-file hard-cut fence. C5 physical parity and C7 release gates remain open.
 - **Candidate:** `codex/stu7-finish-20261125` at `ea236f311`.

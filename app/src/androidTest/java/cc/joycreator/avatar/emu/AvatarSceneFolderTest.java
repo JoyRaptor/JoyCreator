@@ -69,8 +69,7 @@ public class AvatarSceneFolderTest {
             Emu.tap(byText(root, "Flip"));                    // one more change after the first save
             Emu.sleep(4000);                                  // kept a moment after the last change
             String mine = sceneText(a[0]);
-            log.append("in the room: ").append(mine.length()).append(" chars
-");
+            log.append("in the room: ").append(mine.length()).append(" chars. ");
             assertTrue("it has Topps in it", mine.contains("\"cast\""));
             shot(out, "1-scene-with-topps");
             Emu.tap(byText(root, "Set up"));
@@ -93,8 +92,7 @@ public class AvatarSceneFolderTest {
             assertEquals("it is the same scene as the one left", mine, sceneText(a[0]));
             shot(out, "3-reopened");
         }
-        Log.i(Emu.TAG, "scene folder
-" + log);
+        Log.i(Emu.TAG, "scene folder: " + log);
     }
 
     private static String sceneText(AvatarRoomActivity a) throws Exception {

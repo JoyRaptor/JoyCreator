@@ -73,6 +73,8 @@ public class AvatarShoulderTest {
             String armL = role(ch0.getJSONObject("root"), "armL").getString("id"), armR = role(ch0.getJSONObject("root"), "armR").getString("id"),
                     head = role(ch0.getJSONObject("root"), "head").getString("id");
 
+            log.append("      before anything of ours: his left arm drawn at y ").append(f(drawnY(a, armL))).append('\n');
+            diagnose(a, "start");
             // still, so only the shrug moves him: breathing and the idle drift off (two steps of their own)
             Emu.ins().runOnMainSync(() -> {
                 a.setSetting("breathe", false, "Breathing off");
@@ -106,6 +108,7 @@ public class AvatarShoulderTest {
                     "your shoulders first seen: Topps is set up to shrug, as one undo step (arms " + Shrugs.amount(d1.json, true)
                             + " px, head " + Shrugs.amount(d1.json, false) + " px; Undo holds \"" + top + "\")");
             double yL = drawnY(a, armL), yR = drawnY(a, armR), yH = drawnY(a, head);
+            diagnose(a, "rest, set up to shrug");
             shot(out, "01-rest");
 
             // both shoulders up: both arms lift, the head sinks a little
@@ -274,6 +277,52 @@ public class AvatarShoulderTest {
         Object m = field(a, "lastSignals");
         Object v = m instanceof java.util.Map ? ((java.util.Map<String, Object>) m).get(k) : null;
         return v instanceof Number ? ((Number) v).doubleValue() : 0;
+    }
+
+    /**
+     * Where a not-a-number came from when Topps is not drawn (one run in four on 11-27 lost him for good after his set-up):
+     * the signals that are not numbers, the walker's, the stage's view and how many parts the stage drew without a number.
+     * Logs nothing when everything is a number.
+     */
+    @SuppressWarnings("unchecked")
+    private void diagnose(AvatarRoomActivity a, String when) throws Exception {
+        StringBuilder b = new StringBuilder();
+        Object sig = field(a, "lastSignals");
+        if (sig instanceof java.util.Map) for (java.util.Map.Entry<String, Object> e : ((java.util.Map<String, Object>) sig).entrySet())
+            if (e.getValue() instanceof Number && !Double.isFinite(((Number) e.getValue()).doubleValue())) b.append(" signal ").append(e.getKey());
+        Object w = field(a, "walker");
+        if (w != null) for (String n : new String[]{"x", "y", "tx", "ty", "baseY", "vx", "vy", "vz", "sq", "lift", "swing", "low"}) {
+            double v = w.getClass().getField(n).getDouble(w);
+            if (!Double.isFinite(v)) b.append(" walker.").append(n);
+        }
+        Object st = field(a, "stage");
+        float[] view = new float[3];
+        Emu.ins().runOnMainSync(() -> {
+            try {
+                view[0] = (Float) st.getClass().getMethod("viewScale").invoke(st);
+                view[1] = (Float) st.getClass().getMethod("viewX").invoke(st);
+                view[2] = (Float) st.getClass().getMethod("viewY").invoke(st);
+            } catch (Exception e) {
+                throw new RuntimeException(e);
+            }
+        });
+        for (float v : view) if (!Float.isFinite(v)) b.append(" view");
+        Object gl = field(a, "glStage");
+        java.util.Map<String, double[]> m = (java.util.Map<String, double[]>) field(gl, "lastM");
+        int bad = 0;
+        StringBuilder which = new StringBuilder();
+        for (java.util.Map.Entry<String, double[]> e : m.entrySet()) {
+            boolean nan = false;
+            for (double v : e.getValue()) nan |= !Double.isFinite(v);
+            if (nan && bad++ < 6) which.append(' ').append(e.getKey());
+        }
+        double[] rootM = (double[]) field(gl, "lastRootM");
+        boolean rootBad = false;
+        if (rootM != null) for (double v : rootM) rootBad |= !Double.isFinite(v);
+        if (bad > 0 || rootBad || b.length() > 0)
+            log.append("      NOT A NUMBER at ").append(when).append(':').append(b).append("; parts drawn without a number ").append(bad).append(" of ")
+                    .append(m.size()).append(which).append(rootBad ? "; the root's matrix" : "").append("; view ")
+                    .append(view[0]).append(' ').append(view[1]).append(' ').append(view[2]).append('\n');
     }
 
     /** Where a part is drawn now (its matrix's y offset, character pixels), from the room's GPU stage. */

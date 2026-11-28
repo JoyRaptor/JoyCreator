@@ -17,3 +17,6 @@ Checked with ffmpeg + a tone check (`tone_check.py`): the tone of each source is
 | Preview audio of both PiPs | Not measured (cannot be measured from the PC). Owner hands-on. |
 
 Status for STU-1: F6 stays open (export default drops PiP sound; panel shows a wrong state).
+
+## 11-28 re-run with Include audio ON for both PiPs (hover-1, Note 9): export STILL has no PiP sound
+How: hold each PiP on the timeline (opens its object drawer), tap the red speaker icon; the lane header then shows a speaker and the saved project has `overlayAudioEnabled: true` on both PiPs (`audioMuted: true` stays, as designed). Export (video, defaults): `Untitled audio 5 2.mp4`, 5.97 s audio. Export trace lists three AUDIO_SOURCEs (main + both PiPs, 44.1 kHz mono AAC). Decoded with `tone_check.py`: only the main clip's 2000 Hz is present; 440 Hz and 1320 Hz are at about -105 dB. **FAIL: an opted-in PiP's sound does not reach the export** (the code path `buildOverlayAudioSequence` exists; cause not found). Possibly the same family as the ping-pong export not using the new rule: a stale build or a path that skips it; needs the export owner. Preview not measured.

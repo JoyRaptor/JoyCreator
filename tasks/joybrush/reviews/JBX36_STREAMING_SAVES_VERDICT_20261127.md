@@ -81,5 +81,28 @@ file) is acceptable, because it is the one place the artist could lose the newes
   move; before, it opened the save before it from `.bak`. A `.tmp` that does not open is never moved into place.
   `KillMidSaveTest`: that case failed first; a kill while writing and a half `.tmp` already kept the last save (guards).
   Still owed for S4: `am kill` during a big save on the Note 9, once S2 streams real saves.
-- **S2** (the GPU freeze and batched readback) is next, with a brief for a fresh session. **S3** follows (owner 11-27:
-  about 3 s of lost work at leaving is acceptable). **S5** waits for Note 9 measurements of S1-S4.
+- **11-27, S2 landed (behind `ArchiveCarrying.streamTiles`, off):** the changed-tiles autosave copies the tiles it must
+  read into pooled textures on the graphics chip in the one GL task it already takes (`GlPaintEngine.freezeTiles`, a
+  blit; nothing the drawing holds is written), settles the document from the tiles' fingerprints (blank = the
+  fingerprint of zeros), and reads the copies back a batch at a time while the save writes them
+  (`BatchedTileSource`, at most two 16 MB batches). A read that stops refuses the save with `JbArchiveNeedsBytes`
+  (nothing written, the older file stands, the whole drawing is read the old way); no graphics memory for the copies
+  falls back to the old readback. Only the changed-tiles autosave streams; a streamed save makes no thumbnail.
+  **Note 9, a full page of oil (264 picture tiles, 256 store tiles), bench `savestream` (build 3df678f44):**
+
+  | | Old path (switch off) | Streamed (switch on) |
+  |---|---|---|
+  | Heap the snapshot holds | 189 MB | 3 MB |
+  | Heap peak during the save (from 22-23 MB) | 237 MB | 85 MB |
+  | The pen waits, every tile changed | 654-729 ms | 254-442 ms |
+  | The pen waits, 108 tiles changed | 298 ms | 129-145 ms |
+  | Write | 7.1-7.4 s | 7.0-7.3 s (1.4-1.6 s when 108 changed) |
+  | The file against the drawing's checksums at the freeze | EXACT | EXACT, 8 of 8 saves, including 2 with an undo changing 108 tiles while the save was reading |
+
+  **S4 on the phone:** the app killed itself 3 s into a 7 s streamed write (SIGKILL, bench `savestream keep die 3000`):
+  the file is byte for byte what it was (same SHA-256), a 6.8 MB half `.tmp` lies beside it, nothing else changed.
+  Tests: `BatchedTileSourceTest` (at most two batches, a stopped read refuses and leaves the file, a stopped view
+  refuses at once). The GPU copy itself is proven only on the Note 9 (no Fold run); the lifecycle gate
+  (`jb_bench_life` recreate / graphics lost) with the switch on is still owed.
+- **S3** (the save on leaving; owner 11-27: about 3 s of lost work is acceptable) is next. **S5** waits for S3 and the
+  lifecycle gate; its switches stay off at launch unless the owner says otherwise.

@@ -2773,11 +2773,7 @@ class GlPaintEngine(
         val found = IntArray(asks.size)
         val bytes = BooleanArray(asks.size)
         for ((i, a) in asks.withIndex()) {
-            val tex: Int? = when (a.kind) {
-                0 -> layers[a.layerId]?.let { physicalDisplayTiles(it, planeOf(it, a.celId))[a.key] }
-                1 -> storeOf(a.layerId)?.let { visibleTiles(it)[a.key] }
-                else -> mediaTile(a.layerId, a.store!!, a.key, a.plane)
-            }
+            val tex: Int? = textureOf(a)
             found[i] = tex ?: 0
             bytes[i] = a.kind != 2 || a.store == MediaStores.GROUND
         }
@@ -2788,6 +2784,86 @@ class GlPaintEngine(
         val out = arrayOfNulls<cc.joycreator.joybrush.core.paint.TileFingerprint.Print>(asks.size)
         for ((n, i) in present.withIndex()) out[i] = prints[n]
         return out
+    }
+
+    /** The texture that holds [a] now, or null when there is no such tile. GL thread. */
+    private fun textureOf(a: TileAsk): Int? = when (a.kind) {
+        0 -> layers[a.layerId]?.let { physicalDisplayTiles(it, planeOf(it, a.celId))[a.key] }
+        1 -> storeOf(a.layerId)?.let { visibleTiles(it)[a.key] }
+        else -> mediaTile(a.layerId, a.store!!, a.key, a.plane)
+    }
+
+    // ── JBX-36 S2: a save's tiles frozen on the graphics chip, then read back a batch at a time ──
+    //
+    // The one change here is a COPY: nothing the drawing holds is written. A save copies every tile it must read into a
+    // pooled texture of the same format in the one GL task it already takes, and the drawing is then free to change while
+    // the copies are read back over the next frames and written to the file. Each copy goes back to the pool once read.
+
+    private var freezeFbo = 0
+    private var freezeFboEpoch = -1L
+
+    /**
+     * Copies of tiles taken for one save ([freezeTiles]). GL thread only. [take] reads one copy back (the bytes
+     * [readCelTile], [readTile] or [readMediaTile] would have given at the freeze) and lets it go; [dropAll] lets the
+     * rest go. After the graphics restart nothing can be read: [take] throws and [dropAll] forgets.
+     */
+    inner class FrozenTiles internal constructor(private val texs: IntArray, private val halves: BooleanArray, private val epoch: Long) {
+        val count: Int get() = texs.size
+
+        fun take(i: Int): ByteArray {
+            check(epoch == physicalContextEpoch) { "the graphics restarted while the drawing was being saved" }
+            val tex = texs[i]
+            check(tex != 0) { "that tile of the save was already read" }
+            texs[i] = 0
+            try {
+                return if (halves[i]) readStoreTexture(tex) else (readTextureTile(tex) ?: error("a tile of the save could not be read"))
+            } finally { recycleLayerTex(tex) }
+        }
+
+        fun dropAll() {
+            if (epoch != physicalContextEpoch) { texs.fill(0); return }
+            for (i in texs.indices) if (texs[i] != 0) { recycleLayerTex(texs[i]); texs[i] = 0 }
+        }
+    }
+
+    /**
+     * Copies each asked tile, on the graphics chip, for a save that reads them back later ([FrozenTiles]). Null when a
+     * tile is gone or a copy cannot be made (no graphics memory for it): nothing is held, and the caller reads the old way.
+     */
+    fun freezeTiles(asks: List<TileAsk>): FrozenTiles? {
+        paintWaitingTileStroke()
+        settleWatercolourFade()
+        settleLift()
+        if (freezeFboEpoch != physicalContextEpoch) { freezeFbo = 0; freezeFboEpoch = physicalContextEpoch }
+        if (freezeFbo == 0) { val f = IntArray(1); GLES30.glGenFramebuffers(1, f, 0); freezeFbo = f[0] }
+        val out = IntArray(asks.size)
+        val halves = BooleanArray(asks.size)
+        try {
+            while (GLES30.glGetError() != GLES30.GL_NO_ERROR) { /* an older error is not this copy's */ }
+            for ((i, a) in asks.withIndex()) {
+                val src = textureOf(a) ?: throw IllegalStateException("a tile to save is gone")
+                val half = a.kind == 2 && a.store != MediaStores.GROUND
+                val dst = if (half) newFloatTile() else newLayerTile()
+                out[i] = dst
+                halves[i] = half
+                GLES30.glBindFramebuffer(GLES30.GL_READ_FRAMEBUFFER, fbo)
+                GLES30.glFramebufferTexture2D(GLES30.GL_READ_FRAMEBUFFER, GLES30.GL_COLOR_ATTACHMENT0, GLES30.GL_TEXTURE_2D, src, 0)
+                GLES30.glBindFramebuffer(GLES30.GL_DRAW_FRAMEBUFFER, freezeFbo)
+                GLES30.glFramebufferTexture2D(GLES30.GL_DRAW_FRAMEBUFFER, GLES30.GL_COLOR_ATTACHMENT0, GLES30.GL_TEXTURE_2D, dst, 0)
+                GLES30.glBlitFramebuffer(0, 0, size, size, 0, 0, size, size, GLES30.GL_COLOR_BUFFER_BIT, GLES30.GL_NEAREST)
+                val error = GLES30.glGetError()
+                check(error == GLES30.GL_NO_ERROR) { "a tile could not be copied for the save (GL $error)" }
+            }
+        } catch (e: Exception) {
+            for (t in out) if (t != 0) recycleLayerTex(t)
+            android.util.Log.w("JoyBrushSave", "tiles could not be frozen for a streamed save; read the old way: ${e.message}")
+            return null
+        } finally {
+            GLES30.glBindFramebuffer(GLES30.GL_DRAW_FRAMEBUFFER, freezeFbo)
+            GLES30.glFramebufferTexture2D(GLES30.GL_DRAW_FRAMEBUFFER, GLES30.GL_COLOR_ATTACHMENT0, GLES30.GL_TEXTURE_2D, 0, 0)
+            GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER, 0)
+        }
+        return FrozenTiles(out, halves, physicalContextEpoch)
     }
 
     /** Live source lease probe only: one leased texture read back as RGBA8 bytes (as [readTile]). */
@@ -7608,6 +7684,11 @@ class GlPaintEngine(
         val tex = mediaTile(layerId, store, key, plane) ?: return null
         // The ground is RGBA8 like a look tile, and is read like one.
         if (store == MediaStores.GROUND) return readTextureTile(tex)
+        return readStoreTexture(tex)
+    }
+
+    /** One RGBA16F store texture read back as [readMediaTile] gives it (little-endian half floats). GL thread. */
+    private fun readStoreTexture(tex: Int): ByteArray {
         val buf = if (reuseMediaStaging) mediaStaging.also { it.clear() } else ByteBuffer.allocateDirect(size * size * 4 * 4).order(ByteOrder.nativeOrder())
         GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER, fbo)
         attach(tex)

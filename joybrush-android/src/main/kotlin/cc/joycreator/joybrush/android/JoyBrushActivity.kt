@@ -2987,7 +2987,7 @@ class JoyBrushActivity : Activity() {
                             recovery.rememberWorking(file)
                             val kept = android.os.SystemClock.elapsedRealtime()
                             // Thumbnail and the Joy Creator folder copy; never fails the save.
-                            if (benchLifeFile == null) cc.joycreator.joybrush.android.library.DrawingLibrary.onSaved(this, file, contents, whole = given.whole, leaving = leaving)
+                            if (benchLifeFile == null) cc.joycreator.joybrush.android.library.DrawingLibrary.onSaved(this, file, contents, whole = given.whole && !given.streamed, leaving = leaving)
                             // Codex audit round 4, JB-SAVE-IO: each part of the save timed on its own (the folder copy runs on its
                             // own thread afterwards and logs under JoyBrushLibrary).
                             android.util.Log.i("JoyBrushSave", "save parts: working file ${saved - began} ms, kept for a restore (${recovery.lastKept}) in ${kept - saved} ms " +

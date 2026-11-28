@@ -77,3 +77,7 @@ the app. Puppet code has barely changed since 9-17, so this card is still accura
 - ❌→✅ **Real bug found and fixed: the pin magnifier stayed on screen after the finger lifted** (also with a proper UP event, `note9_loupe_stays_after_up.png`). The overlay only repainted while a pin was held; `reset()` never invalidated, so the last drag frame (loupe included) stayed until something else repainted. Fix: `invalidate()` at the end of `PuppetOverlayView.reset()`. Built, installed, same drag re-run: no magnifier (`note9_loupe_gone_after_fix.png`).
 - ✅ Puppet badge on the Note 9 (tap on the clip, then the badge): pins appear with the rail; dragging R.Hand posed the figure and made a take (undo 4 to 5 to 6).
 - ❌ Still not run: tape drags, bone tap, rotated-picture pins, hole/depth sliders, VL-01/03/04 and the merged VisLab fixes on a device.
+
+### Cloud emulator, 11-28 (Studio phone lane; evidence in `tasks/screens/ani1-puppet-emulator-20261128/`)
+- ✅ Puppet tab reached by the drawer's person icon; ✅ pins placed by tapping (named "Hip" and so on, one undo step each); ✅ dragging a pin with the drawer closed moves it, one undo step.
+- ❌ Not seen: the keyed pin (the diamond tap missed in the run), a posed picture and its replay (the harness's picture is a plain disc, nothing visibly swings), tape drags, bone tap. These stay for the Note 9 with a figure picture that has a tail. Script: `tools/cloud/emulator/scripts/puppet_proof.sh` (open the Puppet tab at 718,39; diamond at 837,135; the drawer re-lays out after the first pin).

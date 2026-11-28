@@ -129,7 +129,7 @@ public class AvatarSendToStudioTest {
     }
 
     /** The app's own folder step and the system picker: the folder JoyTest the workflow made at the top of storage. */
-    private static void chooseFolder(Context app, File out, StringBuilder log) throws Exception {
+    static void chooseFolder(Context app, File out, StringBuilder log) throws Exception {
         if (JoyFolderHome.isReachable(app)) { log.append("folder already chosen\n"); return; }
         try (ActivityScenario<JoyFolderSetupActivity> s = ActivityScenario.launch(JoyFolderSetupActivity.class)) {
             Emu.sleep(1500);
@@ -202,7 +202,7 @@ public class AvatarSendToStudioTest {
         return new RectF(r[0], r[1], r[2], r[3]);
     }
 
-    private static void shot(File out, String name, StringBuilder log) {
+    static void shot(File out, String name, StringBuilder log) {
         Bitmap s = Emu.screen();
         if (s != null) {
             try { Emu.save(s, new File(out, name + ".png")); } catch (java.io.IOException e) { Log.w(Emu.TAG, "picture not saved", e); }

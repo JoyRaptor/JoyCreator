@@ -3530,10 +3530,7 @@ public class ExportManager {
             sequences.addAll(buildAudioSequences(timeline));
         }
         // SPEC_PIP_AUDIO: an opted-in PiP contributes audio to the audio-only export too.
-        EditedMediaItemSequence overlayAudioOnly = buildOverlayAudioSequence(timeline, projectSampleRate);
-        if (overlayAudioOnly != null) {
-            sequences.add(overlayAudioOnly);
-        }
+        sequences.addAll(buildOverlayAudioSequences(timeline, projectSampleRate));
         if (sequences.isEmpty()) {
             // Nothing audible at all — emit a short silence so the Transformer has valid input.
             List<EditedMediaItem> tiny = new ArrayList<>();
@@ -4943,10 +4940,7 @@ public class ExportManager {
         // SPEC_PIP_AUDIO: PiP audio rides its own audio-only sequence (the pixels come from
         // the overlay pass above). Null unless a PiP opted in → composition unchanged.
         if (frameDirective == null && !chunkVideoOnly) {
-            EditedMediaItemSequence overlayAudio = buildOverlayAudioSequence(timeline, projectSampleRate);
-            if (overlayAudio != null) {
-                sequences.add(overlayAudio);
-            }
+            sequences.addAll(buildOverlayAudioSequences(timeline, projectSampleRate));
         }
 
         return new Composition.Builder(withStereoOutput(sequences)).build();
@@ -6658,8 +6652,8 @@ public class ExportManager {
      * both. Volume 0 == skip the clip entirely: gaps key off each clip's own start, so
      * skipping never shifts a later one (identical treatment to a muted audio clip).</p>
      */
-    @Nullable
-    private EditedMediaItemSequence buildOverlayAudioSequence(@NonNull Timeline timeline, int projectSampleRate) {
+    @NonNull
+    private List<EditedMediaItemSequence> buildOverlayAudioSequences(@NonNull Timeline timeline, int projectSampleRate) {
         // Source the clip list from the SHARED visibility authority, not the raw list: a PiP
         // hidden by its lane's eye (or its own per-object eye) is excluded from the exported
         // PIXELS by this same method, and an object excluded from the export must not keep
@@ -6679,22 +6673,38 @@ public class ExportManager {
             overlays.add(c);
             volumes.put(c.getId(), vol);
         }
-        if (overlays.isEmpty()) return null;
+        if (overlays.isEmpty()) return Collections.emptyList();
         Collections.sort(overlays, Comparator.comparingLong(Clip::getOverlayStartMs));
 
         File silenceFile = getOrCreateSilenceFile();
         if (silenceFile == null) {
             FLog.e(TAG, "buildOverlayAudioSequence: no silence source — skipping PiP audio");
-            return null;
+            return Collections.emptyList();
         }
         Uri silenceUri = Uri.fromFile(silenceFile);
 
         // A picture-in-picture's PIXELS are placed through editorTimeOffsetFor; its sound goes
         // through the same map, or it would run late after every transition (STU-5 D5).
         com.fadcam.ui.faditor.model.TimeMap timeMap = com.fadcam.ui.faditor.model.TimeMap.of(timeline);
+        // STU-F6 (11-28): PiPs that overlap sound TOGETHER, each lane its own sequence mixed by the Composition (as the
+        // sound lanes are); one sequence with one cursor queued a PiP starting at 0 s behind another playing 0-8 s. And
+        // no PiP sound runs past the video's end (a 6 s video carried 16 s of sound).
+        long[] laneStarts = new long[overlays.size()];
+        long[] laneEnds = new long[overlays.size()];
+        for (int i = 0; i < overlays.size(); i++) {
+            Clip o = overlays.get(i);
+            laneStarts[i] = Math.max(0, timeMap.editorToFileMs(o.getOverlayStartMs()));
+            laneEnds[i] = laneStarts[i] + Math.max(0, o.getTrimmedDurationMs());
+        }
+        int[] laneOf = PipAudioLanes.assign(laneStarts, laneEnds);
+        final long videoEndMs = Math.max(0, timeMap.editorToFileMs(timeline.getVideoTrackDurationMs()));
+        List<EditedMediaItemSequence> out = new ArrayList<>();
+        for (int lane = 0; lane < PipAudioLanes.count(laneOf); lane++) {
         List<EditedMediaItem> items = new ArrayList<>();
         long cursorMs = 0;
-        for (Clip c : overlays) {
+        for (int ci = 0; ci < overlays.size(); ci++) {
+            if (laneOf[ci] != lane) continue;
+            Clip c = overlays.get(ci);
             Uri src = resolveSeekableSourceUri(c);
             // A source with no audio track would emit zero samples and wedge the AudioGraph
             // (same stall class the master path guards with audioDurationMsOf).
@@ -6718,6 +6728,15 @@ public class ExportManager {
             long pieceOut = wholePip ? c.getOutPointMs() : Math.min(c.getOutPointMs(),
                     c.getInPointMs() + Math.round((kr[1] - pipEditorStart) * pipRate));
             long startMs = Math.max(0, timeMap.editorToFileMs(kr[0]));
+            // Cut at the video's end: what fits of this piece, in played time, back to source time.
+            long played = wholePip ? Math.max(0, c.getTrimmedDurationMs()) : kr[1] - kr[0];
+            long fits = PipAudioLanes.fits(startMs, played, videoEndMs);
+            if (fits < MIN_EXPORT_SEGMENT_MS) continue;
+            if (fits < played) {
+                pieceOut = Math.min(pieceOut, pieceIn + Math.round(fits * pipRate));
+                wholePip = false;
+                kr = new long[]{kr[0], kr[0] + fits};
+            }
             if (startMs > cursorMs) {
                 addSilence(items, silenceUri, startMs - cursorMs);
                 cursorMs = startMs;
@@ -6795,10 +6814,12 @@ public class ExportManager {
             cursorMs = startMs + dur;
             }
         }
-        if (items.isEmpty()) return null;
-        FLog.d(TAG, "buildOverlayAudioSequence: " + items.size()
+        if (items.isEmpty()) continue;
+        FLog.d(TAG, "buildOverlayAudioSequence: lane " + lane + ", " + items.size()
                 + " items, total ~" + cursorMs + "ms");
-        return new EditedMediaItemSequence.Builder(items).build();
+        out.add(new EditedMediaItemSequence.Builder(items).build());
+        }
+        return out;
     }
 
     /**

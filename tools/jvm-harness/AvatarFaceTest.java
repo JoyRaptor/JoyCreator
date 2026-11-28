@@ -508,11 +508,14 @@ public class AvatarFaceTest {
         feed(nf, 0, 0, 1.0, false, nclock, null);
         float[] broken = shoulderBody(0.1f, 0.1f);
         broken[12 * 3 + 1] = Float.NaN;
-        nf.reading(broken, 0.75f, nclock[0] += 0.1, false, 1f);
-        nf.reading(shoulderBody(0.1f, 0.1f), Float.NaN, nclock[0] += 0.1, false, 1f);
+        feed(nf, 0.1f, 0.1f, 0.5, false, nclock, null);                           // shrugging, tracked
+        nf.reading(broken, 0.75f, nclock[0] += 0.1, false, 1f);                    // one point not a number, then good again at once
         Map<String, Float> after = feed(nf, 0.1f, 0.1f, 1.0, false, nclock, null);
-        check(after != null && Float.isFinite(after.get("shrug")) && after.get("shrug") > 0.9,
-                "a body reading that is not a number is no body: the next shrug still shows (" + (after == null ? "none" : r(after.get("shrug"))) + ")");
+        nf.reading(shoulderBody(0.1f, 0.1f), Float.NaN, nclock[0] += 0.1, false, 1f);   // the picture's shape not a number
+        Map<String, Float> after2 = feed(nf, 0.1f, 0.1f, 1.0, false, nclock, null);
+        check(after != null && after2 != null && Float.isFinite(after.get("shrug")) && after.get("shrug") > 0.9 && Float.isFinite(after2.get("shrug")) && after2.get("shrug") > 0.9,
+                "a body reading that is not a number is no body: the shrug goes on (" + (after == null ? "none" : r(after.get("shrug"))) + ", "
+                        + (after2 == null ? "none" : r(after2.get("shrug"))) + ")");
 
         System.out.println(fails == 0 ? "PASSED" : "FAILED " + fails);
         System.exit(fails == 0 ? 0 : 1);

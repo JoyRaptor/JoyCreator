@@ -62,3 +62,20 @@
 | `codex/stu7-live-flow-gl-20261124` | `0e3aa6142` | Superseded by integrated Fast preview and the shared GL harness in `c4201d358`. |
 | `codex/stu7-pose-sampling-20261123` | `96e9637ba` | Superseded by ordered mesh integration and exact-time pose in `775331431`. |
 | `codex/stu7-c6-cut-proof-20261127` | `6ddc42458` | Sole temporary side branch. Pinned APK `dfef8d1f7` uses the current candidate product bytes. Tip adds only synthetic Android proof workflow. |
+
+## Claude takeover check (2026-11-28)
+
+Codex left on 11-28; this lane owns every `codex/stu7-*` branch and `codex/motion-blur-plan-20261122`. Checked against `origin/joy-creator` (`git rev-list` and `git cherry`):
+
+- **Candidate landed.** `codex/stu7-finish-20261125` is an ancestor of `joy-creator`, so every row above marked *Folded* is now on main too.
+- **31 branches still carry commits main lacks.** None holds product code that is still owed:
+  - `c4-pip-latch`, `c6-exact-flow-sampling` and `c7-help-copy` are patch-equivalent to main (cherry-picked).
+  - `c7-blind-review` and `c7-corpus-audit` landed as the audited squash `87305f485` (`tools/motionref/blind_review.*` is on main).
+  - `c4-paused-pip`'s one extra commit, `0fc0b433d`, is a debug-only paused-seek capture fixture (it runs only under `BuildConfig.DEBUG`). The product fix landed as `5798b6c0c`. Evidence only.
+  - `motion-blur-plan` (`e98c04b54`) is the first STU-MBLUR plan and card. The STU-7 spec and card supersede it. History only.
+  - Every other branch is a *Proof archive*, *Research archive*, *Dead end* or *Superseded*, as listed in the table above. Its extra commits are fixtures, proof CI, or alternates that were not chosen.
+- **Nothing more to land.** Keep every ref: they are the receipts. Deleting old evidence needs an inventory first and the owner's yes.
+- **Still open from this list:**
+  - C7: replay `c7-authored-replay` on the release candidate.
+  - C5: physical parity.
+  - Both are on the STU-7 card.

@@ -4,7 +4,7 @@
 seed_picture_project || { echo "seed failed"; exit 1; }
 hold 540 880 1100; settle 3
 shot held
-tap_text "=Puppet" >/dev/null 2>&1 || tap_text "Puppet" >/dev/null 2>&1
+tap 718 39   # the drawer's person-icon tab is the Puppet tab (custom drawn, no text node)
 settle 3
 shot puppet_open
 dump puppet_open

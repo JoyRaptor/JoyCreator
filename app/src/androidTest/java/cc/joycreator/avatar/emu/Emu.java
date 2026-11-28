@@ -204,6 +204,36 @@ final class Emu {
         Log.i(TAG, "shell-tapped \"" + text + "\" at " + b.toShortString());
     }
 
+    /** True when the thing with keyboard focus (any window) holds words starting with {@code text}. */
+    static boolean focusedSays(String text) {
+        android.app.UiAutomation ui = ins().getUiAutomation();
+        String want = text.toLowerCase(java.util.Locale.ROOT);
+        try {
+            for (android.view.accessibility.AccessibilityWindowInfo w : ui.getWindows()) {
+                android.view.accessibility.AccessibilityNodeInfo r = w.getRoot();
+                if (r == null) continue;
+                android.view.accessibility.AccessibilityNodeInfo f = r.findFocus(android.view.accessibility.AccessibilityNodeInfo.FOCUS_INPUT);
+                if (f != null && search(f, want) != null) return true;
+            }
+        } catch (RuntimeException ignored) {
+        }
+        return false;
+    }
+
+    /** The thing labelled {@code text} and the boxes around it (class, clickable, focusable, where), for a run's log. */
+    static String describeAround(String text) {
+        android.view.accessibility.AccessibilityNodeInfo n = find(text, 3000);
+        StringBuilder sb = new StringBuilder("around \"" + text + "\":\n");
+        android.graphics.Rect b = new android.graphics.Rect();
+        for (int d = 0; n != null && d < 6; d++, n = n.getParent()) {
+            n.getBoundsInScreen(b);
+            sb.append("  ").append(n.getClassName()).append(" clickable=").append(n.isClickable()).append(" focusable=")
+                .append(n.isFocusable()).append(" enabled=").append(n.isEnabled()).append(' ').append(b.toShortString())
+                .append(" id=").append(n.getViewIdResourceName()).append('\n');
+        }
+        return sb.toString();
+    }
+
     /** Runs a shell command as the shell user (as adb does) and waits for it; returns what it printed. */
     static String shell(String cmd) {
         android.os.ParcelFileDescriptor pfd = ins().getUiAutomation().executeShellCommand(cmd);

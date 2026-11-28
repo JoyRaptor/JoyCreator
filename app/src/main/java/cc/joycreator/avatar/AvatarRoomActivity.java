@@ -171,7 +171,13 @@ public final class AvatarRoomActivity extends Activity implements RoomMenu.Host,
         stageBox.addView(glStage, new android.widget.FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
         stageBox.addView(stage, new android.widget.FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
         stage.setGlBacked(true);
-        stage.setBodyDrag(new cc.joycreator.avatar.ui.StageView.BodyDrag() {
+        // Perform: a finger on a hand takes the hand (it wins over the body); anywhere else on the body walks it
+        stage.setBodyDrag(new cc.joycreator.avatar.ui.HandGrab(stage, () -> stageIndex == 3 && glWorks ? glStage.tips() : null,
+                glStage::toInner, new cc.joycreator.avatar.ui.HandGrab.Hands() {
+                    @Override public void hold(String side, double x, double y) { inputs.holdHand(side, x, y); }
+
+                    @Override public void letGo(String side) { inputs.letGoHand(side); }
+                }, new cc.joycreator.avatar.ui.StageView.BodyDrag() {
             @Override
             public boolean grab(float x, float y) {
                 if (stageIndex != 3 || walker == null || !walker.travels()) return false;
@@ -188,7 +194,7 @@ public final class AvatarRoomActivity extends Activity implements RoomMenu.Host,
             public void release() {
                 if (walker != null) walker.release();
             }
-        });
+        }));
         stageBox.addView(buildStageTools(), new android.widget.FrameLayout.LayoutParams(px(44), ViewGroup.LayoutParams.WRAP_CONTENT, Gravity.END | Gravity.TOP));
         sceneUi = new cc.joycreator.avatar.ui.SceneUi(this, new cc.joycreator.avatar.ui.SceneHost(this, () -> stageIndex == 3, () -> character, this::characterName,
                 () -> characterPath, () -> stage, () -> glStage, () -> selectStage(1)));      // the frame, the director's chair and the strip (slice 3)

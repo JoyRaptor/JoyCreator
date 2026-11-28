@@ -36,7 +36,7 @@ class BatchedTileSourceTest {
     private val gl = Executors.newSingleThreadExecutor()
 
     @BeforeTest fun on() { ArchiveCarrying.streamTiles = true }
-    @AfterTest fun off() { ArchiveCarrying.streamTiles = false; gl.shutdownNow() }
+    @AfterTest fun off() { ArchiveCarrying.streamTiles = true; gl.shutdownNow() }   // the default since 11-28
 
     private fun doc() = JbDocument(
         id = "doc-batched", name = "Batched",

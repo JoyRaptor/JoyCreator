@@ -58,7 +58,7 @@ on:
 run-name: "avatar emulator ${{ inputs.tests || 'all' }} fault=${{ inputs.fault || 'none' }} ${{ inputs.device || 'pixel_4' }} ${{ inputs.orientation || 'portrait' }} @ ${{ inputs.ref || github.ref_name }} [${{ inputs.request_id || 'push' }}]"
 
 concurrency:
-  group: avatar-emulator-${{ inputs.ref || github.ref }}-${{ inputs.fault || 'none' }}-${{ inputs.device || 'pixel_4' }}-${{ inputs.orientation || 'portrait' }}-${{ inputs.gpu || 'guest' }}-${{ inputs.msaa || '4' }}
+  group: avatar-emulator-${{ inputs.ref || github.ref }}-${{ inputs.tests || 'all' }}-${{ inputs.fault || 'none' }}-${{ inputs.device || 'pixel_4' }}-${{ inputs.orientation || 'portrait' }}-${{ inputs.gpu || 'guest' }}-${{ inputs.msaa || '4' }}
   cancel-in-progress: ${{ github.event_name == 'push' }}
 
 permissions:

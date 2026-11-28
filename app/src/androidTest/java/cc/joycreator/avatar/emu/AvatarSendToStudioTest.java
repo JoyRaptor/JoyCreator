@@ -121,7 +121,7 @@ public class AvatarSendToStudioTest {
             assertTrue("Topps is drawn in Studio's preview", drawn > 0.01);
             assertTrue("Topps plays the room's pass in Studio's preview (head turned), moved " + String.format(Locale.ROOT, "%.2f%%", moved * 100),
                 moved > 0.01);
-            room.close();
+            Emu.closeSoon(room, 15000);
         } finally {
             Log.i(Emu.TAG, log.toString());
             try (java.io.FileOutputStream f = new java.io.FileOutputStream(new File(out, "send.txt"))) { f.write(log.toString().getBytes("UTF-8")); }

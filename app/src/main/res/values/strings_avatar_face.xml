@@ -84,7 +84,7 @@
     <!-- the face sheet behind the Face chip (the owner, 11-28: no half-width column in Perform) -->
     <string name="avatar_face_sheet">Face</string>
     <string name="avatar_face_settings">Face settings</string>
-    <string name="avatar_hover_face_settings">The face camera's settings: Re-centre, Mirror, Check directions, Shoulders, which camera, walking with your face. Or hold Face</string>
+    <string name="avatar_hover_face_settings">The face camera\'s settings: Re-centre, Mirror, Check directions, Shoulders, which camera, walking with your face. Or hold Face</string>
     <string name="avatar_face_sheet_walk">Walking</string>
     <!-- cameras per tracker (the owner, 11-27: the face on one camera, the body on another) -->
     <string name="avatar_face_camera">Face camera</string>

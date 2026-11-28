@@ -16,8 +16,9 @@ tap_text "Rename" >/dev/null 2>&1; settle 3; shot rename_dialog
 dump rename; python3 "$HERE_LIB/uia.py" list /tmp/ui.xml | head -14
 adb shell input keyevent KEYCODE_MOVE_END; for i in $(seq 1 12); do adb shell input keyevent KEYCODE_DEL; done
 adb shell input text "Renamed_one"; settle 1; shot rename_typed
-tap_text "OK" >/dev/null 2>&1 || tap_text "Rename" >/dev/null 2>&1 || tap_text "Save" >/dev/null 2>&1; settle 4
+adb shell input keyevent KEYCODE_ENTER; settle 4
 shot after_rename; dump after_rename; python3 "$HERE_LIB/uia.py" list /tmp/ui.xml | grep -i "renamed\|Drawing" | head
+adb shell input keyevent KEYCODE_BACK; settle 2
 echo "== C. Move to Trash"
 hold 270 440 1300; settle 4
 tap_text "Move to Trash" >/dev/null 2>&1; settle 4; shot after_trash
@@ -33,7 +34,8 @@ shot after_put_back
 adb shell am force-stop "$PKG"; settle 2; launch_app; settle 8; open_library; shot library_after_put_back
 echo "== D. a missing file"
 adb shell "find /data/data/$PKG /sdcard/Android/data/$PKG -mmin -20 -type f 2>/dev/null | grep -v -i 'cache\|\.so\|code_cache\|shared_prefs\|databases' | head -30"
-adb shell "find /data/data/$PKG /sdcard/Android/data/$PKG -mmin -20 -type f \( -iname '*renamed*' -o -iname '*drawing*' \) -print -delete 2>/dev/null"
+adb shell "cat /sdcard/Android/data/$PKG/files/joybrush/library.json | head -c 1500"
+for f in $(adb shell "cat /sdcard/Android/data/$PKG/files/joybrush/library.json" | grep -o '"[^"]*/[^"]*"' | tr -d '"' | head -5); do echo "path in library.json: $f"; adb shell "ls -la '$f' 2>&1 | head -3"; done
 adb shell am force-stop "$PKG"; settle 2; launch_app; settle 8; open_library; shot library_missing_file
 hold 270 440 1300; settle 4; shot sheet_missing_file
 echo "script done"

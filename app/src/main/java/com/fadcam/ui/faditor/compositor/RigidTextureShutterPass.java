@@ -17,8 +17,8 @@ public final class RigidTextureShutterPass {
     /** A camera tap gap past this many canvas pixels would show as separate copies. */
     static final double CAMERA_STEP_PX = 3.0;
 
-    /** Most smear taps a live-preview smooth plan takes (Note 9 timing, 11-27: ~0.4 ms a tap). */
-    public static final int PREVIEW_SMEAR_TAPS = 11;
+    /** Most smear taps a live-preview smooth plan takes (Note 9 timing, 11-27: ~0.4 ms a tap at 1080p; 11 showed stepped copies on a long swing). */
+    public static final int PREVIEW_SMEAR_TAPS = 23;
 
     public static final String VERTEX_SHADER =
             "#version 100\n"

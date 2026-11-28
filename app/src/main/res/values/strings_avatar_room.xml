@@ -322,5 +322,9 @@ Perform by talking, turning the head on the pad, tapping buttons and walking the
     <string name="avatar_step_mouth_swap">Mouth: swap only</string>
     <string name="avatar_follow_how">How does it move?</string>
     <string name="avatar_follow_what">What does it follow?</string>
+    <string name="avatar_coach_setup">%1$s. Set up: pick a part, then its drawings, pins and how it talks and blinks.</string>
+    <string name="avatar_coach_arrange">%1$s. Arrange: drag a part to move it, a corner resizes it, the round handle turns it.</string>
+    <string name="avatar_coach_motion">%1$s. Motion: how the part in hand moves by itself, with a button, or when you walk it.</string>
+    <string name="avatar_coach_perform">%1$s. Perform: turn the head on the pad, hold to talk, tap buttons, then record a pass.</string>
 </resources>
 

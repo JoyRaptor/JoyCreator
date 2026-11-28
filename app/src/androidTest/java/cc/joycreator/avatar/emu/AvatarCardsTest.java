@@ -266,11 +266,16 @@ public class AvatarCardsTest {
                 View strip = (View) field(panel, "strip");
                 android.graphics.Paint p = (android.graphics.Paint) field(strip, "p");
                 float dp = room.getResources().getDisplayMetrics().density;
-                Method lines = panel.getClass().getDeclaredMethod("lines", String.class, android.graphics.Paint.class, float.class);
-                lines.setAccessible(true);
+                Method lines = null;
+                try {
+                    lines = panel.getClass().getDeclaredMethod("lines", String.class, android.graphics.Paint.class, float.class);
+                    lines.setAccessible(true);
+                } catch (NoSuchMethodException old) {                       // a panel from before 11-28: it drew one line
+                }
                 String t = room.getString(com.fadcam.R.string.avatar_no_take);
                 float width = strip.getWidth() - 20 * dp;
-                said[0] = String.join(" ", (String[]) lines.invoke(null, t, p, width));
+                said[0] = lines != null ? String.join(" ", (String[]) lines.invoke(null, t, p, width))
+                        : android.text.TextUtils.ellipsize(t, new android.text.TextPaint(p), width, android.text.TextUtils.TruncateAt.END).toString();
             } catch (Exception e) {
                 said[0] = "(could not read the strip: " + e + ")";
             }

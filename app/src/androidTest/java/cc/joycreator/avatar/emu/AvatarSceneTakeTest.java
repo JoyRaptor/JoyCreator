@@ -63,7 +63,12 @@ public class AvatarSceneTakeTest {
             for (String who : new String[]{"Topps", "Pip"}) {
                 Emu.tap(mustText(root, "+ Character"));
                 Emu.sleep(1500);
-                assertTrue(who, click(who));
+                boolean ok = false;
+                for (int k = 0; k < 15 && !ok; k++) {                  // the list is read off the main thread: wait for it
+                    ok = click(who);
+                    if (!ok) Emu.sleep(1000);
+                }
+                assertTrue(who, ok);
                 Emu.sleep(3000);
             }
             shot(out, "1-two-characters");

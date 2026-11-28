@@ -63,14 +63,9 @@ public final class RigidTextureShutterPass {
 
     private final GlProgram program;
     private final Source source;
-    private final java.util.EnumMap<MotionShutter.Look, GlProgram> trailPrograms =
-            new java.util.EnumMap<>(MotionShutter.Look.class);
-    private final float[][] trailRows = new float[RigidShutterPlan.MAX_TRAIL_POSES * 2][4];
-    private final float[] sharpX = new float[4];
-    private final float[] sharpY = new float[4];
-    private final float[] scale = new float[3];
-    private final float[] segment = new float[4];
-    private final float[] box = new float[4];
+    /** Smooth programs by tap count, built on first use. */
+    private final java.util.Map<Integer, GlProgram> trailPrograms = new java.util.HashMap<>();
+    private final float[][] trailRows = new float[RigidShutterPlan.MAX_TAPS * 2][4];
     private final boolean overlay;
     private final boolean pip;
     private final float[] frame;
@@ -82,7 +77,7 @@ public final class RigidTextureShutterPass {
         pip = source == Source.PIP;
         overlay = !pip && source != Source.SPINE;
         frame = new float[overlay || pip ? 3 : 2];
-        program = new GlProgram(VERTEX_SHADER, fragmentShader(source, null));
+        program = new GlProgram(VERTEX_SHADER, fragmentShader(source, 0));
         program.setBufferAttribute("aFramePosition", GlUtil.getNormalizedCoordinateBounds(), 4);
         float[] identity = GlUtil.create4x4IdentityMatrix();
         program.setFloatsUniform("uTransformationMatrix", identity);
@@ -134,18 +129,19 @@ public final class RigidTextureShutterPass {
         GlUtil.checkGlError();
     }
 
-    /** The trail program for {@code plan}: built once per look, on first use. */
+    /** A smooth plan: its tap-count program, built once on first use, then plain taps. */
     private void drawTrail(int textureId, RigidShutterPlan plan, int baseTexture, float opacity)
             throws GlUtil.GlException {
         var trail = plan.trail();
-        GlProgram p = trailPrograms.get(trail.look());
+        int n = trail.program();
+        GlProgram p = trailPrograms.get(n);
         if (p == null) {
-            p = new GlProgram(VERTEX_SHADER, fragmentShader(source, trail.look()));
+            p = new GlProgram(VERTEX_SHADER, fragmentShader(source, n));
             p.setBufferAttribute("aFramePosition", GlUtil.getNormalizedCoordinateBounds(), 4);
             float[] identity = GlUtil.create4x4IdentityMatrix();
             p.setFloatsUniform("uTransformationMatrix", identity);
             p.setFloatsUniform("uTexTransformationMatrix", identity);
-            trailPrograms.put(trail.look(), p);
+            trailPrograms.put(n, p);
         }
         p.use();
         p.setSamplerTexIdUniform("uTexSampler", textureId, 0);
@@ -154,51 +150,19 @@ public final class RigidTextureShutterPass {
         p.setFloatsUniform("uFrame", frame);
         p.setFloatsUniform("uBounds", bounds);
         var taps = plan.taps();
-        for (int i = 0; i < RigidShutterPlan.MAX_TRAIL_POSES; i++) {
+        boolean[] smooth = trail.smooth();
+        for (int i = 0; i < n; i++) {
             float[] x = trailRows[2 * i];
             float[] y = trailRows[2 * i + 1];
             if (i < taps.size()) {
                 rowsOf(taps.get(i), x, y);
-                y[3] = 1f;   // a live pose: a smear may run from here to the next
+                y[3] = smooth[i] ? 1f : 0f;   // soften toward the next tap
             } else {
-                x[3] = 0f;
-                y[3] = 0f;
+                x[0] = x[1] = x[2] = x[3] = 0f;
+                y[0] = y[1] = y[2] = y[3] = 0f;
             }
             p.setFloatsUniform("uTapX" + i, x);
             p.setFloatsUniform("uTapY" + i, y);
-        }
-        rowsOf(trail.sharpTap(), sharpX, sharpY);
-        p.setFloatsUniform("uSharpX", sharpX);
-        p.setFloatsUniform("uSharpY", sharpY);
-        scale[0] = (float) trail.smearScale();
-        scale[1] = (float) trail.copyScale();
-        scale[2] = (float) trail.sharp();
-        p.setFloatsUniform("uScale", scale);
-        // Copies never smears, so its program has no segments (the compiler drops unused
-        // uniforms, and setting one that is not there throws).
-        if (trail.look() != MotionShutter.Look.COPIES) {
-            var segments = trail.segments();
-            var boxes = trail.boxes();
-            for (int i = 0; i + 1 < RigidShutterPlan.MAX_TRAIL_POSES; i++) {
-                if (i < segments.size()) {
-                    double[] m = segments.get(i).stepBack(RigidShutterPlan.TRAIL_SUBSTEPS);
-                    segment[0] = (float) m[0];
-                    segment[1] = (float) m[1];
-                    segment[2] = (float) m[2];
-                    segment[3] = (float) m[3];
-                    var b = boxes.get(i);
-                    box[0] = b.left();
-                    box[1] = b.top();
-                    box[2] = b.right();
-                    box[3] = b.bottom();
-                } else {
-                    segment[0] = 1f;
-                    segment[1] = segment[2] = segment[3] = 0f;
-                    box[0] = box[1] = box[2] = box[3] = 0f;   // empty: no pixel walks it
-                }
-                p.setFloatsUniform("uStep" + i, segment);
-                p.setFloatsUniform("uBox" + i, box);
-            }
         }
         p.bindAttributesAndUniforms();
         GLES20.glDrawArrays(GLES20.GL_TRIANGLE_STRIP, 0, 4);
@@ -222,10 +186,10 @@ public final class RigidTextureShutterPass {
         trailPrograms.clear();
     }
 
-    /** {@code trail} null = the camera shutter program; else the trail program for that look. */
-    static String fragmentShader(Source kind, MotionShutter.Look trail) {
-        String shader = fragmentShaderText(kind, trail);
-        return trail == null ? shader : withSoftSampler(shader);
+    /** {@code taps} 0 = the camera shutter program; else the smooth program with that many taps. */
+    static String fragmentShader(Source kind, int taps) {
+        String shader = fragmentShaderText(kind, taps);
+        return taps == 0 ? shader : withSoftSampler(shader);
     }
 
     /**
@@ -235,9 +199,7 @@ public final class RigidTextureShutterPass {
      *   <li>{@code sampleUvSoft(uv, f, w)}: samplePose at a given UV, its edges softened by
      *   {@code f} (how far this pixel's UV moves between two smear steps), so overlapping steps
      *   add up evenly whatever the direction of motion;</li>
-     *   <li>{@code uvAt(rx, ry, z)}: a canvas point to the picture's UV through one pose's rows;
-     *   the smear steps z back along the arc by a fixed per-segment map (uStep), see
-     *   RigidShutterPlan.Segment#stepBack.</li>
+     *   <li>{@code uvAt(rx, ry, z)}: a canvas point to the picture's UV through one tap's rows.</li>
      * </ul>
      */
     static String withSoftSampler(String shader) {
@@ -270,7 +232,7 @@ public final class RigidTextureShutterPass {
         return shader.substring(0, end) + soft + arc + shader.substring(end);
     }
 
-    private static String fragmentShaderText(Source kind, MotionShutter.Look trail) {
+    private static String fragmentShaderText(Source kind, int taps) {
         boolean pip = kind == Source.PIP;
         boolean overlay = !pip && kind != Source.SPINE;
         boolean bitmap = kind == Source.PICTURE || kind == Source.PREMULTIPLIED_OVERLAY;
@@ -288,15 +250,9 @@ public final class RigidTextureShutterPass {
                 """);
         source.append(overlay ? "uniform vec3 uFrame;\nuniform sampler2D uBackdrop;\n"
                 : pip ? "uniform vec3 uFrame;\n" : "uniform vec2 uFrame;\n");
-        int rowCount = trail == null ? SAMPLE_COUNT : RigidShutterPlan.MAX_TRAIL_POSES;
+        int rowCount = taps == 0 ? SAMPLE_COUNT : taps;
         for (int i = 0; i < rowCount; i++) {
             source.append("uniform vec4 uTapX").append(i).append(", uTapY").append(i).append(";\n");
-        }
-        if (trail != null) {
-            source.append("uniform vec4 uSharpX, uSharpY;\nuniform vec3 uScale;\n");
-            for (int i = 0; i + 1 < RigidShutterPlan.MAX_TRAIL_POSES; i++) {
-                source.append("uniform vec4 uStep").append(i).append(", uBox").append(i).append(";\n");
-            }
         }
         if (bitmap) {
             source.append("""
@@ -368,13 +324,13 @@ public final class RigidTextureShutterPass {
                   vec3 pixel = vec3(p, 1.0);
                   vec4 color = vec4(0.0);
                 """);
-        if (trail == null) {
+        if (taps == 0) {
             for (int i = 0; i < SAMPLE_COUNT; i++) {
                 source.append("  color += samplePose(pixel, uTapX").append(i)
                         .append(", uTapY").append(i).append(");\n");
             }
         } else {
-            appendTrail(source, trail);
+            appendTaps(source, taps);
         }
         source.append("""
                   if (color.a <= 0.0) {
@@ -391,55 +347,22 @@ public final class RigidTextureShutterPass {
     }
 
     /**
-     * STU-7 §K.2 trail accumulation: Smear walks {@link RigidShutterPlan#TRAIL_SUBSTEPS} steps
-     * between each pair of neighbouring key poses (rows carry Fade weights, rowY.w marks a live
-     * pose); Copies draws the poses alone; Both does half of each. uScale = smear, copy, sharp.
+     * STU-7 §K.2 smooth accumulation: plain taps, each a real pose with its weight in rowX.w.
+     * A tap marked smooth (rowY.w) softens its edges by how far this pixel's UV moves to the
+     * next tap, so neighbouring smear taps add up to an even streak; copies and the sharp pose
+     * stay crisp. No per-pixel maths beyond two dot products a tap.
      */
-    private static void appendTrail(StringBuilder source, MotionShutter.Look look) {
-        int n = RigidShutterPlan.MAX_TRAIL_POSES;
-        boolean smear = look != MotionShutter.Look.COPIES;
-        boolean copies = look != MotionShutter.Look.SMEAR;
-        if (smear) {
-            // Each live segment: steps along the arc from pose i toward pose i + 1. A step's
-            // softening is how far this pixel's UV moves to the next step, so neighbours blend.
-            source.append("  vec2 z; vec2 u; vec2 nu; vec2 d; float ww; vec2 endU = vec2(0.0); vec2 endF = vec2(0.0); float endW = 0.0;\n");
-            int steps = RigidShutterPlan.TRAIL_SUBSTEPS;
-            for (int i = 0; i + 1 < n; i++) {
-                String rx = "uTapX" + i, ry = "uTapY" + i, st = "uStep" + i, bx = "uBox" + i;
-                source.append("  if (uTapY").append(i + 1).append(".w > 0.0 && all(greaterThanEqual(p, ")
-                        .append(bx).append(".xy)) && all(lessThan(p, ").append(bx).append(".zw))) {\n");
-                source.append("    z = pixel.xy;\n");
-                source.append("    u = uvAt(").append(rx).append(", ").append(ry).append(", z);\n");
-                for (int j = 0; j < steps; j++) {
-                    String tHere = Float.toString((float) j / steps);
-                    // one fixed step back along the arc: z = M z + t (no trigonometry per pixel)
-                    source.append("    z = vec2(").append(st).append(".x * z.x - ").append(st).append(".y * z.y + ")
-                            .append(st).append(".z, ").append(st).append(".y * z.x + ").append(st)
-                            .append(".x * z.y + ").append(st).append(".w);\n");
-                    source.append("    nu = uvAt(").append(rx).append(", ").append(ry).append(", z);\n");
-                    // two taps a step (at the step and halfway to the next), each softened by
-                    // its half step, capped so a huge step cannot smear past the thing's edge
-                    source.append("    d = min(abs(nu - u), vec2(0.35)) * 0.5;\n");
-                    source.append("    ww = mix(").append(rx).append(".w, uTapX").append(i + 1)
-                            .append(".w, ").append(tHere).append(");\n");
-                    source.append("    color += uScale.x * 0.5 * (sampleUvSoft(u, d, ww)"
-                            + " + sampleUvSoft(0.5 * (u + nu), d, ww));\n");
-                    if (j + 1 < steps) source.append("    u = nu;\n");
-                }
-                source.append("    endU = nu; endF = d; endW = uTapX").append(i + 1).append(".w;\n");
-                source.append("  }\n");
-            }
-            // The newest live pose closes the smear.
-            source.append("  if (endW > 0.0) color += uScale.x * sampleUvSoft(endU, endF, endW);\n");
+    private static void appendTaps(StringBuilder source, int taps) {
+        source.append("  vec2 cur = uvAt(uTapX0, uTapY0, pixel.xy);\n  vec2 nxt;\n  vec2 d;\n");
+        for (int i = 0; i + 1 < taps; i++) {
+            source.append("  nxt = uvAt(uTapX").append(i + 1).append(", uTapY").append(i + 1)
+                    .append(", pixel.xy);\n");
+            source.append("  d = uTapY").append(i).append(".w > 0.5 ? min(abs(nxt - cur), vec2(0.35)) : vec2(0.0);\n");
+            source.append("  color += sampleUvSoft(cur, d, uTapX").append(i).append(".w);\n");
+            source.append("  cur = nxt;\n");
         }
-        if (copies) {
-            for (int i = 0; i < n; i++) {
-                source.append("  if (uTapY").append(i).append(".w > 0.0) color += uScale.y * samplePose(pixel, uTapX")
-                        .append(i).append(", uTapY").append(i).append(");\n");
-            }
-        }
-        source.append("  if (uScale.z > 0.0) color += uScale.z * samplePose(pixel, uSharpX, uSharpY);\n");
-        // A stroke's overlapping samples can sum past full coverage: keep it a coverage.
+        source.append("  color += sampleUvSoft(cur, vec2(0.0), uTapX").append(taps - 1).append(".w);\n");
+        // A stroke's overlapping taps can sum past full coverage: keep it a coverage.
         source.append("  if (color.a > 1.0) color /= color.a;\n");
     }
 }

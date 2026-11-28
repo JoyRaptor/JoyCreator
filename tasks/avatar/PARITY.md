@@ -11,7 +11,7 @@ Skipped on purpose: Landmarks (replaces "Match two angles"), face-capture intern
 | 2 | ⬜ | Set up, eyelids | Add eyelids, Invisible / Drawn, tilt/cheek reach, Blink by closing the lids, Remove | none | M |
 | 3 | 🟡 | Set up, mouth | How it talks: Hinge / Squash / Swap, Open / Shut, Shuts to, Try: talk | hinge/squash/swap only, drawn open or shut, Swing, Shuts to, Try: talk, Same on every angle built and seen on the emulator 11-28; mouth shapes (rows 4) owed | M |
 | 4 | ⬜ | Set up, mouth shapes | Its shapes, This is the sound, Try a sound, Other mouths | none | M |
-| 5 | ⬜ | Set up, brows/jaw/nose | Lift, Drops, The face stretches with it, Depth | none | M |
+| 5 | ✅ | Set up, brows/jaw/nose | Lift, Drops, The face stretches with it, Depth | none | M |
 | 6 | ⬜ | Set up, head angles | Its angles pad, Move the dots, Mirror, Copy/Rename/Remove angle, Tip, Size | only Landmarks | L |
 | 7 | ⬜ | Set up, arms/legs | numbered drawings, arrows, Resting pose, Flip elbow/knee | tile tap looks only | M |
 | 8 | ⬜ | Set up, limb actions | Copy this arm, Move the whole arm, Remove, In its hand / On its foot | none | M |
@@ -23,7 +23,7 @@ Skipped on purpose: Landmarks (replaces "Match two angles"), face-capture intern
 | 14 | ⬜ | Set up, colour sets | From a picture, Add by hand, See it, Pick on the picture, Becomes/Reaches/More colour/Lighter, How it arrives (`al-tone.js`) | none (shader and Inputs support them) | L |
 | 15 | ⬜ | Perform, walking | Walking / Floating label and the walk settings | Walk with your face drawer only | M |
 | 16 | 🟡 | Set up, shapes | Add pins around it, How far, Bouncy, Add a shape, Handles in Perform | Reshape with pins only (built 11-27); no named shapes | L |
-| 17 | ⬜ | Motion, follows | Follows: signal to property, Bouncy, Back and forth, How much | none | L |
+| 17 | ✅ | Motion, follows | Follows: signal to property, Bouncy, Back and forth, How much | none | L |
 | 18 | ⬜ | Arrange, masks | Show only inside, Hide where | none | M |
 | 19 | ⬜ | Set up, carried / looks | Carried by, Its looks, Make this its usual look, Change its picture | none | M |
 | 20 | ⬜ | Motion, loop / stream | Loop speed; Stream (How many, Each lasts, Drifts, Fades out, Sways) | none | M |
@@ -37,7 +37,7 @@ Skipped on purpose: Landmarks (replaces "Match two angles"), face-capture intern
 | 28 | ⬜ | Stage buttons | Hold this pose, Held pose, Back to Set up | not there | S |
 | 29 | ⬜ | Stage buttons | Onion skin | not there (spec) | S |
 | 30 | ⬜ | Motion, swing | Make it move by itself, Bendy/Stiff, Hangs down, Hangs from | no way to add a swing | M |
-| 31 | ⬜ | Motion, body | Breathing toggle, How deep, Never quite still | Breaths a minute only | S |
+| 31 | ✅ | Motion, body | Breathing toggle, How deep, Never quite still | Breaths a minute only | S |
 | 32 | ✅ | Set up, facing | Drawn facing Left/Front/Right, See it flipped, Turn around by itself | tick only if not front | S |
 | 33 | ⬜ | Set up, body angles | Give the body its own angles, Follows the head | none | M |
 | 34 | ⬜ | Perform | Voice file | none (spec A7) | S |

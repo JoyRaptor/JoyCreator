@@ -40,6 +40,14 @@ public final class MotionSections {
         default void setMany(String stepName, java.util.List<Object[]> items) {
         }
 
+        /** Adds one "follows" link ({sig, prop, amt}) to a part: one named undo step. */
+        default void addLink(String nodeId, JSONObject link) {
+        }
+
+        /** Takes link {@code index} off a part: one named undo step. */
+        default void removeLink(String nodeId, int index) {
+        }
+
         /** A blink right now, to see it. */
         default void blinkNow() {
         }
@@ -59,6 +67,7 @@ public final class MotionSections {
             break;
         }
         if (inHand != null && "head".equals(inHand.role)) head(c, col, inHand, host, dp);
+        if (inHand != null) FollowSections.add(c, col, doc, inHand, host, dp);
         if (swinger != null) swing(c, col, swinger, host, dp);
         else col.addView(note(c, inHand == null ? "Take a part in hand to see how it moves by itself." : "This part does not swing. Hair, feathers, a tail or a chain can.", dp));
 
@@ -67,11 +76,20 @@ public final class MotionSections {
         String facing = st.optString("facing", "front");
         WalkSections.add(c, col, doc, host, dp);
         col.addView(label(c, "Breathing and blinking", dp));
+        col.addView(WalkSections.tick(c, "Breathing", st.optBoolean("breathe", true), "A slow swell of the chest; head and arms ride it", dp, v -> host.setValue(null, "settings.breathe", v, "Breathing")));
+        CharacterDoc.Node torso = findRole(doc.root, "torso");
+        if (torso == null) torso = findRole(doc.root, "body");
+        if (torso != null && torso.json.optJSONObject("breathe") != null) {
+            final String tid = torso.id;
+            col.addView(slider(c, "How deep", 0, 3, 0.1, torso.json.optJSONObject("breathe").optDouble("amt", 1), v -> String.format(Locale.US, "%.1f×", v), "How far the chest swells",
+                    v -> host.setValue(tid, "breathe.amt", Math.round(v * 10) / 10.0, "Breathing depth"), dp));
+        }
         col.addView(slider(c, "Breaths a minute", 6, 40, 1, Math.round(st.optDouble("breathRate", 0.28) * 60), v -> String.valueOf((int) v), "How fast the chest rises and falls",
                 v -> host.setValue(null, "settings.breathRate", v / 60.0, "Breathing speed"), dp));
         col.addView(slider(c, "Blinks about every", 1.5, 9, 0.1, st.optDouble("blinkEvery", 3.6), v -> String.format(Locale.US, "%.1f s", v), "How often it blinks by itself",
                 v -> host.setValue(null, "settings.blinkEvery", Math.round(v * 10) / 10.0, "Blink rate"), dp));
         if (host instanceof ShrugSections.Host) ShrugSections.add(c, col, doc, (ShrugSections.Host) host, dp);   // SHRUG-1, after breathing as the pilot's
+        col.addView(WalkSections.tick(c, "Never quite still", st.optBoolean("idle", true), "A slight drift of head and body when nothing else is happening", dp, v -> host.setValue(null, "settings.idle", v, "Never quite still")));
         col.addView(label(c, "Which way it faces", dp));
         LinearLayout face = new LinearLayout(c);
         face.addView(chip(c, "Drawn facing left", "left".equals(facing), "Which way the body was drawn", dp, v -> host.setValue(null, "settings.facing", "left", "Drawn facing left")));
@@ -101,6 +119,15 @@ public final class MotionSections {
                         v -> host.setValue(null, "settings.flipTuck", v, "Turn tuck"), dp));
             }
         }
+    }
+
+    private static CharacterDoc.Node findRole(CharacterDoc.Node n, String role) {
+        if (role.equals(n.role)) return n;
+        for (CharacterDoc.Node k : n.kids) {
+            CharacterDoc.Node r = findRole(k, role);
+            if (r != null) return r;
+        }
+        return null;
     }
 
     // ── the head: how it moves, and a round head ──────────────────────────────────────────────────

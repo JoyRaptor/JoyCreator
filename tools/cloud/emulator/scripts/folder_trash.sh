@@ -1,5 +1,6 @@
 # FILE-1: with a real Joy Creator folder chosen, a drawing goes to Trash and comes back from Recently deleted.
 . "$HERE_LIB/lib_app.sh"
+adb shell mkdir -p /sdcard/Documents/JoyCreatorTest      # the picker lists only folders that exist
 adb shell pm enable com.android.documentsui >/dev/null 2>&1; settle 15      # the picker must be back before the app asks for it
 launch_app; settle 10
 for label in "Start creating" "Continue" "Skip" "Not now"; do tap_text "$label" >/dev/null 2>&1 && settle 3; done

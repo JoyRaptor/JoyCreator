@@ -10,9 +10,6 @@ row here when they touch anything outside `joybrush/`, `joybrush-android/` or `t
 
 ## Locks (check before heavy work)
 
-
-**11-28, owner: Codex is gone.** Everything Codex held now lands with Claude: the `codex/stu7-*` branches belong to the "Motion blur" session; the paint-engine goal (JB-LIVE-SAVE, GL-MASK multipass, load split, Concepts engine items) to the "Engine perf" lane (Opus); every other unlanded `codex/*` branch is being reviewed by the "Land Codex round 4" lane (verdicts in `tasks/audits/codex/CODEX_BRANCH_WRAPUP_20261128.md`); the Avatar X-list to the Avatar lead.
-
 | Lock | File | How |
 |---|---|---|
 | Phone | `C:/Users/JoyRaptor/AppData/Local/Temp/jb-phone.lock` | `.\tools\phone.ps1 who / claim / release`; stale after 30 minutes untouched |
@@ -22,6 +19,8 @@ row here when they touch anything outside `joybrush/`, `joybrush-android/` or `t
 | Heavy build or test | `C:/Users/JoyRaptor/AppData/Local/Temp/jb-gradle.lock` | create-new; one at a time on the whole machine |
 
 ## Live claims
+
+**11-28, owner: Codex is gone.** Everything Codex held now lands with Claude: the `codex/stu7-*` branches belong to the "Motion blur" session; the paint-engine goal (JB-LIVE-SAVE, GL-MASK multipass, load split, Concepts engine items) to the "Engine perf" lane (Opus); every other unlanded `codex/*` branch is being reviewed by the "Land Codex round 4" lane (verdicts in `tasks/audits/codex/CODEX_BRANCH_WRAPUP_20261128.md`); the Avatar X-list to the Avatar lead.
 
 One row per session. Update "Since" whenever you refresh the claim. A claim untouched for 24 hours with
 its session not running may be taken over: say so in Messages first.

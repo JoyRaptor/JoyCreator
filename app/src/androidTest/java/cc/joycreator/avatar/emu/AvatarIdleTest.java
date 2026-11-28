@@ -37,9 +37,7 @@ public class AvatarIdleTest {
         Emu.turn();
         int minutes = Integer.parseInt(Emu.arg("idleMinutes", "9"));
         try (ActivityScenario<AvatarRoomActivity> sc = ActivityScenario.launch(AvatarRoomActivity.class)) {
-            AvatarRoomActivity[] a = new AvatarRoomActivity[1];
-            sc.onActivity(x -> a[0] = x);
-            room = a[0];
+            room = Emu.resumed(AvatarRoomActivity.class, 60_000);         // (not onActivity: it waits for an idle screen)
             Emu.sleep(5000);
             int first = -1, least = Integer.MAX_VALUE;
             StringBuilder log = new StringBuilder();

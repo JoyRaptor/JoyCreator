@@ -49,9 +49,7 @@ public class AvatarCardsTest {
         Emu.turn();
         try (ActivityScenario<AvatarRoomActivity> sc = ActivityScenario.launch(AvatarRoomActivity.class)) {
             Emu.sleep(4000);
-            AvatarRoomActivity[] a = new AvatarRoomActivity[1];
-            sc.onActivity(x -> a[0] = x);
-            room = a[0];
+            room = Emu.resumed(AvatarRoomActivity.class, 60_000);         // (not onActivity: it waits for an idle screen)
             TextView[] tabs = (TextView[]) field(room, "stageTabs");
 
             // Set up: the parts

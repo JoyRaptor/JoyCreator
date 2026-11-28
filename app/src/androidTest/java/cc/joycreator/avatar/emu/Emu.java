@@ -354,8 +354,9 @@ final class Emu {
     static void watchMainThread() {
         final android.os.Handler main = new android.os.Handler(android.os.Looper.getMainLooper());
         final Thread mainThread = android.os.Looper.getMainLooper().getThread();
+        final Thread test = Thread.currentThread();                 // (and once a minute, where the test itself is)
         Thread w = new Thread(() -> {
-            while (true) {
+            for (int n = 1; ; n++) {
                 final boolean[] ran = {false};
                 main.post(() -> ran[0] = true);
                 SystemClock.sleep(10000);
@@ -364,9 +365,35 @@ final class Emu {
                     for (StackTraceElement e : mainThread.getStackTrace()) b.append("\n    at ").append(e);
                     Log.w(TAG, b.toString());
                 }
+                if (n % 6 == 0 && test.isAlive()) {
+                    StringBuilder b = new StringBuilder("the test is at:");
+                    StackTraceElement[] st = test.getStackTrace();
+                    for (int i = 0; i < Math.min(14, st.length); i++) b.append("\n    at ").append(st[i]);
+                    Log.i(TAG, b.toString());
+                }
             }
         }, "main-thread-watchdog");
         w.setDaemon(true);
         w.start();
+    }
+
+    /**
+     * The open activity of this kind, found without waiting for the screen to have nothing to do. {@code ActivityScenario.onActivity}
+     * waits for that first, and a room that draws every frame may never give it on a slow emulator: the tablet's cards run sat
+     * 25 minutes before its first step while the screen answered all along (11-28), the phone's 1 to 7 minutes.
+     */
+    static <A extends android.app.Activity> A resumed(Class<A> type, long timeoutMs) {
+        long end = SystemClock.uptimeMillis() + timeoutMs;
+        while (true) {
+            final Object[] got = {null};
+            ins().runOnMainSync(() -> {
+                for (android.app.Activity x : androidx.test.runner.lifecycle.ActivityLifecycleMonitorRegistry.getInstance()
+                        .getActivitiesInStage(androidx.test.runner.lifecycle.Stage.RESUMED))
+                    if (type.isInstance(x)) got[0] = x;
+            });
+            if (got[0] != null) return type.cast(got[0]);
+            if (SystemClock.uptimeMillis() > end) throw new AssertionError("no " + type.getSimpleName() + " came up");
+            sleep(200);
+        }
     }
 }

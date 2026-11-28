@@ -40,6 +40,14 @@ public final class MotionSections {
         default void setMany(String stepName, java.util.List<Object[]> items) {
         }
 
+        /** Adds one "follows" link ({sig, prop, amt}) to a part: one named undo step. */
+        default void addLink(String nodeId, JSONObject link) {
+        }
+
+        /** Takes link {@code index} off a part: one named undo step. */
+        default void removeLink(String nodeId, int index) {
+        }
+
         /** A blink right now, to see it. */
         default void blinkNow() {
         }
@@ -59,6 +67,7 @@ public final class MotionSections {
             break;
         }
         if (inHand != null && "head".equals(inHand.role)) head(c, col, inHand, host, dp);
+        if (inHand != null) FollowSections.add(c, col, doc, inHand, host, dp);
         if (swinger != null) swing(c, col, swinger, host, dp);
         else col.addView(note(c, inHand == null ? "Take a part in hand to see how it moves by itself." : "This part does not swing. Hair, feathers, a tail or a chain can.", dp));
 

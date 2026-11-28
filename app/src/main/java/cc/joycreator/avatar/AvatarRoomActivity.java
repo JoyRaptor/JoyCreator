@@ -694,6 +694,30 @@ public final class AvatarRoomActivity extends Activity implements RoomMenu.Host,
     }
 
     @Override
+    public void addLink(String nodeId, org.json.JSONObject link) {
+        edit.apply(getString(R.string.avatar_step_add_follow), d -> {
+            org.json.JSONObject j = d.find(nodeId).json;
+            org.json.JSONArray l = j.optJSONArray("links");
+            if (l == null) j.put("links", l = new org.json.JSONArray());
+            l.put(link);
+            if (j.optJSONObject("pivot") == null && !"art".equals(j.optString("type"))) {         // a part that moves needs a point to turn and resize about
+                double[] b = stage.renderer() == null ? null : stage.renderer().restBounds(d.find(nodeId));
+                if (b != null) j.put("pivot", new org.json.JSONObject().put("x", (b[0] + b[2]) / 2).put("y", (b[1] + b[3]) / 2));
+            }
+        });
+        if (stageIndex == 2) performPanel.bind(character, false);
+    }
+
+    @Override
+    public void removeLink(String nodeId, int index) {
+        edit.apply(getString(R.string.avatar_step_remove_follow), d -> {
+            org.json.JSONArray l = d.find(nodeId).json.optJSONArray("links");
+            if (l != null && index >= 0 && index < l.length()) l.remove(index);
+        });
+        if (stageIndex == 2) performPanel.bind(character, false);
+    }
+
+    @Override
     public void blinkNow() {
         inputs.blinkNow(System.currentTimeMillis());
     }

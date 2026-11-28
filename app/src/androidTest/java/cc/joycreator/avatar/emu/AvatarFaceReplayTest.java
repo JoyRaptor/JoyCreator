@@ -139,13 +139,13 @@ public class AvatarFaceReplayTest {
 
             // Mirror off: the same turn the other way round
             TextView mirror = (TextView) field(panel, "mirrorChip");
-            Emu.tap(mirror);
+            tapInSight(mirror);                                          // (the face row is tall: bring the chip into sight first)
             Emu.sleep(400);
             assertFalse("Mirror off", (Boolean) a.getClass().getMethod("faceMirror").invoke(a));
             assertTrue("the engine moves like someone facing you", fc[0].tuning().mirror);
             Trace off = play(a, replay, 1.8, 3.6, new String[][]{{"2.6", "14-turn-right-mirror-off"}}, out);
             check(off.min("turnX", 2.0, 3.6) < -0.6, "Mirror off: his right turn turns Topps to the screen's left (" + f(off.min("turnX", 2.0, 3.6)) + ")");
-            Emu.tap(mirror);
+            tapInSight(mirror);                                          // (the face row is tall: bring the chip into sight first)
             Emu.sleep(400);
             assertTrue("Mirror on again", (Boolean) a.getClass().getMethod("faceMirror").invoke(a));
 
@@ -496,6 +496,13 @@ public class AvatarFaceReplayTest {
     private static void tapText(AvatarRoomActivity a, String txt) {
         View v = find(a, txt);
         assertNotNull("nothing on screen says \"" + txt + "\"", v);
+        Emu.ins().runOnMainSync(() -> v.requestRectangleOnScreen(new Rect(0, 0, v.getWidth(), v.getHeight()), true));
+        Emu.sleep(300);
+        Emu.tap(v);
+    }
+
+    /** Scrolls a view into sight, then a real tap on it (a chip scrolled above the panel's top would take the tap elsewhere). */
+    private static void tapInSight(View v) {
         Emu.ins().runOnMainSync(() -> v.requestRectangleOnScreen(new Rect(0, 0, v.getWidth(), v.getHeight()), true));
         Emu.sleep(300);
         Emu.tap(v);

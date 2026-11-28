@@ -25,7 +25,7 @@ import kotlin.test.assertTrue
  */
 class JbArchiveStreamTest {
     @BeforeTest fun on() { ArchiveCarrying.streamTiles = true }
-    @AfterTest fun off() { ArchiveCarrying.streamTiles = false }
+    @AfterTest fun off() { ArchiveCarrying.streamTiles = true }   // the default since 11-28
 
     private val layer = "oil"
     private val cel = "c-oil"

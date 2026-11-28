@@ -74,20 +74,21 @@ object ArchiveCarrying {
     @Volatile var rereadChangedOnly: Boolean = true
     /**
      * Whether a save takes a [TileStream]'s tiles one at a time as it writes them (JBX-36 S1, 11-27) or all of them
-     * before it writes anything, as before. The file made is the same either way. Off until measured on the Note 9.
+     * before it writes anything, as before. The file made is the same either way. On since 11-28 (exact on the Note 9's
+     * Adreno 630 and the Tab S8 Ultra's Adreno 730); false is the way back.
      */
-    @Volatile var streamTiles: Boolean = false
+    @Volatile var streamTiles: Boolean = true
     /**
      * Whether opening a working drawing whose file is missing but whose `.tmp` opens whole finishes the save's last move
      * and opens it (a kill between the save's two moves, JBX-36 S4, 11-27), or opens the `.bak` before it, as before.
      */
-    @Volatile var finishInterruptedMove: Boolean = false
+    @Volatile var finishInterruptedMove: Boolean = true
     /**
      * Whether the save on leaving the screen reads only the tiles that changed since the last save, as the autosave does,
      * and the Library's thumbnail is drawn from the saved file (JBX-36 S3, 11-27), or reads the whole drawing, as before.
-     * It never streams: everything it reads is read before the screen stops drawing.
+     * It never streams: everything it reads is read before the screen stops drawing. On since 11-28.
      */
-    @Volatile var sparseLeave: Boolean = false
+    @Volatile var sparseLeave: Boolean = true
 }
 
 /** Thrown by every function here. The message is the whole error report, so it says what is wrong. */

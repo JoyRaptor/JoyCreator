@@ -153,3 +153,12 @@ phone; leave S5 (bigger caps) off.**
   (EXACT) on the Fold or the tablet would cover it in about ten minutes; without that, ship with the switches off.
 - S5: no launch change. The paint room is held by the atlas, not the save; raising it needs the atlas admission work
   (E3), its own job.
+
+- **11-28, second graphics chip, and S1-S4 switched ON by default.** Tab S8 Ultra (Snapdragon 8 Gen 1, Adreno 730; the
+  Note 9 is an Adreno 630), bench build 576b74a12, all JBX-36 switches on: `printcheck` 0 of 978 picture tiles and 0 of
+  788 paint store tiles differ between the chip and the CPU; `savestream` EXACT (snapshot holds nothing, peak 105 MB),
+  `savestream undo` EXACT (an undo changed tiles while the save read them), and a save with nothing changed EXACT. On
+  orchestrator instruction, `streamTiles`, `finishInterruptedMove` and `sparseLeave` now default to on; false is the way
+  back. Not run: an Exynos/Mali phone (the owner dropped Exynos from the matrix on 11-27), the Fold.
+  Bench note: on the tablet's big screen a full page of oil at zoom 0.36 made a bench stroke time out, and the bench then
+  closes its screen (it looked like the app going to the background); four bands at zoom 0.6 ran clean.

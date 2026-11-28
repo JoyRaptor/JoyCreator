@@ -153,8 +153,16 @@ public final class PerformPanel extends ScrollView {
         return Math.round(v * dp);
     }
 
-    /** Builds the controls this character has. {@code takeBar}: Perform shows it, Motion does not. */
+    private Boolean boundTakeBar;                                   // the stage last built (Perform or Motion)
+
+    /**
+     * Builds the controls this character has. {@code takeBar}: Perform shows it, Motion does not. A stage opens at the top of
+     * its panel (the face session, 11-27: Perform kept Motion's scroll and hid the head pad and its buttons); built again for
+     * the same stage (a tick, a step) the panel stays where you are.
+     */
     public void bind(CharacterDoc doc, boolean takeBar) {
+        boolean newStage = boundTakeBar == null || boundTakeBar != takeBar;
+        boundTakeBar = takeBar;
         column.removeAllViews();
         buttonChips.clear();
         buttonIds.clear();
@@ -388,6 +396,7 @@ public final class PerformPanel extends ScrollView {
             column.addView(tickRow(c, "autoFlip", false, R.string.avatar_turns_around, R.string.avatar_hover_turns_around));
         refreshSettings(doc);
         paintChips();
+        if (newStage) post(() -> scrollTo(0, 0));
     }
 
     /** Reads the habits' tick boxes from the character (after an undo or redo changed them). */

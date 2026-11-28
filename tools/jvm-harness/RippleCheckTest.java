@@ -122,6 +122,14 @@ public class RippleCheckTest {
         three.getClip(1).setOutPointMs(5_000);
         eq(RippleCheck.pointOf(s3, three.captureClipStarts(), track3), track3, "only the last clip changed: the point is the old end");
 
+        // The editor's one hook: every length edit closes through endStructuralEdit, which asks RippleCheck.
+        try {
+            String act = new String(java.nio.file.Files.readAllBytes(java.nio.file.Paths.get(
+                    "app/src/main/java/com/fadcam/ui/faditor/FaditorEditorActivity.java")), "UTF-8");
+            check(act.contains("RippleCheck.asksAfter(where)") && act.contains("RippleCheck.finish(tl, before, choice)"),
+                    "the editor's endStructuralEdit runs the check's hook");
+        } catch (java.io.IOException e) { check(false, "read the editor: " + e); }
+
         System.out.println("RippleCheck: " + pass + " passed, " + fail + " failed");
         System.exit(fail == 0 ? 0 : 1);
     }

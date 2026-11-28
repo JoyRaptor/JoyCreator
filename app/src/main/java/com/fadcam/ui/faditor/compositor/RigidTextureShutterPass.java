@@ -17,8 +17,13 @@ public final class RigidTextureShutterPass {
     /** A camera tap gap past this many canvas pixels would show as separate copies. */
     static final double CAMERA_STEP_PX = 3.0;
 
-    /** Most smear taps a live-preview smooth plan takes (Note 9 timing, 11-27: ~0.4 ms a tap at 1080p; 11 showed stepped copies on a long swing). */
-    public static final int PREVIEW_SMEAR_TAPS = 23;
+    /**
+     * Most taps a live-preview smooth plan takes, all told: one program size (RigidShutterPlan
+     * TAP_PROGRAMS), so the preview never compiles or runs the export's 48-tap program. Copies
+     * (Both) and Mix's sharp tap come out of it; the smear gets the rest. Note 9 timing, 11-27:
+     * ~0.4 ms a tap at 1080p; 11 smear taps showed stepped copies on a long swing.
+     */
+    public static final int PREVIEW_TAPS = 24;
 
     public static final String VERTEX_SHADER =
             "#version 100\n"
@@ -39,16 +44,24 @@ public final class RigidTextureShutterPass {
     }
 
     /**
-     * The live preview's plan: a smooth plan there takes at most {@link #PREVIEW_SMEAR_TAPS} smear
-     * taps so a long trail stays inside the Note 9's frame budget (spec §K.2 rule 4); export and
-     * Show exact frame keep every tap. Softening widens with the gaps, so it reads softer, not
-     * stepped, until the gaps pass a third of the thing's width.
+     * The live preview's plan: a smooth plan there takes at most {@link #PREVIEW_TAPS} taps so a
+     * long trail stays inside the Note 9's frame budget (spec §K.2 rule 4); export and Show exact
+     * frame keep every tap. Softening widens with the gaps, so it reads softer, not stepped,
+     * until the gaps pass a third of the thing's width.
      */
     public static RigidShutterPlan planPreview(MotionShutter.Controls controls, ItemMotionSampler sampler,
                                         long timeUs, long periodUs, MotionBreaks breaks,
                                         int width, int height) {
         return plan(controls, sampler, timeUs, periodUs, breaks, MotionBreaks.none(), width, height,
-                PREVIEW_SMEAR_TAPS);
+                previewSmearTaps(controls));
+    }
+
+    /** {@link #PREVIEW_TAPS} less what Both's copies and Mix's sharp tap need. */
+    static int previewSmearTaps(MotionShutter.Controls controls) {
+        if (controls == null) return PREVIEW_TAPS;
+        int reserve = (controls.look() == MotionShutter.Look.BOTH ? controls.copies() : 0)
+                + (controls.mixPercent() < 100 ? 1 : 0);
+        return Math.max(2, PREVIEW_TAPS - reserve);
     }
 
     public static RigidShutterPlan plan(MotionShutter.Controls controls, ItemMotionSampler sampler,

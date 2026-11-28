@@ -3449,7 +3449,11 @@ public class ExportManager {
             List<long[]> keptEditor = cuts.isEmpty() ? null : cuts.keptRanges(fromEditor, toEditor);
             boolean masterCut = keptEditor != null && !(keptEditor.size() == 1
                     && keptEditor.get(0)[0] == fromEditor && keptEditor.get(0)[1] == toEditor);
-            if (masterCut && (clip.isImageClip() || clip.isAudioMuted())) {
+            // STU-C3: a video with no sound track lays silence, as a picture or a muted clip does (the picture-in-
+            // picture lane already skipped such a source; this lane handed it to Media3 and the export failed).
+            boolean silent = MasterSound.laysSilence(clip.isImageClip(), clip.isAudioMuted(),
+                    clip.isImageClip() ? 0L : audioDurationMsOf(resolveSeekableSourceUri(clip)));
+            if (masterCut && silent) {
                 for (long[] kr : keptEditor) {
                     if (kr[1] - kr[0] >= MIN_EXPORT_SEGMENT_MS) {
                         addSilence(master, silenceUri, kr[1] - kr[0]);
@@ -3476,7 +3480,7 @@ public class ExportManager {
                 long endMs = Math.min(clipOutMs, clip.getSourceDurationMs());
                 long srcDurMs = Math.max(1L, endMs - clipInMs);
                 long timelineDurMs = Math.max(1L, (long) (srcDurMs / Math.max(0.1f, speed)));
-                if (clip.isAudioMuted()) {
+                if (silent) {
                     addSilence(master, silenceUri, timelineDurMs);
                 } else {
                     master.add(masterAudioItem(clip, clipInMs, endMs));

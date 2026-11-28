@@ -12,6 +12,8 @@ final class MasterSound {
      * the source has no sound track, Long.MAX_VALUE when it could not be read.
      */
     static boolean laysSilence(boolean imageClip, boolean muted, long audioDurationMs) {
-        return imageClip || muted;
+        // A video with no sound track of its own: handed to Media3 as a sound-only item it has nothing to output, and the
+        // whole export fails (STU-C3). It lays silence of its length, as a picture does.
+        return imageClip || muted || audioDurationMs <= 0L;
     }
 }

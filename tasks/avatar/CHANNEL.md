@@ -57,6 +57,8 @@ a slice needs it (Claude claims it here first, so Codex can see it is taken).
 
 (newest first: what landed, SHA, what was proven, what was not)
 
+- 11-28 Claude, slice 1 (room): **Parity: Rename and Remove a part (Set up), Walk settings chip in Perform.** Seen on the emulator (b446a410a): the Rename/Remove row on the head card. Not seen: the Walk settings chip open, the remove confirmation. Rows 15 and 22 partly.
+
 - 11-28 Claude, slice 1 (room): **Parity rows 5, 17, 31 landed:** brows Lift, jaw Drops, nose/hair Depth (`ui/FeatureSections`), Motion Follows (`ui/FollowSections`: add, Bouncy, Back and forth, How much, Remove), Breathing and Never quite still ticks and chest depth. Seen on the emulator (2876a119f): brow, nose, Follows card. Not seen: jaw, adding a follow through the dialogs, the chest depth slider.
 
 - 11-28 Claude, slice 1 (room): **Emulator cards test, mouth Squash/Try: talk/Same on every angle, and Perform with the joystick open laid out as the pilot.** `AvatarCardsTest` (avatar-emu AvatarCardsTest) opens and photographs every card; seen on the emulator (b0d3b33e9): eye, mouth (incl. Try: talk), stance, reshape, walking, gestures sheet, menu, pin wizard. Fixes from its pictures: gesture rows open on the chosen act, a new stage opens at the top of its card, Mic/Face/Joystick are the room's own line icons (white; cyan cut-out when on) so the pad no longer squeezes Hold to talk. Not seen: the cutter view, the stack strip with a part in hand, tablet portrait.

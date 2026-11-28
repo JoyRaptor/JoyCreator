@@ -20,11 +20,11 @@ on:
         required: true
         default: joy-creator
       tests:
-        description: "all, draw (AvatarDrawParityTest), room (AvatarRoomSmokeTest), studio (AvatarStudioDrawTest), or a test class name"
+        description: "all, draw (AvatarDrawParityTest), room (AvatarRoomSmokeTest), studio (AvatarStudioDrawTest), send (AvatarSendToStudioTest: room to Studio), hand (AvatarStudioHandTest: a finger on a hand in Studio), face (AvatarFaceReplayTest: his face take in the room), or a test class name"
         required: false
         default: all
       fault:
-        description: "Planted fault to prove the tests can fail: none, shift (one piece drawn 2 px off) or rest (Studio draws only the standing picture)"
+        description: "Planted fault to prove the tests can fail: none, shift (one piece drawn 2 px off), rest (Studio draws only the standing picture) or flip (the face test plays his head turns the other way round)"
         required: false
         default: none
       device:
@@ -58,7 +58,7 @@ on:
 run-name: "avatar emulator ${{ inputs.tests || 'all' }} fault=${{ inputs.fault || 'none' }} ${{ inputs.device || 'pixel_4' }} ${{ inputs.orientation || 'portrait' }} @ ${{ inputs.ref || github.ref_name }} [${{ inputs.request_id || 'push' }}]"
 
 concurrency:
-  group: avatar-emulator-${{ inputs.ref || github.ref }}-${{ inputs.fault || 'none' }}-${{ inputs.device || 'pixel_4' }}-${{ inputs.orientation || 'portrait' }}-${{ inputs.gpu || 'guest' }}-${{ inputs.msaa || '4' }}
+  group: avatar-emulator-${{ inputs.ref || github.ref }}-${{ inputs.tests || 'all' }}-${{ inputs.fault || 'none' }}-${{ inputs.device || 'pixel_4' }}-${{ inputs.orientation || 'portrait' }}-${{ inputs.gpu || 'guest' }}-${{ inputs.msaa || '4' }}
   cancel-in-progress: ${{ github.event_name == 'push' }}
 
 permissions:
@@ -196,6 +196,7 @@ jobs:
           echo "app: $APK"; echo "tests: $TAPK"
           adb -e install -r -g "$APK"
           adb -e install -r "$TAPK"
+          adb -e shell mkdir -p /sdcard/JoyTest   # an empty folder for AvatarSendToStudioTest to choose as the Joy Creator folder
 
       - name: Run the avatar tests
         id: run
@@ -211,8 +212,11 @@ jobs:
             draw) CLASSES=cc.joycreator.avatar.emu.AvatarDrawParityTest ;;
             room) CLASSES=cc.joycreator.avatar.emu.AvatarRoomSmokeTest ;;
             studio) CLASSES=cc.joycreator.avatar.emu.AvatarStudioDrawTest ;;
-            all)  CLASSES=cc.joycreator.avatar.emu.AvatarDrawParityTest,cc.joycreator.avatar.emu.AvatarRoomSmokeTest,cc.joycreator.avatar.emu.AvatarStudioDrawTest ;;
-            *)    [[ "$TESTS" =~ ^[A-Za-z]+$ ]] || { echo "tests: all, draw, room, studio or one test class name"; exit 1; }
+            send) CLASSES=cc.joycreator.avatar.emu.AvatarSendToStudioTest ;;
+            hand) CLASSES=cc.joycreator.avatar.emu.AvatarStudioHandTest ;;
+            face) CLASSES=cc.joycreator.avatar.emu.AvatarFaceReplayTest ;;
+            all)  CLASSES=cc.joycreator.avatar.emu.AvatarDrawParityTest,cc.joycreator.avatar.emu.AvatarRoomSmokeTest,cc.joycreator.avatar.emu.AvatarStudioDrawTest,cc.joycreator.avatar.emu.AvatarFaceReplayTest ;;
+            *)    [[ "$TESTS" =~ ^[A-Za-z]+$ ]] || { echo "tests: all, draw, room, studio, send, hand, face or one test class name"; exit 1; }
                   CLASSES="cc.joycreator.avatar.emu.$TESTS" ;;
           esac
           ARGS=(-e class "$CLASSES" -e msaa "$MSAA" -e orientation "$ORIENT")
@@ -237,7 +241,7 @@ jobs:
             echo "### Avatar emulator: $result (tests=$TESTS, fault=$FAULT, msaa=$MSAA, ${{ inputs.device || 'pixel_4' }} ${{ inputs.orientation || 'portrait' }}, ${{ inputs.gpu || 'guest' }}) @ ${{ steps.meta.outputs.sha }}"
             echo '```'
             grep -E '^(OK|FAILURES|Tests run|INSTRUMENTATION_|Error)' emu-out/instrument.txt | head -20
-            sed -n '/draw parity/,/^$/p;/room smoke/,/^$/p;/studio draw/,/^$/p' emu-out/avatar-log.txt | sed 's/^[^:]*: //' | head -60
+            sed -n '/draw parity/,/^$/p;/room smoke/,/^$/p;/studio draw/,/^$/p;/send to studio/,/^$/p;/studio hand/,/^$/p' emu-out/avatar-log.txt | sed 's/^[^:]*: //' | head -60
             echo '```'
             if [ "$result" = fail ]; then
               echo 'Failure:'; echo '```'; cat emu-out/device.txt

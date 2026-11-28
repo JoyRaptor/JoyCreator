@@ -9,9 +9,9 @@ the phone until the final phone run. Every session ticks its own rows here when 
 
 | | Points |
 |---|---|
-| Earned | **130.5 of 183 (71%)** (11-27 night, lead re-checked every row) |
-| Landed | 120 |
-| Built or partly landed (half) | 10.5 |
+| Earned | **149 of 183 (81%)** (11-28, lead re-checked every row; Set up, Arrange, walking and scene row 1 counted in full as every named part has landed) |
+| Landed | 141 |
+| Built or partly landed (half) | 8 |
 
 Updated 11-27 by the lead.
 
@@ -41,7 +41,7 @@ Updated 11-27 by the lead.
 | Arrange: the box, stances, all fours, reshape with pins, in front / behind | 8 | 🟡 the box, in front / behind (whole part and in a stance), stances and all fours landed (checked against the pilot, not tried on a phone); reshape with pins landed (matches the pilot's warpAt and dropPin; not tried on a phone) | slice 1 |
 | Motion: swinging parts, turning round, round heads | 5 | ✅ swinging, turning around, breathing and blinking, round heads landed (not tried on a phone) | slice 1 |
 | Walking, the joystick and its gestures | 5 | 🟡 walking by dragging the body (ground line, strides, jump, fall, all fours, hover) landed, 2 traces of the pilot matched frame by frame; the joystick (rate steer, speed curve, tap/flick gestures, six-slot sheet) landed, not tried on a phone; with its depth walking, camera angle and floor grid landed (not seen on a screen) | slice 1 |
-| Face capture on the phone, walk with your face | 5 | ✅ landed (5d072ea78): the Face chip (always, then only while talking, then off), the head moved from where the pad was and as far as the pad goes, the expression and your own blinks, the idle sway resting while it drives, the face's lanes (face pins, expressions) in takes and on to the movement engine; Walk with your face (left and right, closer and further, Up close) under the Face controls for a character that walks. `run-avatar-face.sh` 28 checks, 29 planted faults caught (`--proof`); cloud build and `studio` green (run 46050047817, with slice 1's Stack). Not tried on a phone; the face mask (FACE-2) pass, Shoulders, Check directions and placing face pins on the phone are not ported | face session |
+| Face capture on the phone, walk with your face | 5 | ✅ landed (5d072ea78): the Face chip (always, then only while talking, then off), the head moved from where the pad was and as far as the pad goes, the expression and your own blinks, the idle sway resting while it drives, the face's lanes (face pins, expressions) in takes and on to the movement engine; Walk with your face (left and right, closer and further, Up close) under the Face controls for a character that walks. `run-avatar-face.sh` 28 checks, 29 planted faults caught (`--proof`); cloud build and `studio` green (run 46050047817, with slice 1's Stack). Not tried on a phone; the face mask (FACE-2) pass, Shoulders, Check directions and placing face pins on the phone were not ported; **since then, to pilot parity (11-27 evening, 04fa621b6):** the Puff button and the nod brow fix (b92cebd63); the face mask pass (Topps wearing the pilot's mask: 6 golden cases within 0.005 px) and the face driving it; Check directions; placing face pins in Set up (pick a point of your face, tap the character, drag, strength, All pins, one piece); his own face take played into the real room on the cloud emulator (`AvatarFaceReplayTest`, run 46098593937): every move, the Face chip, Walk with your face, Mirror, Puff, Check directions 5 of 5, a face pin by real taps. Still owed: Shoulders (the owner said add Google's body model; being built); the Live picture in the face pin picker; the pilot's 478-point map | face session |
 | Walking toward and away from the camera | 5 | ✅ landed (8a1116e7e): `Walker` + `DepthWalk` (the pilot's al-depth-walk.js: grows coming close, shrinks going away, turns to the front drawing, the camera's angle, Home walks back, the plain stage untouched when off); Topps toward, away and Home, 220 frames within 0.0001 px of the pilot; Up close through the room's walker; `run-avatar-depth.sh` 8 checks, 12 planted faults caught; the two walking traces still 0 frames off. Not tried on a phone; owed: the joystick in perspective (slice 1: `Stick` and `StickSheet`), room below in the stage's framing while it comes close | face session |
 | Side-by-side pass against the pilot: every control, every word, polish | 8 | 🟡 the list is written (`PARITY.md`, 40 gaps); fixing them in order, each with a check and an emulator screenshot | slice 1 + lead |
 | **Slice 2: characters inside Video Studio** | | | |
@@ -50,14 +50,14 @@ Updated 11-27 by the lead.
 | A solid colour clip in Studio (key colour) | 2 | ✅ landed (Add › Solid colour; 23 checks) | slice 2 (cloud) |
 | A character drawn in Studio's preview and export | 5 | ✅ landed 11-27: `SolverPoser` (CharacterSolver + CharacterGl off screen) behind the 3 draw sites; emulator `AvatarStudioDrawTest`: moves with its take, export = preview; fault `rest` fails | slice 2 (cloud) + X2/X3 session |
 | Add a character to a project with its take and voice | 3 | ✅ landed (Add › Character; one undo step) | slice 2 (cloud) |
-| Still draggable; record a pass in Studio | 3 | 🟡 drag as a sprite; a pass via the Perform pop-up; finger-on-a-hand driving not built | slice 2 (cloud) |
-| Send to Studio, the room's export sheet, video with a key colour | 5 | 🟡 built (`RoomExportSheet`, Studio drop-on-open); the room's button is wired (export mark at the bar's right end, saves first); not tried on a phone | slice 2 (cloud) |
+| Still draggable; record a pass in Studio | 3 | ✅ landed 11-28: a finger on a hand in the Perform pop-up (drawn by the solver) records the hand into the item's take and Studio plays it; emulator `AvatarStudioHandTest`, fault `rest` fails; the room's Perform stage takes hands too | slice 2 (cloud) + X2/X3 session |
+| Send to Studio, the room's export sheet, video with a key colour | 5 | ✅ Send to Studio proven end to end 11-28 (emulator `AvatarSendToStudioTest`: folder step, a pass in the room, export mark, Send to Studio, a new project, Studio plays the pass; fault `rest` fails); video with a key colour and a phone run not tried | slice 2 (cloud) + X2/X3 session |
 | **Slice 2b: acting from a video** | | | |
 | Act from a video: pick layers, what it follows, read into keyframes, Bake / Keep as driver, lips from a sound layer | 8 | ✅ landed (cloud-compiled; engine 50 checks); no phone run | slice 2 (cloud) |
 | The performing pop-up on the timeline | 5 | ✅ landed (room's PerformPanel + Mic via X4); no joystick yet (the room has none) | slice 2 (cloud) |
 | **Slice 3: scenes** | | | |
 | Scene file and clock, the camera lane | 3 | 🟡 built, landing now: `avatar/scene/` (`Scene` + undo, `SceneGeometry`, `SceneClock` with passes, shots, camera lane; `SceneFile` read / write with takes, carried characters, pictures); `run-avatar-scene.sh` 53 checks, 6 planted faults caught, numbers matched to the pilot (depth, frames, Topps placement, camera clamp) | slice 3 |
-| Path tabs, the chair, the frame, the strip | 5 | ⬜ | after slice 1 |
+| Path tabs, the chair, the frame, the strip | 5 | 🟡 frame, chair and strip landed on the empty scene (frame button with sheet, strip from the side or bottom pushing the frame, Studio texture, Wide / Close / kept shots, Cut / Glide); `AvatarSceneUiTest` real taps on the emulator green, 69 JVM checks; the path tabs with the chair come with the scene on the four stages | slice 3 |
 | The scene on the four stages; the empty scene | 3 | ⬜ | after slice 1 |
 | Several characters, shots, walking on and off, the joystick in a scene | 8 | ⬜ | after slice 1 |
 | Exporting a scene; Send to Studio not flattened | 5 | ⬜ | after slice 1 |

@@ -16,12 +16,11 @@ tap_text "Rename" >/dev/null 2>&1; settle 3; shot rename_dialog
 dump rename; python3 "$HERE_LIB/uia.py" list /tmp/ui.xml | head -14
 adb shell input keyevent KEYCODE_MOVE_END; for i in $(seq 1 12); do adb shell input keyevent KEYCODE_DEL; done
 adb shell input text "Renamed_one"; settle 1; shot rename_typed
-adb shell input keyevent KEYCODE_ENTER; settle 4
+tap 995 2059; settle 4; shot after_ime_tick      # the keyboard's own tick key is the dialog's Done action
 shot after_rename; dump after_rename; python3 "$HERE_LIB/uia.py" list /tmp/ui.xml | grep -i "renamed\|Drawing" | head
-adb shell input keyevent KEYCODE_BACK; settle 2
 echo "== C. Move to Trash"
 hold 270 440 1300; settle 4
-tap_text "Move to Trash" >/dev/null 2>&1; settle 4; shot after_trash
+tap_text "Move to Trash" >/dev/null 2>&1; settle 2; shot trash_asks_again; tap_text "Tap again" >/dev/null 2>&1; settle 4; shot after_trash
 dump after_trash; python3 "$HERE_LIB/uia.py" list /tmp/ui.xml | head -16
 adb shell am force-stop "$PKG"; settle 2; launch_app; settle 8
 tap_text "Setup" >/dev/null 2>&1; settle 4

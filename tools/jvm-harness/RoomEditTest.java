@@ -78,6 +78,17 @@ public class RoomEditTest {
         ok(e.redo() && e.doc().json.getJSONObject("take").getInt("n") == 5, "redo puts the new take back");
         ok(e.apply("Throw the take away", doc -> doc.json.remove("take")) && !e.doc().json.has("take"), "throwing a take away is a step");
         ok(e.undo() && e.doc().json.has("take"), "and undo brings it back");
+        // what lives beside the tree is part of a step too (the face session, 11-28: an undone face pin left its record behind,
+        // and an undone setting stayed): the settings, the face pins, the stances; never the pictures
+        boolean blinksBefore = e.doc().json.optJSONObject("settings") == null || e.doc().json.optJSONObject("settings").optBoolean("blinkAuto", true);
+        ok(e.apply("Blinks off", doc -> { org.json.JSONObject st = doc.json.optJSONObject("settings"); if (st == null) { st = new org.json.JSONObject(); doc.json.put("settings", st); } st.put("blinkAuto", false); }), "a setting is a step");
+        ok(e.undo() && (e.doc().json.optJSONObject("settings") == null || e.doc().json.optJSONObject("settings").optBoolean("blinkAuto", true)) == blinksBefore, "undo puts the setting back");
+        ok(e.apply("Add a face pin", doc -> doc.json.put("facePins", new org.json.JSONArray().put(new org.json.JSONObject().put("id", "fp1").put("point", 61)))), "a face pin is a step");
+        ok(e.undo() && !e.doc().json.has("facePins"), "undo takes its record away");
+        ok(e.redo() && e.doc().json.optJSONArray("facePins") != null && e.doc().json.optJSONArray("facePins").length() == 1, "redo puts it back");
+        Object pics = e.doc().json.opt("pictures");
+        e.undo();
+        ok(e.doc().json.opt("pictures") == pics, "the pictures are never copied or swapped by a step");
         System.out.println((fail > 0 ? "FAILED " : "PASSED ") + pass + " checks, " + fail + " failures");
         System.exit(fail > 0 ? 1 : 0);
     }

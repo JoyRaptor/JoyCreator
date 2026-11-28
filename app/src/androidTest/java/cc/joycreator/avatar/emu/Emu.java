@@ -95,4 +95,202 @@ final class Emu {
     }
 
     static void sleep(long ms) { SystemClock.sleep(ms); }
+
+    /** One touch event at a screen point, through the input system. */
+    static void touch(long downAt, long at, int action, float x, float y) {
+        MotionEvent e = MotionEvent.obtain(downAt, at, action, x, y, 0);
+        e.setSource(InputDevice.SOURCE_TOUCHSCREEN);
+        ins().getUiAutomation().injectInputEvent(e, true);
+        e.recycle();
+    }
+
+    /**
+     * A finger put down at (x0, y0), moved to (x1, y1) over {@code moveMs}, kept there {@code holdMs}, then lifted: a
+     * real drag (the head pad, a hand), in screen pixels.
+     */
+    static void drag(float x0, float y0, float x1, float y1, long moveMs, long holdMs) {
+        long t0 = SystemClock.uptimeMillis();
+        touch(t0, t0, MotionEvent.ACTION_DOWN, x0, y0);
+        int steps = Math.max(2, (int) (moveMs / 16));
+        for (int i = 1; i <= steps; i++) {
+            float k = i / (float) steps;
+            SystemClock.sleep(moveMs / steps);
+            touch(t0, SystemClock.uptimeMillis(), MotionEvent.ACTION_MOVE, x0 + (x1 - x0) * k, y0 + (y1 - y0) * k);
+        }
+        long end = SystemClock.uptimeMillis() + holdMs;
+        while (SystemClock.uptimeMillis() < end) {     // a held finger keeps reporting where it is
+            SystemClock.sleep(50);
+            touch(t0, SystemClock.uptimeMillis(), MotionEvent.ACTION_MOVE, x1, y1);
+        }
+        touch(t0, SystemClock.uptimeMillis(), MotionEvent.ACTION_UP, x1, y1);
+    }
+
+    /**
+     * The first thing on screen, in any window (dialogs and the system's folder picker included), whose words or label
+     * start with {@code text} (any case); waits up to {@code timeoutMs}. Null when nothing showed up.
+     */
+    static android.view.accessibility.AccessibilityNodeInfo find(String text, long timeoutMs) {
+        android.app.UiAutomation ui = ins().getUiAutomation();
+        android.accessibilityservice.AccessibilityServiceInfo info = ui.getServiceInfo();
+        if (info != null && (info.flags & android.accessibilityservice.AccessibilityServiceInfo.FLAG_RETRIEVE_INTERACTIVE_WINDOWS) == 0) {
+            info.flags |= android.accessibilityservice.AccessibilityServiceInfo.FLAG_RETRIEVE_INTERACTIVE_WINDOWS;
+            ui.setServiceInfo(info);
+        }
+        String want = text.toLowerCase(java.util.Locale.ROOT);
+        long end = SystemClock.uptimeMillis() + timeoutMs;
+        do {
+            java.util.List<android.view.accessibility.AccessibilityNodeInfo> roots = new java.util.ArrayList<>();
+            try {
+                for (android.view.accessibility.AccessibilityWindowInfo w : ui.getWindows()) {
+                    if (w.getRoot() != null) roots.add(w.getRoot());
+                }
+            } catch (RuntimeException ignored) {
+            }
+            if (roots.isEmpty() && ui.getRootInActiveWindow() != null) roots.add(ui.getRootInActiveWindow());
+            for (android.view.accessibility.AccessibilityNodeInfo r : roots) {
+                android.view.accessibility.AccessibilityNodeInfo hit = search(r, want);
+                if (hit != null) return hit;
+            }
+            SystemClock.sleep(250);
+        } while (SystemClock.uptimeMillis() < end);
+        return null;
+    }
+
+    private static android.view.accessibility.AccessibilityNodeInfo search(android.view.accessibility.AccessibilityNodeInfo n, String want) {
+        if (n == null) return null;
+        CharSequence t = n.getText(), d = n.getContentDescription();
+        boolean exact = want.startsWith("=");          // "=Allow": those words exactly (not the dialog's "Allow ... to access?")
+        String w = exact ? want.substring(1) : want;
+        String ts = t == null ? null : t.toString().toLowerCase(java.util.Locale.ROOT).trim();
+        String ds = d == null ? null : d.toString().toLowerCase(java.util.Locale.ROOT).trim();
+        if ((ts != null && (exact ? ts.equals(w) : ts.startsWith(w))) || (ds != null && (exact ? ds.equals(w) : ds.startsWith(w)))) {
+            android.graphics.Rect b = new android.graphics.Rect();
+            n.getBoundsInScreen(b);
+            if (b.width() > 0 && b.height() > 0) return n;
+        }
+        for (int i = 0; i < n.getChildCount(); i++) {
+            android.view.accessibility.AccessibilityNodeInfo hit = search(n.getChild(i), want);
+            if (hit != null) return hit;
+        }
+        return null;
+    }
+
+    /** Taps the thing labelled {@code text} (see {@link #find}); fails the test, naming it, when it never shows. */
+    static void tapText(String text, long timeoutMs) {
+        android.view.accessibility.AccessibilityNodeInfo n = find(text, timeoutMs);
+        if (n == null) throw new AssertionError("nothing on screen says \"" + text + "\"");
+        android.graphics.Rect b = new android.graphics.Rect();
+        n.getBoundsInScreen(b);
+        long t = SystemClock.uptimeMillis();
+        touch(t, t, MotionEvent.ACTION_DOWN, b.exactCenterX(), b.exactCenterY());
+        touch(t, t + 60, MotionEvent.ACTION_UP, b.exactCenterX(), b.exactCenterY());
+        Log.i(TAG, "tapped \"" + text + "\" at " + b.toShortString());
+    }
+
+    /**
+     * Clicks the thing labelled {@code text} through accessibility (the nearest clickable box around the words), as a
+     * screen reader would: for other apps' windows (the system's folder picker), where a label is not itself the button.
+     */
+    static void clickText(String text, long timeoutMs) {
+        android.view.accessibility.AccessibilityNodeInfo n = find(text, timeoutMs);
+        if (n == null) throw new AssertionError("nothing on screen says \"" + text + "\"");
+        android.view.accessibility.AccessibilityNodeInfo c = n;
+        while (c != null && !c.isClickable()) c = c.getParent();
+        if (c != null && c.performAction(android.view.accessibility.AccessibilityNodeInfo.ACTION_CLICK)) {
+            Log.i(TAG, "clicked \"" + text + "\"");
+            return;
+        }
+        // the system's picker ignored touches injected from the test: the shell's own tap (what adb scripts use) reaches it
+        android.graphics.Rect b = new android.graphics.Rect();
+        n.getBoundsInScreen(b);
+        shell("input tap " + b.centerX() + " " + b.centerY());
+        Log.i(TAG, "shell-tapped \"" + text + "\" at " + b.toShortString());
+    }
+
+    /** True when the thing with keyboard focus (any window) holds words starting with {@code text}. */
+    static boolean focusedSays(String text) {
+        android.app.UiAutomation ui = ins().getUiAutomation();
+        String want = text.toLowerCase(java.util.Locale.ROOT);
+        try {
+            for (android.view.accessibility.AccessibilityWindowInfo w : ui.getWindows()) {
+                android.view.accessibility.AccessibilityNodeInfo r = w.getRoot();
+                if (r == null) continue;
+                android.view.accessibility.AccessibilityNodeInfo f = r.findFocus(android.view.accessibility.AccessibilityNodeInfo.FOCUS_INPUT);
+                if (f != null && search(f, want) != null) return true;
+            }
+        } catch (RuntimeException ignored) {
+        }
+        return false;
+    }
+
+    /** The thing labelled {@code text} and the boxes around it (class, clickable, focusable, where), for a run's log. */
+    static String describeAround(String text) {
+        android.view.accessibility.AccessibilityNodeInfo n = find(text, 3000);
+        StringBuilder sb = new StringBuilder("around \"" + text + "\":\n");
+        android.graphics.Rect b = new android.graphics.Rect();
+        for (int d = 0; n != null && d < 6; d++, n = n.getParent()) {
+            n.getBoundsInScreen(b);
+            sb.append("  ").append(n.getClassName()).append(" clickable=").append(n.isClickable()).append(" focusable=")
+                .append(n.isFocusable()).append(" enabled=").append(n.isEnabled()).append(' ').append(b.toShortString())
+                .append(" id=").append(n.getViewIdResourceName()).append('\n');
+        }
+        return sb.toString();
+    }
+
+    /** Runs a shell command as the shell user (as adb does) and waits for it; returns what it printed. */
+    static String shell(String cmd) {
+        android.os.ParcelFileDescriptor pfd = ins().getUiAutomation().executeShellCommand(cmd);
+        StringBuilder sb = new StringBuilder();
+        try (java.io.InputStream in = new android.os.ParcelFileDescriptor.AutoCloseInputStream(pfd)) {
+            byte[] buf = new byte[4096];
+            int k;
+            while ((k = in.read(buf)) > 0) sb.append(new String(buf, 0, k, java.nio.charset.StandardCharsets.UTF_8));
+        } catch (IOException e) {
+            Log.w(TAG, "shell: " + cmd, e);
+        }
+        return sb.toString();
+    }
+
+    /** Where the thing labelled {@code text} is on screen (its middle), or null. */
+    static float[] centreOf(String text, long timeoutMs) {
+        android.view.accessibility.AccessibilityNodeInfo n = find(text, timeoutMs);
+        if (n == null) return null;
+        android.graphics.Rect b = new android.graphics.Rect();
+        n.getBoundsInScreen(b);
+        return new float[] {b.exactCenterX(), b.exactCenterY(), b.width(), b.height()};
+    }
+
+    /**
+     * Closes a screen a test opened, waiting at most {@code ms}: Studio's editor can take far longer to finish than a
+     * test should wait (a run once sat 25 minutes in ActivityScenario.close), and a test's verdict never depends on it.
+     */
+    static void closeSoon(androidx.test.core.app.ActivityScenario<?> s, long ms) {
+        if (s == null) return;
+        Thread t = new Thread(() -> {
+            try {
+                s.close();
+            } catch (RuntimeException e) {
+                Log.w(TAG, "closing the screen", e);
+            }
+        }, "close-screen");
+        t.setDaemon(true);
+        t.start();
+        try {
+            t.join(ms);
+        } catch (InterruptedException ignored) {
+            Thread.currentThread().interrupt();
+        }
+        if (t.isAlive()) Log.w(TAG, "the screen did not close within " + ms + " ms; going on");
+    }
+
+    /** The activity on screen now (resumed), or null. */
+    static android.app.Activity resumed() {
+        android.app.Activity[] a = new android.app.Activity[1];
+        ins().runOnMainSync(() -> {
+            java.util.Collection<android.app.Activity> r = androidx.test.runner.lifecycle.ActivityLifecycleMonitorRegistry.getInstance()
+                .getActivitiesInStage(androidx.test.runner.lifecycle.Stage.RESUMED);
+            if (!r.isEmpty()) a[0] = r.iterator().next();
+        });
+        return a[0];
+    }
 }

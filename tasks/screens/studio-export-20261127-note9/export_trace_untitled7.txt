@@ -1,0 +1,55 @@
+20:05:36 TRACE_OPEN kind=video file=export_trace_20261127_200536_video.txt
+20:05:37 AUDIO_SOURCE msf:133588 audio/mp4a-latm 48000Hz 2ch 40kbps
+20:05:37 AUDIO_OUT 48000Hz stereo AAC 256kbps (best source: msf:133588)
+20:05:37 AUDIO_CLOCK msf:133588: 845 frames = 18.027 s of sound over 18.027 s of timestamps (+0.0000%), read in 128 ms
+20:05:37 EXPORT_ITEM[0] startMs=0 durMs=17421 effects=1 [Presentation] remux=no src=ders.downloads.documents/document/msf%3A133588
+20:05:37 EXPORT_ITEM[1] startMs=17421 durMs=600 effects=2 [GlTransitionExportEffect,Presentation] remux=no src=ders.downloads.documents/document/msf%3A133588
+20:05:37 EXPORT_ITEM[2] startMs=18021 durMs=17421 effects=1 [Presentation] remux=no src=ders.downloads.documents/document/msf%3A133588
+20:05:37 EXPORT_ITEM total=35442ms across 3 items
+20:05:37 DECODER_PICK audio/mp4a-latm
+    c2.android.aac.decoder hardwareAccelerated=false softwareOnly=true vendor=false
+    OMX.SEC.aac.dec hardwareAccelerated=false softwareOnly=false vendor=false
+    -> offering SOFTWARE (no hardware entry found)
+20:05:37 DECODER_PICK video/avc
+    OMX.qcom.video.decoder.avc hardwareAccelerated=true softwareOnly=false vendor=true
+    c2.android.avc.decoder hardwareAccelerated=false softwareOnly=true vendor=false
+    OMX.SEC.avc.sw.dec hardwareAccelerated=false softwareOnly=false vendor=false
+    -> offering 1 hardware
+20:05:37 EXPORT_PACE 0% at +0s
+20:05:37 EXPORT_SEAM entered item 0 of 3 (comp 0ms) at +0s temp=75.0C
+20:05:37 MEM dalvik=7/512MB native=19MB threads=18
+20:05:38 EXPORT_PACE 1% at +0s
+20:05:38 EXPORT_PACE 3% at +0s
+20:05:39 EXPORT_PACE 6% at +1s
+20:05:39 EXPORT_PACE 8% at +1s
+20:05:39 EXPORT_PACE 10% at +1s
+20:05:39 EXPORT_PACE 13% at +2s
+20:05:40 EXPORT_PACE 15% at +2s
+20:05:40 EXPORT_PACE 17% at +2s
+20:05:40 EXPORT_PACE 20% at +2s
+20:05:41 EXPORT_PACE 22% at +3s
+20:05:41 EXPORT_PACE 25% at +3s
+20:05:41 EXPORT_PACE 27% at +3s
+20:05:42 EXPORT_PACE 29% at +4s
+20:05:42 EXPORT_PACE 32% at +4s
+20:05:42 EXPORT_PACE 33% at +4s
+20:05:43 EXPORT_PACE 46% at +5s
+20:05:43 EXPORT_PACE 66% at +5s
+20:05:43 EXPORT_SEAM entered item 2 of 3 (comp 18021ms) at +5s temp=75.0C
+20:05:47 EXPORT_PACE 69% at +9s
+20:05:47 EXPORT_PACE 71% at +9s
+20:05:48 EXPORT_PACE 73% at +10s
+20:05:48 EXPORT_PACE 76% at +10s
+20:05:48 EXPORT_PACE 78% at +10s
+20:05:49 EXPORT_PACE 80% at +11s
+20:05:49 EXPORT_PACE 82% at +11s
+20:05:49 EXPORT_PACE 85% at +11s
+20:05:50 EXPORT_PACE 87% at +12s
+20:05:50 EXPORT_PACE 89% at +12s
+20:05:50 EXPORT_PACE 91% at +12s
+20:05:50 EXPORT_PACE 93% at +12s
+20:05:51 EXPORT_PACE 94% at +13s
+20:05:51 EXPORT_PACE 96% at +13s
+20:05:51 EXPORT_PACE 97% at +13s
+20:05:52 EXPORT_PACE 98% at +14s
+20:05:52 TRACE_COMMIT Untitled 7 H1cutchecku.mp4 (8982667 bytes)

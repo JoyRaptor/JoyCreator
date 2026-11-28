@@ -1,0 +1,32 @@
+Export failed: Fri Nov 27 21:51:04 EST 2026
+output=/data/user/0/com.fadcam.beta/cache/faditor_export/Restore video test.m4a
+lastSeam=unknown (muxer never reached the first item boundary)
+projectId=restore-test-0002
+canvasPreset=original
+clips=5 audioClips=4 transitions=0
+  clip[0] img=false in=4069 out=17078 loop=0 uri=content://com.android.externalstorage.documents/tree/primary%3AJoy%20Creator/document/primary%3AJoy%20Creator%2FFadCam_20260621_145235.mp4
+  clip[1] img=false in=0 out=17078 loop=0 uri=content://com.android.externalstorage.documents/tree/primary%3AJoy%20Creator/document/primary%3AJoy%20Creator%2FFadCam_20260621_145235.mp4
+  clip[2] img=false in=0 out=8721 loop=0 uri=content://com.android.externalstorage.documents/tree/primary%3AJoy%20Creator/document/primary%3AJoy%20Creator%2FFadCam_20260621_145235.mp4
+  clip[3] img=true in=0 out=5000 loop=0 uri=content://com.android.externalstorage.documents/tree/primary%3AJoy%20Creator/document/primary%3AJoy%20Creator%2Fdummy_image_for_bundling.png
+  clip[4] img=false in=0 out=30559 loop=0 uri=file:///data/user/0/com.fadcam.beta/files/faditor/projects/restore-test-0002/assets/a0e0ea54-e26a-4c84-acb5-e702b828a0db.mp4
+
+--- stack trace ---
+androidx.media3.transformer.ExportException: Asset loader error
+	at androidx.media3.transformer.ExoPlayerAssetLoader$PlayerListener.onTracksChanged(ExoPlayerAssetLoader.java:416)
+	at androidx.media3.exoplayer.ExoPlayerImpl.lambda$updatePlaybackInfo$19(ExoPlayerImpl.java:2186)
+	at androidx.media3.exoplayer.ExoPlayerImpl$$ExternalSyntheticLambda32.invoke(D8$$SyntheticClass:0)
+	at androidx.media3.common.util.ListenerSet$ListenerHolder.invoke(ListenerSet.java:342)
+	at androidx.media3.common.util.ListenerSet.lambda$queueEvent$0(ListenerSet.java:226)
+	at androidx.media3.common.util.ListenerSet$$ExternalSyntheticLambda1.run(D8$$SyntheticClass:0)
+	at androidx.media3.common.util.ListenerSet.flushEvents(ListenerSet.java:248)
+	at androidx.media3.exoplayer.ExoPlayerImpl.updatePlaybackInfo(ExoPlayerImpl.java:2242)
+	at androidx.media3.exoplayer.ExoPlayerImpl.handlePlaybackInfo(ExoPlayerImpl.java:2076)
+	at androidx.media3.exoplayer.ExoPlayerImpl.lambda$new$1$androidx-media3-exoplayer-ExoPlayerImpl(ExoPlayerImpl.java:353)
+	at androidx.media3.exoplayer.ExoPlayerImpl$$ExternalSyntheticLambda12.run(D8$$SyntheticClass:0)
+	at android.os.Handler.handleCallback(Handler.java:883)
+	at android.os.Handler.dispatchMessage(Handler.java:100)
+	at android.os.Looper.loop(Looper.java:237)
+	at android.os.HandlerThread.run(HandlerThread.java:67)
+Caused by: java.lang.IllegalStateException: The asset loader has no audio or video track to output.
+	at androidx.media3.transformer.ExoPlayerAssetLoader$PlayerListener.onTracksChanged(ExoPlayerAssetLoader.java:415)
+	... 14 more

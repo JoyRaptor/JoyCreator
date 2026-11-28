@@ -1,0 +1,25 @@
+# Studio export of the transitions test project, Note 9 real GPU (11-27, hover-1 lane)
+Project "Untitled 7" (two identical 18 s frame-counter clips, Radial transition on the cut), exported fresh as "Untitled 7 H1cutchecku.mp4": High quality, Original resolution, 14 s on the phone, "Export Complete 100%" (screenshot seen), 8,982,667 bytes.
+
+**What the export's own trace shows** (`export_trace_untitled7.txt`): 3 export items, `startMs=0 durMs=17421` / `startMs=17421 durMs=600 [GlTransitionExportEffect, Presentation]` (the transition) / `startMs=18021 durMs=17421`, total 35,442 ms; hardware AVC decoder; audio 18.027 s of sound over 18.027 s of timestamps (+0.0000%); entered item 0 and item 2 at the expected composition times (0 ms, 18,021 ms); no error lines; committed.
+**Frame decode (done after the lead's tip; the file is at `/storage/emulated/0/Joy Creator/Untitled 7 H1cutchecku.mp4`, shared storage: my first name search missed it because of the space and a `head` limit):** pulled to the PC, 720x1280, 30 fps, 1062 frames, 35.4 s, AAC audio 35.41 s; every frame decoded with OpenCV (`frame_check.json`).
+- **No black frames:** frame brightness stays between 31 and 33 across the whole file (a black frame would read near 0).
+- **No glitches:** frame-to-frame change has a median of 0.82 and no spike at all (threshold 25 or six times the median); across the transition window (frames 522 to 540) it stays between 0.6 and 2.0.
+- **Time-aligned through the cut:** `cut_montage.png` (frames 516, 522, 528, 534, 540, 543): the first clip reads 17.200, 17.400, 17.600 s; the second clip then reads 0.367 s at 17.8 s of the export and carries on 0.600, 0.700: the incoming clip starts at 17.43 s as the 3-item plan says, nothing jumps or repeats. Frame 528 shows the transition's blend (the counter text is smeared).
+- **Limit:** both clips are the same picture, so the Radial wipe itself cannot be seen to differ; this proves timing, no black frames and no glitches, not the wipe's look. Different clips would show that.
+
+**Row marks from this export:**
+- **Transition export (STU-1 "play and export it" row, STU-E3 transition piece): PASS for black frames, glitches and time alignment.** STU-E3's missing volume curve or fades on the transition piece was not examined (the audio runs 35.41 s with no gap).
+- STU-C1 export vs preview for Bend / corner pin, STU-F1, STU-F6, STU-F7, STU-C6: not run in this session.
+
+## STU-C1: Bend on text, export against preview (11-27, Note 9, "Restore video test", 0:00)
+`bend_preview_0s.png` (Studio preview, whole screen) and `bend_export_0s.png` (Export single frame, PNG, 720p, Low, frame time 00:00.0; the file `Restore video test/Restore video test.png` in the Joy Creator folder). `bend_compare.png` puts the preview stage (left) beside the export (right); mean brightness difference 9.7 of 255 over the stage.
+- **The bend matches:** the curved "hello 2" text (the arc that runs up the right side of the star) has the same curve, size and position in both.
+- **Two things do not match, cause not found:** (1) the white "e" mark on the star is bright and opaque in the preview but faded and translucent in the export; (2) the blue dotted guide lines near the sprite grid sit in different places and the export lacks the dotted rim the preview shows. The dotted lines may be preview-only handles; the "e" fade could be an opacity or timing difference at exactly 0:00 (an animated layer), or a real preview-versus-export mismatch (house rule 5). I did not tell these apart.
+- **Verdict for the STU-1 row "Bend on text (export must match the preview)": PARTLY PASS** (bend geometry exact), **with one open question** (the "e" layer's brightness). The corner-pinned-text-with-effect half of the row was not tried.
+
+## STU-C3: ducked audio in the export (11-27, Note 9, "Restore video test") - FOUND A FAULT, row NOT closed
+Goal: export the project's audio only (.m4a), then compare the music's level while the voice speaks against after it stops.
+**Result: the audio-only export FAILED** with "Export failed. Your project is safe - nothing was lost." (`audio_only_export_error.txt`): `ExportException: Asset loader error` caused by `IllegalStateException: The asset loader has no audio or video track to output`, "muxer never reached the first item boundary", no file made. The project has 5 clips (three video clips from `FadCam_20260621_145235.mp4`, which is on the phone and plays, a 5 s image clip `dummy_image_for_bundling.png`, and a clip of the generated asset), 4 audio clips and no transitions.
+**Suspect, not proven:** the image clip has no audio or video track of its own that the audio-only path can read, so the asset loader throws instead of skipping it. If true, any project that holds a picture clip cannot be exported as audio only. To confirm: remove the image clip and retry, or retry on a project with only video clips. The full video export of this project was not tried here.
+Not done: the ducking level comparison (the export it needs does not exist). The fade readout and the Duck-under action itself passed on 11-24 (STU-1 card).

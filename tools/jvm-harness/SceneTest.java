@@ -1,3 +1,6 @@
+import cc.joycreator.avatar.scene.EmptyShots;
+import cc.joycreator.avatar.scene.FramePlan;
+import cc.joycreator.avatar.scene.RoomPrefs;
 import cc.joycreator.avatar.scene.Scene;
 import cc.joycreator.avatar.perform.Take;
 import cc.joycreator.avatar.scene.SceneClock;
@@ -321,6 +324,78 @@ public class SceneTest {
         ok(!pb.ok() && pb.scene == null && !pb.problems.isEmpty(), "8 a camera cut to a shot that is not in the scene: reported, and the scene is not opened");
         ok(!SceneFile.read("{ not json").ok() && !SceneFile.read("{\"format\":\"nothing/1\"}").ok(), "8 a file that is not a scene says so and never throws");
         ok(SceneFile.fileName("Meadow: act 1?").equals("Meadow act 1.scene.json") && SceneFile.fileName("???").equals("scene.scene.json"), "8 the file's name is readable: <Name>.scene.json");
+        /* 9. the frame on the glass: as big as the screen allows, pushed (never shrunk) by the strip, the pilot's numbers */
+        FramePlan.Rect area = new FramePlan.Rect(8, 60, 395, 520);
+        double[][] fit = {{1.778, 8, 208.90625, 395, 222.1875, 41.660714285714306, 227.84040178571428, 327.6785714285714, 184.31919642857142},
+                {1.333, 8, 171.875, 395, 296.25, 41.660714285714306, 197.12053571428572, 327.6785714285714, 245.75892857142856},
+                {1.0, 8, 122.5, 395, 395, 41.660714285714306, 156.1607142857143, 327.6785714285714, 327.6785714285714},
+                {0.8, 8, 73.125, 395, 493.75, 41.660714285714306, 115.20089285714289, 327.6785714285714, 409.5982142857142},
+                {0.5625, 59.25, 60, 292.5, 520, 81.95089285714288, 100.35714285714289, 247.09821428571425, 439.2857142857142}};
+        boolean fo = true;
+        double[] ars = {16.0 / 9, 4.0 / 3, 1, 4.0 / 5, 9.0 / 16};
+        for (int i = 0; i < fit.length; i++) {
+            FramePlan.Rect a0 = FramePlan.fit(area, ars[i], plant.equals("air") ? true : false), a1 = FramePlan.fit(area, ars[i], true);
+            double[] w = fit[i];
+            fo &= near(a0.x, w[1], 1e-9) && near(a0.y, w[2], 1e-9) && near(a0.w, w[3], 1e-9) && near(a0.h, w[4], 1e-9) && near(a1.x, w[5], 1e-9) && near(a1.y, w[6], 1e-9) && near(a1.w, w[7], 1e-9) && near(a1.h, w[8], 1e-9);
+        }
+        ok(fo, "9 the frame is as big as the screen allows (and with the room round it, the old way): five shapes, the pilot's numbers");
+        ok(FramePlan.side(9.0 / 16, area, false) && !FramePlan.side(16.0 / 9, area, false) && !FramePlan.side(1, area, false) && FramePlan.side(1, new FramePlan.Rect(0, 0, 900, 400), false), "9 the strip comes from the side for upright frames, the bottom for wide ones, a square one from where the screen has room");
+        boolean never = true, moved = false;
+        for (double ar : ars) {
+            for (int strip = 0; strip < 2; strip++) {
+                boolean sd = FramePlan.side(ar, area, false);
+                double from = sd ? 411 - 92 - 6 : 580 - 85 - 6;
+                FramePlan.Rect big = FramePlan.fit(area, ar, false), pushed = FramePlan.rect(area, ar, false, 411, 580, strip == 0 ? Double.NaN : from, true);
+                if (plant.equals("shrink")) pushed = new FramePlan.Rect(pushed.x, pushed.y, pushed.w * 0.8, pushed.h * 0.8);
+                never &= near(pushed.w, big.w, 1e-9) && near(pushed.h, big.h, 1e-9) && pushed.x >= area.x - 1e-9 && pushed.y >= area.y - 1e-9;
+                moved |= Math.abs(pushed.x - big.x) > 0.5 || Math.abs(pushed.y - big.y) > 0.5;
+            }
+        }
+        ok(never && moved, "9 the strip and buttons move the frame and never make it smaller, and never push it off the room it has");
+        FramePlan.Rect up = FramePlan.rect(area, 9.0 / 16, false, 411, 580, 411 - 92 - 6, true);
+        ok(up.right() <= 411 - 92 - 6 - FramePlan.BAND - FramePlan.GAP + 1e-9 || up.x <= area.x + 1e-9, "9 an upright frame is pushed clear of the strip and the buttons, as far as it can go");
+        FramePlan.Glide g = new FramePlan.Glide();
+        double[] g0 = g.to(-40, 0, 1 / 30.0), g1 = g.to(-40, 0, 1 / 30.0);
+        ok(g0[0] == -40, "9 the first frame lands where it should (no glide from nowhere)");
+        FramePlan.Glide g2 = new FramePlan.Glide();
+        g2.to(0, 0, 1 / 30.0);
+        double a1 = g2.to(-40, 0, 1 / 30.0)[0];
+        for (int i = 0; i < 20; i++) g2.to(-40, 0, 1 / 30.0);
+        ok(a1 < 0 && a1 > -40 && g2.x == -40, "9 it glides there, and ends exactly there");
+
+        /* 10. what the room remembers: the frame, the strip's parts, the empty scene's own frame */
+        RoomPrefs rp = new RoomPrefs();
+        rp.setPart("sh", true);
+        ok(rp.frame && rp.parts().equals(Arrays.asList("sh")), "10 turning Shots on turns the frame on");
+        rp.setPart("sc", true);
+        rp.setPart("ch", true);
+        ok(rp.parts().equals(Arrays.asList("sc", "ch", "sh")), "10 the parts show in the order Scene, Character, Shots");
+        if (!plant.equals("framefold")) rp.setFrame(false);
+        else rp.frame = false;
+        ok(rp.parts().equals(Arrays.asList("sc", "ch")) && !rp.sh, "10 with the frame off there are no shots: the Shots part folds away");
+        rp.emptyShape = "9:16";
+        rp.glide = true;
+        rp.air = true;
+        rp.shotsOf("topps").put(new JSONObject().put("id", "h1").put("name", "Shot 1").put("cx", 10.5).put("cy", 20).put("k", 2));
+        RoomPrefs back3 = RoomPrefs.fromJson(rp.toJson().toString());
+        ok(back3.emptyShape.equals("9:16") && back3.glide && back3.air && back3.sc && back3.ch && back3.shotsOf("topps").length() == 1 && back3.shotsOf("topps").getJSONObject(0).optDouble("k") == 2, "10 the frame's settings, the empty scene's shape and its kept shots come back after a reload");
+        ok(RoomPrefs.fromJson("{ damaged").parts().isEmpty() && !RoomPrefs.fromJson("{ damaged").frame, "10 a damaged note is a fresh start, never an error");
+        /* 11. the empty scene's shots: Wide, Close on the character, views kept by hand */
+        double[] frm = {40, 100, 320, 180}, chBox = {41, -13, 454, 512}, head = {130, -13, 330, 190};
+        double[] wd = EmptyShots.wide(frm, chBox, 4);
+        double cw = chBox[2] - chBox[0], chh = chBox[3] - chBox[1];
+        ok(near(wd[0], Math.min((320 - 8) / cw, (180 - 5.6) / chh), 1e-12) && near(wd[1] + (chBox[0] + cw / 2) * wd[0], 40 + 160, 1e-9) && near(wd[2] + (chBox[1] + chh / 2) * wd[0], 100 + 90, 1e-9), "11 Wide fits the whole character into the frame and puts its middle in the middle of the frame");
+        double[] cl = EmptyShots.close(frm, wd, head);
+        double hh2 = 203;
+        ok(cl[0] >= wd[0] * 1.15 - 1e-9 && near(cl[0], Math.max(wd[0] * 1.15, Math.min(180 / (hh2 * 2.3), 320 / (200 * 1.5))), 1e-9) && near(cl[2] + (-13 + 190) / 2.0 * cl[0] + hh2 * 0.22 * cl[0], 190, 1e-6), "11 Close on the character is found from the head, a little above its middle, and is always closer than Wide");
+        JSONObject sh = EmptyShots.keep("h1", "Shot 1", frm, wd, cl);
+        double[] back4 = plant.equals("shotkeep") ? new double[]{cl[0] * 2, 0, 0} : EmptyShots.kept(frm, wd, sh);
+        ok(near(back4[0], cl[0], 0.002 * cl[0]) && near(back4[1], cl[1], 0.5) && near(back4[2], cl[2], 0.5), "11 a view kept by hand comes back as the same view");
+        double[] frm2 = {60, 80, 200, 350};
+        double[] wd2 = EmptyShots.wide(frm2, chBox, 4), kept2 = EmptyShots.kept(frm2, wd2, sh);
+        ok(near(kept2[0] / wd2[0], sh.optDouble("k"), 1e-9), "11 a kept shot is relative to Wide: it survives a change of the frame's shape");
+        String[][] lst = EmptyShots.list("Topps", true, new JSONArray().put(sh));
+        ok(lst.length == 3 && lst[0][0].equals("wide") && lst[1][2].equals("close") && lst[2][2].equals("own") && EmptyShots.list("Topps", false, null).length == 1, "11 Wide, Close on the character (when it has a head), then your own");
     }
 
     static String strip(String t) {
@@ -328,7 +403,7 @@ public class SceneTest {
     }
 
     public static void main(String[] a) throws Exception {
-        String[] plants = {"depth", "clamp", "undo", "follow", "lane", "filetake"};
+        String[] plants = {"depth", "clamp", "undo", "follow", "lane", "filetake", "air", "shrink", "framefold", "shotkeep"};
         plant = "";
         run();
         int cleanFail = fail, cleanPass = pass;

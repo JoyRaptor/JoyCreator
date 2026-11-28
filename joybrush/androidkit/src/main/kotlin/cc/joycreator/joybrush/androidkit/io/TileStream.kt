@@ -19,6 +19,9 @@ interface TileStream<K> {
 
     /** The save has written [key]'s bytes (or decided not to need them) and holds no reference to them. */
     fun written(key: K) {}
+
+    /** The save has ended, written or refused: nothing more will be taken. */
+    fun finished() {}
 }
 
 /**
@@ -42,6 +45,7 @@ internal class TilesWithExtra<K>(
     override fun sizeOf(key: K): Int? = extra[key]?.size ?: stream?.sizeOf(key) ?: base[key]?.size
     override fun take(key: K): ByteArray = extra[key] ?: stream?.take(key) ?: base.getValue(key)
     override fun written(key: K) { if (key !in extra) stream?.written(key) }
+    override fun finished() { stream?.finished() }
 
     override val entries: Set<Map.Entry<K, ByteArray>> = object : AbstractSet<Map.Entry<K, ByteArray>>() {
         override val size: Int get() = all.size

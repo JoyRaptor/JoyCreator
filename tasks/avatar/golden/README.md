@@ -29,6 +29,13 @@ in Perform (simulated time from `al-breaktest-fit.js`), and keeping the signals 
 characters, swinging over many frames (8 only), onion skin and forced poses (building aids), a picture painted finer than its
 character.
 
+## Topps wearing the face mask: `topps-mask.patch.json` + `topps-mask.golden.json`
+
+The pilot's own guess of the face mask on Topps's head (`AL.mask.create`), a pose made by hand on two drawings and a swap
+(`make-topps-mask.js`). The patch is only the head set's mask landmarks and face data (`CharacterSolverTest` puts it on the
+Topps it already reads); six cases: rest, two points moved front-on and turned, mid-turn, a pose at 0.8, a pose that swaps a
+drawing. Checked by `run-avatar-solve.sh` (every vertex within 0.005 px; 5 planted mask faults caught).
+
 ## The owner's face take: `face-take-20261127.track.json`
 
 His own 45.6 s take on the Note 9's front camera (11-27, for testing), read by the web pilot's face tracker (MediaPipe face

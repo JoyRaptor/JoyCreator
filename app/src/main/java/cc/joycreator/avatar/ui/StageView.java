@@ -478,6 +478,44 @@ public final class StageView extends View {
     }
 
     private float roomBelow, roomSide;
+    private android.graphics.RectF fitRect, fitBox;
+
+    /**
+     * The frame is on: fit {@code box} (the character's drawing, in character pixels) into {@code rect} (stage pixels) instead of the
+     * whole canvas into the stage. Both null puts the stage back as it always was. The view is then {@link #setView}'s to move.
+     */
+    public void setFit(android.graphics.RectF rect, android.graphics.RectF box) {
+        boolean same = (rect == null ? fitRect == null : rect.equals(fitRect)) && (box == null ? fitBox == null : box.equals(fitBox));
+        if (same) return;
+        fitRect = rect == null ? null : new android.graphics.RectF(rect);
+        fitBox = box == null ? null : new android.graphics.RectF(box);
+        invalidate();
+    }
+
+    /** Where the view is now relative to the fitted one: scale (1 = fitted), and the pan in pixels. */
+    public void setView(float zoomTo, float panXTo, float panYTo) {
+        zoom = zoomTo;
+        panX = panXTo;
+        panY = panYTo;
+        invalidate();
+    }
+
+    public float zoomNow() {
+        return zoom;
+    }
+
+    public float panXNow() {
+        return panX;
+    }
+
+    public float panYNow() {
+        return panY;
+    }
+
+    /** The fitted view (before zoom and pan): scale and origin, as last drawn. */
+    public float[] baseView() {
+        return new float[]{baseS, baseX, baseY};
+    }
 
     public void setHint(String s) {
         hintText = s == null ? "" : s;
@@ -495,6 +533,11 @@ public final class StageView extends View {
             float s = Math.min((right - 2 * pad) / fw, (bottom - 2 * pad) / fh);
             float ox = pad + ((right - 2 * pad) - fw * s) / 2f + roomSide * s;
             float oy = pad + ((bottom - 2 * pad) - fh * s) / 2f;
+            if (fitRect != null && fitBox != null && fitBox.width() > 1 && fitBox.height() > 1) {     // the frame is on: the character is fitted INTO it (scene slice)
+                s = Math.min((fitRect.width() - 8 * dp) / fitBox.width(), (fitRect.height() - 5.6f * dp) / fitBox.height());
+                ox = fitRect.centerX() - fitBox.centerX() * s;
+                oy = fitRect.centerY() - fitBox.centerY() * s;
+            }
             int save = c.save();
             fitS = s;
             fitX = ox;

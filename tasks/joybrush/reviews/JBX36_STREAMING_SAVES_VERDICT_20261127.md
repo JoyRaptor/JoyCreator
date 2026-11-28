@@ -81,5 +81,75 @@ file) is acceptable, because it is the one place the artist could lose the newes
   move; before, it opened the save before it from `.bak`. A `.tmp` that does not open is never moved into place.
   `KillMidSaveTest`: that case failed first; a kill while writing and a half `.tmp` already kept the last save (guards).
   Still owed for S4: `am kill` during a big save on the Note 9, once S2 streams real saves.
-- **S2** (the GPU freeze and batched readback) is next, with a brief for a fresh session. **S3** follows (owner 11-27:
-  about 3 s of lost work at leaving is acceptable). **S5** waits for Note 9 measurements of S1-S4.
+- **11-27, S2 landed (behind `ArchiveCarrying.streamTiles`, off):** the changed-tiles autosave copies the tiles it must
+  read into pooled textures on the graphics chip in the one GL task it already takes (`GlPaintEngine.freezeTiles`, a
+  blit; nothing the drawing holds is written), settles the document from the tiles' fingerprints (blank = the
+  fingerprint of zeros), and reads the copies back a batch at a time while the save writes them
+  (`BatchedTileSource`, at most two 16 MB batches). A read that stops refuses the save with `JbArchiveNeedsBytes`
+  (nothing written, the older file stands, the whole drawing is read the old way); no graphics memory for the copies
+  falls back to the old readback. Only the changed-tiles autosave streams; a streamed save makes no thumbnail.
+  **Note 9, a full page of oil (264 picture tiles, 256 store tiles), bench `savestream` (build 3df678f44):**
+
+  | | Old path (switch off) | Streamed (switch on) |
+  |---|---|---|
+  | Heap the snapshot holds | 189 MB | 3 MB |
+  | Heap peak during the save (from 22-23 MB) | 237 MB | 85 MB |
+  | The pen waits, every tile changed | 654-729 ms | 254-442 ms |
+  | The pen waits, 108 tiles changed | 298 ms | 129-145 ms |
+  | Write | 7.1-7.4 s | 7.0-7.3 s (1.4-1.6 s when 108 changed) |
+  | The file against the drawing's checksums at the freeze | EXACT | EXACT, 8 of 8 saves, including 2 with an undo changing 108 tiles while the save was reading |
+
+  **S4 on the phone:** the app killed itself 3 s into a 7 s streamed write (SIGKILL, bench `savestream keep die 3000`):
+  the file is byte for byte what it was (same SHA-256), a 6.8 MB half `.tmp` lies beside it, nothing else changed.
+  Tests: `BatchedTileSourceTest` (at most two batches, a stopped read refuses and leaves the file, a stopped view
+  refuses at once). The GPU copy itself is proven only on the Note 9 (no Fold run); the lifecycle gate
+  (`jb_bench_life` recreate / graphics lost) with the switch on is still owed.
+- **11-27, S3 landed (switch `ArchiveCarrying.sparseLeave`, off):** the save on leaving the screen reads only the tiles
+  that changed since the last save, as the autosave does, in the one GL task it takes before the screen stops drawing
+  (it never streams: nothing is left to read after the surface goes). It read everything before only for the Library's
+  picture, which is now drawn from the file just written, a tile at a time (`DrawingLibrary.thumbnailOfFile`; the
+  tiles a band of rows needs are kept, so each is unpacked once, not once a row: `ThumbnailFromFileTest`, 192 asks of
+  one tile before). A drawing with editable lines, or a file that cannot stand in for unread tiles, reads everything as
+  before; a save that cannot be read before the screen stops is refused and the last good file stands (owner 11-27).
+  **Note 9 lifecycle gate (build e73176ba0, full page of oil, all JBX-36 switches on):** Android rebuilt the screen
+  after a save and an undo: the save on leaving read the 106 undone tiles (274 ms on the graphics thread, written in
+  1.5 s) and the new screen opened the same drawing (digests `383082e9` / `fcc2fc9e` both sides); the same with the
+  graphics destroyed at the pause (`0e1e8199` / `186b4f05` both sides); switch off, the same as before. The autosaves in
+  those runs streamed (330 to 336 tiles frozen). Not run on the phone: the Library picture from the file (a bench
+  drawing is not in the Library; covered by the JVM test).
+- **11-27, S5 measured (nothing changed in code).** Note 9, the real drawing screen (`jb_bench_life`), build 576b74a12;
+  each run: a streamed save measured alone, the screen's own saves, then Android rebuilt the screen and the reopened
+  drawing was compared. **Every run reopened exactly** (digests equal both sides).
+
+  | Run | Snapshot holds | Heap peak in the save | Pen waits | Write | Paint kept |
+  |---|---|---|---|---|---|
+  | R1 streamed, today's caps | 1 MB | 89 MB | 309 ms | 7.1 s | 264 pictures, 256 store tiles |
+  | R2 streamed, save budget 1 GB | 1 MB | 88 MB | 307 ms | 7.1 s | the same |
+  | R3 streamed, room 512 MB, bigger page | 0 MB | 101 MB | 330 ms | 9.6 s | 481 pictures, 230 store tiles |
+  | R4 old path, save budget 1 GB | 193 MB | 238 MB | 702 ms | 7.0 s | 264 / 256 |
+  | R5 old path, room 512 MB, bigger page | 67 MB (190 before) | 280 MB of 512 | 1006 ms | 9.1 s | 480 / 230 |
+
+  **What it shows.** The save is no longer what limits the paint room: streamed, a save holds a megabyte whatever the
+  drawing. But raising the save budget or the room did not keep more paint: with a 512 MB room and a bigger page only
+  115 tiles kept their paint and the rest set. Something before the save sets old paint, most likely the paint atlas's
+  own tile window (second review E3, "admission still counts the old 1024 window"). Raising the room is therefore an
+  engine job (atlas admission), not a save change, and is not started.
+  Seen on the bench only: the bench's measured save and the screen's own saves share what the canvas has read, so the
+  next screen save found its file out of step, said so ("the last save did not write ... as it is now") and read the
+  whole drawing: the safety net working; in the app only the screen saves.
+
+## Recommendation for launch (11-27)
+
+**Switch S1-S4 on for launch (`streamTiles`, `finishInterruptedMove`, `sparseLeave`), after one check on a second
+phone; leave S5 (bigger caps) off.**
+
+- For: every streamed save on the Note 9 reopened exactly (16 saves and 5 lifecycle runs, two with an undo while the
+  save was reading); a rebuilt screen and lost graphics reopened the same drawing; a kill in the middle of a write left
+  the file byte for byte; a save's snapshot went from about 190 MB to 1 MB and its peak from 238 to about 90 MB of the
+  512 MB heap, so a save no longer risks running out of memory; the pen waits about half as long. Every failure falls
+  back to the old whole read, and nothing is written until the file is whole.
+- Against: only one graphics chip (the Note 9's Adreno) has run the GPU copy and the half-float readback of the copies.
+  A driver that copies wrongly would save wrong paint without noticing. The bench `printcheck` and `savestream`
+  (EXACT) on the Fold or the tablet would cover it in about ten minutes; without that, ship with the switches off.
+- S5: no launch change. The paint room is held by the atlas, not the save; raising it needs the atlas admission work
+  (E3), its own job.

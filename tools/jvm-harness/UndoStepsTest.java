@@ -123,6 +123,14 @@ public class UndoStepsTest {
                 && o.getStrokeWidthPx() == 0f && !o.fitWidthSetting());
         after.applyTo(o);
         check("Redo puts the new look back", TextBoxLook.of(o).sameAs(after) && o.isFitWidth());
+        // STU-C6 (11-28): the one-button case cycle alone. The drawer records its whole visit as ONE step when it
+        // closes (endTextStyleSession), so a case change must count as a change on its own and come back on Undo.
+        TextOverlayItem t = new TextOverlayItem("Hello", 0xFFFFFFFF, 0.5f, 0.5f, 0.1f, 0f);
+        TextBoxLook opened = TextBoxLook.of(t);
+        t.setTextCase(TextOverlayItem.CASE_ALL_CAPS);
+        check("a case change alone is a drawer visit with a step", !TextBoxLook.of(t).sameAs(opened));
+        opened.applyTo(t);
+        check("Undo puts the case back", TextBoxLook.of(t).sameAs(opened) && !TextOverlayItem.CASE_ALL_CAPS.equals(t.getTextCase()));
     }
 
     static void check(String what, boolean ok) {

@@ -24,7 +24,7 @@ on:
         required: false
         default: all
       fault:
-        description: "Planted fault to prove the tests can fail: none, shift (one piece drawn 2 px off) rest (Studio draws only the standing picture) or flip (the face test plays his head turns the other way round)"
+        description: "Planted fault to prove the tests can fail: none, shift (one piece drawn 2 px off), rest (Studio draws only the standing picture) or flip (the face test plays his head turns the other way round)"
         required: false
         default: none
       device:

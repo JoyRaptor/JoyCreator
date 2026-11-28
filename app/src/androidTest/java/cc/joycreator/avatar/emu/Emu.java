@@ -197,7 +197,25 @@ final class Emu {
             Log.i(TAG, "clicked \"" + text + "\"");
             return;
         }
-        tapText(text, 1000);
+        // the system's picker ignored touches injected from the test: the shell's own tap (what adb scripts use) reaches it
+        android.graphics.Rect b = new android.graphics.Rect();
+        n.getBoundsInScreen(b);
+        shell("input tap " + b.centerX() + " " + b.centerY());
+        Log.i(TAG, "shell-tapped \"" + text + "\" at " + b.toShortString());
+    }
+
+    /** Runs a shell command as the shell user (as adb does) and waits for it; returns what it printed. */
+    static String shell(String cmd) {
+        android.os.ParcelFileDescriptor pfd = ins().getUiAutomation().executeShellCommand(cmd);
+        StringBuilder sb = new StringBuilder();
+        try (java.io.InputStream in = new android.os.ParcelFileDescriptor.AutoCloseInputStream(pfd)) {
+            byte[] buf = new byte[4096];
+            int k;
+            while ((k = in.read(buf)) > 0) sb.append(new String(buf, 0, k, java.nio.charset.StandardCharsets.UTF_8));
+        } catch (IOException e) {
+            Log.w(TAG, "shell: " + cmd, e);
+        }
+        return sb.toString();
     }
 
     /** Where the thing labelled {@code text} is on screen (its middle), or null. */

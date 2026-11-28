@@ -85,6 +85,20 @@ public final class TrailPlanTest {
             near(300, g.y(), 1e-6, "about the square's middle (y)");
         }
         near(4 * Math.PI, laps, 0.05, "two whole laps, counted, not folded into one turn");
+        // The pass steps with a fixed map, no trigonometry: S steps must land where the arc does.
+        for (RigidShutterPlan.Segment g : sp2.trail().segments()) {
+            double[] m = g.stepBack(RigidShutterPlan.TRAIL_SUBSTEPS);
+            double zx = 310, zy = 280;
+            for (int k = 0; k < RigidShutterPlan.TRAIL_SUBSTEPS; k++) {
+                double nx = m[0] * zx - m[1] * zy + m[2], ny = m[1] * zx + m[0] * zy + m[3];
+                zx = nx;
+                zy = ny;
+            }
+            double[] want = g.back(310, 280, 1.0);
+            near(want[0], zx, 1e-6, "stepped map lands on the arc (x)");
+            near(want[1], zy, 1e-6, "stepped map lands on the arc (y)");
+        }
+        check(sp2.trail().boxes().size() == sp2.trail().segments().size(), "a box for every segment");
         check(plan.bounds().left() == 0 && plan.bounds().right() >= 500,
                 "the swept box covers the whole trail (clipped at the canvas edge): " + plan.bounds());
 

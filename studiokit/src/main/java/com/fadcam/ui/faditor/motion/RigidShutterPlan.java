@@ -34,9 +34,10 @@ public record RigidShutterPlan(SweptBounds bounds, List<Tap> taps, Trail trail) 
      * next as a turn about a fixed point, so the smear follows arcs (see {@link Segment}).
      */
     public record Trail(MotionShutter.Look look, double smearScale, double copyScale, double sharp,
-                        Tap sharpTap, List<Segment> segments) {
+                        Tap sharpTap, List<Segment> segments, List<SweptBounds> boxes) {
         public Trail {
             segments = List.copyOf(segments);
+            boxes = List.copyOf(boxes);
         }
     }
 
@@ -49,6 +50,19 @@ public record RigidShutterPlan(SweptBounds bounds, List<Tap> taps, Trail trail) 
      */
     public record Segment(double x, double y, double logScale, double turn) {
         public boolean slide() { return logScale == 0.0 && turn == 0.0; }
+
+        /**
+         * One smear step back as a fixed map z' = M z + t, M = [[a, -b], [b, a]]: the pass
+         * repeats it {@code steps} times per segment with no trigonometry per pixel.
+         * Returns {a, b, tx, ty}.
+         */
+        public double[] stepBack(int steps) {
+            if (slide()) return new double[]{1, 0, -x / steps, -y / steps};
+            double k = Math.exp(-logScale / steps), ang = -turn / steps;
+            double a = k * Math.cos(ang), b = k * Math.sin(ang);
+            // t = p - M p
+            return new double[]{a, b, x - (a * x - b * y), y - (b * x + a * y)};
+        }
 
         /** Canvas point {@code z} moved back by fraction {@code t} of this segment. */
         public double[] back(double zx, double zy, double t) {
@@ -146,16 +160,23 @@ public record RigidShutterPlan(SweptBounds bounds, List<Tap> taps, Trail trail) 
                 copyScale = copies > 0 ? 0.5 * mix / copies : 0;
             }
         }
-        // The arcs between poses bulge outside the poses' own boxes: bound the steps too.
+        // The arcs between poses bulge outside the poses' own boxes: bound the steps too, and
+        // give each segment its own box so a pixel only walks the segments that can reach it.
         var swept = new ArrayList<ItemMotionSampler.Affine>(all);
+        var boxes = new ArrayList<SweptBounds>(segments.size());
         for (int i = 0; i < segments.size(); i++) {
+            var own = new ArrayList<ItemMotionSampler.Affine>(TRAIL_SUBSTEPS + 1);
+            own.add(all.get(i));
+            own.add(all.get(i + 1));
             for (int j = 1; j < TRAIL_SUBSTEPS; j++) {
-                swept.add(stepPose(all.get(i), segments.get(i), (double) j / TRAIL_SUBSTEPS));
+                own.add(stepPose(all.get(i), segments.get(i), (double) j / TRAIL_SUBSTEPS));
             }
+            boxes.add(SweptBounds.ofPoses(own, width, height, 4.0));
+            swept.addAll(own);
         }
         SweptBounds bounds = SweptBounds.ofPoses(swept, width, height, 4.0);
         return new RigidShutterPlan(bounds, taps, new Trail(controls.look(), smearScale, copyScale,
-                1.0 - mix, new Tap(sharpInverse, 1.0), segments));
+                1.0 - mix, new Tap(sharpInverse, 1.0), segments, boxes));
     }
 
     /** {@code from} moved forward by fraction {@code t} of {@code seg} (uv to canvas). */

@@ -70,6 +70,7 @@ public final class RigidTextureShutterPass {
     private final float[] sharpY = new float[4];
     private final float[] scale = new float[3];
     private final float[] segment = new float[4];
+    private final float[] box = new float[4];
     private final boolean overlay;
     private final boolean pip;
     private final float[] frame;
@@ -177,17 +178,26 @@ public final class RigidTextureShutterPass {
         // uniforms, and setting one that is not there throws).
         if (trail.look() != MotionShutter.Look.COPIES) {
             var segments = trail.segments();
+            var boxes = trail.boxes();
             for (int i = 0; i + 1 < RigidShutterPlan.MAX_TRAIL_POSES; i++) {
                 if (i < segments.size()) {
-                    var g = segments.get(i);
-                    segment[0] = (float) g.x();
-                    segment[1] = (float) g.y();
-                    segment[2] = (float) g.logScale();
-                    segment[3] = (float) g.turn();
+                    double[] m = segments.get(i).stepBack(RigidShutterPlan.TRAIL_SUBSTEPS);
+                    segment[0] = (float) m[0];
+                    segment[1] = (float) m[1];
+                    segment[2] = (float) m[2];
+                    segment[3] = (float) m[3];
+                    var b = boxes.get(i);
+                    box[0] = b.left();
+                    box[1] = b.top();
+                    box[2] = b.right();
+                    box[3] = b.bottom();
                 } else {
-                    segment[0] = segment[1] = segment[2] = segment[3] = 0f;
+                    segment[0] = 1f;
+                    segment[1] = segment[2] = segment[3] = 0f;
+                    box[0] = box[1] = box[2] = box[3] = 0f;   // empty: no pixel walks it
                 }
-                p.setFloatsUniform("uSeg" + i, segment);
+                p.setFloatsUniform("uStep" + i, segment);
+                p.setFloatsUniform("uBox" + i, box);
             }
         }
         p.bindAttributesAndUniforms();
@@ -225,9 +235,9 @@ public final class RigidTextureShutterPass {
      *   <li>{@code sampleUvSoft(uv, f, w)}: samplePose at a given UV, its edges softened by
      *   {@code f} (how far this pixel's UV moves between two smear steps), so overlapping steps
      *   add up evenly whatever the direction of motion;</li>
-     *   <li>{@code arcBack(z, seg, t)}: canvas point z taken back by fraction t of a segment, a
-     *   turn and zoom about its fixed point (a slide when seg.zw is zero), so the steps between
-     *   two key poses trace the true arc (see RigidShutterPlan.Segment).</li>
+     *   <li>{@code uvAt(rx, ry, z)}: a canvas point to the picture's UV through one pose's rows;
+     *   the smear steps z back along the arc by a fixed per-segment map (uStep), see
+     *   RigidShutterPlan.Segment#stepBack.</li>
      * </ul>
      */
     static String withSoftSampler(String shader) {
@@ -253,15 +263,6 @@ public final class RigidTextureShutterPass {
             throw new IllegalStateException("soft sampler did not build");
         }
         String arc = """
-                vec2 arcBack(vec2 z, vec4 seg, float t) {
-                  if (seg.z == 0.0 && seg.w == 0.0) return z - t * seg.xy;
-                  float k = exp(-t * seg.z);
-                  float a = -t * seg.w;
-                  float c = cos(a);
-                  float s = sin(a);
-                  vec2 d = z - seg.xy;
-                  return seg.xy + k * vec2(c * d.x - s * d.y, s * d.x + c * d.y);
-                }
                 vec2 uvAt(vec4 rx, vec4 ry, vec2 z) {
                   return vec2(dot(rx.xyz, vec3(z, 1.0)), dot(ry.xyz, vec3(z, 1.0)));
                 }
@@ -294,7 +295,7 @@ public final class RigidTextureShutterPass {
         if (trail != null) {
             source.append("uniform vec4 uSharpX, uSharpY;\nuniform vec3 uScale;\n");
             for (int i = 0; i + 1 < RigidShutterPlan.MAX_TRAIL_POSES; i++) {
-                source.append("uniform vec4 uSeg").append(i).append(";\n");
+                source.append("uniform vec4 uStep").append(i).append(", uBox").append(i).append(";\n");
             }
         }
         if (bitmap) {
@@ -401,17 +402,21 @@ public final class RigidTextureShutterPass {
         if (smear) {
             // Each live segment: steps along the arc from pose i toward pose i + 1. A step's
             // softening is how far this pixel's UV moves to the next step, so neighbours blend.
-            source.append("  vec2 u; vec2 nu; vec2 d; float ww; vec2 endU = vec2(0.0); vec2 endF = vec2(0.0); float endW = 0.0;\n");
+            source.append("  vec2 z; vec2 u; vec2 nu; vec2 d; float ww; vec2 endU = vec2(0.0); vec2 endF = vec2(0.0); float endW = 0.0;\n");
             int steps = RigidShutterPlan.TRAIL_SUBSTEPS;
             for (int i = 0; i + 1 < n; i++) {
-                String rx = "uTapX" + i, ry = "uTapY" + i, seg = "uSeg" + i;
-                source.append("  if (uTapY").append(i + 1).append(".w > 0.0) {\n");
-                source.append("    u = uvAt(").append(rx).append(", ").append(ry).append(", pixel.xy);\n");
+                String rx = "uTapX" + i, ry = "uTapY" + i, st = "uStep" + i, bx = "uBox" + i;
+                source.append("  if (uTapY").append(i + 1).append(".w > 0.0 && all(greaterThanEqual(p, ")
+                        .append(bx).append(".xy)) && all(lessThan(p, ").append(bx).append(".zw))) {\n");
+                source.append("    z = pixel.xy;\n");
+                source.append("    u = uvAt(").append(rx).append(", ").append(ry).append(", z);\n");
                 for (int j = 0; j < steps; j++) {
-                    String tNext = Float.toString((float) (j + 1) / steps);
                     String tHere = Float.toString((float) j / steps);
-                    source.append("    nu = uvAt(").append(rx).append(", ").append(ry)
-                            .append(", arcBack(pixel.xy, ").append(seg).append(", ").append(tNext).append("));\n");
+                    // one fixed step back along the arc: z = M z + t (no trigonometry per pixel)
+                    source.append("    z = vec2(").append(st).append(".x * z.x - ").append(st).append(".y * z.y + ")
+                            .append(st).append(".z, ").append(st).append(".y * z.x + ").append(st)
+                            .append(".x * z.y + ").append(st).append(".w);\n");
+                    source.append("    nu = uvAt(").append(rx).append(", ").append(ry).append(", z);\n");
                     // two taps a step (at the step and halfway to the next), each softened by
                     // its half step, capped so a huge step cannot smear past the thing's edge
                     source.append("    d = min(abs(nu - u), vec2(0.35)) * 0.5;\n");

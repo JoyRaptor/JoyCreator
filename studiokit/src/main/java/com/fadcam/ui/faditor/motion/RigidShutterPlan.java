@@ -58,6 +58,15 @@ public record RigidShutterPlan(SweptBounds bounds, List<Tap> taps, Trail trail) 
                                                 MotionShutter.Controls controls, long periodUs,
                                                 MotionBreaks breaks, MotionBreaks sourceBreaks,
                                                 int width, int height) {
+        return prepareTrail(sampler, centerUs, controls, periodUs, breaks, sourceBreaks, width,
+                height, MAX_SMEAR_TAPS);
+    }
+
+    /** {@link #prepareTrail} taking at most {@code maxSmearTaps} smear taps (the live preview). */
+    public static RigidShutterPlan prepareTrail(ItemMotionSampler sampler, long centerUs,
+                                                MotionShutter.Controls controls, long periodUs,
+                                                MotionBreaks breaks, MotionBreaks sourceBreaks,
+                                                int width, int height, int maxSmearTaps) {
         MotionShutter.Look look = controls.look();
         MotionShutter.Schedule dense = controls.trailPoses(centerUs, periodUs, PATH_PROBES, breaks,
                 sourceBreaks);
@@ -83,7 +92,8 @@ public record RigidShutterPlan(SweptBounds bounds, List<Tap> taps, Trail trail) 
 
         // the smear: enough taps to keep them TAP_GAP_PX apart, placed by travel
         if (look != MotionShutter.Look.COPIES) {
-            int n = (int) Math.max(2, Math.min(MAX_SMEAR_TAPS, Math.ceil(path / TAP_GAP_PX) + 1));
+            int n = (int) Math.max(2, Math.min(Math.min(MAX_SMEAR_TAPS, maxSmearTaps),
+                    Math.ceil(path / TAP_GAP_PX) + 1));
             double[] at = byTravel(run, n);
             double[] w = new double[n];
             ItemMotionSampler.Affine[] p = new ItemMotionSampler.Affine[n];

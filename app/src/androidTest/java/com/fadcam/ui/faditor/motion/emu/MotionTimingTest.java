@@ -94,12 +94,18 @@ public final class MotionTimingTest {
                     new Case("trail: 32 fr", new Controls(32 * 360, Timing.TRAILING, 0, 100, 0, Look.SMEAR, 4), slide(20)),
                     new Case("trail: Copies 7", new Controls(8 * 360, Timing.TRAILING, 0, 100, 0, Look.COPIES, 7), slide(40)),
                     new Case("trail: Both 5", new Controls(8 * 360, Timing.TRAILING, 0, 100, 60, Look.BOTH, 5), slide(40)),
+                    new Case("PREVIEW Heavy, fast spin", new Controls(270, Timing.CENTERED, 0, 100), spin(40)),
+                    new Case("PREVIEW Streak 8 fr", new Controls(8 * 360, Timing.TRAILING, 0, 100, 60, Look.SMEAR, 4), slide(40)),
+                    new Case("PREVIEW 32 fr", new Controls(32 * 360, Timing.TRAILING, 0, 100, 0, Look.SMEAR, 4), slide(20)),
+                    new Case("PREVIEW Both 5", new Controls(8 * 360, Timing.TRAILING, 0, 100, 60, Look.BOTH, 5), slide(40)),
             };
             MotionEmu.log("timing on " + android.os.Build.MODEL + " / " + GLES20.glGetString(GLES20.GL_RENDERER)
                     + ", " + W + "x" + H + " frame, " + SIZE + " px picture, median of " + RUNS);
             for (Case c : cases) {
                 RigidShutterPlan plan = c.controls() == null
                         ? RigidShutterPlan.sharp(c.sampler(), NOW, W, H)
+                        : c.name().startsWith("PREVIEW")
+                        ? RigidTextureShutterPass.planPreview(c.controls(), c.sampler(), NOW, PERIOD, MotionBreaks.none(), W, H)
                         : RigidTextureShutterPass.plan(c.controls(), c.sampler(), NOW, PERIOD, MotionBreaks.none(), W, H);
                 assertNotNull(c.name(), plan);
                 for (int i = 0; i < 5; i++) pass.draw(source, W, H, plan, backdrop, 1f);   // compile + warm

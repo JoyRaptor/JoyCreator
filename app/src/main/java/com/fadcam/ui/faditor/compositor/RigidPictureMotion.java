@@ -50,7 +50,13 @@ public final class RigidPictureMotion {
 
     @Nullable
     RigidTextureShutterPass.Exposure exposure(long timeUs, long periodUs, int targetWidth, int targetHeight) {
-        return width == targetWidth && height == targetHeight ? exposure(timeUs, periodUs) : null;
+        // the live preview's call: a capped smooth plan (export calls the two-argument form)
+        if (width != targetWidth || height != targetHeight) return null;
+        if (periodUs <= 0 || timeUs < pieceStartUs || timeUs >= pieceEndUs) return null;
+        var plan = RigidTextureShutterPass.planPreview(item.rigidMotionShutterAt(timeUs / 1000L),
+                sampler, timeUs, periodUs, fences, width, height);
+        if (plan == null) return null;
+        return new RigidTextureShutterPass.Exposure(plan, Math.max(0f, Math.min(1f, item.animatedOpacity(timeUs / 1000L))));
     }
 
     @Nullable

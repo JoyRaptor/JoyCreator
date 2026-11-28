@@ -17,6 +17,9 @@ public final class RigidTextureShutterPass {
     /** A camera tap gap past this many canvas pixels would show as separate copies. */
     static final double CAMERA_STEP_PX = 3.0;
 
+    /** Most smear taps a live-preview smooth plan takes (Note 9 timing, 11-27: ~0.4 ms a tap). */
+    public static final int PREVIEW_SMEAR_TAPS = 11;
+
     public static final String VERTEX_SHADER =
             "#version 100\n"
             + "attribute vec4 aFramePosition;\n"
@@ -35,23 +38,43 @@ public final class RigidTextureShutterPass {
         return plan(controls, sampler, timeUs, periodUs, breaks, MotionBreaks.none(), width, height);
     }
 
+    /**
+     * The live preview's plan: a smooth plan there takes at most {@link #PREVIEW_SMEAR_TAPS} smear
+     * taps so a long trail stays inside the Note 9's frame budget (spec §K.2 rule 4); export and
+     * Show exact frame keep every tap. Softening widens with the gaps, so it reads softer, not
+     * stepped, until the gaps pass a third of the thing's width.
+     */
+    public static RigidShutterPlan planPreview(MotionShutter.Controls controls, ItemMotionSampler sampler,
+                                        long timeUs, long periodUs, MotionBreaks breaks,
+                                        int width, int height) {
+        return plan(controls, sampler, timeUs, periodUs, breaks, MotionBreaks.none(), width, height,
+                PREVIEW_SMEAR_TAPS);
+    }
+
     public static RigidShutterPlan plan(MotionShutter.Controls controls, ItemMotionSampler sampler,
                                  long timeUs, long periodUs, MotionBreaks breaks,
                                  MotionBreaks sourceBreaks, int width, int height) {
+        return plan(controls, sampler, timeUs, periodUs, breaks, sourceBreaks, width, height,
+                RigidShutterPlan.MAX_SMEAR_TAPS);
+    }
+
+    static RigidShutterPlan plan(MotionShutter.Controls controls, ItemMotionSampler sampler,
+                                 long timeUs, long periodUs, MotionBreaks breaks,
+                                 MotionBreaks sourceBreaks, int width, int height, int maxSmearTaps) {
         if (periodUs <= 0 || controls.mixPercent() == 0 || controls.angle() == 0) return null;
         // STU-7 §K.2: a long trail, Fade or Copies is drawn from real earlier poses by the trail
         // program. Source changes inside the window (a sprite's drawing swap) do not cut a trail:
         // it carries the current drawing along the path. Cuts, step keys and loops still do.
         if (controls.isStylised()) {
             return RigidShutterPlan.prepareTrail(sampler, timeUs, controls, periodUs, breaks,
-                    width, height);
+                    MotionBreaks.none(), width, height, maxSmearTaps);
         }
         var schedule = controls.schedule(timeUs, periodUs, SAMPLE_COUNT, breaks, sourceBreaks);
         // A fast move inside one shutter would show the six taps as copies: draw the same
         // exposure with the smooth trail program (steps along the true path) instead.
         if (RigidShutterPlan.tapsWouldStep(sampler, schedule, CAMERA_STEP_PX)) {
             RigidShutterPlan smooth = RigidShutterPlan.prepareTrail(sampler, timeUs, controls,
-                    periodUs, breaks, sourceBreaks, width, height);
+                    periodUs, breaks, sourceBreaks, width, height, maxSmearTaps);
             if (smooth != null) return smooth;
         }
         return RigidShutterPlan.prepare(sampler, timeUs, schedule, width, height, 1.0);

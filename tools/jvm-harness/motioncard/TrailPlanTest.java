@@ -42,6 +42,11 @@ public final class TrailPlanTest {
             near(SLIDE.at(NOW + Math.round(fr * PERIOD)).tx(), x(plan, i), 0.01, "tap " + i + " is a real pose");
         }
         check(plan.trail().program() >= n, "drawn by a program with room for every tap");
+        RigidShutterPlan preview = RigidShutterPlan.prepareTrail(SLIDE, NOW, streak, PERIOD,
+                MotionBreaks.none(), MotionBreaks.none(), 4000, 4000, 11);
+        eq(11, preview.taps().size(), "the live preview caps the smear taps");
+        eq(12, preview.trail().program(), "and so draws with the smallest program");
+        near(500 - 240, x(preview, 0), 1e-6, "still from 8 frames ago");
         double sum = 0;
         for (var tap : plan.taps()) sum += tap.weight();
         check(sum > 1.5, "a long trail is a stroke, not the thing's light spread thin: " + sum);

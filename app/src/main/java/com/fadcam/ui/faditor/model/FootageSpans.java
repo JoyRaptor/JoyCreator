@@ -54,12 +54,26 @@ public final class FootageSpans {
     /**
      * Can this clip's footage blur at all? The clip-level rules both routes share. The project
      * switch, the launch gate and the decoder are the callers' business.
+     *
+     * <p><b>Crop</b> blurs: both routes gather on the whole decoded source frame first (the
+     * export's High stage is the clip's first effect, the preview's gather runs before its crop
+     * pass) and crop the blurred picture after, so the flow never sees the crop's edge.</p>
+     *
+     * <p><b>A placement that moves</b> (a spine transform with keys that change) keeps its own
+     * rigid shutter and the footage stays sharp. Running the two one after the other would smear
+     * each pixel along the motion in the picture AND then along the placement's motion: a
+     * parallelogram where the real exposure is one line along their sum (they add up per
+     * instant, they do not convolve). Doing it right needs one pass that moves each tap by both,
+     * which neither pass does today. A placement that is armed but holds still (no track with a
+     * second key) is a fixed frame after the gather, so the footage blurs.</p>
+     *
+     * <p>Mesh and corner pin stay sharp: they warp per pixel after the gather, which a rigid
+     * placement shutter does not describe either.</p>
      */
     public static boolean eligible(@Nullable Clip clip) {
         if (clip == null || clip.isImageClip() || !clip.isRigidMotionBlurEnabled()
                 || clip.hasLoopExtension() || clip.hasMesh() || clip.hasCornerPin()
-                || clip.effectiveCropFractions() != null
-                || (clip.isSpineTransformArmed() && clip.hasSpineTransform())) {
+                || placementMoves(clip)) {
             return false;
         }
         float speed = clip.getSpeedMultiplier();
@@ -96,6 +110,12 @@ public final class FootageSpans {
         long editorOriginMs = map.clipEditorStartMs(index) + mainPassOffsetMs(clip);
         return new Span(index, startMs * 1000L, endMs * 1000L, inMs * 1000L,
                 editorOriginMs * 1000L, speed);
+    }
+
+    /** Does the clip's spine placement change over time (any track with two or more keys)? */
+    public static boolean placementMoves(@NonNull Clip clip) {
+        var keys = clip.getSpineTransform();
+        return clip.isSpineTransformArmed() && keys != null && keys.isAnimated();
     }
 
     /** Where the clip's own pass starts inside its visual span: after its loop-before. */

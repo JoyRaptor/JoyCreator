@@ -1,3 +1,5 @@
+import com.fadcam.ui.faditor.keyframe.Easing;
+import com.fadcam.ui.faditor.keyframe.KeyframeSet;
 import com.fadcam.ui.faditor.model.Clip;
 import com.fadcam.ui.faditor.model.FootageSpans;
 import com.fadcam.ui.faditor.model.PreviewClock;
@@ -33,10 +35,26 @@ public class FootageSpansTest {
         check(got == want, name + "  (got " + got + ", want " + want + ")");
     }
 
+    static boolean oldClipRules;
+
     /** The spans as the routes would see them, with the planted old rule when asked. */
     static FootageSpans.Span body(Timeline tl, int i) {
         if (oldProjectRule && tl.hasTransitions()) return null;
         return FootageSpans.body(tl, i);
+    }
+
+    /** The clip gate, or (planted) the pre-11-28 one: any crop or armed transform stayed sharp. */
+    static boolean eligible(Clip c) {
+        if (oldClipRules && (c.effectiveCropFractions() != null
+                || (c.isSpineTransformArmed() && c.hasSpineTransform()))) return false;
+        return FootageSpans.eligible(c);
+    }
+
+    static Clip withSpineKeys(float... xs) {
+        Clip c = clip(0, 3000, 1f);
+        var track = c.getOrCreateSpineTransform().getOrCreate(KeyframeSet.X);
+        for (int k = 0; k < xs.length; k++) track.put(k * 1000L, xs[k], Easing.LINEAR);
+        return c;
     }
 
     /** A filmed master clip, Motion Blur on, [inMs, outMs) of a 10-minute file. */
@@ -81,7 +99,28 @@ public class FootageSpansTest {
     }
 
     public static void main(String[] args) {
-        for (String a : args) if (a.equals("--old-project-rule")) oldProjectRule = true;
+        for (String a : args) {
+            if (a.equals("--old-project-rule")) oldProjectRule = true;
+            if (a.equals("--old-clip-rules")) oldClipRules = true;
+        }
+
+        // ── Step 2: crop and an armed placement (owner plan 11-28) ─────────────────────────
+        Clip cropped = clip(0, 3000, 1f);
+        cropped.setCropPreset("9:16");
+        check(cropped.effectiveCropFractions() != null, "fixture: the 9:16 preset crops");
+        check(eligible(cropped), "crop: a cropped clip blurs (gather on the source, crop after)");
+        Clip custom = clip(0, 3000, 1f);
+        custom.setCustomCropBounds(0.1f, 0.2f, 0.7f, 0.9f);
+        check(eligible(custom), "crop: a custom crop blurs");
+        Clip held = withSpineKeys(0.3f);
+        check(held.isSpineTransformArmed() && held.hasSpineTransform(), "fixture: one key arms the placement");
+        check(eligible(held), "armed placement that holds still: the footage blurs");
+        Clip moving = withSpineKeys(0.3f, 0.7f);
+        check(!eligible(moving), "moving placement: its own shutter, the footage stays sharp");
+        check(FootageSpans.placementMoves(moving) && !FootageSpans.placementMoves(held),
+                "placementMoves: two keys move, one key holds");
+        Clip unarmed = clip(0, 3000, 1f);
+        check(eligible(unarmed) && !FootageSpans.placementMoves(unarmed), "no placement: blurs");
 
         // ── One 600 ms transition between the first two of three clips ─────────────────────
         Timeline t = timeline(new Clip[]{clip(0, 3000, 1f), clip(1000, 5000, 1f), clip(0, 3000, 1f)},

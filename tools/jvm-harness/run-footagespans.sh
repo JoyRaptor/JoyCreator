@@ -41,4 +41,6 @@ expect_failure() {
     printf 'Negative control rejected (%s):\n%s\n' "$*" "$(printf '%s\n' "$log" | grep -E '^FAIL' | head -4)"
 }
 expect_failure --old-project-rule
+# ...and the pre-11-28 clip gate kept any crop or armed placement sharp.
+expect_failure --old-clip-rules
 java @"$RUNARGS" FootageSpansTest

@@ -602,6 +602,11 @@ class BenchRunner(private val canvas: JbCanvasView, private val spec: Spec,
                 if (!s.streamed) Log.w(TAG, "then: savestream: NOT STREAMED (switch off, no fingerprints, or nothing changed): $report")
                 if ("undo" in words) canvas.undo()
                 if ("keep" in words) Log.i(TAG, "then: savestream keep: writing now")
+                // "die <ms>": the app kills itself that long into the write (SIGKILL: nothing runs on the way out), as Android
+                // or a flat battery would. The next start finds the files as they lay (JBX-36 S4 on the phone).
+                words.indexOf("die").takeIf { it >= 0 }?.let { at -> words.getOrNull(at + 1)?.toLongOrNull() }?.let { ms ->
+                    Thread({ Thread.sleep(ms); Log.i(TAG, "then: savestream: killing the app ${ms} ms into the write"); android.os.Process.killProcess(android.os.Process.myPid()) }, "bench-die").start()
+                }
                 val memoBefore = benchStreamMemo
                 Thread({
                     System.gc()

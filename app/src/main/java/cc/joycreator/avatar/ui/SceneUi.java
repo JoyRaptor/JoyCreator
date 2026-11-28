@@ -194,14 +194,14 @@ public final class SceneUi extends FrameLayout {
             sp0.gravity = Gravity.END | Gravity.TOP;
             sp0.width = px(92);
             sp0.height = -2;
-            sp0.topMargin = px(150);
+            sp0.topMargin = px(8);                            // beside the stage's own round tools, not under them: the whole height is its own
             sp0.bottomMargin = px(28);
-            sp0.rightMargin = px(6);
+            sp0.rightMargin = px(52);
             bp.gravity = Gravity.END | Gravity.BOTTOM;
-            bp.rightMargin = up ? px(98) : px(4);
+            bp.rightMargin = up ? px(52 + 92 + 6) : px(52);
             bp.bottomMargin = px(32);
             mp.gravity = Gravity.END | Gravity.BOTTOM;
-            mp.rightMargin = (up ? px(98) : px(4)) + px(44);
+            mp.rightMargin = (up ? px(52 + 92 + 6) : px(52)) + px(44);
             mp.bottomMargin = px(32);
             strip.setOrientation(LinearLayout.VERTICAL);
         } else {

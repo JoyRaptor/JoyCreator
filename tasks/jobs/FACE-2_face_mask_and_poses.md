@@ -84,7 +84,7 @@ Face pins' Test; Stop) failed first on the old code (pad 0, Frontal at every tur
 new neutral, which washes any held turn back to straight.
 
 ## For the phone room (the spec addition; the room's sessions build it)
-**Built and landed 11-27 evening (f9c208acf):** `solve/MaskBend` + `Frame` (the pass, mid-turn, swaps) and `face/MaskDrive` (the lanes from your face, poses by NNLS); Topps wearing the pilot's mask matches the pilot within 0.005 px (`tasks/avatar/golden/topps-mask.*`). The mask is still made in the pilot: placing and posing it on the phone is not built.
+**Built and landed 11-27 evening (04fa621b6):** `solve/MaskBend` + `Frame` (the pass, mid-turn, swaps) and `face/MaskDrive` (the lanes from your face, poses by NNLS); Topps wearing the pilot's mask matches the pilot within 0.005 px (`tasks/avatar/golden/topps-mask.*`). The mask is still made in the pilot: placing and posing it on the phone is not built.
 
 - **Data** (the turn set, `joycreator.character/2`, kept by both checkers as they are): the mask points are ordinary
   landmarks of `marks['']` with extra fields `key`, `face` (MediaPipe indices), `handle`, `mask` (an added point), `xyz`

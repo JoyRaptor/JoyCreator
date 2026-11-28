@@ -403,7 +403,7 @@ may be the tracker's view from below rather than a frown; changed afterwards (th
 - [ ] The camera's new signals in the pilot's links list (idea 3), and a fire emitter part if he wants one.
 - [ ] The AVA-1 lead adds the pilot hook, and the owner tries the pilot's face on the PC page.
 - [x] The phone room (AVA-1 "path to the phone") plugs in `FaceCapture` (11-27, the face scout, to pilot parity by
-      f9c208acf): the Face chip and face row, Walk with your face, Puff, Check directions, face pins in Set up, the
+      04fa621b6): the Face chip and face row, Walk with your face, Puff, Check directions, face pins in Set up, the
       mask; his take played into the real room on the cloud emulator (`AvatarFaceReplayTest`, run 46098593937). Not on a
       phone yet. The masked mouth and teeth layers (his 11-22 idea) are still not a rig part.
 - [ ] `VideoFaceSweeper` ("From video" in Studio) still writes the old raw values; move it onto the face stage so

@@ -79,6 +79,8 @@
     <string name="avatar_hover_shrug_try">Slide and hold to see a shrug without the camera; let go and it rests</string>
     <string name="avatar_shrug_rest">rest</string>
     <string name="avatar_shrug_shrug">shrug</string>
+    <string name="avatar_hover_facepins_pick">%1$s: tap to choose this pin and set how strongly it pulls</string>
+    <string name="avatar_hover_facepins_unpick">%1$s: tap to put this pin down</string>
     <!-- cameras per tracker (the owner, 11-27: the face on one camera, the body on another) -->
     <string name="avatar_face_camera">Face camera</string>
     <string name="avatar_body_camera">Body camera</string>

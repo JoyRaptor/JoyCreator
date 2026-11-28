@@ -38,7 +38,7 @@ public class AvatarSceneFolderTest {
     public void sceneIsKeptInTheFolderAndComesBack() throws Exception {
         File out = Emu.dir("scenefolder");
         StringBuilder log = new StringBuilder();
-        android.content.Context app = androidx.test.platform.app.InstrumentationRegistry.getInstrumentation().getTargetContext();
+        android.content.Context app = Emu.ins().getTargetContext();
         Emu.turn();
         AvatarSendToStudioTest.chooseFolder(app, out, log);
         try (ActivityScenario<AvatarRoomActivity> sc = ActivityScenario.launch(AvatarRoomActivity.class)) {

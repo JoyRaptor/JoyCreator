@@ -76,14 +76,33 @@ public class AvatarSceneGlStressTest {
             View fb = byDesc(root, "Show the frame");
             if (fb != null) Emu.tap(fb);                        // the frame draws the backdrop texture too
             Emu.sleep(1000);
-            for (int i = 0; i < 150; i++) {                      // thirty seconds of drawing with the collector forced hard
+            for (int i = 0; i < 20; i++) {                       // the collector runs hard while it draws
                 Runtime.getRuntime().gc();
                 System.runFinalization();
-                byte[][] junk = new byte[64][];
-                for (int j = 0; j < junk.length; j++) junk[j] = new byte[256 * 1024];
                 Emu.sleep(200);
             }
+            // the cause itself: at the end of a frame only the character's own two vertex arrays may be enabled. The backdrop's third
+            // one (its colour) points at a buffer that is freed after the draw, and the character's glDrawElements then reads it.
+            Object room = field(a[0], "sceneRoom");
+            java.lang.reflect.Field gf = room.getClass().getDeclaredField("gl");
+            gf.setAccessible(true);
+            final android.opengl.GLSurfaceView glv = (android.opengl.GLSurfaceView) gf.get(room);
+            final int[] enabled = {-1};
+            glv.queueEvent(() -> {
+                int n = 0;
+                int[] v = new int[1];
+                for (int i = 0; i < 8; i++) {
+                    android.opengl.GLES20.glGetVertexAttribiv(i, android.opengl.GLES20.GL_VERTEX_ATTRIB_ARRAY_ENABLED, v, 0);
+                    if (v[0] != 0) n++;
+                }
+                enabled[0] = n;
+            });
+            glv.requestRender();
+            for (int i = 0; i < 20 && enabled[0] < 0; i++) Emu.sleep(250);
+            Log.i(Emu.TAG, "vertex arrays left enabled after a frame: " + enabled[0]);
             shot(out, "1-still-alive");
+            assertTrue("the drawing was asked (got " + enabled[0] + ")", enabled[0] >= 0);
+            assertTrue("only the character's two vertex arrays are left enabled after a frame (found " + enabled[0] + ")", enabled[0] <= 2);
             assertFalse("the room is still there", a[0].isFinishing());
         }
     }

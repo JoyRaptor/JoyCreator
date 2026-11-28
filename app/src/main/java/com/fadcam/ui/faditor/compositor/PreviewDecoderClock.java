@@ -14,10 +14,15 @@ import java.util.function.Consumer;
 /** Owns the metadata listener for the decoder currently routed to a compositor surface. */
 @androidx.annotation.OptIn(markerClass = UnstableApi.class)
 final class PreviewDecoderClock {
-    record Anchor(Object windowUid, long mediaOriginUs, long editorStartUs,
+    /**
+     * A decoder time {@code mediaOriginUs} lands on editor time {@code editorOriginUs}; frames are
+     * latched only inside {@code [editorStartUs, editorEndUs)}, which is the clip less any
+     * transition overlap at either end (FxLivePreviewController#bindMotionClock).
+     */
+    record Anchor(Object windowUid, long mediaOriginUs, long editorOriginUs, long editorStartUs,
                   long editorEndUs, float speed, @Nullable String footageSourceKey) {
         long toEditorUs(long sourceUs) {
-            return editorStartUs + Math.round((sourceUs - mediaOriginUs) / (double) speed);
+            return editorOriginUs + Math.round((sourceUs - mediaOriginUs) / (double) speed);
         }
     }
 

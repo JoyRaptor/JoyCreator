@@ -1035,14 +1035,21 @@ public class ExportManager {
     }
 
     private static boolean eligibleHighFootage(Clip clip) {
-        if (clip.isImageClip() || !clip.isRigidMotionBlurEnabled() || clip.hasLoopExtension()
-                || clip.hasMesh() || clip.hasCornerPin() || clip.effectiveCropFractions() != null
-                || (clip.isSpineTransformArmed() && clip.hasSpineTransform())) return false;
-        var shutter = clip.getRigidMotionShutter();
-        var keys = clip.getRigidMotionShutterKeys();
-        float speed = clip.getSpeedMultiplier();
-        return Float.isFinite(speed) && speed > 0
-                && keys.everBlurs(shutter) && keys.maxAngle(shutter) <= 360;
+        return com.fadcam.ui.faditor.model.FootageSpans.eligible(clip);
+    }
+
+    /**
+     * The continuous footage span the source window {@code [startUs, endUs]} of master clip
+     * {@code clip} lies in, or null: the window is not on the master track, cannot blur, or
+     * reaches under a transition. The preview asks the same class.
+     */
+    @Nullable
+    private static com.fadcam.ui.faditor.model.FootageSpans.Span footageSpanFor(
+            @NonNull Timeline timeline, @NonNull Clip clip, long startUs, long endUs) {
+        int index = com.fadcam.ui.faditor.model.FootageSpans.indexOf(timeline, clip);
+        if (index < 0) return null;
+        var span = com.fadcam.ui.faditor.model.FootageSpans.body(timeline, index);
+        return span != null && span.covers(startUs, endUs) ? span : null;
     }
 
     /**
@@ -4311,9 +4318,8 @@ public class ExportManager {
     private static final long FRAME_CLAMP_LOOKAHEAD_MS = 120L;
 
     private long frameLookaheadMs(FaditorProject project) {
-        if (!highFootageExportEnabled(project) || project.getTimeline().hasTransitions()) {
-            return FRAME_CLAMP_LOOKAHEAD_MS;
-        }
+        // Transitions no longer turn this off: a clip body beside a blend blurs (FootageSpans).
+        if (!highFootageExportEnabled(project)) return FRAME_CLAMP_LOOKAHEAD_MS;
         long lookaheadMs = FRAME_CLAMP_LOOKAHEAD_MS;
         for (Clip clip : project.getTimeline().getClips()) {
             if (!eligibleHighFootage(clip)) continue;
@@ -5527,12 +5533,18 @@ public class ExportManager {
                 /* preOverlayExtra = */ null,
                 /* isLoopBeforeItem = */ false,
                 clipLocalStartMs, Math.max(sourceDurationMs, timelineDurationMs), timelineDurationMs);
-        if (sourceFootage && highFootageExportEnabled(project)
-                && eligibleHighFootage(clip) && !project.getTimeline().hasTransitions()) {
+        // Filmed-video Motion Blur, per piece: only a piece inside one of the clip's continuous
+        // spans (FootageSpans: the body outside its transitions) blurs, on the span's editor
+        // clock, so the preview and this file blur the same frames. A transition piece is
+        // built elsewhere and stays sharp.
+        if (sourceFootage && highFootageExportEnabled(project)) {
             var config = mediaItem.localConfiguration;
-            if (config != null) {
-                videoEffects.add(0, new HighFootageExportEffect(config.uri, clipInMs * 1000L,
-                        (clipInMs + sourceDurationMs) * 1000L, speed, clip.getRigidMotionShutter(),
+            long pieceStartUs = clipInMs * 1000L;
+            long pieceEndUs = (clipInMs + sourceDurationMs) * 1000L;
+            var span = footageSpanFor(project.getTimeline(), clip, pieceStartUs, pieceEndUs);
+            if (config != null && span != null) {
+                videoEffects.add(0, new HighFootageExportEffect(config.uri, pieceStartUs,
+                        pieceEndUs, span, clip.getRigidMotionShutter(),
                         clip.getRigidMotionShutterKeys()));
             }
         }

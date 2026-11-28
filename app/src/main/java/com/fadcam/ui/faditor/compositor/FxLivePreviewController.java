@@ -19,6 +19,7 @@ import com.fadcam.ui.faditor.compositor.lane.LanePlan;
 import com.fadcam.ui.faditor.compositor.lane.StudioLayerOrder;
 import com.fadcam.ui.faditor.model.AdjustmentLayer;
 import com.fadcam.ui.faditor.model.Clip;
+import com.fadcam.ui.faditor.model.FootageSpans;
 import com.fadcam.ui.faditor.model.Timeline;
 import com.fadcam.ui.faditor.model.TimeMap;
 import com.fadcam.ui.faditor.model.TextOverlayItem;
@@ -453,7 +454,9 @@ public final class FxLivePreviewController {
                 .anyMatch(FxLivePreviewController::eligibleLivePiP);
         boolean fastFootage = host.motionBlurEnabled()
                 && !LaunchGate.hidden(view.getContext(), FastFootagePreviewOwner.LAUNCH_KEY);
-        boolean shutterFootage = fastFootage && !timeline.hasTransitions()
+        // Per clip, not per project: a transition keeps only its own overlap sharp
+        // (FootageSpans), so a project with one still blurs every clip body.
+        boolean shutterFootage = fastFootage
                 && timeline.getClips().stream().anyMatch(FxLivePreviewController::eligibleFastFootage);
         // With hasExportMask() now in wantsGlExport() (3A.1), masked images are already in
         // glImages. This second list is kept for the pre-3A.1 path where masks were NOT in the
@@ -684,7 +687,19 @@ public final class FxLivePreviewController {
         }
         int index = timeline.getClips().indexOf(clip);
         TimeMap map = TimeMap.of(timeline);
-        if (index < 0 || map.cuts().count() != 0 || map.headMs(index) > 0 || map.seamMs(index) > 0) {
+        if (index < 0 || map.cuts().count() != 0) {
+            clearMotionClock();
+            return;
+        }
+        // A transition plays over the outgoing clip's tail and the incoming clip's head. Those
+        // frames are not this decoder's alone (the live blend can take the decoder to another
+        // surface, and the static blend draws the next clip over it), and the export plays them
+        // in a separate blended piece. So the clock covers only the clip between its blends:
+        // nothing latched there, nothing in this clip blurs there, and no shutter reaches over
+        // a seam. Before 11-28 any transition on either side dropped the whole clip.
+        long windowStartMs = map.clipEditorStartMs(index) + map.headMs(index);
+        long windowEndMs = map.clipEditorStartMs(index + 1) - map.seamMs(index);
+        if (windowEndMs <= windowStartMs) {
             clearMotionClock();
             return;
         }
@@ -704,35 +719,31 @@ public final class FxLivePreviewController {
         }
         long originUs = motionWindow.getPositionInFirstPeriodUs()
                 + (gapless ? 0L : clip.getInPointMs() * 1000L);
-        long startUs = map.clipEditorStartMs(index) * 1000L;
-        long endUs = map.clipEditorStartMs(index + 1) * 1000L;
+        long editorOriginUs = map.clipEditorStartMs(index) * 1000L;
+        long startUs = windowStartMs * 1000L;
+        long endUs = windowEndMs * 1000L;
+        // The footage blurs over its span (FootageSpans): the same source window and editor
+        // clock the export's piece gets, so both routes blur the same frames.
+        var span = shutterFootage && eligibleFastFootage(clip) ? FootageSpans.body(timeline, index) : null;
         // Relinking preserves the clip ID. Also fence a rebased trim or speed change between
         // the decoder callback and the GL thread's settings snapshot.
-        String footageSourceKey = shutterFootage && eligibleFastFootage(clip)
+        String footageSourceKey = span != null
                 ? clip.getId() + "\n" + clip.getSourceUri() + "\n"
-                        + originUs + ":" + startUs + ":" + endUs + ":" + speed
+                        + originUs + ":" + span.editorStartUs() + ":" + span.editorEndUs() + ":" + speed
                 : null;
         motionClock.bind(player, new PreviewDecoderClock.Anchor(
-                motionWindow.uid, originUs, startUs, endUs, speed, footageSourceKey));
+                motionWindow.uid, originUs, editorOriginUs, startUs, endUs, speed, footageSourceKey));
         view.setFastFootageInput(footageSourceKey == null ? null
-                : new FxPreviewTextureView.FastFootageInput(footageSourceKey, startUs, endUs, speed,
-                        clip.getRigidMotionShutter(), clip.getRigidMotionShutterKeys(), clip.getSourceUri(),
-                        clip.getInPointMs() * 1000L, clip.getOutPointMs() * 1000L));
+                : new FxPreviewTextureView.FastFootageInput(footageSourceKey, span.editorStartUs(),
+                        span.editorEndUs(), speed, clip.getRigidMotionShutter(), clip.getRigidMotionShutterKeys(),
+                        clip.getSourceUri(), span.sourceStartUs(), span.sourceEndUs()));
         view.setMotionClockActive(motionClock.anchor() != null);
     }
 
     private static boolean eligibleFastFootage(Clip clip) {
-        // The initial route covers ordinary sources. Animated placement keeps the existing
-        // rigid-only exposure until footage and placement can share one trajectory.
-        if (clip.isImageClip() || !clip.isRigidMotionBlurEnabled() || clip.hasLoopExtension()
-                || clip.hasRemovedSpans() || clip.effectiveCropFractions() != null
-                || clip.hasMesh() || clip.hasCornerPin()
-                || (clip.isSpineTransformArmed() && clip.hasSpineTransform())) {
-            return false;
-        }
-        var shutter = clip.getRigidMotionShutter();
-        var keys = clip.getRigidMotionShutterKeys();
-        return keys.everBlurs(shutter) && keys.maxAngle(shutter) <= 360;
+        // The clip rules are the export's (FootageSpans). The preview's clock does not yet
+        // follow a jump over struck words, so a clip with cut spans stays sharp here.
+        return !clip.hasRemovedSpans() && FootageSpans.eligible(clip);
     }
 
     @Nullable
@@ -743,12 +754,15 @@ public final class FxLivePreviewController {
                 || !clip.isSpineTransformArmed() || !clip.hasSpineTransform()) return null;
         if (!clip.getRigidMotionShutterKeys().everBlurs(clip.getRigidMotionShutter())) return null;
         var snapshot = new Clip(clip);
+        // The pose is clip-local from the clip's own start; the window may begin later, past a
+        // transition's overlap (bindMotionClock).
+        long clipStartUs = clock.editorOriginUs();
         long startUs = clock.editorStartUs();
         long endUs = clock.editorEndUs();
         int width = size[0];
         int height = size[1];
-        var fences = MotionTimelineBreaks.spine(snapshot, startUs, startUs, endUs);
-        var sampler = MotionItemAdapters.spine(snapshot, startUs, width, height);
+        var fences = MotionTimelineBreaks.spine(snapshot, clipStartUs, startUs, endUs);
+        var sampler = MotionItemAdapters.spine(snapshot, clipStartUs, width, height);
         return (timeUs, periodUs, w, h) -> {
             if (timeUs < startUs || timeUs >= endUs || w != width || h != height) return null;
             var shutter = RigidTextureShutterPass.planPreview(snapshot.rigidMotionShutterAt(timeUs / 1000L),

@@ -229,9 +229,9 @@ public class AvatarFaceReplayTest {
             double[] hb = sv.renderer().restBounds(head);
             float cx = (float) ((hb[0] + hb[2]) / 2), cy = (float) (hb[1] + (hb[3] - hb[1]) * 0.62);     // (the lower face: the mouth)
             int[] sat = new int[2];
-            float[] sc = new float[3];
-            Emu.ins().runOnMainSync(() -> { sv.getLocationOnScreen(sat); sc[0] = sv.viewScale(); sc[1] = sv.viewX(); sc[2] = sv.viewY(); });
-            tapAt(sat[0] + sc[1] + cx * sc[0], sat[1] + sc[2] + cy * sc[0]);
+            float[] vw = new float[3];
+            Emu.ins().runOnMainSync(() -> { sv.getLocationOnScreen(sat); vw[0] = sv.viewScale(); vw[1] = sv.viewX(); vw[2] = sv.viewY(); });
+            tapAt(sat[0] + vw[1] + cx * vw[0], sat[1] + vw[2] + cy * vw[0]);
             Emu.sleep(1500);
             JSONArray fpl = FacePins.list(((CharacterDoc) field(a, "character")).json);
             shot(out, "18-face-pin-placed");

@@ -1,6 +1,7 @@
 import cc.joycreator.avatar.scene.EmptyShots;
 import cc.joycreator.avatar.scene.FramePlan;
 import cc.joycreator.avatar.scene.RoomPrefs;
+import cc.joycreator.avatar.scene.SceneDraw;
 import cc.joycreator.avatar.scene.Scene;
 import cc.joycreator.avatar.perform.Take;
 import cc.joycreator.avatar.scene.SceneClock;
@@ -396,6 +397,43 @@ public class SceneTest {
         ok(near(kept2[0] / wd2[0], sh.optDouble("k"), 1e-9), "11 a kept shot is relative to Wide: it survives a change of the frame's shape");
         String[][] lst = EmptyShots.list("Topps", true, new JSONArray().put(sh));
         ok(lst.length == 3 && lst[0][0].equals("wide") && lst[1][2].equals("close") && lst[2][2].equals("own") && EmptyShots.list("Topps", false, null).length == 1, "11 Wide, Close on the character (when it has a head), then your own");
+        /* 12. how a scene is laid out for drawing: order, a backdrop that covers, an object on its feet, the wind, haze */
+        Scene s12 = Scene.blank("u12", "Draw", "meadow");
+        JSONObject back12 = s12.made();
+        JSONObject c12a = s12.addCast("Topps", null, "topps"), c12b = s12.addCast("Pip", null, "pip");
+        JSONObject tree12 = s12.addPictures("obj", Arrays.asList("t"), 320, "Tree", 0.5), front12 = s12.addPictures("front", Arrays.asList("f"), 100, "Leaves", 0);
+        s12.set(tree12.optString("id"), m("y", 700), null);
+        s12.set(c12a.optString("id"), m("y", 900), null);
+        s12.set(c12b.optString("id"), m("y", 650), null);
+        SceneDraw.Layers L = SceneDraw.layers(s12);
+        boolean ord = L.backs.size() == 1 && L.fronts.size() == 1 && L.stand.size() == 3;
+        for (int i = 1; i < L.stand.size(); i++) ord &= L.stand.get(i - 1).optDouble("y") <= L.stand.get(i).optDouble("y");
+        if (plant.equals("order")) ord &= L.stand.get(0).optDouble("y") > L.stand.get(2).optDouble("y");
+        ok(ord && L.stand.get(0).optString("name").equals("Pip") && L.stand.get(2).optString("name").equals("Topps"), "12 what stands is drawn from the back of the floor to the front, backdrops first and foregrounds last");
+        SceneDraw.Quad pq = SceneDraw.pane(back12, 1280, 720);
+        ok(pq.box[0] <= 0 && pq.box[1] <= 0 && pq.box[2] >= 1920 && pq.box[3] >= 1080 && near(pq.box[2] - pq.box[0], 1920 * 1.06, 1e-6), "12 a backdrop covers the whole stage with a little spare, whatever its shape");
+        SceneDraw.Quad tall = SceneDraw.pane(back12, 400, 1200);
+        ok(tall.box[0] <= 0 && tall.box[1] <= 0 && tall.box[2] >= 1920 && tall.box[3] >= 1080, "12 ...a tall picture too");
+        SceneDraw.Quad ob = SceneDraw.object(s12, tree12, 200, 320, 0);
+        double kk = tree12.optDouble("s") * s12.depth(700);
+        ok(near(ob.box[2] - ob.box[0], 200 * kk, 1e-6) && near(ob.box[3], 700, 1e-9) && near(ob.box[1], 700 - 320 * kk, 1e-6) && ob.v.length == 8 && ob.idx.length == 6, "12 an object stands on its bottom edge at (x, y), as big as the floor says");
+        s12.set(tree12.optString("id"), m("sway", 1.0), null);
+        SceneDraw.Quad sw = SceneDraw.object(s12, tree12, 200, 320, 1.7);
+        int rows = sw.v.length / 4;
+        boolean foot = near(sw.v[(rows - 1) * 4], tree12.optDouble("x") - 100 * kk, 1e-4) && near(sw.v[1], 700 - 320 * kk, 1e-4);
+        ok(rows == 7 && foot && Math.abs(sw.v[0] - (tree12.optDouble("x") - 100 * kk)) > 0.01, "12 in the wind the top leans and the foot stays put");
+        s12.doc.put("wind", 0.0);
+        SceneDraw.Quad calm = SceneDraw.object(s12, tree12, 200, 320, 1.7);
+        ok(near(calm.v[0], tree12.optDouble("x") - 100 * kk, 1e-3), "12 no wind, no lean");
+        float[] hzBack = SceneDraw.haze(s12, 0.62 * 1080), hzFront = SceneDraw.haze(s12, 0.93 * 1080);
+        ok(hzBack != null && hzFront == null && near(hzBack[3], 0.5 * 0.22, 1e-6) && near(hzBack[0], 0.80, 1e-6), "12 far things take a little of the set's air; the front takes none");
+        ok(SceneDraw.haze(Scene.blank("u13", "Plain", null), 700) == null, "12 a plain scene has no air");
+        SceneClock.Cam par = SceneDraw.paneCam(new SceneClock.Cam(1400, 700, 3), 0.22);
+        ok(near(par.z, 1 + 2 * 0.78, 1e-9) && near(par.x, 960 + 440 * 0.78, 1e-9), "12 a far backdrop slides less than the stage when the camera moves");
+        double[] vw = SceneDraw.view(0.5, 400, 300, new SceneClock.Cam(1000, 500, 2));
+        ok(near(vw[0], 1, 1e-12) && near(vw[1], 400 - 1000, 1e-9) && near(vw[2], 300 - 500, 1e-9), "12 the view puts the camera's middle in the middle of the glass");
+        SceneGeometry.Place pl = SceneDraw.place(s12, c12a, topps, new JSONObject("{\"axisX\":257,\"walk\":{\"groundY\":483}}"));
+        ok(near(pl.ax, 257, 1e-9) && near(pl.ay, 483, 1e-9), "12 a character's middle line and ground line come from its own file");
     }
 
     static String strip(String t) {
@@ -403,7 +441,7 @@ public class SceneTest {
     }
 
     public static void main(String[] a) throws Exception {
-        String[] plants = {"depth", "clamp", "undo", "follow", "lane", "filetake", "air", "shrink", "framefold", "shotkeep"};
+        String[] plants = {"depth", "clamp", "undo", "follow", "lane", "filetake", "air", "shrink", "framefold", "shotkeep", "order"};
         plant = "";
         run();
         int cleanFail = fail, cleanPass = pass;

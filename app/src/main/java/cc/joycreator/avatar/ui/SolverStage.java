@@ -251,7 +251,7 @@ public final class SolverStage extends GLSurfaceView implements GLSurfaceView.Re
     }
 
     /** 4x multisampling when the phone has it, else the plain configuration. */
-    private static final class Chooser implements EGLConfigChooser {
+    static final class Chooser implements EGLConfigChooser {
         @Override
         public EGLConfig chooseConfig(EGL10 egl, EGLDisplay display) {
             int[] withMsaa = {EGL10.EGL_RED_SIZE, 8, EGL10.EGL_GREEN_SIZE, 8, EGL10.EGL_BLUE_SIZE, 8, EGL10.EGL_ALPHA_SIZE, 8,

@@ -90,10 +90,11 @@ public final class RoomMenu {
         box.addView(scroll);
 
         box.addView(action(c, dp, c.getString(R.string.avatar_update_art), c.getString(R.string.avatar_hover_update_art), v -> { d.dismiss(); host.updateTheArt(); }));
-        box.addView(action(c, dp, c.getString(R.string.avatar_new_from_psd), c.getString(R.string.avatar_hover_new_from_psd), v -> { d.dismiss(); host.newFromLayeredFile(); }));
-        box.addView(action(c, dp, c.getString(R.string.avatar_new_sheet), c.getString(R.string.avatar_hover_new_sheet), v -> { d.dismiss(); host.newFromSheet(); }));
-        box.addView(action(c, dp, c.getString(R.string.avatar_new_whole), c.getString(R.string.avatar_hover_new_whole), v -> { d.dismiss(); host.newFromWholeDrawing(); }));
-        box.addView(action(c, dp, c.getString(R.string.avatar_new_from_pictures), c.getString(R.string.avatar_hover_new_from_pictures), v -> { d.dismiss(); host.newFromPictures(); }));
+        box.addView(door(c, dp, c.getString(R.string.avatar_new_from_psd), c.getString(R.string.avatar_door_psd), c.getString(R.string.avatar_hover_new_from_psd), v -> { d.dismiss(); host.newFromLayeredFile(); }));
+        box.addView(door(c, dp, c.getString(R.string.avatar_new_sheet), c.getString(R.string.avatar_door_sheet), c.getString(R.string.avatar_hover_new_sheet), v -> { d.dismiss(); host.newFromSheet(); }));
+        box.addView(door(c, dp, c.getString(R.string.avatar_new_whole), c.getString(R.string.avatar_door_whole), c.getString(R.string.avatar_hover_new_whole), v -> { d.dismiss(); host.newFromWholeDrawing(); }));
+        box.addView(door(c, dp, c.getString(R.string.avatar_new_from_pictures), c.getString(R.string.avatar_door_pictures), c.getString(R.string.avatar_hover_new_from_pictures), v -> { d.dismiss(); host.newFromPictures(); }));
+        box.addView(action(c, dp, c.getString(R.string.avatar_about_title), c.getString(R.string.avatar_hover_about), v -> about(c)));
         box.addView(action(c, dp, c.getString(R.string.avatar_open), c.getString(R.string.avatar_hover_open), v -> { d.dismiss(); host.openFromPicker(); }));
         box.addView(action(c, dp, c.getString(R.string.avatar_save), c.getString(R.string.avatar_hover_save), v -> { d.dismiss(); host.saveNow(); }));
         box.addView(action(c, dp, c.getString(R.string.avatar_close), c.getString(R.string.avatar_hover_close), v -> d.dismiss()));
@@ -134,6 +135,35 @@ public final class RoomMenu {
         TooltipCompat.setTooltipText(t, hover);
         t.setContentDescription(hover);
         return t;
+    }
+
+    /** A door: its name, and under it one sentence that says what it takes (the pilot's door words). */
+    private static View door(Context c, float dp, String label, String sub, String hover, View.OnClickListener tap) {
+        LinearLayout box = new LinearLayout(c);
+        box.setOrientation(LinearLayout.VERTICAL);
+        box.setMinimumHeight(px(dp, 52));
+        box.setGravity(Gravity.CENTER_VERTICAL);
+        box.addView(text(c, label, 14, 0xFFFAFAFA));
+        box.addView(text(c, sub, 11, 0xFF71717A));
+        box.setPadding(0, px(dp, 4), 0, px(dp, 4));
+        box.setOnClickListener(tap);
+        TooltipCompat.setTooltipText(box, hover);
+        box.setContentDescription(label + ". " + sub);
+        return box;
+    }
+
+    /** "What can this do?": what the room does, in plain words. */
+    private static void about(Context c) {
+        TextView t = new TextView(c);
+        t.setText(c.getString(R.string.avatar_about_body));
+        t.setTextColor(0xFFD4D4D8);
+        t.setTextSize(14);
+        int p = Math.round(20 * c.getResources().getDisplayMetrics().density);
+        t.setPadding(p, p / 2, p, 0);
+        android.widget.ScrollView sv = new android.widget.ScrollView(c);
+        sv.addView(t);
+        new android.app.AlertDialog.Builder(c, android.R.style.Theme_DeviceDefault_Dialog_Alert).setTitle(R.string.avatar_about_title).setView(sv)
+                .setPositiveButton(R.string.avatar_done, null).show();
     }
 
     private static TextView text(Context c, String s, int sp, int color) {

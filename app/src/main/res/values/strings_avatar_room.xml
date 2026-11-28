@@ -239,7 +239,7 @@
     <string name="avatar_step_reshape_pin">Reshape: move a pin</string>
     <string name="avatar_step_reshape_remove">Remove a pin</string>
     <string name="avatar_step_reshape_again">Clear the reshape</string>
-    <string name="avatar_new_whole">Pin one whole drawing</string>
+    <string name="avatar_new_whole">Create new avatar: one whole drawing</string>
     <string name="avatar_hover_new_whole">A finished drawing in one piece: tap its head, hands and feet and it bends</string>
     <string name="avatar_wizard_title">Pin “%1$s”</string>
     <string name="avatar_wizard_tap">Tap %1$s.</string>
@@ -253,7 +253,7 @@
     <string name="avatar_hover_wizard_done">Use these pins</string>
     <string name="avatar_hover_wizard_two">Place at least two pins</string>
     <string name="avatar_wizard_pinned">Pinned. Drag any pin to move it in Set up.</string>
-    <string name="avatar_new_sheet">Cut parts from a sheet</string>
+    <string name="avatar_new_sheet">Create new avatar: a sheet of parts</string>
     <string name="avatar_hover_new_sheet">One picture with the parts laid out: tap each part</string>
     <string name="avatar_part_n">Part %1$d</string>
     <string name="avatar_cutter_title">Cut parts from a sheet</string>
@@ -292,5 +292,16 @@
     <string name="avatar_cutter_how_parts">Tap every drawing of one body part.</string>
     <string name="avatar_cutter_how_swap">Tap its usual look first, then its other looks.</string>
     <string name="avatar_cutter_how_loop">Tap the frames in the order they play.</string>
+    <string name="avatar_door_psd">A .psd with folders named Head, Left Arm, Mouth, Pupil, Blink… It rigs itself from the names.</string>
+    <string name="avatar_door_sheet">One picture with the parts laid out. Tap each part and say what it is.</string>
+    <string name="avatar_door_whole">A finished drawing in one piece. Tap the head, hands and feet and it bends.</string>
+    <string name="avatar_door_pictures">One file for each drawing (PNG with a see-through background).</string>
+    <string name="avatar_about_title">What can this do?</string>
+    <string name="avatar_hover_about">What this room does, in plain words</string>
+    <string name="avatar_about_body">Build a character from a layered file, a sheet, loose pictures or one whole drawing. The parts row shows what you have; each part has a card that says what it does.
+
+Heads turn through as many angles as you drew, and missing sides can be mirrored. Arms swap between drawings and bend to reach. Mouths talk on a hinge, by squashing, or by swapping shapes to the voice. Eyes follow and blink. Tails swing. The chest breathes.
+
+Perform by talking, turning the head on the pad, tapping buttons and walking the body. Record in passes: a second pass only replaces what you touch.</string>
 </resources>
 

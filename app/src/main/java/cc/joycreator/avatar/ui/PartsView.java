@@ -478,6 +478,7 @@ public final class PartsView extends ScrollView {
         t.setText(s);
         t.setTextSize(16);
         t.setTextColor(Studio.INK);
+        RoomType.heading(t);
         t.setPadding(0, px(4), 0, px(6));
         return t;
     }
@@ -487,6 +488,7 @@ public final class PartsView extends ScrollView {
         t.setText(s);
         t.setTextSize(12);
         t.setTextColor(Studio.INK_FAINT);
+        RoomType.label(t);
         t.setPadding(0, px(8), 0, px(6));
         return t;
     }
@@ -496,6 +498,7 @@ public final class PartsView extends ScrollView {
         t.setText(s);
         t.setTextSize(13);
         t.setTextColor(Studio.INK_DIM);
+        RoomType.body(t);
         t.setPadding(0, px(8), 0, px(8));
         return t;
     }

@@ -27,11 +27,30 @@ public final class BitmapPics implements Pics {
     private final Map<String, Integer> ver = new HashMap<>();
 
     public BitmapPics(JSONObject character, File dir) {
+        this((id, src) -> decode(src, dir), character);
+    }
+
+    /** Reads one picture: its id and its source as the file names it ({@code data:...} or a path beside the file). */
+    public interface Reader {
+        Bitmap read(String id, String src);
+    }
+
+    /** Pictures read by the caller (Studio reads them beside a character kept in the person's folder). */
+    public static BitmapPics read(JSONObject character, Reader reader) {
+        return new BitmapPics(reader, character);
+    }
+
+    private BitmapPics(Reader reader, JSONObject character) {
         JSONObject pics = character.optJSONObject("pictures"), fine = character.optJSONObject("fine");
         if (pics == null) return;
         for (Iterator<String> it = pics.keys(); it.hasNext(); ) {
             String id = it.next();
-            Bitmap b = decode(pics.optString(id, ""), dir);
+            Bitmap b;
+            try {
+                b = reader.read(id, pics.optString(id, ""));
+            } catch (RuntimeException | OutOfMemoryError e) {
+                b = null;
+            }
             if (b == null) continue;
             JSONArray f = fine == null ? null : fine.optJSONArray(id);
             int w = b.getWidth(), h = b.getHeight();

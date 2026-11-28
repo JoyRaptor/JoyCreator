@@ -313,7 +313,8 @@ public final class PerformPanel extends ScrollView {
 
         // the Breeze: for anything that swings
         if (hasKey(doc, "swing")) {
-            column.addView(label(c.getString(R.string.avatar_breeze)));
+            final TextView weather = label(c.getString(R.string.avatar_breeze) + "  " + c.getString(R.string.avatar_weather_still));
+            column.addView(weather);
             SeekBar sb = new SeekBar(c);
             sb.setMax(200);
             sb.setProgress(100);
@@ -323,6 +324,8 @@ public final class PerformPanel extends ScrollView {
                 @Override
                 public void onProgressChanged(SeekBar s, int p, boolean user) {
                     if (user) in.breeze((p - 100) / 100.0, System.currentTimeMillis());
+                    int w = Math.round((p - 100) * 0.4f);                              // the readout: still, ← n or n →
+                    weather.setText(c.getString(R.string.avatar_breeze) + "  " + (w == 0 ? c.getString(R.string.avatar_weather_still) : w < 0 ? "← " + (-w) : w + " →"));
                 }
 
                 @Override
@@ -337,6 +340,13 @@ public final class PerformPanel extends ScrollView {
             sb.setContentDescription(c.getString(R.string.avatar_hover_breeze));
             column.addView(sb);
         }
+        LinearLayout letGo = new LinearLayout(c);
+        letGo.setPadding(0, px(10), 0, 0);
+        letGo.addView(chip(c, c.getString(R.string.avatar_let_go), c.getString(R.string.avatar_hover_let_go), v -> {
+            in.letGoOfEverything();
+            paintChips();
+        }));
+        column.addView(letGo);
         // alive by itself: the character's own habits (tick boxes: on or off, never two equals)
         column.addView(label(c.getString(R.string.avatar_alive)));
         column.addView(tickRow(c, "blinkAuto", true, R.string.avatar_blinks, R.string.avatar_hover_blinks));

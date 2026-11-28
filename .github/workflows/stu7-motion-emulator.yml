@@ -18,7 +18,7 @@ on:
         required: true
         default: joy-creator
       tests:
-        description: "all, trail (MotionTrailGlTest) or card (MotionCardScreenshotTest)"
+        description: "all, trail (MotionTrailGlTest), card (MotionCardScreenshotTest) or gallery (MotionGalleryTest)"
         required: false
         default: all
       fault:
@@ -183,7 +183,8 @@ jobs:
           case "$TESTS" in
             trail) CLASSES=com.fadcam.ui.faditor.motion.emu.MotionTrailGlTest ;;
             card)  CLASSES=com.fadcam.ui.faditor.motion.emu.MotionCardScreenshotTest ;;
-            *)     CLASSES=com.fadcam.ui.faditor.motion.emu.MotionTrailGlTest,com.fadcam.ui.faditor.motion.emu.MotionCardScreenshotTest ;;
+            gallery) CLASSES=com.fadcam.ui.faditor.motion.emu.MotionGalleryTest ;;
+            *)     CLASSES=com.fadcam.ui.faditor.motion.emu.MotionTrailGlTest,com.fadcam.ui.faditor.motion.emu.MotionCardScreenshotTest,com.fadcam.ui.faditor.motion.emu.MotionGalleryTest ;;
           esac
           ARGS=(-e class "$CLASSES")
           [ "$FAULT" != none ] && ARGS+=(-e fault "$FAULT")

@@ -1564,3 +1564,13 @@ was away) as "decided: …" so it can be overturned later.
 ### 2026-11-27 Claude (Opus 5.5) → STU-7: keyframes + long trails landed (`ba27328a3`)
 - `claude/stu7-keys-20261127` landed on `joy-creator` at `ba27328a3`: Studio CI 96/96 at `807804be3`, cloud compile green, emulator run on `da30d154a` green (Copies uFeather fix). Still hidden behind `studio_motion_blur`.
 - Next: owner look at the card and trails (page + phone), then C5 physical parity, profiling on the Note 9, C7 blind review; effect-layer card waits on the True layer order rollout. The test-only branch `claude/stu7-phonecheck-20261127` must never land.
+
+### 2026-11-27 Claude (Opus 5.5, Avatar X2/X3 session) → STU-7: the character dispatch at your three sites landed, as you said
+- **Done (your 11-27 go):** `SpriteOverlayView`, `CompositeExportOverlay` and `SpriteBlendGlEffect` ask `cc.joycreator.avatar.studio.ItemPuppets` for a puppet only when `item.isCharacter()`; it is drawn where the sprite content is drawn (inside your rotate, flip, pin and bend). Every other item, old avatars included, takes byte-for-byte the path it took: no `AvatarItemPuppet` line changed. Studio harness 97/97; emulator `AvatarStudioDrawTest`: export = preview for a moving character.
+- **For you, not changed:** with a character item's own Motion Blur on, `drawShutter` / `RigidSpriteMotion` draws its one cell (the standing picture), so a blurred character stands still. When you add characters to the motion path, `ItemPuppets.forItem(...).draw(canvas, dest, item, localMs, alpha)` is the drawing to sample.
+- **Note:** the character's drawing borrows the calling thread for its own small GL context and puts back whatever context was current (`avatar/draw/OffscreenCharacterGl`), so it is safe on your GL export thread.
+
+### 2026-11-27 Claude (Opus 5.5) → STU-7: curved trails landed (`bad8617cc`); look book
+- Owner: the swinging end of a trail stepped. Now each step between key poses turns and zooms about the segment's fixed point (a slide when there is no turn), laps counted along 48 probes; up to 12 key poses placed by corner travel at exact (fractional) places; per-pixel softening capped at 0.35 UV; two texture taps a step. Camera shutters whose six taps would sit > 3 px apart use the same smooth program (same exposure).
+- Proof: TrailPlanTest 89 checks (swing tip on the arc to 1.6e-13 px vs 3.6 px for a straight blend; arc mutant caught; two-lap spin keeps direction); emulator 8/8 incl. MotionGalleryTest look book ([lookbook/](lookbook/)); Studio CI 97/97.
+- Open: Note 9 timing of the smooth program (it replaces the 6-tap camera program on fast moves); very long trails on detailed art still repeat detail.

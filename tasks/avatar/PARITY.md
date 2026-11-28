@@ -41,9 +41,9 @@ Skipped on purpose: Landmarks (replaces "Match two angles"), face-capture intern
 | 32 | ⬜ | Set up, facing | Drawn facing Left/Front/Right, See it flipped, Turn around by itself | tick only if not front | S |
 | 33 | ⬜ | Set up, body angles | Give the body its own angles, Follows the head | none | M |
 | 34 | ⬜ | Perform | Voice file | none (spec A7) | S |
-| 35 | ⬜ | Perform | Let go of everything; Show-off loop; voice meter | none | S each |
+| 35 | 🟡 | Perform | Let go of everything (built 11-27); Show-off loop; voice meter | Let go only | S each |
 | 36 | ⬜ | Perform | More to turn pads; Turn right round | one head pad | M |
-| 37 | ⬜ | Perform words | Mood (eyelids and brows); Weather with readout; hover texts | Mood, Breeze, shorter hovers | S |
+| 37 | ✅ | Perform words | Mood (eyelids and brows); Weather with readout; hover texts | Mood, Breeze, shorter hovers | S |
 | 38 | ⬜ | Perform take strip | lane bars, writing: head, face; recording… | time only | S |
 | 39 | ⬜ | Menu | Create new avatar card, open now/unsaved/built in, long-press Rename/Copy/Remove | names only | M |
 | 40 | ⬜ | Menu | Add pictures, What can this do?, door sentences, One long card per part | only separate pictures door | M |

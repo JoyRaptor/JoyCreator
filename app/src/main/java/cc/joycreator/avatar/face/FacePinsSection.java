@@ -110,7 +110,7 @@ public final class FacePinsSection extends LinearLayout {
             TextView name = new TextView(c);
             name.setText(FacePins.nameOf(q.optInt("point")));
             name.setTextSize(13);
-            name.setTextColor(picked ? Studio.ARMED : 0xFFD4D4D8);
+            name.setTextColor(picked ? Studio.ARMED : Studio.LABEL);
             name.setPadding(px(8), 0, px(8), 0);
             name.setOnClickListener(v -> {
                 host.pickFacePin(picked ? null : id);
@@ -195,9 +195,9 @@ public final class FacePinsSection extends LinearLayout {
         t.setPadding(px(12), 0, px(12), 0);
         GradientDrawable g = new GradientDrawable();
         g.setCornerRadius(px(16));
-        g.setColor(on ? Studio.ARMED : 0xFF27272A);
+        g.setColor(on ? Studio.ARMED : Studio.RAISED);
         t.setBackground(g);
-        t.setTextColor(on ? Studio.GROUND : 0xFFD4D4D8);
+        t.setTextColor(on ? Studio.GROUND : Studio.LABEL);
         LayoutParams lp = new LayoutParams(LayoutParams.WRAP_CONTENT, px(32));
         lp.rightMargin = px(6);
         lp.topMargin = px(4);

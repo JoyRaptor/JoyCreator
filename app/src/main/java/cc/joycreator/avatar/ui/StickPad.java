@@ -36,7 +36,7 @@ public final class StickPad extends View {
         this.stick = stick;
         this.listener = l;
         dp = c.getResources().getDisplayMetrics().density;
-        fill.setColor(0xFF18181B);
+        fill.setColor(Studio.PANEL);
         ring.setStyle(Paint.Style.STROKE);
         ring.setStrokeCap(Paint.Cap.ROUND);
         text.setTextAlign(Paint.Align.CENTER);
@@ -60,10 +60,10 @@ public final class StickPad extends View {
         float w = getWidth(), m = w / 2, r = w * 0.4f, rd = 14 * dp;
         c.drawRoundRect(new RectF(0, 0, w, w), rd, rd, fill);
         ring.setStrokeWidth(Math.max(1f, dp));
-        ring.setColor(0xFF2C2C35);
+        ring.setColor(Studio.LINE);
         c.drawCircle(m, m, r, ring);
         c.drawCircle(m, m, r * 0.45f, ring);
-        ring.setColor(0xFF71717A);
+        ring.setColor(Studio.INK_FAINT);
         ring.setStrokeWidth(1.6f * dp);
         float[][] dirs = {{0, -1}, {0, 1}, {-1, 0}, {1, 0}};
         for (float[] d : dirs) {
@@ -80,7 +80,7 @@ public final class StickPad extends View {
             c.drawLine(m, m, kx, ky, ring);
         }
         knob.setStyle(Paint.Style.FILL);
-        knob.setColor(on ? Studio.LIVE : 0xFF1C1C22);
+        knob.setColor(on ? Studio.LIVE : Studio.RAISED);
         c.drawCircle(kx, ky, 13 * dp, knob);
         knob.setStyle(Paint.Style.STROKE);
         knob.setStrokeWidth(2 * dp);
@@ -90,7 +90,7 @@ public final class StickPad extends View {
         RectF g = gear();
         knob.setStrokeWidth(1.7f * dp);
         knob.setStrokeCap(Paint.Cap.ROUND);
-        knob.setColor(gearDown ? 0xFFE4E4E7 : 0xFF71717A);
+        knob.setColor(gearDown ? Studio.INK : Studio.INK_FAINT);
         float gx = g.centerX(), gy = g.centerY(), u = 17 * dp / 24f;
         c.drawLine(gx - 8 * u, gy - 5 * u, gx + 1 * u, gy - 5 * u, knob);
         c.drawLine(gx + 5 * u, gy - 5 * u, gx + 8 * u, gy - 5 * u, knob);
@@ -103,7 +103,7 @@ public final class StickPad extends View {
             float tw = text.measureText(fl) + 12 * dp;
             fill.setColor(0xBF09090B);
             c.drawRect(m - tw / 2, w - 24 * dp, m + tw / 2, w - 8 * dp, fill);
-            fill.setColor(0xFF18181B);
+            fill.setColor(Studio.PANEL);
             text.setColor(Studio.LIVE);
             c.drawText(fl, m, w - 12 * dp, text);
         }

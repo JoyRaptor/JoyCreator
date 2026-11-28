@@ -10,6 +10,7 @@ import cc.joycreator.avatar.file.CharacterDoc;
 import cc.joycreator.avatar.file.Reshape;
 import cc.joycreator.avatar.ui.PoseRenderer;
 import cc.joycreator.avatar.ui.StageView;
+import com.fadcam.ui.faditor.Studio;
 
 /**
  * Face pins on the picture (the pilot's {@code al-facepins.js} markers and taps), in Set up: every face pin of the character as a
@@ -42,7 +43,7 @@ public final class FacePinsLayer implements StageView.LandmarkLayer {
     }
 
     /** The pilot's face pin colours, one a pin, in turn. */
-    public static final int[] COLORS = {0xFF22D3EE, 0xFFF472B6, 0xFFFACC15, 0xFF4ADE80, 0xFFA78BFA, 0xFFFB923C, 0xFF60A5FA, 0xFFF87171};
+    public static final int[] COLORS = {0xFF22D3EE, 0xFFF472B6, 0xFFFACC15, 0xFF4ADE80, Studio.GUIDE, 0xFFFB923C, 0xFF60A5FA, 0xFFF87171};
 
     public static int colorOf(int i) {
         return COLORS[((i % COLORS.length) + COLORS.length) % COLORS.length];

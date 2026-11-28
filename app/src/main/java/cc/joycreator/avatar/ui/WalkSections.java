@@ -106,11 +106,11 @@ final class WalkSections {
         box.setGravity(Gravity.CENTER);
         GradientDrawable g = new GradientDrawable();
         g.setCornerRadius(5 * dp);
-        g.setColor(on ? Studio.ARMED : 0xFF27272A);
-        if (!on) g.setStroke(Math.max(1, Math.round(dp)), 0xFF52525B);
+        g.setColor(on ? Studio.ARMED : Studio.RAISED);
+        if (!on) g.setStroke(Math.max(1, Math.round(dp)), Studio.INK_OFF);
         box.setBackground(g);
         row.addView(box, new LinearLayout.LayoutParams(Math.round(24 * dp), Math.round(24 * dp)));
-        TextView t = MotionSections.text(c, label, 13, 0xFFE4E4E7);
+        TextView t = MotionSections.text(c, label, 13, Studio.INK);
         t.setPadding(Math.round(10 * dp), 0, 0, 0);
         row.addView(t);
         row.setOnClickListener(v -> set.accept(!on));

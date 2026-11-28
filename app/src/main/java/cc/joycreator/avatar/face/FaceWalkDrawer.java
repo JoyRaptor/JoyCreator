@@ -117,7 +117,7 @@ public final class FaceWalkDrawer extends LinearLayout {
         TextView t = new TextView(c);
         t.setText(label);
         t.setTextSize(13);
-        t.setTextColor(0xFFD4D4D8);
+        t.setTextColor(Studio.LABEL);
         TextView s = new TextView(c);
         s.setText(sub);
         s.setTextSize(11);
@@ -139,7 +139,7 @@ public final class FaceWalkDrawer extends LinearLayout {
         GradientDrawable g = new GradientDrawable();
         g.setCornerRadius(px(6));
         if (on) g.setColor(Studio.ARMED);
-        else g.setStroke(Math.max(1, px(1.5f)), 0xFF52525B);
+        else g.setStroke(Math.max(1, px(1.5f)), Studio.INK_OFF);
         box.setBackground(g);
         box.setTypeface(com.fadcam.ui.faditor.SheetKit.icons(box.getContext()));             // (Studio's tick, not a typed mark)
         box.setText(on ? "check" : "");
@@ -149,9 +149,9 @@ public final class FaceWalkDrawer extends LinearLayout {
     private void paintChip(TextView t, boolean on) {
         GradientDrawable g = new GradientDrawable();
         g.setCornerRadius(px(16));
-        g.setColor(on ? Studio.ARMED : 0xFF27272A);
+        g.setColor(on ? Studio.ARMED : Studio.RAISED);
         t.setBackground(g);
-        t.setTextColor(on ? Studio.GROUND : 0xFFD4D4D8);
+        t.setTextColor(on ? Studio.GROUND : Studio.LABEL);
     }
 
     private static void tip(View v, String s) {

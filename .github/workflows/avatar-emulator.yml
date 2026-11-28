@@ -20,7 +20,7 @@ on:
         required: true
         default: joy-creator
       tests:
-        description: "all, draw (AvatarDrawParityTest), room (AvatarRoomSmokeTest), studio (AvatarStudioDrawTest), send (AvatarSendToStudioTest: room to Studio), hand (AvatarStudioHandTest: a finger on a hand in Studio), face (AvatarFaceReplayTest: his face take in the room), shoulders (AvatarShoulderTest: shrugs in the room), or a test class name"
+        description: "all, draw (AvatarDrawParityTest), room (AvatarRoomSmokeTest), studio (AvatarStudioDrawTest), send (AvatarSendToStudioTest: room to Studio), hand (AvatarStudioHandTest: a finger on a hand in Studio), face (AvatarFaceReplayTest: his face take in the room), shoulders (AvatarShoulderTest: shrugs in the room), cameras (AvatarCameraTest: a camera per tracker), or a test class name"
         required: false
         default: all
       fault:
@@ -167,7 +167,8 @@ jobs:
           mkdir -p "$ANDROID_AVD_HOME"
           echo no | "$ANDROID_HOME/cmdline-tools/latest/bin/avdmanager" create avd --name avatar \
             --package 'system-images;android-30;google_apis;x86_64' --device "$DEVICE"
-          printf 'hw.ramSize=3072\ndisk.dataPartition.size=4G\nhw.keyboard=yes\n' >> "$ANDROID_AVD_HOME/avatar.avd/config.ini"
+          # (a front and a back camera, both the emulator's own moving picture: AvatarCameraTest opens each)
+          printf 'hw.ramSize=3072\ndisk.dataPartition.size=4G\nhw.keyboard=yes\nhw.camera.front=emulated\nhw.camera.back=emulated\n' >> "$ANDROID_AVD_HOME/avatar.avd/config.ini"
           "$ANDROID_HOME/emulator/emulator" -avd avatar -no-window -no-audio -no-boot-anim -no-snapshot \
             -gpu "$GPU" -accel on > "$RUNNER_TEMP/emulator.log" 2>&1 &
           emu_pid=$!
@@ -216,11 +217,12 @@ jobs:
             hand) CLASSES=cc.joycreator.avatar.emu.AvatarStudioHandTest ;;
             face) CLASSES=cc.joycreator.avatar.emu.AvatarFaceReplayTest ;;
             shoulders) CLASSES=cc.joycreator.avatar.emu.AvatarShoulderTest ;;
-            all)  CLASSES=cc.joycreator.avatar.emu.AvatarDrawParityTest,cc.joycreator.avatar.emu.AvatarRoomSmokeTest,cc.joycreator.avatar.emu.AvatarStudioDrawTest,cc.joycreator.avatar.emu.AvatarFaceReplayTest,cc.joycreator.avatar.emu.AvatarShoulderTest ;;
+            cameras) CLASSES=cc.joycreator.avatar.emu.AvatarCameraTest ;;
+            all)  CLASSES=cc.joycreator.avatar.emu.AvatarDrawParityTest,cc.joycreator.avatar.emu.AvatarRoomSmokeTest,cc.joycreator.avatar.emu.AvatarStudioDrawTest,cc.joycreator.avatar.emu.AvatarFaceReplayTest,cc.joycreator.avatar.emu.AvatarShoulderTest,cc.joycreator.avatar.emu.AvatarCameraTest ;;
             *.*)  # a whole class name from another package's emulator tests (GL-MASK: com.fadcam.ui.faditor.export.emu.MaskFallbackGlTest)
                   [[ "$TESTS" =~ ^[A-Za-z][A-Za-z0-9_.]+$ ]] || { echo "tests: a class name is letters, digits, dots"; exit 1; }
                   CLASSES="$TESTS" ;;
-            *)    [[ "$TESTS" =~ ^[A-Za-z]+$ ]] || { echo "tests: all, draw, room, studio, send, hand, face, shoulders or one test class name"; exit 1; }
+            *)    [[ "$TESTS" =~ ^[A-Za-z]+$ ]] || { echo "tests: all, draw, room, studio, send, hand, face, shoulders, cameras or one test class name"; exit 1; }
                   CLASSES="cc.joycreator.avatar.emu.$TESTS" ;;
           esac
           ARGS=(-e class "$CLASSES" -e msaa "$MSAA" -e orientation "$ORIENT")

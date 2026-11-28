@@ -11,6 +11,7 @@ import androidx.annotation.Nullable;
 import androidx.core.content.ContextCompat;
 
 import com.fadcam.ui.faditor.avatar.MediaPipeTrackingSource;
+import com.fadcam.ui.faditor.avatar.TrackerCameras;
 import com.fadcam.ui.faditor.avatar.TrackingDriverBus;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
@@ -65,6 +66,11 @@ public final class FaceCapture {
     private volatile boolean shouldersOn;
     private volatile float shoulderSens;
     private long lastSampleNanos = Long.MIN_VALUE;
+    /** Cameras per tracker: the face's and the body's choice (the character's), and the cameras this phone has. */
+    @NonNull private String faceCamera = CameraPlan.FRONT, bodyCamera = CameraPlan.FRONT;
+    @Nullable private volatile java.util.List<CameraPlan.Choice> choices;
+    @NonNull private volatile java.util.List<java.util.Set<String>> pairs = CameraPlan.none();
+    @Nullable private Runnable camerasKnown;
     @Nullable private MediaPipeTrackingSource.PreviewSink previewSink;
     private boolean previewPicture = true;
     private boolean useGpu;
@@ -79,6 +85,81 @@ public final class FaceCapture {
         poseModel = MediaPipeTrackingSource.isPoseModelPresent(app);
         shouldersOn = prefs.getBoolean(KEY_SHOULDERS, true);              // (on as built, as the pilot's tick box)
         shoulderSens = clampSens(prefs.getFloat(KEY_SHOULDER_SENS, 1f));
+        loadCameras();
+    }
+
+    /** The phone's cameras, read once (the camera system starts up on its own thread; the room is told when they are known). */
+    private void loadCameras() {
+        try {
+            com.google.common.util.concurrent.ListenableFuture<androidx.camera.lifecycle.ProcessCameraProvider> f =
+                    androidx.camera.lifecycle.ProcessCameraProvider.getInstance(app);
+            f.addListener(() -> {
+                try {
+                    androidx.camera.lifecycle.ProcessCameraProvider p = f.get();
+                    pairs = TrackerCameras.pairs(p);
+                    choices = CameraPlan.choices(TrackerCameras.lenses(p));
+                    Runnable r = camerasKnown;
+                    if (r != null) r.run();
+                } catch (Exception e) {
+                    choices = new java.util.ArrayList<>();             // (none listed: the face keeps the front camera)
+                }
+            }, ContextCompat.getMainExecutor(app));
+        } catch (RuntimeException e) {
+            choices = new java.util.ArrayList<>();
+        }
+    }
+
+    // ── cameras per tracker (the owner, 11-27: the face on one camera, the body on another) ──
+
+    /** Told on the main thread once the phone's cameras are known. */
+    public void setOnCamerasKnown(@Nullable Runnable r) { camerasKnown = r; }
+
+    /** The cameras this phone offers, in plain words' keys (null until known). */
+    @Nullable
+    public java.util.List<String> cameraChoices() {
+        java.util.List<CameraPlan.Choice> cs = choices;
+        if (cs == null) return null;
+        java.util.List<String> out = new java.util.ArrayList<>();
+        for (CameraPlan.Choice c : cs) out.add(c.key);
+        return out;
+    }
+
+    /** What opens for the face and the body now (null until the cameras are known: then the front camera, as always). */
+    @Nullable
+    public CameraPlan.Plan cameraPlan() {
+        java.util.List<CameraPlan.Choice> cs = choices;
+        return cs == null ? null : CameraPlan.plan(faceCamera, bodyCamera, shouldersOn && poseModel, cs, pairs);
+    }
+
+    /** Two cameras were asked for and this phone cannot open them together (or refused when they were opened). */
+    public boolean camerasRefused() {
+        CameraPlan.Plan p = cameraPlan();
+        MediaPipeTrackingSource s = source;
+        return (p != null && p.refused) || (s != null && s.refusedAtOpen());
+    }
+
+    /** Two cameras are open now. */
+    public boolean twoCamerasOpen() {
+        MediaPipeTrackingSource s = source;
+        return s != null && s.isTwoCameras();
+    }
+
+    /** The face's and the body's camera (the character's choices); the camera opens again when they change. */
+    @MainThread
+    public void setCameras(@Nullable String face, @Nullable String body) {
+        String f = face == null ? CameraPlan.FRONT : face, b = body == null ? f : body;
+        if (f.equals(faceCamera) && b.equals(bodyCamera)) return;
+        faceCamera = f;
+        bodyCamera = b;
+        restart();
+    }
+
+    /** The camera opened again with what is chosen now (when running). */
+    @MainThread
+    private void restart() {
+        if (source == null) return;
+        stop();
+        start();
     }
 
     public boolean hasCameraPermission() {
@@ -94,6 +175,7 @@ public final class FaceCapture {
         s.setUseGpu(useGpu);
         s.setPreviewSink(previewSink, previewPicture);
         s.setBodySink(shouldersOn && poseModel ? this::onBody : null);
+        s.setPlan(cameraPlan());
         source = s;
         follower.reset();
         bus.start(s, 20261122L);
@@ -158,6 +240,7 @@ public final class FaceCapture {
         prefs.edit().putBoolean(KEY_SHOULDERS, on).apply();
         MediaPipeTrackingSource s = source;
         if (s != null) s.setBodySink(on && poseModel ? this::onBody : null);
+        if (!faceCamera.equals(bodyCamera)) restart();               // (the body's own camera opens or closes)
     }
 
     /** How little movement makes a full shrug: 1 as built, 2 = half the movement (kept on this phone). */

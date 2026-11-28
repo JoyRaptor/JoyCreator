@@ -17,6 +17,14 @@ internal object CentreLines {
     fun trace(w: Int, h: Int, inside: BooleanArray, dist: FloatArray, ox: Int, oy: Int, tolerance: Float): List<RawLine> {
         val skel = inside.copyOf()
         thin(w, h, skel)
+        // Thinning can erase a tiny blob outright (a 2 x 2 square goes): it is a dot, at its thickest point.
+        if (skel.none { it }) {
+            var best = -1
+            for (i in inside.indices) if (inside[i] && (best < 0 || dist[i] > dist[best])) best = i
+            if (best < 0) return emptyList()
+            return listOf(RawLine(floatArrayOf(best % w + 0.5f + ox), floatArrayOf(best / w + 0.5f + oy),
+                floatArrayOf(TraceMath.clampMin(dist[best] - 0.5f, 0.5f)), false))
+        }
         repeat(3) { if (!prune(w, h, skel, dist)) return@repeat }
         val graph = Graph(w, h, skel, dist)
         return graph.lines().mapNotNull { finish(it, ox, oy, tolerance) }

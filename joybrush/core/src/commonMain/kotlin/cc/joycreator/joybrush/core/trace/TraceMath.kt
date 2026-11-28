@@ -149,6 +149,111 @@ internal object TraceMath {
         return xs.last() to ys.last()
     }
 
+    /**
+     * [alpha] (0..255, [w] x [h]) blurred by about [radius] px: three box passes each way, which is close to a Gaussian.
+     * Radius 0 (or less) returns it as it is.
+     */
+    fun soften(w: Int, h: Int, alpha: IntArray, radius: Float): IntArray {
+        if (!(radius > 0f) || w == 0 || h == 0) return alpha
+        val r = maxOf(1, kotlin.math.round(radius * 0.8f).toInt())
+        val cur = FloatArray(w * h) { alpha[it].toFloat() }
+        val tmp = FloatArray(w * h)
+        repeat(3) {
+            boxRows(cur, tmp, w, h, r)
+            boxCols(tmp, cur, w, h, r)
+        }
+        return IntArray(w * h) { kotlin.math.round(cur[it]).toInt().coerceIn(0, 255) }
+    }
+
+    private fun boxRows(src: FloatArray, dst: FloatArray, w: Int, h: Int, r: Int) {
+        val n = 2 * r + 1
+        for (y in 0 until h) {
+            val row = y * w
+            var acc = 0f
+            for (k in -r..r) acc += src[row + k.coerceIn(0, w - 1)]
+            for (x in 0 until w) {
+                dst[row + x] = acc / n
+                acc += src[row + (x + r + 1).coerceAtMost(w - 1)] - src[row + (x - r).coerceAtLeast(0)]
+            }
+        }
+    }
+
+    private fun boxCols(src: FloatArray, dst: FloatArray, w: Int, h: Int, r: Int) {
+        val n = 2 * r + 1
+        for (x in 0 until w) {
+            var acc = 0f
+            for (k in -r..r) acc += src[k.coerceIn(0, h - 1) * w + x]
+            for (y in 0 until h) {
+                dst[y * w + x] = acc / n
+                acc += src[(y + r + 1).coerceAtMost(h - 1) * w + x] - src[(y - r).coerceAtLeast(0) * w + x]
+            }
+        }
+    }
+
+    /**
+     * Whether ink at [threshold] is grainy: at least eight, and more than two, specks or pinholes (patches of ink or of paper under 30 pixels)
+     * for every thousand pixels of ink. Clean digital ink has none; a pencil on toothy paper has hundreds.
+     */
+    fun grainy(w: Int, h: Int, alpha: IntArray, threshold: Int): Boolean {
+        var ink = 0
+        for (a in alpha) if (a >= threshold) ink++
+        if (ink == 0) return false
+        var small = 0
+        val seen = BooleanArray(w * h)
+        val stack = IntArray(w * h)
+        for (start in 0 until w * h) {
+            if (seen[start]) continue
+            val on = alpha[start] >= threshold
+            var top = 0
+            var count = 0
+            var edge = false
+            stack[top++] = start
+            seen[start] = true
+            while (top > 0) {
+                val p = stack[--top]
+                count++
+                val x = p % w
+                val y = p / w
+                if (x == 0 || y == 0 || x == w - 1 || y == h - 1) edge = true
+                if (x > 0 && !seen[p - 1] && (alpha[p - 1] >= threshold) == on) { seen[p - 1] = true; stack[top++] = p - 1 }
+                if (x < w - 1 && !seen[p + 1] && (alpha[p + 1] >= threshold) == on) { seen[p + 1] = true; stack[top++] = p + 1 }
+                if (y > 0 && !seen[p - w] && (alpha[p - w] >= threshold) == on) { seen[p - w] = true; stack[top++] = p - w }
+                if (y < h - 1 && !seen[p + w] && (alpha[p + w] >= threshold) == on) { seen[p + w] = true; stack[top++] = p + w }
+            }
+            if (count < 30 && (on || !edge)) small++
+        }
+        return small >= 8 && small * 1000L > 2L * ink
+    }
+
+    /** Fills every gap inside [inside] ([w] x [h]) smaller than [minHole] pixels; gaps that reach the box's edge are outside. */
+    fun fillSmallHoles(w: Int, h: Int, inside: BooleanArray, minHole: Int) {
+        if (minHole <= 0) return
+        val seen = BooleanArray(w * h)
+        val stack = IntArray(w * h)
+        val region = IntArray(w * h)
+        for (start in 0 until w * h) {
+            if (inside[start] || seen[start]) continue
+            var top = 0
+            var count = 0
+            var touchesEdge = false
+            stack[top++] = start
+            seen[start] = true
+            while (top > 0) {
+                val p = stack[--top]
+                region[count++] = p
+                val x = p % w
+                val y = p / w
+                if (x == 0 || y == 0 || x == w - 1 || y == h - 1) touchesEdge = true
+                // four-way: ink joined corner to corner closes a gap
+                if (x > 0 && !inside[p - 1] && !seen[p - 1]) { seen[p - 1] = true; stack[top++] = p - 1 }
+                if (x < w - 1 && !inside[p + 1] && !seen[p + 1]) { seen[p + 1] = true; stack[top++] = p + 1 }
+                if (y > 0 && !inside[p - w] && !seen[p - w]) { seen[p - w] = true; stack[top++] = p - w }
+                if (y < h - 1 && !inside[p + w] && !seen[p + w]) { seen[p + w] = true; stack[top++] = p + w }
+            }
+            if (!touchesEdge && count < minHole) for (k in 0 until count) inside[region[k]] = true
+        }
+    }
+
     fun clampMin(v: Float, lo: Float) = if (v < lo) lo else v
 
     fun minOf3(a: Float, b: Float, c: Float) = min(a, min(b, c))

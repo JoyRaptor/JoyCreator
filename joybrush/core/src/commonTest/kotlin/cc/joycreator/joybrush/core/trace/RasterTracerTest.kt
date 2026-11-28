@@ -194,7 +194,7 @@ class RasterTracerTest {
     @Test
     fun aFilledDiscIsItsEdge() {
         val c = Canvas(120, 120)
-        c.disc(60.0, 60.0, 30.0)
+        c.disc(60.0, 60.0, 30.0)                // a blob, no longer than it is wide: a shape, not a mark
         val lines = RasterTracer.trace(c.image())
         assertEquals(1, lines.size)
         val l = lines[0]
@@ -206,17 +206,27 @@ class RasterTracerTest {
 
     @Test
     fun aFilledShapeWithAHoleIsTwoEdges() {
-        val c = Canvas(100, 100)
-        c.frame(10, 10, 80, 40)
+        // walls 55 px thick: a filled shape (a thinner frame is one thick line, traced along its middle)
+        val c = Canvas(170, 170)
+        c.frame(10, 10, 150, 40)
         val lines = RasterTracer.trace(c.image())
         assertEquals(2, lines.size, "the outside edge and the hole's edge, was ${lines.size}")
         assertTrue(lines.all { it.kind == TracedLine.Kind.OUTLINE && it.closed })
-        val outer = listOf(10.0 to 10.0, 90.0 to 10.0, 90.0 to 90.0, 10.0 to 90.0, 10.0 to 10.0)
-        val hole = listOf(30.0 to 30.0, 70.0 to 30.0, 70.0 to 70.0, 30.0 to 70.0, 30.0 to 30.0)
+        val outer = listOf(10.0 to 10.0, 160.0 to 10.0, 160.0 to 160.0, 10.0 to 160.0, 10.0 to 10.0)
+        val hole = listOf(65.0 to 65.0, 105.0 to 65.0, 105.0 to 105.0, 65.0 to 105.0, 65.0 to 65.0)
         for (l in lines) assertTrue(stray(l) { x, y -> min(distToPolyline(x, y, outer), distToPolyline(x, y, hole)) } <= 1.0)
         assertTrue(missed(lines, along(outer) + along(hole)) <= 2.0)
         val corners = lines.map { it.pointCount }.sorted()
         assertTrue(corners.all { it in 4..12 }, "a square edge is a few corners, not a staircase, had $corners")
+    }
+
+    @Test
+    fun aRingAsThickAsALineIsOneLine() {
+        val c = Canvas(110, 110)
+        c.frame(10, 10, 90, 70)          // walls 10 px: a thick square stroke
+        val lines = RasterTracer.trace(c.image())
+        assertEquals(1, lines.size)
+        assertTrue(lines[0].kind == TracedLine.Kind.CENTRE && lines[0].closed, "traced along its middle, all the way round")
     }
 
     @Test
@@ -302,5 +312,24 @@ class RasterTracerTest {
         assertEquals(1, lines.size, "a figure eight drawn in one go traces as one line through its crossing, was ${lines.size}")
         assertTrue(stray(lines[0]) { x, y -> distToPolyline(x, y, path) } <= 1.5)
         assertTrue(missed(lines, path) <= 3.0)
+    }
+
+    @Test
+    fun grainyInkIsReadAsTheMarksItMakes() {
+        // a 6 px pencil-like mark: a third of its pixels missing at random, specks of grain beside it
+        val c = Canvas(200, 80)
+        val path = listOf(15.0 to 40.0, 185.0 to 40.0)
+        c.line(path, 3.0)
+        var seed = 12345L
+        fun rnd(): Double { seed = seed * 6364136223846793005L + 1442695040888963407L; return ((seed ushr 33) % 1000) / 1000.0 }
+        for (i in c.argb.indices) if (c.argb[i] != 0 && rnd() < 0.33) c.argb[i] = 0
+        repeat(60) { c.cover((rnd() * 200).toInt(), (20 + rnd() * 40).toInt(), 1.0, 0) }
+        val lines = RasterTracer.trace(c.image())
+        assertEquals(1, lines.size, "one mark, however grainy, was ${lines.size}")
+        assertEquals(TracedLine.Kind.CENTRE, lines[0].kind)
+        val off = stray(lines[0]) { x, y -> distToPolyline(x, y, path) }
+        assertTrue(off <= 3.0, "it stays inside the mark (3 px each side of its middle), strayed $off")
+        val gap = missed(lines, along(path))
+        assertTrue(gap <= 4.0, "and runs its length, missed $gap")
     }
 }

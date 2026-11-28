@@ -483,7 +483,7 @@ class SelectBench(private val canvas: JbCanvasView, private val runId: String, p
                             undoDepth { d1 ->
                                 val l2 = activeLines().filter { it.address.recordId == rec.id || it.address.recordId.startsWith(rec.id + "~") }
                                 val l3 = ids.getOrNull(2)?.let { record(it) }
-                                val second = l2.map { it.record }.firstOrNull { it.id != rec.id }
+                                val second = l2.mapNotNull { record(it.address) }.firstOrNull { it.id != rec.id }
                                 val ordered = second != null && l3 != null && second.seq < l3.seq && second.seq == (record(target)?.seq ?: -1L) + 1L
                                 canvas.undo()
                                 waitFor(300, 10_000, { activeLines().size == linesBefore }) {

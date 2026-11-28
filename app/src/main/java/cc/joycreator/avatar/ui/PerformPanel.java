@@ -78,6 +78,29 @@ public final class PerformPanel extends ScrollView {
         default void setShouldersOn(boolean on) {
         }
 
+        /** Cameras per tracker: the cameras this phone offers ("front", "back", "back-wide"), or null while not known. */
+        default List<String> cameraChoices() {
+            return null;
+        }
+
+        /** The face's camera and the body's (the character's choices; the body follows the face unless chosen). */
+        default String faceCamera() {
+            return "front";
+        }
+
+        default String bodyCamera() {
+            return faceCamera();
+        }
+
+        /** The face's ({@code body} false) or the body's camera, as one named undo step. */
+        default void setCamera(boolean body, String key) {
+        }
+
+        /** Two cameras were asked for and this phone cannot open them together: the face's reads both. */
+        default boolean camerasRefused() {
+            return false;
+        }
+
         /** The small private preview of the face (never kept): the view to give the camera, or null. */
         default View facePreview() {
             return null;
@@ -135,7 +158,9 @@ public final class PerformPanel extends ScrollView {
     private final List<String> moodNames = new ArrayList<>();
     private TextView micChip, faceChip, recentreChip, mirrorChip;
     private boolean compact, walkOpen;
-    private LinearLayout faceRow, shoulderBox;
+    private LinearLayout faceRow, shoulderBox, cameraBox;
+    private final List<TextView> cameraChips = new ArrayList<>();
+    private final List<String[]> cameraKeys = new ArrayList<>();      // {key, "b" for the body's row}
     private int faceWords = R.string.avatar_face;
     private final List<TextView> tickBoxes = new ArrayList<>();
     private final List<String[]> tickKeys = new ArrayList<>();   // {settings key, "t" when a missing key means on}
@@ -312,6 +337,29 @@ public final class PerformPanel extends ScrollView {
             if (shOn && host instanceof ShrugSections.Host) shoulderBox.addView(ShrugSections.sensitivity(c, (ShrugSections.Host) host, dp));
             side.addView(shoulderBox);
         }
+        // cameras per tracker (the owner, 11-27): which camera reads the face, which the body; only where there is a choice
+        cameraBox = null;
+        cameraChips.clear();
+        cameraKeys.clear();
+        List<String> cams = host.cameraChoices();
+        if (cams != null && cams.size() > 1) {
+            cameraBox = new LinearLayout(c);
+            cameraBox.setOrientation(LinearLayout.VERTICAL);
+            cameraBox.setVisibility(View.GONE);
+            cameraBox.addView(cameraRow(c, false, cams));
+            if (host.shouldersShown() && host.shouldersOn()) cameraBox.addView(cameraRow(c, true, cams));
+            if (host.camerasRefused()) {
+                TextView why = label(c.getString(R.string.avatar_cams_refused));
+                why.setTextColor(0xFFD4D4D8);
+                cameraBox.addView(why);
+                LinearLayout one = new LinearLayout(c);
+                one.addView(chip(c, c.getString(R.string.avatar_cams_one), c.getString(R.string.avatar_hover_cams_one),
+                        v -> host.setCamera(true, host.faceCamera())));
+                cameraBox.addView(one);
+            }
+            side.addView(cameraBox);
+            paintCameras();
+        }
         View walkWithFace = host.faceWalkDrawer();
         if (walkWithFace != null) {
             if (walkWithFace.getParent() instanceof ViewGroup) ((ViewGroup) walkWithFace.getParent()).removeView(walkWithFace);
@@ -429,8 +477,40 @@ public final class PerformPanel extends ScrollView {
         if (newStage) post(() -> scrollTo(0, 0));
     }
 
+    /** One tracker's camera chips: its label, then a chip for each camera this phone has. */
+    private View cameraRow(Context c, boolean body, List<String> cams) {
+        LinearLayout box = new LinearLayout(c);
+        box.setOrientation(LinearLayout.VERTICAL);
+        box.addView(label(c.getString(body ? R.string.avatar_body_camera : R.string.avatar_face_camera)));
+        HorizontalScrollView hs = new HorizontalScrollView(c);
+        hs.setHorizontalScrollBarEnabled(false);
+        LinearLayout row = new LinearLayout(c);
+        for (String key : cams) {
+            int word = "back-wide".equals(key) ? R.string.avatar_cam_back_wide : "back".equals(key) ? R.string.avatar_cam_back : R.string.avatar_cam_front;
+            int what = "back-wide".equals(key) ? R.string.avatar_hover_cam_back_wide : "back".equals(key) ? R.string.avatar_hover_cam_back : R.string.avatar_hover_cam_front;
+            TextView t = chip(c, c.getString(word), c.getString(body ? R.string.avatar_hover_body_camera : R.string.avatar_hover_face_camera, c.getString(what)),
+                    v -> host.setCamera(body, key));
+            cameraChips.add(t);
+            cameraKeys.add(new String[]{key, body ? "b" : "f"});
+            row.addView(t);
+        }
+        hs.addView(row);
+        box.addView(hs);
+        return box;
+    }
+
+    /** The chosen camera of each row, solid cyan. */
+    private void paintCameras() {
+        String f = host.faceCamera(), b = host.bodyCamera();
+        for (int i = 0; i < cameraChips.size(); i++) {
+            String[] k = cameraKeys.get(i);
+            paintChip(cameraChips.get(i), k[0].equals("b".equals(k[1]) ? b : f));
+        }
+    }
+
     /** Reads the habits' tick boxes from the character (after an undo or redo changed them). */
     public void refreshSettings(CharacterDoc doc) {
+        paintCameras();
         JSONObject st = doc.json.optJSONObject("settings");
         for (int i = 0; i < tickBoxes.size(); i++) {
             String key = tickKeys.get(i)[0];
@@ -508,6 +588,7 @@ public final class PerformPanel extends ScrollView {
         }
         if (faceRow != null) faceRow.setVisibility(in.faceOn() ? View.VISIBLE : View.GONE);
         if (shoulderBox != null) shoulderBox.setVisibility(in.faceOn() ? View.VISIBLE : View.GONE);
+        if (cameraBox != null) cameraBox.setVisibility(in.faceOn() ? View.VISIBLE : View.GONE);
         if (mirrorChip != null) paintChip(mirrorChip, host.faceMirror());
     }
 

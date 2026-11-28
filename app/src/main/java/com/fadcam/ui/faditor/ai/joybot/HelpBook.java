@@ -57,14 +57,17 @@ public final class HelpBook {
     private static final String STRIP = "the Studio's tool strip (tap “more” at its end to see every tool)";
 
     public static final List<Topic> TOPICS = Collections.unmodifiableList(java.util.Arrays.asList(
-            new Topic("studio_motion_blur", "motion blur|shutter angle|shutter timing|inspect frame|show exact frame|streak",
+            new Topic("studio_motion_blur", "motion blur|shutter angle|shutter timing|inspect frame|show exact frame|streak|trail|long trail|ghost|copies|fade",
                     "In Studio, move the playhead to a part where your clip, picture, title or sprite moves. "
                             + "Open its Effects tab (or tap Motion Blur in the tool strip) and add Motion Blur from "
                             + "Add effect. Start with Natural. On the shutter strip, pull an end of the bright bar to "
                             + "make the streak longer or shorter, and drag its middle to move it earlier or later "
-                            + "around this frame. Mix sets how much blur you see. Hold the card’s little picture to "
-                            + "see the frame sharp, and tap Show exact frame to see it as the export will. If "
-                            + "something can’t be blurred yet, the card says why.",
+                            + "around this frame. Keep pulling past the last frame and it becomes a long trail, up to "
+                            + "32 frames back; Streak gives you one in a tap. Under More, Fade thins the old end of "
+                            + "the blur and Look picks a smear, separate copies, or both. Mix sets how much blur you "
+                            + "see. The diamonds beside Shutter and Mix set keys, so the blur can change over time. "
+                            + "Hold the card’s little picture to see the frame sharp, and tap Show exact frame to see "
+                            + "it as the export will. If something can’t be blurred yet, the card says why.",
                     "studio", null, "motion_blur"),
             new Topic("transcribe", "transcri|subtitle|speech to text|words of",
                     "Select a clip in the Studio and tap Transcript in " + STRIP + ". It runs on the phone, "

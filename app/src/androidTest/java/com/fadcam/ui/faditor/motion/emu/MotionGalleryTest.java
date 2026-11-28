@@ -113,6 +113,24 @@ public final class MotionGalleryTest {
                 return pose(280 + 14 * fr, 150 - 0.9 * fr * fr - 8 * fr, 110 * scale, 110 * scale,
                         Math.toRadians(4 * fr), 0.5, 0.5);
             });
+            // Clips: the blur in motion, 48 frames each (2 s at 24 fps), saved frame by frame.
+            ItemMotionSampler swing = t ->
+                    pose(70, 70, 230, 26, Math.toRadians(70) * Math.sin(2 * Math.PI * frames(t) / 18.0 + 1.2), 0, 0.5);
+            Controls streak = new Controls(8 * 360, Timing.TRAILING, 0, 100, 60, Look.SMEAR, 4);
+            clip(pass, backdrop, "swing-sharp", stripedBar(), swing, null, false);
+            clip(pass, backdrop, "swing-natural", stripedBar(), swing, Controls.NATURAL, false);
+            clip(pass, backdrop, "swing-streak-export", stripedBar(), swing, streak, false);
+            clip(pass, backdrop, "swing-streak-preview", stripedBar(), swing, streak, true);
+            clip(pass, backdrop, "spin-natural", checker(), t ->
+                    pose(200, 130, 90, 90, Math.PI / 2 * frames(t), 0.5, 0.5), Controls.NATURAL, false);
+            clip(pass, backdrop, "slide-copies", disc(), t ->
+                    pose(200 + 160 * Math.sin(2 * Math.PI * frames(t) / 24.0), 130, 60, 60, 0, 0.5, 0.5),
+                    new Controls(8 * 360, Timing.TRAILING, 0, 100, 40, Look.COPIES, 6), false);
+            clip(pass, backdrop, "picture-streak", picture(), t -> {
+                double a = 2 * Math.PI * frames(t) / 48.0;
+                return pose(200 + 120 * Math.cos(a), 130 + 70 * Math.sin(2 * a), 100, 100,
+                        Math.toRadians(20 * Math.sin(a)), 0.5, 0.5);
+            }, streak, false);
             pass.release();
         } finally {
             EGL14.eglMakeCurrent(display, EGL14.EGL_NO_SURFACE, EGL14.EGL_NO_SURFACE, EGL14.EGL_NO_CONTEXT);
@@ -120,6 +138,17 @@ public final class MotionGalleryTest {
             EGL14.eglDestroyContext(display, context);
             EGL14.eglTerminate(display);
         }
+    }
+
+    private void clip(RigidTextureShutterPass pass, int backdrop, String name, Bitmap art,
+                      ItemMotionSampler sampler, Controls controls, boolean preview) throws Exception {
+        int source = texture(art);
+        File dir = MotionEmu.dir("clips/" + name);
+        for (int k = 0; k < 48; k++) {
+            Bitmap frame = draw(pass, source, backdrop, sampler, controls, NOW + k * PERIOD, preview);
+            MotionEmu.save(frame, new File(dir, String.format(java.util.Locale.ROOT, "f%03d.png", k)));
+        }
+        MotionEmu.log("clip " + name + " saved");
     }
 
     private void sheet(RigidTextureShutterPass pass, int backdrop, String subject, Bitmap art,
@@ -151,12 +180,20 @@ public final class MotionGalleryTest {
 
     private static Bitmap draw(RigidTextureShutterPass pass, int source, int backdrop,
                                ItemMotionSampler sampler, Controls controls) throws Exception {
-        RigidShutterPlan plan = RigidTextureShutterPass.plan(controls, sampler, NOW, PERIOD,
-                MotionBreaks.none(), W, H);
+        return draw(pass, source, backdrop, sampler, controls, NOW, false);
+    }
+
+    /** One frame at {@code atUs}; {@code preview} draws the live preview's lighter plan. */
+    private static Bitmap draw(RigidTextureShutterPass pass, int source, int backdrop,
+                               ItemMotionSampler sampler, Controls controls, long atUs,
+                               boolean preview) throws Exception {
+        RigidShutterPlan plan = controls == null ? null : preview
+                ? RigidTextureShutterPass.planPreview(controls, sampler, atUs, PERIOD, MotionBreaks.none(), W, H)
+                : RigidTextureShutterPass.plan(controls, sampler, atUs, PERIOD, MotionBreaks.none(), W, H);
         GLES20.glViewport(0, 0, W, H);
         GLES20.glClearColor(0, 0, 0, 1);
         GLES20.glClear(GLES20.GL_COLOR_BUFFER_BIT);
-        if (plan == null) plan = RigidShutterPlan.sharp(sampler, NOW, W, H);
+        if (plan == null) plan = RigidShutterPlan.sharp(sampler, atUs, W, H);
         pass.draw(source, W, H, plan, backdrop, 1f);
         ByteBuffer px = ByteBuffer.allocateDirect(W * H * 4).order(ByteOrder.nativeOrder());
         GLES20.glReadPixels(0, 0, W, H, GLES20.GL_RGBA, GLES20.GL_UNSIGNED_BYTE, px);

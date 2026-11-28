@@ -42,6 +42,7 @@ public class AvatarCardsTest {
     @Test
     public void everyCardOpensAndIsPhotographed() throws Exception {
         out = Emu.dir("cards");
+        Emu.watchMainThread();                                       // (a frozen screen says where it is stuck)
         Emu.turn();
         try (ActivityScenario<AvatarRoomActivity> sc = ActivityScenario.launch(AvatarRoomActivity.class)) {
             Emu.sleep(4000);
@@ -224,6 +225,11 @@ public class AvatarCardsTest {
         Emu.save(s, new File(out, name + ".png"));
         s.recycle();
         log.append(name).append('\n');
+        String nan = Emu.notANumber(room);                             // (the character vanishing for good: say where a NaN is)
+        if (!nan.isEmpty()) {
+            log.append("      NOT A NUMBER at ").append(name).append(": ").append(nan).append('\n');
+            Log.i(Emu.TAG, "NOT A NUMBER at " + name + ": " + nan);
+        }
     }
 
     private void ui(Runnable r) {

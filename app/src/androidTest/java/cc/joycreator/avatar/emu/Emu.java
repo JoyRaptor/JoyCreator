@@ -293,4 +293,80 @@ final class Emu {
         });
         return a[0];
     }
+
+    /**
+     * Where a not-a-number in the room's drawing came from (the character vanishing for good, 11-27 and 11-28): the signals that
+     * are not numbers, the walker's fields that are not, the stage's view, and how many parts the GPU stage drew without a number
+     * (with a few of their ids). An empty string when everything is a number. Reads the room's fields by name.
+     */
+    @SuppressWarnings("unchecked")
+    static String notANumber(android.app.Activity room) {
+        StringBuilder b = new StringBuilder();
+        ins().runOnMainSync(() -> {
+            try {
+                Object sig = field(room, "lastSignals");
+                if (sig instanceof java.util.Map) for (java.util.Map.Entry<String, Object> e : ((java.util.Map<String, Object>) sig).entrySet())
+                    if (e.getValue() instanceof Number && !Double.isFinite(((Number) e.getValue()).doubleValue())) b.append(" signal ").append(e.getKey());
+                Object w = field(room, "walker");
+                if (w != null) for (java.lang.reflect.Field f : w.getClass().getFields())
+                    if (f.getType() == double.class && !Double.isFinite(f.getDouble(w))) b.append(" walker.").append(f.getName());
+                Object st = field(room, "stage");
+                for (String m : new String[]{"viewScale", "viewX", "viewY"}) {
+                    float v = (Float) st.getClass().getMethod(m).invoke(st);
+                    if (!Float.isFinite(v)) b.append(" stage.").append(m);
+                }
+                Object gl = field(room, "glStage");
+                java.util.Map<String, double[]> lm = (java.util.Map<String, double[]>) field(gl, "lastM");
+                int bad = 0;
+                StringBuilder which = new StringBuilder();
+                for (java.util.Map.Entry<String, double[]> e : lm.entrySet()) {
+                    boolean nan = false;
+                    for (double v : e.getValue()) nan |= !Double.isFinite(v);
+                    if (nan && bad++ < 5) which.append(' ').append(e.getKey());
+                }
+                if (bad > 0) b.append("; drawn without a number ").append(bad).append(" of ").append(lm.size()).append(which);
+                double[] rm = (double[]) field(gl, "lastRootM");
+                if (rm != null) for (double v : rm) if (!Double.isFinite(v)) { b.append("; the root's matrix"); break; }
+            } catch (Exception e) {
+                b.append(" (could not read: ").append(e).append(')');
+            }
+        });
+        return b.toString().trim();
+    }
+
+    private static Object field(Object o, String name) throws Exception {
+        for (Class<?> c = o.getClass(); c != null; c = c.getSuperclass()) {
+            try {
+                java.lang.reflect.Field f = c.getDeclaredField(name);
+                f.setAccessible(true);
+                return f.get(o);
+            } catch (NoSuchFieldException ignored) {
+            }
+        }
+        throw new NoSuchFieldException(name);
+    }
+
+    /**
+     * A watchdog for a screen that stops answering (the room froze on the tablet emulator, 11-28): every 10 s it posts a ping to
+     * the main thread; when the ping has not run within 10 s it logs where the main thread is, every 10 s until it answers again.
+     * A daemon thread: it ends with the test.
+     */
+    static void watchMainThread() {
+        final android.os.Handler main = new android.os.Handler(android.os.Looper.getMainLooper());
+        final Thread mainThread = android.os.Looper.getMainLooper().getThread();
+        Thread w = new Thread(() -> {
+            while (true) {
+                final boolean[] ran = {false};
+                main.post(() -> ran[0] = true);
+                SystemClock.sleep(10000);
+                if (!ran[0]) {
+                    StringBuilder b = new StringBuilder("the main thread has not answered for 10 s; it is at:");
+                    for (StackTraceElement e : mainThread.getStackTrace()) b.append("\n    at ").append(e);
+                    Log.w(TAG, b.toString());
+                }
+            }
+        }, "main-thread-watchdog");
+        w.setDaemon(true);
+        w.start();
+    }
 }

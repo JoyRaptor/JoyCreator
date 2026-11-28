@@ -39,6 +39,7 @@ on:
       - app/src/androidTest/java/com/fadcam/ui/faditor/motion/**
       - app/src/main/java/com/fadcam/ui/faditor/motion/card/**
       - app/src/main/java/com/fadcam/ui/faditor/compositor/RigidTextureShutterPass.java
+      - app/src/main/java/com/fadcam/ui/faditor/compositor/CharacterMotionRaster.java
       - studiokit/src/main/java/com/fadcam/ui/faditor/motion/**
 
 run-name: "stu7 motion emulator ${{ inputs.tests || 'all' }} fault=${{ inputs.fault || 'none' }} @ ${{ inputs.ref || github.ref_name }} [${{ inputs.request_id || 'push' }}]"
@@ -187,7 +188,8 @@ jobs:
             card)  CLASSES=com.fadcam.ui.faditor.motion.emu.MotionCardScreenshotTest ;;
             gallery) CLASSES=com.fadcam.ui.faditor.motion.emu.MotionGalleryTest ;;
             timing) CLASSES=com.fadcam.ui.faditor.motion.emu.MotionTimingTest ;;
-            *)     CLASSES=com.fadcam.ui.faditor.motion.emu.MotionTrailGlTest,com.fadcam.ui.faditor.motion.emu.MotionCardScreenshotTest,com.fadcam.ui.faditor.motion.emu.MotionGalleryTest,com.fadcam.ui.faditor.motion.emu.MotionTimingTest ;;
+            character) CLASSES=com.fadcam.ui.faditor.motion.emu.MotionCharacterBlurTest ;;
+            *)     CLASSES=com.fadcam.ui.faditor.motion.emu.MotionTrailGlTest,com.fadcam.ui.faditor.motion.emu.MotionCardScreenshotTest,com.fadcam.ui.faditor.motion.emu.MotionGalleryTest,com.fadcam.ui.faditor.motion.emu.MotionTimingTest,com.fadcam.ui.faditor.motion.emu.MotionCharacterBlurTest ;;
           esac
           ARGS=(-e class "$CLASSES")
           [ "$FAULT" != none ] && ARGS+=(-e fault "$FAULT")

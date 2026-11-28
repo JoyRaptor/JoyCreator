@@ -120,6 +120,13 @@ public class AvatarSceneTakeTest {
 
     private static View must(View root, String desc) {
         View v = byDesc(root, desc);
+        if (v == null) {
+            try {
+                android.graphics.Bitmap s = Emu.screen();
+                Emu.save(s, new File(Emu.dir("scenetakes"), "FAIL-" + System.nanoTime() + ".png"));
+            } catch (Exception ignored) {
+            }
+        }
         assertNotNull("no shown view described \"" + desc + "\"", v);
         return v;
     }

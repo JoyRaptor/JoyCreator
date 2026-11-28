@@ -50,7 +50,7 @@ public final class TakeRecorder {
         if (g != null) return g;
         String p = name.length() >= 3 ? name.substring(0, 3) : name;
         if (name.equals("face.cheekPuff")) return "puff";               // (the Puff button's own: a pass with it held leaves the rest of the face)
-        if (p.equals("pt.") || name.startsWith("face.")) return "facepins";
+        if (p.equals("pt.") || p.equals("mk.") || p.equals("mp.") || name.startsWith("face.")) return "facepins";   // (the mask's lanes too: X6 P10)
         if (p.equals("dx:") || p.equals("dy:")) return "head";
         if (name.startsWith("p:")) return name.substring(0, name.lastIndexOf(':'));
         return name;

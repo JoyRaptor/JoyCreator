@@ -81,3 +81,8 @@ the app. Puppet code has barely changed since 9-17, so this card is still accura
 ### Cloud emulator, 11-28 (Studio phone lane; evidence in `tasks/screens/ani1-puppet-emulator-20261128/`)
 - ✅ Puppet tab reached by the drawer's person icon; ✅ pins placed by tapping (named "Hip" and so on, one undo step each); ✅ dragging a pin with the drawer closed moves it, one undo step.
 - ❌ Not seen: the keyed pin (the diamond tap missed in the run), a posed picture and its replay (the harness's picture is a plain disc, nothing visibly swings), tape drags, bone tap. These stay for the Note 9 with a figure picture that has a tail. Script: `tools/cloud/emulator/scripts/puppet_proof.sh` (open the Puppet tab at 718,39; diamond at 837,135; the drawer re-lays out after the first pin).
+
+### Note 9, 11-28 (Studio phone lane, build 0dd90399b; `tasks/screens/ani1-puppet-note9-20261128/`)
+- ✅ Pin placed; ✅ Dangle placed on a tail tip (sim controls show); ✅ **keyed pin**: the header diamond turns green and fills, one undo step.
+- ✅ Live take recorded (one undo step) after tapping the puppet badge (a drag without it moves the layer).
+- ❌ After a ~300 px drag the figure collapses into slivers (head and body shrink, legs a spike, tail unchanged): the open engine row C6. Replay, tape drags and bone tap not done; re-run with a small drag.

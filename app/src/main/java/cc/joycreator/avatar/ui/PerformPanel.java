@@ -356,6 +356,10 @@ public final class PerformPanel extends ScrollView {
                 one.addView(chip(c, c.getString(R.string.avatar_cams_one), c.getString(R.string.avatar_hover_cams_one),
                         v -> host.setCamera(true, host.faceCamera())));
                 cameraBox.addView(one);
+                // said where it is seen: after a change in this stage the line and its chip come into view (it appears below
+                // the chips just tapped); a stage that opens stays at its top
+                if (!newStage) post(() -> why.requestRectangleOnScreen(
+                        new android.graphics.Rect(0, 0, why.getWidth(), why.getHeight() + one.getHeight()), false));
             }
             side.addView(cameraBox);
             paintCameras();

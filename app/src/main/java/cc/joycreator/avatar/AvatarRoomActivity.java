@@ -285,7 +285,7 @@ public final class AvatarRoomActivity extends Activity implements RoomMenu.Host,
 
         panel = new LinearLayout(this);
         panel.setOrientation(LinearLayout.VERTICAL);
-        panel.setBackgroundColor(0xFF09090B);
+        panel.setBackgroundColor(Studio.SURFACE);
         panel.addView(buildPanelHeader(), new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, px(44)));
         panel.addView(buildStageRow(), new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, px(36)));
         parts = new PartsView(this, this);
@@ -299,7 +299,7 @@ public final class AvatarRoomActivity extends Activity implements RoomMenu.Host,
         body.addView(sceneRoom.cardView(), new android.widget.FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
         panel.addView(body, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f));
         rail = new cc.joycreator.avatar.ui.LayersView(this, this);
-        rail.setBackgroundColor(0xFF0D0D10);
+        rail.setBackgroundColor(Studio.SURFACE);
         bottomRow = new LinearLayout(this);
         bottomRow.addView(panel, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, 1f));
         root.addView(bottomRow);
@@ -341,15 +341,15 @@ public final class AvatarRoomActivity extends Activity implements RoomMenu.Host,
         LinearLayout bar = new LinearLayout(this);
         bar.setGravity(Gravity.CENTER_VERTICAL);
         bar.setPadding(px(8), 0, px(8), 0);
-        TextView menu = roundButton("☰", getString(R.string.avatar_hover_menu));
+        TextView menu = roundButton("menu", getString(R.string.avatar_hover_menu));
         menu.setOnClickListener(v -> openMenu());
         bar.addView(menu, new LinearLayout.LayoutParams(px(36), px(36)));
-        undoButton = roundButton("\u21B6", getString(R.string.avatar_hover_undo_none));
+        undoButton = roundButton("undo", getString(R.string.avatar_hover_undo_none));
         undoButton.setOnClickListener(v -> { if (sceneRoom != null && sceneRoom.isOpen()) sceneRoom.undo(false); else if (edit != null && edit.undo()) rebindCards(); });
         LinearLayout.LayoutParams ul = new LinearLayout.LayoutParams(px(36), px(36));
         ul.leftMargin = px(8);
         bar.addView(undoButton, ul);
-        redoButton = roundButton("\u21B7", getString(R.string.avatar_hover_redo_none));
+        redoButton = roundButton("redo", getString(R.string.avatar_hover_redo_none));
         redoButton.setOnClickListener(v -> { if (sceneRoom != null && sceneRoom.isOpen()) sceneRoom.undo(true); else if (edit != null && edit.redo()) rebindCards(); });
         bar.addView(redoButton, ul);
         // the save dot (spec A2): never says "saved" for a character nobody has saved; says so on a long press or hover
@@ -380,14 +380,14 @@ public final class AvatarRoomActivity extends Activity implements RoomMenu.Host,
         LinearLayout col = new LinearLayout(this);
         col.setOrientation(LinearLayout.VERTICAL);
         col.setPadding(px(4), px(8), px(4), 0);
-        TextView fit = roundButton("\u2316", getString(R.string.avatar_hover_fit));
+        TextView fit = roundButton("center_focus_strong", getString(R.string.avatar_hover_fit));
         fit.setOnClickListener(v -> stage.fitToHand());
-        TextView look = roundButton("\u25CE", getString(R.string.avatar_hover_look));
+        TextView look = roundButton("highlight", getString(R.string.avatar_hover_look));
         look.setOnClickListener(v -> {
             int i = stage.cycleLook();
             Toast.makeText(this, getResources().getStringArray(R.array.avatar_looks)[i], Toast.LENGTH_SHORT).show();
         });
-        pickTool = roundButton("\u261D", getString(R.string.avatar_hover_pick));
+        pickTool = roundButton("touch_app", getString(R.string.avatar_hover_pick));
         pickTool.setOnClickListener(v -> {
             boolean on = !stage.picking();
             stage.setPicking(on, id -> {
@@ -407,11 +407,17 @@ public final class AvatarRoomActivity extends Activity implements RoomMenu.Host,
 
     private void paintPickTool() {
         boolean on = stage.picking();
-        GradientDrawable g = new GradientDrawable();
-        g.setShape(GradientDrawable.OVAL);
-        g.setColor(on ? Studio.ARMED : 0xFF27272A);
-        pickTool.setBackground(g);
-        pickTool.setTextColor(on ? Studio.GROUND : 0xFFFAFAFA);
+        if (on) {                                                       // on: solid cyan, the icon cut out of it (the owner's rule)
+            GradientDrawable g = new GradientDrawable();
+            g.setShape(GradientDrawable.OVAL);
+            g.setColor(Studio.ARMED);
+            pickTool.setBackground(g);
+        } else {
+            TypedValue tv = new TypedValue();
+            if (getTheme().resolveAttribute(android.R.attr.selectableItemBackgroundBorderless, tv, true)) pickTool.setBackgroundResource(tv.resourceId);
+            else pickTool.setBackground(null);
+        }
+        pickTool.setTextColor(on ? Studio.GROUND : Studio.INK);
     }
 
     /** The export sheet (slice 2's RoomExportSheet): the character is saved first, so the file it works from is current. */
@@ -432,7 +438,7 @@ public final class AvatarRoomActivity extends Activity implements RoomMenu.Host,
         boolean saved = characterPath != null && !unsaved;
         GradientDrawable g = new GradientDrawable();
         g.setShape(GradientDrawable.OVAL);
-        g.setColor(saved ? Studio.ARMED : 0xFF52525B);
+        g.setColor(saved ? Studio.ARMED : Studio.INK_OFF);
         saveDot.setBackground(g);
         String s = getString(saved ? R.string.avatar_hover_saved : R.string.avatar_hover_not_saved);
         TooltipCompat.setTooltipText(saveDot, s);
@@ -444,8 +450,9 @@ public final class AvatarRoomActivity extends Activity implements RoomMenu.Host,
         h.setGravity(Gravity.CENTER_VERTICAL);
         h.setPadding(px(12), 0, px(12), 0);
         pathName = new TextView(this);
-        pathName.setTextColor(0xFFFAFAFA);
-        pathName.setTextSize(TypedValue.COMPLEX_UNIT_SP, 14);
+        pathName.setTextColor(Studio.INK);
+        pathName.setTextSize(TypedValue.COMPLEX_UNIT_SP, com.fadcam.ui.faditor.SheetKit.TITLE_SP);
+        com.fadcam.ui.type.Type.display(pathName, com.fadcam.ui.type.Type.EXTRA);   // (Studio's title face, as its sheets')
         TooltipCompat.setTooltipText(pathName, getString(R.string.avatar_hover_path_character));
         h.addView(pathName, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
         // Parts | Layers: two equal ways to look at the same character, so a two-way switch (rule A0)
@@ -464,6 +471,7 @@ public final class AvatarRoomActivity extends Activity implements RoomMenu.Host,
         t.setText(label);
         t.setGravity(Gravity.CENTER);
         t.setTextSize(TypedValue.COMPLEX_UNIT_SP, 12);
+        com.fadcam.ui.type.Type.body(t, com.fadcam.ui.type.Type.MEDIUM);
         TooltipCompat.setTooltipText(t, hover);
         t.setContentDescription(hover);
         return t;
@@ -476,9 +484,9 @@ public final class AvatarRoomActivity extends Activity implements RoomMenu.Host,
             boolean chosen = (i == 1) == on;
             GradientDrawable g = new GradientDrawable();
             g.setCornerRadius(px(10));
-            g.setColor(chosen ? Studio.ARMED : 0xFF27272A);
+            g.setColor(chosen ? Studio.ARMED : Studio.RAISED);
             t.setBackground(g);
-            t.setTextColor(chosen ? Studio.GROUND : 0xFFA1A1AA);
+            t.setTextColor(chosen ? Studio.GROUND : Studio.INK_DIM);
         }
         applyPanels();
         refreshPins();
@@ -508,6 +516,7 @@ public final class AvatarRoomActivity extends Activity implements RoomMenu.Host,
             t.setText(STAGE_NAMES[i]);
             t.setGravity(Gravity.CENTER);
             t.setTextSize(TypedValue.COMPLEX_UNIT_SP, 13);
+            com.fadcam.ui.type.Type.body(t, com.fadcam.ui.type.Type.MEDIUM);
             TooltipCompat.setTooltipText(t, getString(STAGE_HOVER[i]));
             t.setContentDescription(getString(STAGE_HOVER[i]));
             t.setOnClickListener(v -> selectStage(idx));
@@ -1264,7 +1273,7 @@ public final class AvatarRoomActivity extends Activity implements RoomMenu.Host,
             g.setCornerRadius(px(14));
             g.setColor(on ? Studio.ARMED : Color.TRANSPARENT);
             stageTabs[i].setBackground(g);
-            stageTabs[i].setTextColor(on ? Studio.GROUND : 0xFFA1A1AA);
+            stageTabs[i].setTextColor(on ? Studio.GROUND : Studio.INK_DIM);
         }
         if (character != null) {
             parts.show(character, inHand, stageIndex);
@@ -1275,16 +1284,21 @@ public final class AvatarRoomActivity extends Activity implements RoomMenu.Host,
         if (sceneRoom != null && sceneRoom.isOpen() && sceneRoom.stage() != idx) sceneRoom.setStage(idx);
     }
 
-    private TextView roundButton(String glyph, String hover) {
+    /**
+     * A room button as Studio draws its own (the owner, 11-28: "emoji buttons, off spec round overs"): a Material icon
+     * ({@code ligature}) in Studio's ink, 20 sp, borderless with Studio's press, and its hover label.
+     */
+    private TextView roundButton(String ligature, String hover) {
         TextView t = new TextView(this);
-        t.setText(glyph);
+        t.setTypeface(com.fadcam.ui.faditor.SheetKit.icons(this));
+        t.setText(ligature);
         t.setGravity(Gravity.CENTER);
-        t.setTextColor(0xFFFAFAFA);
-        t.setTextSize(TypedValue.COMPLEX_UNIT_SP, 18);
-        GradientDrawable g = new GradientDrawable();
-        g.setShape(GradientDrawable.OVAL);
-        g.setColor(0xFF27272A);
-        t.setBackground(g);
+        t.setTextColor(Studio.INK);
+        t.setTextSize(TypedValue.COMPLEX_UNIT_SP, 20);
+        t.setIncludeFontPadding(false);
+        TypedValue tv = new TypedValue();
+        if (getTheme().resolveAttribute(android.R.attr.selectableItemBackgroundBorderless, tv, true)) t.setBackgroundResource(tv.resourceId);
+        com.fadcam.ui.faditor.SheetKit.press(t);
         TooltipCompat.setTooltipText(t, hover);
         t.setContentDescription(hover);
         return t;

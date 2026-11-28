@@ -54,7 +54,7 @@ public final class PinWizard extends FrameLayout {
         pic = picture;
         listener = l;
         dp = c.getResources().getDisplayMetrics().density;
-        setBackgroundColor(0xFF09090B);
+        setBackgroundColor(Studio.SURFACE);
         text.setTextSize(11 * dp);
         text.setFakeBoldText(true);
         setClickable(true);
@@ -63,7 +63,7 @@ public final class PinWizard extends FrameLayout {
         addView(col, new LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
         TextView title = new TextView(c);
         title.setText(c.getString(R.string.avatar_wizard_title, name));
-        title.setTextColor(0xFFFAFAFA);
+        title.setTextColor(Studio.INK);
         title.setTextSize(15);
         title.setPadding(px(16), px(12), px(16), px(8));
         col.addView(title);
@@ -81,7 +81,7 @@ public final class PinWizard extends FrameLayout {
         };
         col.addView(canvas, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f));
         note = new TextView(c);
-        note.setTextColor(0xFFA1A1AA);
+        note.setTextColor(Studio.INK_DIM);
         note.setTextSize(13);
         note.setPadding(px(16), px(8), px(16), px(4));
         col.addView(note);
@@ -112,7 +112,7 @@ public final class PinWizard extends FrameLayout {
             float tw = text.measureText(p.name);
             paint.setColor(0xCC0D0D10);
             g.drawRoundRect(new RectF(x + 12 * dp, y - 9 * dp, x + 20 * dp + tw, y + 9 * dp), 6 * dp, 6 * dp, paint);
-            text.setColor(0xFFE4E4E7);
+            text.setColor(Studio.INK);
             g.drawText(p.name, x + 16 * dp, y + 4 * dp, text);
         }
     }
@@ -161,10 +161,10 @@ public final class PinWizard extends FrameLayout {
         t.setTextSize(12);
         t.setGravity(Gravity.CENTER);
         t.setPadding(px(14), 0, px(14), 0);
-        t.setTextColor(on ? Studio.GROUND : enabled ? 0xFFD4D4D8 : 0xFF52525B);
+        t.setTextColor(on ? Studio.GROUND : enabled ? Studio.LABEL : Studio.INK_OFF);
         GradientDrawable g = new GradientDrawable();
         g.setCornerRadius(px(18));
-        g.setColor(on ? Studio.ARMED : 0xFF27272A);
+        g.setColor(on ? Studio.ARMED : Studio.RAISED);
         t.setBackground(g);
         LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, px(36));
         lp.rightMargin = px(6);

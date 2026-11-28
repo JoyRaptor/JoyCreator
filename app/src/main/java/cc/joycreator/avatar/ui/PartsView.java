@@ -343,7 +343,7 @@ public final class PartsView extends ScrollView {
         TextView back = new TextView(c), front = new TextView(c);
         for (TextView t : new TextView[]{back, front}) {
             t.setTextSize(9);
-            t.setTextColor(0xFF71717A);
+            t.setTextColor(Studio.INK_FAINT);
             t.setGravity(Gravity.CENTER);
         }
         back.setText(R.string.avatar_stack_back);
@@ -430,7 +430,7 @@ public final class PartsView extends ScrollView {
         t.setPadding(px(2), px(2), px(2), px(2));
         GradientDrawable g = new GradientDrawable();
         g.setCornerRadius(px(10));
-        g.setColor(on ? Studio.ARMED : 0xFF27272A);
+        g.setColor(on ? Studio.ARMED : Studio.RAISED);
         t.setBackground(g);
         ImageView iv = new ImageView(getContext());
         iv.setScaleType(ImageView.ScaleType.FIT_CENTER);
@@ -442,7 +442,7 @@ public final class PartsView extends ScrollView {
         n.setSingleLine(true);
         n.setEllipsize(android.text.TextUtils.TruncateAt.END);
         n.setGravity(Gravity.CENTER);
-        n.setTextColor(on ? Studio.GROUND : 0xFFA1A1AA);
+        n.setTextColor(on ? Studio.GROUND : Studio.INK_DIM);
         t.addView(n, new LinearLayout.LayoutParams(px(46), ViewGroup.LayoutParams.WRAP_CONTENT));
         LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(px(50), px(56));
         lp.rightMargin = px(6);
@@ -459,10 +459,10 @@ public final class PartsView extends ScrollView {
         t.setTextSize(12);
         t.setGravity(Gravity.CENTER);
         t.setPadding(px(12), 0, px(12), 0);
-        t.setTextColor(on ? Studio.GROUND : 0xFFD4D4D8);
+        t.setTextColor(on ? Studio.GROUND : Studio.LABEL);
         GradientDrawable g = new GradientDrawable();
         g.setCornerRadius(px(16));
-        g.setColor(on ? Studio.ARMED : 0xFF27272A);
+        g.setColor(on ? Studio.ARMED : Studio.RAISED);
         t.setBackground(g);
         LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, px(32));
         lp.rightMargin = px(6);
@@ -477,7 +477,8 @@ public final class PartsView extends ScrollView {
         TextView t = new TextView(getContext());
         t.setText(s);
         t.setTextSize(16);
-        t.setTextColor(0xFFFAFAFA);
+        t.setTextColor(Studio.INK);
+        RoomType.heading(t);
         t.setPadding(0, px(4), 0, px(6));
         return t;
     }
@@ -486,7 +487,8 @@ public final class PartsView extends ScrollView {
         TextView t = new TextView(getContext());
         t.setText(s);
         t.setTextSize(12);
-        t.setTextColor(0xFF71717A);
+        t.setTextColor(Studio.INK_FAINT);
+        RoomType.label(t);
         t.setPadding(0, px(8), 0, px(6));
         return t;
     }
@@ -495,7 +497,8 @@ public final class PartsView extends ScrollView {
         TextView t = new TextView(getContext());
         t.setText(s);
         t.setTextSize(13);
-        t.setTextColor(0xFFA1A1AA);
+        t.setTextColor(Studio.INK_DIM);
+        RoomType.body(t);
         t.setPadding(0, px(8), 0, px(8));
         return t;
     }

@@ -60,17 +60,18 @@ public final class StickSheet {
         TextView box = new TextView(c);
         box.setGravity(Gravity.CENTER);
         box.setTextSize(15);
-        box.setText(on ? "\u2713" : "");
+        box.setTypeface(com.fadcam.ui.faditor.SheetKit.icons(box.getContext()));             // (Studio's tick, not a typed mark)
+        box.setText(on ? "check" : "");
         box.setTextColor(Studio.GROUND);                                    // ON = solid cyan with the tick punched out
         GradientDrawable g = new GradientDrawable();
         g.setCornerRadius(5 * dp);
-        g.setColor(on ? Studio.ARMED : 0xFF27272A);
-        if (!on) g.setStroke((int) Math.max(1, dp), 0xFF52525B);
+        g.setColor(on ? Studio.ARMED : Studio.RAISED);
+        if (!on) g.setStroke((int) Math.max(1, dp), Studio.INK_OFF);
         box.setBackground(g);
         row.addView(box, new LinearLayout.LayoutParams((int) (24 * dp), (int) (24 * dp)));
         TextView label = new TextView(c);
         label.setText(R.string.avatar_stick_depth);
-        label.setTextColor(0xFFE4E4E7);
+        label.setTextColor(Studio.INK);
         label.setTextSize(13);
         label.setPadding((int) (10 * dp), 0, 0, 0);
         row.addView(label);
@@ -83,7 +84,7 @@ public final class StickSheet {
         body.addView(row);
         if (!on) return;
         final TextView angle = new TextView(c);
-        angle.setTextColor(0xFF71717A);
+        angle.setTextColor(Studio.INK_FAINT);
         angle.setTextSize(11);
         angle.setPadding(0, (int) (10 * dp), 0, 0);
         paintAngle(c, angle, (int) Math.round(stick.angle()));
@@ -126,13 +127,13 @@ public final class StickSheet {
             head.setGravity(Gravity.CENTER_VERTICAL);
             TextView name = new TextView(c);
             name.setText(s[1]);
-            name.setTextColor(0xFFE4E4E7);
+            name.setTextColor(Studio.INK);
             name.setTextSize(13);
             name.setTypeface(null, android.graphics.Typeface.BOLD);
             head.addView(name, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
             TextView now = new TextView(c);
             now.setText(cur);
-            now.setTextColor(0xFF71717A);
+            now.setTextColor(Studio.INK_FAINT);
             now.setTextSize(11);
             head.addView(now);
             LinearLayout.LayoutParams hp = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
@@ -153,10 +154,10 @@ public final class StickSheet {
                 chip.setPadding((int) (12 * dp), 0, (int) (12 * dp), 0);
                 GradientDrawable g = new GradientDrawable();
                 g.setCornerRadius(16 * dp);
-                g.setColor(on ? Studio.ARMED : 0xFF27272A);          // ON = solid cyan, the label punched out
+                g.setColor(on ? Studio.ARMED : Studio.RAISED);          // ON = solid cyan, the label punched out
                 chip.setBackground(g);
                 if (on) chosen[0] = chip;
-                chip.setTextColor(on ? Studio.GROUND : 0xFFD4D4D8);
+                chip.setTextColor(on ? Studio.GROUND : Studio.LABEL);
                 TooltipCompat.setTooltipText(chip, slotName + ": " + a.title);
                 chip.setContentDescription(slotName + ": " + a.title);
                 chip.setOnClickListener(v -> {
@@ -175,7 +176,7 @@ public final class StickSheet {
         }
         TextView note = new TextView(c);
         note.setText(c.getString(R.string.avatar_stick_note, characterName));
-        note.setTextColor(0xFF71717A);
+        note.setTextColor(Studio.INK_FAINT);
         note.setTextSize(11);
         note.setPadding(0, (int) (14 * dp), 0, 0);
         body.addView(note);

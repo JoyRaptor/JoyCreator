@@ -62,7 +62,7 @@ public final class SheetCutterView extends FrameLayout {
         this.listener = l;
         this.comps = sheet.found;
         dp = c.getResources().getDisplayMetrics().density;
-        setBackgroundColor(0xFF09090B);
+        setBackgroundColor(Studio.SURFACE);
         setClickable(true);
         text.setTextSize(11 * dp);
         text.setFakeBoldText(true);
@@ -72,7 +72,7 @@ public final class SheetCutterView extends FrameLayout {
         addView(col, new LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
         TextView title = new TextView(c);
         title.setText(R.string.avatar_cutter_title);
-        title.setTextColor(0xFFFAFAFA);
+        title.setTextColor(Studio.INK);
         title.setTextSize(15);
         title.setPadding(px(16), px(12), px(16), px(8));
         col.addView(title);
@@ -90,7 +90,7 @@ public final class SheetCutterView extends FrameLayout {
         };
         col.addView(canvas, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f));
         note = new TextView(c);
-        note.setTextColor(0xFFA1A1AA);
+        note.setTextColor(Studio.INK_DIM);
         note.setTextSize(13);
         note.setPadding(px(16), px(8), px(16), px(4));
         col.addView(note);
@@ -237,7 +237,7 @@ public final class SheetCutterView extends FrameLayout {
     private TextView label(String s) {
         TextView t = new TextView(getContext());
         t.setText(s);
-        t.setTextColor(0xFFA1A1AA);
+        t.setTextColor(Studio.INK_DIM);
         t.setTextSize(12);
         t.setPadding(px(8), 0, px(6), 0);
         return t;
@@ -249,10 +249,10 @@ public final class SheetCutterView extends FrameLayout {
         t.setTextSize(12);
         t.setGravity(Gravity.CENTER);
         t.setPadding(px(14), 0, px(14), 0);
-        t.setTextColor(on ? Studio.GROUND : enabled ? 0xFFD4D4D8 : 0xFF52525B);
+        t.setTextColor(on ? Studio.GROUND : enabled ? Studio.LABEL : Studio.INK_OFF);
         GradientDrawable g = new GradientDrawable();
         g.setCornerRadius(px(18));
-        g.setColor(on ? Studio.ARMED : 0xFF27272A);
+        g.setColor(on ? Studio.ARMED : Studio.RAISED);
         t.setBackground(g);
         LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, px(36));
         lp.rightMargin = px(6);

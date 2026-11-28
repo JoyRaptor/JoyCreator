@@ -48,6 +48,18 @@ tap_text "Close & Save" >/dev/null 2>&1 || tap 755 1169; settle 5
 shot after_back
 dump after_back
 python3 "$HERE_LIB/uia.py" list /tmp/ui.xml | head -30
+# closing the editor lands on the folder step (the harness skipped it at first run): make the folder like choose_folder does
+if tap_text "Make my Joy Creator folder" >/dev/null 2>&1; then
+    settle 8; shot folder_picker_open
+    tap_text "=Documents" >/dev/null 2>&1 || tap_text "Documents" >/dev/null 2>&1
+    settle 3
+    tap_text "JoyCreatorTest" >/dev/null 2>&1; settle 3
+    tap_text "ALLOW ACCESS TO" >/dev/null 2>&1 || tap_text "Allow access to" >/dev/null 2>&1; settle 3
+    tap_text "=ALLOW" >/dev/null 2>&1 || tap_text "ALLOW" >/dev/null 2>&1; settle 5
+    shot folder_chosen
+    tap_text "Start creating" >/dev/null 2>&1; settle 4
+fi
+shot lobby_after_folder
 tap_text "Library" >/dev/null 2>&1; settle 4
 shot library
 dump library

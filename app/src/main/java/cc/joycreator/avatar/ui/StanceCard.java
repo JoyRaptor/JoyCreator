@@ -183,7 +183,7 @@ public final class StanceCard {
     private static TextView label(Context c, String s, float dp) {
         TextView t = text(c, s, 12, Studio.INK_FAINT);
         t.setPadding(0, Math.round(8 * dp), 0, Math.round(6 * dp));
-        return t;
+        return RoomType.label(t);
     }
 
     private static TextView note(Context c, String s, float dp) {
@@ -197,6 +197,6 @@ public final class StanceCard {
         t.setText(s);
         t.setTextSize(sp);
         t.setTextColor(color);
-        return t;
+        return RoomType.body(t);
     }
 }

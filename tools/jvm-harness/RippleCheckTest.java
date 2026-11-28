@@ -95,6 +95,33 @@ public class RippleCheckTest {
         check(RippleCheck.Choice.of(null) == RippleCheck.Choice.ASK, "nothing stored: ask");
         check(!RippleCheck.ENABLED, "hidden: off until the owner's screen is built");
 
+        // The hook (one place: the editor's endStructuralEdit): it asks after the person's own length edits, never
+        // after Undo, Redo or a correction the app makes itself.
+        for (String w : new String[]{"trim", "speed", "loopExtend", "loopResize", "loopMode", "delete", "deleteLinkedPair", "silenceCuts"})
+            check(RippleCheck.asksAfter(w), "asks after " + w);
+        for (String w : new String[]{"undo", "redo", "jumpUndo", "jumpRedo", "durationCorrection", "deleteLinkedPair:revert", "demoteToLayer:declined", "reorder", null})
+            check(!RippleCheck.asksAfter(w), "never asks after " + w);
+
+        // Where the edit was: the first clip trimmed, so the second clip moved from its old start, 10 s.
+        Timeline three = new Timeline();
+        three.addClip(clip(10_000));
+        three.addClip(clip(10_000));
+        three.addClip(clip(10_000));
+        Map<String, Long> starts = three.captureClipStarts();
+        long track = three.getVideoTrackDurationMs();
+        three.getClip(0).setOutPointMs(8_000);
+        eq(RippleCheck.pointOf(starts, three.captureClipStarts(), track), 10_000, "a trimmed first clip: the point is where the second clip started");
+        // The middle clip deleted: the third moved from 20 s, but the deleted one went from 10 s.
+        Map<String, Long> s2 = three.captureClipStarts();
+        long track2 = three.getVideoTrackDurationMs();
+        three.removeClip(1);
+        eq(RippleCheck.pointOf(s2, three.captureClipStarts(), track2), 8_000, "a deleted clip: the point is where it started");
+        // Only the last clip changed: no start moved, so the point is the old end of the clips.
+        Map<String, Long> s3 = three.captureClipStarts();
+        long track3 = three.getVideoTrackDurationMs();
+        three.getClip(1).setOutPointMs(5_000);
+        eq(RippleCheck.pointOf(s3, three.captureClipStarts(), track3), track3, "only the last clip changed: the point is the old end");
+
         System.out.println("RippleCheck: " + pass + " passed, " + fail + " failed");
         System.exit(fail == 0 ? 0 : 1);
     }

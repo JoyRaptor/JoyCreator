@@ -123,6 +123,7 @@ public class AvatarCameraTest {
                 Emu.sleep(2500);
                 FaceCapture fc = (FaceCapture) field(a, "faceCapture");
                 assertNotNull("the room has its face capture", fc);
+                openFaceSheet(a);                                            // (the cameras live in the face sheet)
                 if (fc.shouldersOn()) {                                      // Shoulders off by a real tap (it is on as built)
                     tapText(a, a.getString(R.string.avatar_shoulders));
                     Emu.sleep(1200);
@@ -283,7 +284,11 @@ public class AvatarCameraTest {
     private static View find(AvatarRoomActivity a, String txt) {
         View[][] hit = {new View[2]};
         int[] n = {0};
-        Emu.ins().runOnMainSync(() -> collect(a.getWindow().getDecorView(), txt, hit[0], n));
+        View sheet = sheetRoot(a);                                       // (the face sheet first, while it is open)
+        Emu.ins().runOnMainSync(() -> {
+            if (sheet != null) collect(sheet, txt, hit[0], n);
+            collect(a.getWindow().getDecorView(), txt, hit[0], n);
+        });
         return hit[0][0];
     }
 
@@ -291,7 +296,11 @@ public class AvatarCameraTest {
     private static View second(AvatarRoomActivity a, String txt) {
         View[][] hit = {new View[2]};
         int[] n = {0};
-        Emu.ins().runOnMainSync(() -> collect(a.getWindow().getDecorView(), txt, hit[0], n));
+        View sheet = sheetRoot(a);
+        Emu.ins().runOnMainSync(() -> {
+            if (sheet != null) collect(sheet, txt, hit[0], n);
+            collect(a.getWindow().getDecorView(), txt, hit[0], n);
+        });
         return hit[0][1];
     }
 
@@ -299,6 +308,33 @@ public class AvatarCameraTest {
         if (n[0] >= hits.length) return;
         if (v instanceof TextView && txt.contentEquals(((TextView) v).getText()) && v.isShown()) hits[n[0]++] = v;
         if (v instanceof ViewGroup) for (int i = 0; i < ((ViewGroup) v).getChildCount(); i++) collect(((ViewGroup) v).getChildAt(i), txt, hits, n);
+    }
+
+    /** The face sheet's window while it is open (the face's settings live there), or null. */
+    private static View sheetRoot(AvatarRoomActivity a) {
+        try {
+            Object sheet = field(field(a, "performPanel"), "faceSheet");
+            Object d = sheet == null ? null : field(sheet, "dialog");
+            return d == null ? null : ((android.app.Dialog) d).getWindow().getDecorView();
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
+    /** Face settings by a real tap: the sheet behind the Face chip. */
+    private static void openFaceSheet(AvatarRoomActivity a) {
+        if (sheetRoot(a) != null) return;
+        View chip = find(a, a.getString(R.string.avatar_face_settings));
+        org.junit.Assert.assertNotNull("the Face settings chip shows while the face is on", chip);
+        Emu.tap(chip);
+        Emu.sleep(1200);
+    }
+
+    /** The sheet closed with the Back key (a sheet takes a touch outside it, so the stage tabs need it gone). */
+    private static void closeFaceSheet(AvatarRoomActivity a) {
+        if (sheetRoot(a) == null) return;
+        Emu.ins().sendKeyDownUpSync(android.view.KeyEvent.KEYCODE_BACK);
+        Emu.sleep(800);
     }
 
     /** Scrolls the view into sight, then a real tap on it. */

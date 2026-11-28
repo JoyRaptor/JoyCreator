@@ -81,6 +81,11 @@
     <string name="avatar_shrug_shrug">shrug</string>
     <string name="avatar_hover_facepins_pick">%1$s: tap to choose this pin and set how strongly it pulls</string>
     <string name="avatar_hover_facepins_unpick">%1$s: tap to put this pin down</string>
+    <!-- the face sheet behind the Face chip (the owner, 11-28: no half-width column in Perform) -->
+    <string name="avatar_face_sheet">Face</string>
+    <string name="avatar_face_settings">Face settings</string>
+    <string name="avatar_hover_face_settings">The face camera's settings: Re-centre, Mirror, Check directions, Shoulders, which camera, walking with your face. Or hold Face</string>
+    <string name="avatar_face_sheet_walk">Walking</string>
     <!-- cameras per tracker (the owner, 11-27: the face on one camera, the body on another) -->
     <string name="avatar_face_camera">Face camera</string>
     <string name="avatar_body_camera">Body camera</string>

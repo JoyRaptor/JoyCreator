@@ -138,6 +138,8 @@ public final class AvatarRoomActivity extends Activity implements RoomMenu.Host,
     private String characterPath;
     /** Where each character on this screen was saved, by the character itself: a save finishing late never points another character at its file. */
     private final java.util.Map<CharacterDoc, String> savedAs = java.util.Collections.synchronizedMap(new java.util.IdentityHashMap<>());
+    private View doorView;                                            // the pin wizard or the sheet cutter, while one is over the room
+    private android.graphics.Bitmap doorBitmap;
     private int editStamp;                                            // counts the edits, so a save knows whether more came while it ran
     /** What is on the stage differs from what is in the folder. Nothing edits yet, so this stays false. */
     private boolean unsaved;
@@ -308,12 +310,12 @@ public final class AvatarRoomActivity extends Activity implements RoomMenu.Host,
         menu.setOnClickListener(v -> openMenu());
         bar.addView(menu, new LinearLayout.LayoutParams(px(36), px(36)));
         undoButton = roundButton("\u21B6", getString(R.string.avatar_hover_undo_none));
-        undoButton.setOnClickListener(v -> { if (edit != null) edit.undo(); });
+        undoButton.setOnClickListener(v -> { if (edit != null && edit.undo()) rebindCards(); });
         LinearLayout.LayoutParams ul = new LinearLayout.LayoutParams(px(36), px(36));
         ul.leftMargin = px(8);
         bar.addView(undoButton, ul);
         redoButton = roundButton("\u21B7", getString(R.string.avatar_hover_redo_none));
-        redoButton.setOnClickListener(v -> { if (edit != null) edit.redo(); });
+        redoButton.setOnClickListener(v -> { if (edit != null && edit.redo()) rebindCards(); });
         bar.addView(redoButton, ul);
         // the save dot (spec A2): never says "saved" for a character nobody has saved; says so on a long press or hover
         saveDot = new View(this);
@@ -588,9 +590,9 @@ public final class AvatarRoomActivity extends Activity implements RoomMenu.Host,
     }
 
     @Override
-    public void commit(String nodeId, String pinId, double x, double y, org.json.JSONArray oldOffset) {
+    public void restore(String nodeId, String pinId, org.json.JSONArray oldOffset) {
         final String pid = poseId();
-        try {                                                    // put the live offset back so the step starts from what was there
+        try {
             org.json.JSONObject fs = cc.joycreator.avatar.file.Reshape.fixShape(character.find(nodeId).json, pid);
             org.json.JSONObject dd = fs == null ? null : fs.optJSONObject("d");
             if (dd != null) {
@@ -600,6 +602,13 @@ public final class AvatarRoomActivity extends Activity implements RoomMenu.Host,
         } catch (org.json.JSONException e) {
             Log.w(TAG, "reshape put-back refused", e);
         }
+        redraw();
+    }
+
+    @Override
+    public void commit(String nodeId, String pinId, double x, double y, org.json.JSONArray oldOffset) {
+        final String pid = poseId();
+        restore(nodeId, pinId, oldOffset);                       // put the live offset back so the step starts from what was there
         edit.apply(getString(R.string.avatar_step_reshape_pin), d -> cc.joycreator.avatar.file.Reshape.dragTo(d.find(nodeId).json, pid, pinId, x, y));
     }
 
@@ -1165,8 +1174,31 @@ public final class AvatarRoomActivity extends Activity implements RoomMenu.Host,
 
     @Override
     public void onBackPressed() {
-        if (landmarks != null && landmarks.isOpen()) closeLandmarks();
+        if (doorView != null) {                                        // the pin wizard or the sheet cutter over the room: Back leaves it, not the room
+            View v = doorView;
+            doorView = null;
+            if (v.getParent() instanceof ViewGroup) ((ViewGroup) v.getParent()).removeView(v);
+            if (doorBitmap != null) {
+                doorBitmap.recycle();
+                doorBitmap = null;
+            }
+        } else if (landmarks != null && landmarks.isOpen()) closeLandmarks();
         else super.onBackPressed();
+    }
+
+    /** A drawing tried on Set up is not kept: it goes when the stage or the character changes. */
+    private void clearTried() {
+        if (!forced.isEmpty()) {
+            forced.clear();
+            glStage.setForce(new java.util.HashMap<>(forced));
+        }
+        stage.tryDrawing(null, null);
+        if (parts != null) parts.clearTrying();
+    }
+
+    /** After Undo or Redo the Motion and Perform cards are drawn again, or their rows would hold parts the history replaced. */
+    private void rebindCards() {
+        if (character != null && stageIndex >= 2) performPanel.bind(character, stageIndex == 3);
     }
 
     private void selectStage(int idx) {
@@ -1177,6 +1209,7 @@ public final class AvatarRoomActivity extends Activity implements RoomMenu.Host,
         stageIndex = idx;
         if (idx != 1) stopReshape();
         testMouth = 0;
+        clearTried();
         if (parts != null) parts.scrollTo(0, 0);                    // a new stage opens at the top of its card
         if (performPanel != null) performPanel.scrollTo(0, 0);
         for (int i = 0; i < 4; i++) {
@@ -2209,6 +2242,7 @@ public final class AvatarRoomActivity extends Activity implements RoomMenu.Host,
     /** Puts another character on the stage. The one that was there is saved first if it has changes (edits younger than the autosave included). */
     private void adopt(CharacterDoc next, String path, boolean isUnsaved) {
         main.removeCallbacks(autosave);
+        clearTried();
         if (unsaved && character != null && character != next) saveDoc(character, characterPath, rel -> {
         });
         character = next;
@@ -2361,6 +2395,8 @@ public final class AvatarRoomActivity extends Activity implements RoomMenu.Host,
             }
         });
         addContentView(cv[0], new ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
+        doorView = cv[0];
+        doorBitmap = pic;
     }
 
     /** The cut drawings become a new character: each a picture, laid out in Extras, ready to be told what it is. */
@@ -2475,6 +2511,8 @@ public final class AvatarRoomActivity extends Activity implements RoomMenu.Host,
             }
         });
         addContentView(wiz[0], new ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
+        doorView = wiz[0];
+        doorBitmap = pic;
     }
 
     private void finishWhole(final android.graphics.Bitmap pic, final String name, final java.util.List<cc.joycreator.avatar.intake.WholeDrawing.Pin> pins) {

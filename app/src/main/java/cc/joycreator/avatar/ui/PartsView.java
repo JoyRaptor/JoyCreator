@@ -125,6 +125,11 @@ public final class PartsView extends ScrollView {
         return Math.round(v * dp);
     }
 
+    /** Forget the drawing being tried (the stage was told separately). */
+    public void clearTrying() {
+        trying = null;
+    }
+
     public void show(CharacterDoc doc, String inHandId, int stage) {
         thumbs.use(doc);
         column.removeAllViews();

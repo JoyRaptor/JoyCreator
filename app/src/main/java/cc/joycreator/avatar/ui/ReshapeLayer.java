@@ -36,6 +36,9 @@ public final class ReshapeLayer implements StageView.LandmarkLayer {
         /** The finger lifted: the old offset is put back and the drag is made as one named undo step. */
         void commit(String nodeId, String pinId, double x, double y, JSONArray oldOffset);
 
+        /** A drag was cut short: the pin's offset goes back to what it was (no step). */
+        void restore(String nodeId, String pinId, JSONArray oldOffset);
+
         /** A new pin on the part at (x, y) in the part's own space: one named undo step. */
         void drop(String nodeId, double x, double y);
 
@@ -47,6 +50,7 @@ public final class ReshapeLayer implements StageView.LandmarkLayer {
 
     private final Host host;
     private JSONArray old;
+    private String dragPin;
 
     public ReshapeLayer(Host host) {
         this.host = host;
@@ -144,6 +148,7 @@ public final class ReshapeLayer implements StageView.LandmarkLayer {
         JSONObject fs = n == null ? null : Reshape.fixShape(n.json, host.poseId());
         JSONObject dd = fs == null ? null : fs.optJSONObject("d");
         JSONArray o = dd == null ? null : dd.optJSONArray((String) d.tag);
+        dragPin = (String) d.tag;
         try {
             old = o == null ? null : new JSONArray(o.toString());
         } catch (org.json.JSONException e) {
@@ -152,11 +157,22 @@ public final class ReshapeLayer implements StageView.LandmarkLayer {
     }
 
     @Override
+    public void cancelDrag() {
+        CharacterDoc.Node n = node();
+        if (n == null || dragPin == null) return;
+        host.restore(n.id, dragPin, old);
+        dragPin = null;
+    }
+
+    @Override
     public void moved(StageView.Dot d, float x, float y, boolean last) {
         CharacterDoc.Node n = node();
         if (n == null) return;
         double[] p = inv(host.matrix(n.id), x, y);
-        if (last) host.commit(n.id, (String) d.tag, p[0], p[1], old);
+        if (last) {
+            dragPin = null;
+            host.commit(n.id, (String) d.tag, p[0], p[1], old);
+        }
         else host.live(n.id, (String) d.tag, p[0], p[1]);
     }
 }

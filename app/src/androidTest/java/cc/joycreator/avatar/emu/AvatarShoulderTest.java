@@ -171,12 +171,21 @@ public class AvatarShoulderTest {
             SeekBar trySb = seekBar(a, a.getString(R.string.avatar_shrug_try));
             assertNotNull("Motion has the Shrug section's Try", trySb);
             float[] tr = across(trySb, 0.02f, 0.95f);
-            Thread finger = new Thread(() -> Emu.drag(tr[0], tr[2], tr[1], tr[2], 400, 2200), "try-finger");
+            // (the finger stays at the end three seconds once it gets there; the emulator delivers a drag's moves slowly, so
+            // wait for the slider to reach the end before reading the arm)
+            Thread finger = new Thread(() -> Emu.drag(tr[0], tr[2], tr[1], tr[2], 400, 3000), "try-finger");
             finger.start();
-            Emu.sleep(2000);
+            int[] prog = {0};
+            long until = android.os.SystemClock.uptimeMillis() + 10000;
+            while (prog[0] < 18 && android.os.SystemClock.uptimeMillis() < until) {
+                Emu.sleep(100);
+                Emu.ins().runOnMainSync(() -> prog[0] = trySb.getProgress());
+            }
+            Emu.sleep(600);
             double tryUp = mL - drawnY(a, armL);
             shot(out, "06-motion-try");
-            finger.join(4000);
+            log.append("      (Try slider at ").append(prog[0]).append(" of 20 when read)\n");
+            finger.join(10000);
             Emu.sleep(1500);
             double tryRest = mL - drawnY(a, armL);
             check(tryUp > 25 && Math.abs(tryRest) < 3, "Motion, Try: a finger on it shrugs Topps without the camera (" + f(tryUp) + " px), let go and he rests (" + f(tryRest) + ")");

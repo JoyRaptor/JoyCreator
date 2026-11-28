@@ -254,7 +254,10 @@ public final class PerformPanel extends ScrollView {
                 bind(doc, takeBar);
             });
             paintChip(stickChip, host.stickOpen());
-            chipRow.addView(stickChip);
+            if (host.stickOpen()) {                                          // two pads share the width: the Joystick chip comes first (it closes the pad) and all three sit closer
+                chipRow.addView(stickChip, 0);
+                for (int i = 0; i < chipRow.getChildCount(); i++) chipRow.getChildAt(i).setPadding(px(9), 0, px(9), 0);
+            } else chipRow.addView(stickChip);
         }
         // the face's own controls, there only while the camera is on: a private preview, Re-centre, Mirror
         faceRow = new LinearLayout(c);

@@ -127,6 +127,24 @@ public class LookFilesHomeTest {
         for (LookFiles.Found f : LookFiles.readAll(fallback)) if (f.text.equals(mine)) listed = true;
         check(!listed, "and it is not listed as a look");
 
+        // SAFE-1 (11-28): when the folder is back, a look set aside that way goes into the folder's Trash, stamped with
+        // when it was deleted, so it can be put back like any other delete. Before, it stayed in the app's own folder
+        // where nothing could bring it back (and an uninstall would take it).
+        long deletedAt = Long.parseLong(setAside[0].substring(setAside[0].indexOf(LookFiles.REMOVED_MARK) + LookFiles.REMOVED_MARK.length()));
+        LookFiles.bringHome(fallback, probe, f -> false);
+        check(!new File(away, setAside[0]).exists(), "the set-aside look leaves the app's own folder once the folder is back");
+        JoyFolder.TrashItem inTrash = null;
+        for (JoyFolder.TrashItem t : jf.trashItems()) if (t.originalName().equals("Calm Ocean.vis.json")) inTrash = t;
+        check(inTrash != null, "it is in the folder's Trash, under its own name");
+        check(inTrash != null && inTrash.at == deletedAt, "stamped with when it was deleted, so Trash keeps it the usual time");
+        boolean listedNow = false;
+        for (LookFiles.Found f : LookFiles.readAll(probe)) if (f.text.equals(mine) && f.rel.contains("Calm Ocean 3")) listedNow = true;
+        check(!listedNow, "and it is not back among the looks until the person puts it back");
+        if (inTrash != null) {
+            String back = jf.restore(inTrash.name);
+            check(read(new File(folderDir, back)).equals(mine), "Put back from Trash brings the look back, word for word");
+        }
+
         System.out.println("LookFilesHomeTest: " + passes + " passed, " + fails + " failed");
         System.exit(fails > 0 ? 1 : 0);
     }

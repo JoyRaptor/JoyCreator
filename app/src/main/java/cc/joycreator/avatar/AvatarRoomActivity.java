@@ -451,7 +451,8 @@ public final class AvatarRoomActivity extends Activity implements RoomMenu.Host,
         h.setPadding(px(12), 0, px(12), 0);
         pathName = new TextView(this);
         pathName.setTextColor(Studio.INK);
-        pathName.setTextSize(TypedValue.COMPLEX_UNIT_SP, 14);
+        pathName.setTextSize(TypedValue.COMPLEX_UNIT_SP, com.fadcam.ui.faditor.SheetKit.TITLE_SP);
+        com.fadcam.ui.type.Type.display(pathName, com.fadcam.ui.type.Type.EXTRA);   // (Studio's title face, as its sheets')
         TooltipCompat.setTooltipText(pathName, getString(R.string.avatar_hover_path_character));
         h.addView(pathName, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
         // Parts | Layers: two equal ways to look at the same character, so a two-way switch (rule A0)
@@ -470,6 +471,7 @@ public final class AvatarRoomActivity extends Activity implements RoomMenu.Host,
         t.setText(label);
         t.setGravity(Gravity.CENTER);
         t.setTextSize(TypedValue.COMPLEX_UNIT_SP, 12);
+        com.fadcam.ui.type.Type.body(t, com.fadcam.ui.type.Type.MEDIUM);
         TooltipCompat.setTooltipText(t, hover);
         t.setContentDescription(hover);
         return t;
@@ -514,6 +516,7 @@ public final class AvatarRoomActivity extends Activity implements RoomMenu.Host,
             t.setText(STAGE_NAMES[i]);
             t.setGravity(Gravity.CENTER);
             t.setTextSize(TypedValue.COMPLEX_UNIT_SP, 13);
+            com.fadcam.ui.type.Type.body(t, com.fadcam.ui.type.Type.MEDIUM);
             TooltipCompat.setTooltipText(t, getString(STAGE_HOVER[i]));
             t.setContentDescription(getString(STAGE_HOVER[i]));
             t.setOnClickListener(v -> selectStage(idx));

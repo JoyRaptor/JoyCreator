@@ -60,10 +60,22 @@ public final class AvatarRoom {
     }
 
     public static void save() throws Refused {
+        final CountDownLatch saved = new CountDownLatch(1);
+        final AtomicReference<String> where = new AtomicReference<>();
         onUi(a -> {
-            a.joybotSave();
+            a.joybotSave(rel -> {
+                where.set(rel);
+                saved.countDown();
+            });
             return Boolean.TRUE;
         });
+        try {
+            if (!saved.await(20, java.util.concurrent.TimeUnit.SECONDS) || where.get() == null)
+                throw new Refused("It could not be saved: the Joy Creator folder is not reachable.");       // never "saved" for a save that did not happen
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new Refused("Saving was interrupted.");
+        }
     }
 
     private static <T> T onUi(@NonNull Function<AvatarRoomActivity, T> job) throws Refused {

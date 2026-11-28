@@ -306,3 +306,10 @@ All other brush properties follow below, as now. Owner's design: build to the mo
   (`UnderpaintPatterns.STAGE`, 40 dp squares); drawer smudge rows get squares a third of the row high; `TestStroke.VERSION`
   11 so stored rows redraw. Note 9 seen (c470ca7df): Flat Paint drags whole squares; the rows show the bigger squares.
   Cloud: jb-core 3026, androidkit 1394, android 642 pass.
+- **§L after shots taken 11-28** (Note 9, c470ca7df): `tasks/screens/brush-editor-20261127/after_*.png`. Calligraphy and
+  paint now share one editor. Still owed: a real pen comparing a picture-tip mode's stage stroke with the drawing's.
+- **Whole lines eraser phone check:** `SelectBench` step `wholeLinesEraser` (+ `wholeLinesEraserUndo`) written (83a5ed563,
+  APK built; landed 9c2353200 with jb-android 644 pass) but not run: the Note 9 was held by another lane, then dropped
+  off adb (11-28 11:40, offline; the Wi-Fi reconnect could not reach it; it needs a USB plug). Run with
+  `am start -n com.fadcam.beta/com.fadcam.joybrush.JoyBrushBenchActivity --es jb_bench select --es jb_select_run_id <32 hex> --ez jb_no_shots true`
+  and read `adb logcat -s JoyBrushPerf | grep wholeLines`.

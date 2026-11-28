@@ -434,6 +434,31 @@ public class SceneTest {
         ok(near(vw[0], 1, 1e-12) && near(vw[1], 400 - 1000, 1e-9) && near(vw[2], 300 - 500, 1e-9), "12 the view puts the camera's middle in the middle of the glass");
         SceneGeometry.Place pl = SceneDraw.place(s12, c12a, topps, new JSONObject("{\"axisX\":257,\"walk\":{\"groundY\":483}}"));
         ok(near(pl.ax, 257, 1e-9) && near(pl.ay, 483, 1e-9), "12 a character's middle line and ground line come from its own file");
+        // 13 lost work (the X6 audit): saving keeps a scene's takes and pictures and every character it carried; a shot id is never reused
+        Scene s13 = Scene.blank("u13s", "Pilot", null);
+        JSONObject cast13 = s13.addCast("A", null, "topps");
+        String id13 = cast13.optString("id");
+        Map<String, Take> take13 = new LinkedHashMap<>();
+        take13.put(id13, Take.fromJson(new JSONObject("{\"fps\":30,\"n\":3,\"ch\":{\"turnX\":[0,0.5,1]}}")));
+        Map<String, String> pic13 = new LinkedHashMap<>();
+        pic13.put("img1", "data:image/png;base64,AAAA");
+        Map<String, JSONObject> carried13 = new LinkedHashMap<>();
+        carried13.put(id13, new JSONObject("{\"format\":\"joycreator.character/9\",\"name\":\"Unreadable\"}"));
+        Map<String, JSONObject> read13 = new LinkedHashMap<>();                                   // the room could not read it
+        // what saveNow hands to the writer (the planted faults are the two old ways it lost work)
+        JSONObject w13 = SceneFile.write(s13, plant.equals("s1") ? null : take13, plant.equals("s2") ? read13 : SceneFile.mergeCharacters(read13, carried13), plant.equals("s1") ? null : pic13);
+        SceneFile.Parsed p13 = SceneFile.read(w13.toString());
+        ok(p13.takes.containsKey(id13) && p13.takes.get(id13).n == 3 && p13.pictures.containsKey("img1"), "13 saving keeps a scene takes and pictures " + p13.problems);
+        ok(w13.optJSONObject("characters") != null && w13.optJSONObject("characters").has(id13) && w13.optJSONObject("characters").optJSONObject(id13).optString("name").equals("Unreadable"), "13 a carried character the room could not read is kept as it was");
+        Scene sh13 = new Scene(new JSONObject("{\"format\":\"joycreator.scene/1\",\"uid\":\"u13h\",\"name\":\"Shots\",\"shots\":[{\"id\":\"h1\",\"name\":\"A\",\"x\":1,\"y\":1,\"z\":1}],\"items\":[],\"cam\":[]}"));
+        JSONObject kept13 = sh13.keepShot("B", 5, 5, 1.5);
+        String newShot = plant.equals("s4") ? "h" + Integer.toString(1, 36) : kept13.optString("id");     // (the old counter's first id)
+        ok(!newShot.equals("h1") && sh13.shots().length() == 2, "13 a kept shot never takes a shot's id that is already in the scene");
+        sh13.dropShot(newShot);
+        ok(sh13.shots().length() == 1 && sh13.shots().optJSONObject(0).optString("id").equals("h1"), "13 dropping a shot drops only that shot");
+        Scene flat13 = Scene.blank("u13f", "Flat", null);
+        flat13.doc.put("floor", new JSONObject().put("near", 0.8).put("far", 0.8).put("shrink", 0.5));
+        ok(!Double.isNaN(flat13.backOf(800)) && !Double.isNaN(flat13.depth(800)), "13 a floor with no depth in it never gives a number that is not one");
     }
 
     static String strip(String t) {
@@ -441,7 +466,7 @@ public class SceneTest {
     }
 
     public static void main(String[] a) throws Exception {
-        String[] plants = {"depth", "clamp", "undo", "follow", "lane", "filetake", "air", "shrink", "framefold", "shotkeep", "order"};
+        String[] plants = {"depth", "clamp", "undo", "follow", "lane", "filetake", "air", "shrink", "framefold", "shotkeep", "order", "s1", "s2", "s4"};
         plant = "";
         run();
         int cleanFail = fail, cleanPass = pass;

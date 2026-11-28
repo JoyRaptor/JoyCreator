@@ -2,7 +2,9 @@
 launch_app; settle 10
 for label in "Start creating" "Continue" "Skip" "Not now"; do tap_text "$label" >/dev/null 2>&1 && settle 3; done
 settle 3
-tap_text "CAPTURE" >/dev/null 2>&1; settle 5
+# the app reopens in the room it was last in (JoyBrush): go home to the lobby first
+tap_text "Home" >/dev/null 2>&1; settle 5; shot lobby
+tap_text "=CAPTURE" >/dev/null 2>&1 || tap_text "CAPTURE" >/dev/null 2>&1; settle 6
 shot capture_room; dump capture; python3 "$HERE_LIB/uia.py" list /tmp/ui.xml | head -40
 for label in "Fullscreen" "Full screen" "Preview" "Enlarge"; do tap_text "$label" >/dev/null 2>&1 && { echo "tapped $label"; settle 5; break; }; done
 shot after_fullscreen_try; dump fs; python3 "$HERE_LIB/uia.py" list /tmp/ui.xml | head -30

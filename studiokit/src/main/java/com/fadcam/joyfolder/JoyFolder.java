@@ -333,6 +333,26 @@ public final class JoyFolder {
         return trashName;
     }
 
+    /**
+     * Put something deleted while this folder was out of reach into Trash as if it had been deleted from {@code from}
+     * at {@code at}: Trash lists it under its own name and keeps it the usual time, and Put back brings it to
+     * {@code from} (or beside it, if that name is taken). Returns its name in Trash.
+     */
+    public synchronized String trashCopy(String from, byte[] data, long at) throws IOException {
+        fs.mkdirs(TRASH);
+        String trashName = freeName(TRASH, ReadableNames.stamp(at, TimeZone.getDefault()) + " " + Placement.nameOf(from));
+        JsonObject log = trashLog();   // read before the write, as trash() does
+        writeAtomic(Placement.join(TRASH, trashName), data);
+        index.remove(Placement.join(TRASH, trashName));
+        JsonObject entry = new JsonObject();
+        entry.addProperty("name", trashName);
+        entry.addProperty("from", from);
+        entry.addProperty("at", at);
+        log.getAsJsonArray("items").add(entry);
+        writeJson(TRASH_FILE, log);
+        return trashName;
+    }
+
     /** Put a Trash item back where it was (or beside it, if that name is taken now). Returns its path. */
     public synchronized String restore(String trashName) throws IOException {
         JsonObject log = trashLog();

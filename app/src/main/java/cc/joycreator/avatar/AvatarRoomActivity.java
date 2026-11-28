@@ -228,12 +228,18 @@ public final class AvatarRoomActivity extends Activity implements RoomMenu.Host,
                 glStage.setVisibility(shown ? View.GONE : View.VISIBLE);
                 stage.setVisibility(shown ? View.GONE : View.VISIBLE);
                 applyPanels();
+                if (edit != null) paintUndo();                       // Undo and Redo follow the scene, or the character again
                 if (sceneUi != null) sceneUi.roomChanged();
             }
 
             @Override
             public void stageChosen(int idx) {
                 if (idx != stageIndex) selectStage(idx);
+            }
+
+            @Override
+            public void historyChanged() {
+                paintUndo();
             }
 
             @Override
@@ -339,12 +345,12 @@ public final class AvatarRoomActivity extends Activity implements RoomMenu.Host,
         menu.setOnClickListener(v -> openMenu());
         bar.addView(menu, new LinearLayout.LayoutParams(px(36), px(36)));
         undoButton = roundButton("\u21B6", getString(R.string.avatar_hover_undo_none));
-        undoButton.setOnClickListener(v -> { if (edit != null && edit.undo()) rebindCards(); });
+        undoButton.setOnClickListener(v -> { if (sceneRoom != null && sceneRoom.isOpen()) sceneRoom.undo(false); else if (edit != null && edit.undo()) rebindCards(); });
         LinearLayout.LayoutParams ul = new LinearLayout.LayoutParams(px(36), px(36));
         ul.leftMargin = px(8);
         bar.addView(undoButton, ul);
         redoButton = roundButton("\u21B7", getString(R.string.avatar_hover_redo_none));
-        redoButton.setOnClickListener(v -> { if (edit != null && edit.redo()) rebindCards(); });
+        redoButton.setOnClickListener(v -> { if (sceneRoom != null && sceneRoom.isOpen()) sceneRoom.undo(true); else if (edit != null && edit.redo()) rebindCards(); });
         bar.addView(redoButton, ul);
         // the save dot (spec A2): never says "saved" for a character nobody has saved; says so on a long press or hover
         saveDot = new View(this);
@@ -1338,6 +1344,7 @@ public final class AvatarRoomActivity extends Activity implements RoomMenu.Host,
         if (landmarks != null) landmarks.refresh(d);
         syncTake(d);
         performPanel.refreshSettings(d);
+        syncCameras();                                          // (cameras per tracker: an undone choice opens the camera it names)
         if (fromEdit) {
             unsaved = true;
             editStamp++;
@@ -1722,8 +1729,56 @@ public final class AvatarRoomActivity extends Activity implements RoomMenu.Host,
 
     /** The face capture, made when first asked for (its settings are this phone's; the camera starts only with Face). */
     private com.fadcam.ui.faditor.avatar.face.FaceCapture faceCaptureNow() {
-        if (faceCapture == null) faceCapture = new com.fadcam.ui.faditor.avatar.face.FaceCapture(this);
+        if (faceCapture == null) {
+            faceCapture = new com.fadcam.ui.faditor.avatar.face.FaceCapture(this);
+            faceCapture.setOnCamerasKnown(() -> {                   // (cameras per tracker: the chips can show now)
+                if (stageIndex >= 2 && character != null) performPanel.bind(character, stageIndex == 3);
+            });
+            syncCameras();
+        }
         return faceCapture;
+    }
+
+    // ── cameras per tracker (the owner, 11-27: one person acts the body, another does the face) ─────────────
+
+    @Override
+    public java.util.List<String> cameraChoices() {
+        return faceCaptureNow().cameraChoices();
+    }
+
+    @Override
+    public String faceCamera() {
+        org.json.JSONObject st = character == null ? null : character.json.optJSONObject("settings");
+        return st == null ? com.fadcam.ui.faditor.avatar.face.CameraPlan.FRONT : st.optString("faceCamera", com.fadcam.ui.faditor.avatar.face.CameraPlan.FRONT);
+    }
+
+    @Override
+    public String bodyCamera() {
+        org.json.JSONObject st = character == null ? null : character.json.optJSONObject("settings");
+        return st == null ? faceCamera() : st.optString("bodyCamera", faceCamera());   // (one camera for both until chosen)
+    }
+
+    @Override
+    public void setCamera(boolean body, String key) {
+        int word = "back-wide".equals(key) ? R.string.avatar_cam_back_wide : "back".equals(key) ? R.string.avatar_cam_back : R.string.avatar_cam_front;
+        edit.apply(getString(body ? R.string.avatar_step_body_camera : R.string.avatar_step_face_camera, getString(word)),
+                d -> setPath(d.json, body ? "settings.bodyCamera" : "settings.faceCamera", key));   // (the step's listener opens it and redraws the chips)
+    }
+
+    @Override
+    public boolean camerasRefused() {
+        return faceCapture != null && faceCapture.camerasRefused();
+    }
+
+    private String camerasSeen;
+
+    /** The face capture follows the character's camera choices (a step, an undo, another character); the panel too. */
+    private void syncCameras() {
+        if (faceCapture == null || character == null) return;
+        String now = faceCamera() + "/" + bodyCamera();
+        faceCapture.setCameras(faceCamera(), bodyCamera());
+        if (camerasSeen != null && !camerasSeen.equals(now) && stageIndex >= 2) performPanel.bind(character, stageIndex == 3);
+        camerasSeen = now;
     }
 
     @Override
@@ -1805,7 +1860,7 @@ public final class AvatarRoomActivity extends Activity implements RoomMenu.Host,
 
     private void faceOn() {
         try {
-            if (faceCapture == null) faceCapture = new com.fadcam.ui.faditor.avatar.face.FaceCapture(this);
+            faceCaptureNow();
             faceCapture.setPreview(facePreview instanceof com.fadcam.ui.faditor.avatar.MediaPipeTrackingSource.PreviewSink ? (com.fadcam.ui.faditor.avatar.MediaPipeTrackingSource.PreviewSink) facePreview : null, false);
             faceCapture.start();
             inputs.face(true);
@@ -2034,7 +2089,8 @@ public final class AvatarRoomActivity extends Activity implements RoomMenu.Host,
     }
 
     private void paintUndo() {
-        String u = edit.undoName(), r = edit.redoName();
+        boolean inScene = sceneRoom != null && sceneRoom.isOpen();              // a scene in hand has its own history
+        String u = inScene ? sceneRoom.undoLabel() : edit.undoName(), r = inScene ? sceneRoom.redoLabel() : edit.redoName();
         paintHistoryButton(undoButton, u == null ? getString(R.string.avatar_hover_undo_none) : getString(R.string.avatar_hover_undo, u), u != null);
         paintHistoryButton(redoButton, r == null ? getString(R.string.avatar_hover_redo_none) : getString(R.string.avatar_hover_redo, r), r != null);
     }
@@ -2082,20 +2138,25 @@ public final class AvatarRoomActivity extends Activity implements RoomMenu.Host,
 
     @Override
     public void restack(String id, int by) {
+        restackDone(id, by);
+    }
+
+    /** Moves the part in the stack; false when it was already as far as it goes (nothing changed, no step). */
+    private boolean restackDone(String id, int by) {
         CharacterDoc.Node node = character.find(id);
-        if (node == null) return;
+        if (node == null) return false;
         final CharacterDoc.Node[] parent = {null};
         character.walk((n, d, p) -> {
             if (n.id.equals(id)) parent[0] = p;
         });
-        if (parent[0] == null) return;
+        if (parent[0] == null) return false;
         final String parentId = parent[0].id;
         final int count = parent[0].kids.size();
         int at = 0;
         for (int i = 0; i < count; i++) if (parent[0].kids.get(i).id.equals(id)) at = i;
         final int from = at;
         final int to = by == Integer.MIN_VALUE ? 0 : by == Integer.MAX_VALUE ? count - 1 : Math.max(0, Math.min(count - 1, at + by));
-        if (to == from) return;
+        if (to == from) return false;
         String label = node.name.isEmpty() ? node.id : node.name;
         int word = by == Integer.MIN_VALUE ? R.string.avatar_step_very_back : by == Integer.MAX_VALUE ? R.string.avatar_step_very_front
                 : by < 0 ? R.string.avatar_step_back_one : R.string.avatar_step_forward_one;
@@ -2110,6 +2171,7 @@ public final class AvatarRoomActivity extends Activity implements RoomMenu.Host,
             }
             doc.find(parentId).json.put("kids", rebuilt);
         });
+        return true;
     }
 
     @Override
@@ -2205,13 +2267,20 @@ public final class AvatarRoomActivity extends Activity implements RoomMenu.Host,
         int by = h.contains("very back") ? Integer.MIN_VALUE : h.contains("very front") ? Integer.MAX_VALUE
                 : h.contains("back") ? -1 : h.contains("forward") || h.contains("front") ? 1 : 0;
         if (by == 0) return "";
-        restack(n.id, by);
-        return "Moved " + (n.name.isEmpty() ? n.id : n.name) + " " + h + ".";
+        String nm = n.name.isEmpty() ? n.id : n.name;
+        return restackDone(n.id, by) ? "Moved " + nm + " " + h + "." : nm + " is already as far " + (by < 0 ? "back" : "forward") + " as it goes.";
     }
 
     /** Saves into the Joy Creator folder now (the same as Menu, Save). */
-    void joybotSave() {
-        saveNow();
+    void joybotSave(java.util.function.Consumer<String> done) {
+        if (character == null) {
+            done.accept(null);
+            return;
+        }
+        saveCurrent(rel -> {
+            if (!isFinishing()) Toast.makeText(this, rel == null ? R.string.avatar_cannot_save : R.string.avatar_saved, Toast.LENGTH_SHORT).show();
+            done.accept(rel);
+        });
     }
 
     private void autosaveNow() {

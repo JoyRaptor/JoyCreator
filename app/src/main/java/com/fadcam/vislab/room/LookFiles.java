@@ -128,8 +128,51 @@ final class LookFiles {
                 }
             }
         }
-        if (moved > 0) saveIndex(folder);
+        int trashed = trashSetAside(fallback, folder);
+        if (moved > 0 || trashed > 0) saveIndex(folder);
         return moved;
+    }
+
+    /**
+     * The looks and parts deleted while the folder was out of reach ({@link #trash} set them aside as
+     * {@code <file>.removed-<time>}) go into the folder's Trash, stamped with when they were deleted, so they can be put
+     * back like any other delete and leave the app's own folder (SAFE-1: before, nothing could bring them back and an
+     * uninstall took them). One that cannot be moved stays, and is tried again next time. Returns how many went.
+     */
+    @WorkerThread
+    private static int trashSetAside(@NonNull Home fallback, @NonNull Home folder) {
+        if (folder.folder == null) return 0;
+        List<JoyFs.Entry> entries;
+        try {
+            if (fallback.fs.stat(fallback.dir) == null) return 0;
+            entries = fallback.fs.list(fallback.dir);
+        } catch (IOException | RuntimeException e) {
+            return 0;
+        }
+        int done = 0;
+        for (JoyFs.Entry e : entries) {
+            int mark = e.name.lastIndexOf(REMOVED_MARK);
+            if (e.dir || mark <= 0) continue;
+            String original = e.name.substring(0, mark);
+            String lower = original.toLowerCase(Locale.ROOT);
+            String ending = lower.endsWith(PART_ENDING) ? PART_ENDING : lower.endsWith(ENDING) ? ENDING : null;
+            if (ending == null) continue;
+            long at;
+            try {
+                at = Long.parseLong(e.name.substring(mark + REMOVED_MARK.length()));
+            } catch (NumberFormatException bad) {
+                at = e.modified > 0 ? e.modified : System.currentTimeMillis();
+            }
+            String rel = Placement.join(fallback.dir, e.name);
+            try {
+                folder.folder.trashCopy(Placement.join(folder.dir, original), readAll(fallback.fs, rel), at);
+                fallback.fs.delete(rel);
+                done++;
+            } catch (IOException | RuntimeException ex) {
+                FLog.w(TAG, "Couldn't put " + rel + " into the Joy Creator folder's Trash yet", ex);
+            }
+        }
+        return done;
     }
 
     /**

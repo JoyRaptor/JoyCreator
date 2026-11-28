@@ -79,6 +79,24 @@
     <string name="avatar_hover_shrug_try">Slide and hold to see a shrug without the camera; let go and it rests</string>
     <string name="avatar_shrug_rest">rest</string>
     <string name="avatar_shrug_shrug">shrug</string>
+    <string name="avatar_hover_facepins_pick">%1$s: tap to choose this pin and set how strongly it pulls</string>
+    <string name="avatar_hover_facepins_unpick">%1$s: tap to put this pin down</string>
+    <!-- cameras per tracker (the owner, 11-27: the face on one camera, the body on another) -->
+    <string name="avatar_face_camera">Face camera</string>
+    <string name="avatar_body_camera">Body camera</string>
+    <string name="avatar_cam_front">Front</string>
+    <string name="avatar_cam_back">Back</string>
+    <string name="avatar_cam_back_wide">Back wide</string>
+    <string name="avatar_hover_cam_front">the camera on the screen side: you, looking at the phone</string>
+    <string name="avatar_hover_cam_back">the camera on the back: someone in front of the phone</string>
+    <string name="avatar_hover_cam_back_wide">the back camera at its widest: more of the room, the whole body</string>
+    <string name="avatar_hover_face_camera">The face reads %1$s</string>
+    <string name="avatar_hover_body_camera">The body (your shoulders) reads %1$s</string>
+    <string name="avatar_step_face_camera">Face camera: %1$s</string>
+    <string name="avatar_step_body_camera">Body camera: %1$s</string>
+    <string name="avatar_cams_refused">This phone can\'t use two cameras at once, so the face\'s camera reads both.</string>
+    <string name="avatar_cams_one">One camera for both</string>
+    <string name="avatar_hover_cams_one">The body reads the face\'s camera too</string>
     <string name="avatar_px">%1$s px</string>
     <string name="avatar_times">%1$s×</string>
 </resources>

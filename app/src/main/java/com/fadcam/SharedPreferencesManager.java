@@ -836,6 +836,16 @@ public class SharedPreferencesManager {
                 Constants.PREF_FADITOR_ORPHAN_ANCHOR_POLICY, "ask");
     }
 
+    /** STU-5 ripple check: the stored "don't ask again" answer (ASK, MOVE or LEAVE); ASK when none. */
+    @NonNull
+    public String getStudioRippleCheckChoice() {
+        return sharedPreferences.getString(Constants.PREF_STUDIO_RIPPLE_CHECK_CHOICE, "ASK");
+    }
+
+    public void setStudioRippleCheckChoice(@NonNull String choice) {
+        sharedPreferences.edit().putString(Constants.PREF_STUDIO_RIPPLE_CHECK_CHOICE, choice).apply();
+    }
+
     /** @param policy one of "ask", "reanchor", "delete". */
     public void setFaditorOrphanAnchorPolicy(@NonNull String policy) {
         sharedPreferences.edit()

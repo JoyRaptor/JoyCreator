@@ -6810,9 +6810,14 @@ public class FaditorEditorActivity extends AppCompatActivity {
      */
     @NonNull
     private java.util.Map<String, Long> beginStructuralEdit() {
-        return project == null ? java.util.Collections.emptyMap()
-                : project.getTimeline().beginStructural();
+        if (project == null) return java.util.Collections.emptyMap();
+        // STU-5 ripple check: the clips' track length before the OUTERMOST edit, for "N s shorter".
+        if (!project.getTimeline().hasOpenStructural()) rippleTrackBeforeMs = project.getTimeline().getVideoTrackDurationMs();
+        return project.getTimeline().beginStructural();
     }
+
+    /** The clips' track length when the outermost structural edit opened (STU-5 ripple check). */
+    private long rippleTrackBeforeMs = 0L;
 
     /**
      * Apply the anchor consequences of the edit that {@code before} bracketed.
@@ -6855,7 +6860,23 @@ public class FaditorEditorActivity extends AppCompatActivity {
         // close it, or the depth leaks and every later edit is treated as nested and shifts nothing.
         // An empty "before" is harmless — a rider whose host is absent from it is simply skipped.
         if (project == null) return null;
-        Timeline.AnchorShiftResult r = project.getTimeline().endStructural(before);
+        Timeline tl = project.getTimeline();
+        Timeline.AnchorShiftResult r;
+        if (com.fadcam.ui.faditor.model.RippleCheck.ENABLED && tl.closesStructural(before)
+                && com.fadcam.ui.faditor.model.RippleCheck.asksAfter(where)) {
+            // STU-5 ripple check, hidden (ENABLED off): what the edit did, then the person's stored answer. The
+            // screen for ASK (the owner's picks on STU-5-ripple-check-options.html) goes here; until it is built,
+            // ASK keeps the project's own ripple setting, which is today's behaviour.
+            com.fadcam.ui.faditor.model.RippleCheck.Summary check = com.fadcam.ui.faditor.model.RippleCheck.summarize(tl,
+                    rippleTrackBeforeMs, com.fadcam.ui.faditor.model.RippleCheck.pointOf(before, tl.captureClipStarts(), rippleTrackBeforeMs));
+            com.fadcam.ui.faditor.model.RippleCheck.Choice choice = check.nothingToAsk()
+                    ? com.fadcam.ui.faditor.model.RippleCheck.Choice.ASK
+                    : com.fadcam.ui.faditor.model.RippleCheck.Choice.of(
+                            com.fadcam.SharedPreferencesManager.getInstance(this).getStudioRippleCheckChoice());
+            r = com.fadcam.ui.faditor.model.RippleCheck.finish(tl, before, choice);
+        } else {
+            r = tl.endStructural(before);
+        }
         if (!r.isEmpty()) {
             FLog.d(TAG, "ANCHOR[" + where + "] moved=" + r.movedOverlayIds.size()
                     + " orphaned=" + r.orphanedOverlayIds.size());
@@ -12987,24 +13008,26 @@ public class FaditorEditorActivity extends AppCompatActivity {
             // In MEDIA ms, the unit currentPos is in: the clip's own length and the export's
             // clamped blend length at this clip's speed (they were mixed with timeline ms, so at 2x
             // the blend opened a second early and at 0.5x never opened; STU-5).
-            long clipDuration = Math.max(1L, clip.getOutPointMs() - clip.getInPointMs());
             Transition seamTransition = getTransitionAtSeam(selectedClipIndex);
             if (seamTransition != null) {
                 long transitionSourceDuration = com.fadcam.ui.faditor.model.PreviewClock.blendMediaMs(project.getTimeline(), selectedClipIndex);
+                // A looped clip blends on its last pass only (STU-F7): this pass started at loop-before + passes played.
+                long blendOpensAt = com.fadcam.ui.faditor.model.PreviewClock.blendOpensAtInPass(project.getTimeline(),
+                        selectedClipIndex, clip.getLoopBeforeMs() + loopVisualOffsetMs);
                 // Warm the GL endpoint frames off-main BEFORE the window opens, so the
                 // blend can start on its first frame instead of eating decode latency.
                 if (seamTransition.isGlShader() && glTransitionPrefetchSeam != selectedClipIndex
-                        && currentPos >= clipDuration - transitionSourceDuration - 1200) {
+                        && blendOpensAt != Long.MAX_VALUE && currentPos >= blendOpensAt - 1200) {
                     glTransitionPrefetchSeam = selectedClipIndex;
                     prefetchGlTransitionEndpoints(selectedClipIndex);
                     // Live tier: warm a muted player on B so the blend can composite B's real
                     // MOTION (not a frozen endpoint). Prepared here so it's READY at the seam.
                     prepareGlTransitionNextPlayer(selectedClipIndex);
                 }
-                if (currentPos >= clipDuration - transitionSourceDuration) {
+                if (blendOpensAt != Long.MAX_VALUE && currentPos >= blendOpensAt) {
                     transitionPlaybackActive = true;
                     transitionPlaybackSeam = selectedClipIndex;
-                    transitionPlaybackStartPositionMs = clipDuration - transitionSourceDuration;
+                    transitionPlaybackStartPositionMs = blendOpensAt;
                     transitionPlaybackDurationMs = transitionSourceDuration;
                     transitionPreviewOverlay.setVisibility(View.GONE);
                     glTransitionHold = false; // a stale handoff-hold must not survive a new seam
@@ -45752,6 +45775,18 @@ public class FaditorEditorActivity extends AppCompatActivity {
             @Override public void passDone(@NonNull com.fadcam.ui.faditor.sprite.SpriteOverlayItem it, @NonNull String takeJson,
                                            @Nullable java.io.File voice, long voiceAtMs) {
                 recordCharacterPass(it, takeJson, voice, voiceAtMs);
+            }
+
+            @Override public boolean isPlaying() {
+                return playerManager != null && playerManager.isPlaying();
+            }
+
+            @Override public boolean takeBackPass(@NonNull com.fadcam.ui.faditor.sprite.SpriteOverlayItem it) {
+                // only when the last step is a pass (each pass is one step); anything else is left to Studio's Undo
+                if (!undoManager.canUndo() || !getString(R.string.ava_perform_pass_undo).equals(undoManager.peekUndoDescription())) return false;
+                undoManager.undo();
+                scheduleAutoSave();
+                return true;
             }
         });
     }

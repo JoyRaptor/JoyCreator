@@ -453,6 +453,70 @@ public class AvatarFaceTest {
                         && "shoulders".equals(cc.joycreator.avatar.perform.TakeRecorder.ownerOf("shrugL")),
                 "the shrugs ride the lanes (the shoulders' in a take) while your shoulders are seen");
 
+        // X6 audit P3: a take is saved as JSON, which cannot hold a value that is not a number; one in a lane made every save
+        // fail. Whatever the camera hands in (a face size of 0 divides to infinity), the face's lanes and head are numbers.
+        FaceDrive bad = new FaceDrive();
+        bad.setMode(FaceDrive.Mode.ALWAYS);
+        Map<String, Float> odd = sig("turnX", 0, "pt.61.x", 0.2, "pt.61.y", 0.1, "smileL", 0.5, "shrugL", 0.4, "body", 1);
+        FaceDrive.Out bo = null;
+        for (int i = 0; i < 10; i++) bo = bad.apply(odd, false, false, false, 0, 0, 0, 0.033);
+        odd.put("pt.61.x", Float.POSITIVE_INFINITY);
+        odd.put("pt.61.y", Float.NaN);
+        odd.put("smileL", Float.POSITIVE_INFINITY);
+        odd.put("cheekPuff", Float.NEGATIVE_INFINITY);
+        odd.put("shrugL", Float.NaN);
+        odd.put("shrugR", Float.POSITIVE_INFINITY);
+        odd.put("turnX", Float.NaN);
+        odd.put("lookX", Float.POSITIVE_INFINITY);
+        boolean finite = true;
+        StringBuilder which = new StringBuilder();
+        for (int i = 0; i < 5; i++) {
+            bo = bad.apply(odd, false, false, false, 0, 0, 0, 0.033);
+            for (Map.Entry<String, Double> e : bo.lanes.entrySet()) if (!Double.isFinite(e.getValue())) { finite = false; which.append(' ').append(e.getKey()); }
+            for (double v : new double[]{bo.turnX, bo.turnY, bo.roll, bo.lookX, bo.lookY, bo.mouth, bo.browL, bo.browR, bo.blinkL, bo.blinkR})
+                if (!Double.isFinite(v)) { finite = false; which.append(" head/eyes/mouth"); }
+        }
+        check(finite, "a camera value that is not a number (NaN, infinity) never reaches a lane, the head, the eyes or the mouth:" + (finite ? " all numbers" : which.toString()));
+
+        // X6 audit P10: the mask's lanes are the face's in a take: a second pass with the face on records the live mask, it does
+        // not play the first pass's over it
+        cc.joycreator.avatar.perform.TakeRecorder mr = new cc.joycreator.avatar.perform.TakeRecorder();
+        java.util.List<String> mnames = java.util.Arrays.asList("mk.3.y", "mp.1");
+        java.util.Set<String> faceOwns = new java.util.HashSet<>(java.util.Arrays.asList("facepins"));
+        Map<String, Object> mlive = new HashMap<>();
+        mlive.put("mk.3.y", 0.5);
+        mlive.put("mp.1", 0.8);
+        mr.record();
+        for (int i = 0; i < 30; i++) mr.step(1 / 30.0, mlive, mnames, faceOwns);
+        mr.stop();
+        mlive.put("mk.3.y", 0.1);
+        mlive.put("mp.1", 0.2);
+        mr.scrubTo(0);
+        mr.record();
+        Map<String, Object> mplayed = null;
+        for (int i = 0; i < 20; i++) mplayed = mr.step(1 / 30.0, mlive, mnames, faceOwns);
+        mr.stop();
+        Object mk = mplayed.get("mk.3.y"), mp = mplayed.get("mp.1");
+        check("facepins".equals(cc.joycreator.avatar.perform.TakeRecorder.ownerOf("mk.3.y")) && "facepins".equals(cc.joycreator.avatar.perform.TakeRecorder.ownerOf("mp.1"))
+                        && mk == null && mp == null,
+                "a second pass with the face on: the mask's lanes are the face's own, the first pass's mask is not played over the live one (played "
+                        + mk + ", " + mp + ")");
+
+        // ...and one body reading that is not a number does not stop the shoulders for good (the smoothing would keep it)
+        com.fadcam.ui.faditor.avatar.face.ShoulderFeed nf = new com.fadcam.ui.faditor.avatar.face.ShoulderFeed();
+        double[] nclock = {0};
+        feed(nf, 0, 0, 1.0, false, nclock, null);
+        float[] broken = shoulderBody(0.1f, 0.1f);
+        broken[12 * 3 + 1] = Float.NaN;
+        feed(nf, 0.1f, 0.1f, 0.5, false, nclock, null);                           // shrugging, tracked
+        nf.reading(broken, 0.75f, nclock[0] += 0.1, false, 1f);                    // one point not a number, then good again at once
+        Map<String, Float> after = feed(nf, 0.1f, 0.1f, 1.0, false, nclock, null);
+        nf.reading(shoulderBody(0.1f, 0.1f), Float.NaN, nclock[0] += 0.1, false, 1f);   // the picture's shape not a number
+        Map<String, Float> after2 = feed(nf, 0.1f, 0.1f, 1.0, false, nclock, null);
+        check(after != null && after2 != null && Float.isFinite(after.get("shrug")) && after.get("shrug") > 0.9 && Float.isFinite(after2.get("shrug")) && after2.get("shrug") > 0.9,
+                "a body reading that is not a number is no body: the shrug goes on (" + (after == null ? "none" : r(after.get("shrug"))) + ", "
+                        + (after2 == null ? "none" : r(after2.get("shrug"))) + ")");
+
         System.out.println(fails == 0 ? "PASSED" : "FAILED " + fails);
         System.exit(fails == 0 ? 0 : 1);
     }

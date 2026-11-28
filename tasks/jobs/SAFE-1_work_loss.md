@@ -27,12 +27,12 @@ The tests that carry the proof (all run 2026-11-10):
 | `:joybrush-android:testDebugUnitTest` | `DrawingListRepairTest` (8), `WorkingSaveRestoreBindingTest` (6, 3 new), and the whole existing suite | all pass |
 
 ## What is left
-- [ ] Phone checks (Note 9), one sitting: see "Phone checks owed" in the report.
-- [ ] The findings marked NOT STARTED in the report (recording write errors, the folder copy catching up at
-      app start, slides after a restore, avatars into the folder, VisLab after a change of folder).
-- [ ] A way for a person to bring back a kept copy (`backups/replaced-*.json`) without an agent.
-- [ ] Second pass: JoyBrush engine saves (wet paint owed at save time, lost-tile cause), VisLab and SpriteLab
-      end to end, export and Capture.
+- [ ] Phone checks (Note 9), one sitting: see "Owed on a phone" in the report (every pass adds to it).
+- [x] The findings marked NOT STARTED in the report (F5, S11, S10, F6, F7): done by 11-23.
+- [x] A way for a person to bring back a kept copy without an agent: Library item sheet, "Bring back an earlier
+      copy" (built 11-23, `KeptCopiesSheet`; checked again 11-28).
+- [x] Second pass: VisLab, SpriteLab, TextLab and export (11-23); third pass 11-28 (below).
+- [ ] J6, JoyBrush engine saves (wet paint owed at save time, lost-tile cause): the engine lane's.
 
 ## Specs, handoffs and evidence
 - **Handoff (read this first to continue): [`tasks/HANDOFF_20261111_work_loss_and_review.md`](../HANDOFF_20261111_work_loss_and_review.md)**
@@ -57,3 +57,11 @@ Every row of the report re-checked against today's code (the card's "NOT STARTED
 
 ## 11-27 index write race (website lane; from STU-7's 11-23 note on the BOARD)
 - **STU-7 saw** "Could not move .joycreator/index.json.joytmp into place" after an export (Finalized MP4s were fine). **Cause found by a test that fails on the old code:** `JoyFolder.writeAtomic` was `synchronized` per handle, but the folder is opened once per screen and service; two handles writing the same file (the index) took each other's temp and old copies ("Could not set aside" or "could not move ... into place"). **Fix:** one process-wide lock (`WRITE_LOCK`). Test `twoWritersOneFile` (two handles, 400 writes each): failed first with "Could not set aside .joycreator/index.json", now passes; `run.sh` 31 pass, LegacyFolderMove 35 pass. A lost index is rebuilt from the folder by `open`, so no work was at risk; the export itself had finished. Not seen on a phone (the race needs the export and a screen writing together: owed: one export while the Library is open).
+
+## Third pass 2026-11-28 (Claude Opus 5.5)
+Every open row checked against today's code (after JBX-36 streaming saves, the split load, the live-save close): the
+report's host suites all pass; J1 holds on the new load path; J5 was closed 11-15 (`WorkingFileOwners`); the kept-copy
+screen (S17) was already built 11-23. One new fix: a VisLab look deleted while the folder was away now reaches the
+folder's Trash when it is back (`JoyFolder.trashCopy`, `run-vislab-home.sh` 31, failed first). Details and the owed
+phone check: the report's "Third pass" section. Left: the phone sitting, J6 (engine lane), and VL3, SP5 and X1
+(still parked).

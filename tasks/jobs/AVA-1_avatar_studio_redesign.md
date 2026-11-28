@@ -865,6 +865,16 @@ they want, a centipede; arms that can become feet with one toggle").
       and microphone let go when the room is left.
 - [ ] Asked for elsewhere and not built: pose keys beside performed takes; a library of saved looks.
 - [ ] Then the phone spec and the port. Engines to reuse are listed in `tools/avatarlab/README.md`.
+- [x] **Cameras per tracker** (the owner, 11-27: "it may be necessary to be able to switch to your phone's front camera ... you could
+      have a person acting out the character while another person is doing the face ... assign different cameras on the phone to
+      different parts"). The lead's design: each tracker (Face, Body) its own camera, only the cameras the phone has, in plain words;
+      one camera for both by default; two at once where the phone can, else one plain line and one camera for both. Built and landed
+      `6e927d830` (the face session): Face camera / Body camera chips in Perform's face row (Body with Shoulders), saved in the
+      character's settings, one undo step each; Back wide (an ultra-wide camera, or the back camera at its widest zoom) is offered only
+      where it exists. The body starts on the face's camera (one performer); Back wide is offered, not picked by itself (the lead's
+      "wide is the default for Body" read as the choice to offer; one line to change if meant as the start). Two cameras open with CameraX's
+      concurrent mode, as the face tracker already opens its camera; FadCam's dual camera service records video files and cannot hand
+      a tracker its pictures, so only its idea is reused. Proven on the cloud emulator (`AvatarCameraTest`, run 46150080019); not on a phone.
 
 ## Specs, handoffs and evidence
 - Pilot and its README: `tools/avatarlab/`. Earlier plan: [PLAN_AVATAR_STUDIO.md](../PLAN_AVATAR_STUDIO.md).

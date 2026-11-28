@@ -92,7 +92,8 @@ public final class SceneUi extends FrameLayout {
     private boolean wasFrame;
     private SceneRoom room;
     private java.util.List<cc.joycreator.avatar.ui.SceneStore.Entry> sceneList = new java.util.ArrayList<>();
-    private boolean sceneTex;
+    private boolean sceneTex, wasInScene;
+    private String plainShape = "16:9", plainSafe = "off";      // the plain stage's own frame, kept while a scene shows its own
 
     public SceneUi(Context c, Host host) {
         super(c);
@@ -197,6 +198,15 @@ public final class SceneUi extends FrameLayout {
         lastPanX = lastPanY = 0;
         wasFrame = false;
         sceneTex = false;
+        if (inScene() && !wasInScene) {
+            plainShape = prefs.emptyShape;
+            plainSafe = prefs.emptySafe;
+        } else if (!inScene() && wasInScene) {
+            prefs.emptyShape = plainShape;
+            prefs.emptySafe = plainSafe;
+            save();
+        }
+        wasInScene = inScene();
         if (inScene()) {
             prefs.emptyShape = room.scene().shape();
             prefs.emptySafe = room.scene().safe();

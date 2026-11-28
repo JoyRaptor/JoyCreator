@@ -21,13 +21,17 @@ import java.util.Map;
  * replay is the same however the playhead got there, and preview and export draw the same frame.</p>
  */
 public final class CharacterItemPuppet implements ItemPuppet {
-    private final CharacterLoader.Loaded loaded;
-    private final CharacterPoser poser;
+    private CharacterLoader.Loaded loaded;
+    private CharacterPoser poser;
+    private final Context app;
     private String takeText;
     private Take take;
     private long lastMs = Long.MIN_VALUE;
+    /** How far back the time may wobble before it counts as a jump back (a scrub). */
+    static final long JITTER_MS = 100;
 
-    private CharacterItemPuppet(CharacterLoader.Loaded loaded) {
+    private CharacterItemPuppet(Context app, CharacterLoader.Loaded loaded) {
+        this.app = app;
         this.loaded = loaded;
         this.poser = CharacterPosers.get().forDoc(loaded.doc, new CharacterPictures(loaded.doc, loaded.beside));
     }
@@ -37,7 +41,7 @@ public final class CharacterItemPuppet implements ItemPuppet {
         if (!item.isCharacter()) return null;
         CharacterLoader.Loaded l = CharacterLoader.load(c, item.getCharacterRef());
         if (l == null || l.doc.w <= 0 || l.doc.h <= 0) return null;
-        return new CharacterItemPuppet(l);
+        return new CharacterItemPuppet(c.getApplicationContext(), l);
     }
 
     /** The item's take, read again only when its text changed (a pass recorded, acting read). */
@@ -57,8 +61,18 @@ public final class CharacterItemPuppet implements ItemPuppet {
 
     @Override
     public void draw(Canvas canvas, RectF dest, SpriteOverlayItem item, long itemLocalMs, float alpha) {
+        CharacterLoader.Loaded n = CharacterLoader.newer(app, loaded);   // the room saved it again: draw it as it is now
+        if (n != null && n.doc.w > 0 && n.doc.h > 0) {
+            poser.release();
+            loaded = n;
+            poser = CharacterPosers.get().forDoc(n.doc, new CharacterPictures(n.doc, n.beside));
+            lastMs = Long.MIN_VALUE;
+        }
         long ms = Math.max(0, itemLocalMs) + item.getCharacterTakeOffsetMs();
-        if (ms < lastMs) poser.rewind();
+        // back in time: a real jump (a scrub, a new export pass) starts the springs again; a few ms back (the player's
+        // position wobbling, a frame drawn twice) keeps the picture it has, it never resets mid-play (X6 M8)
+        if (ms < lastMs - JITTER_MS) poser.rewind();
+        else if (ms < lastMs) ms = lastMs;
         lastMs = ms;
         Map<String, Object> signals = TakeClock.sample(takeOf(item), ms);
         float[] box = fit(loaded.doc.w, loaded.doc.h, dest.width(), dest.height());

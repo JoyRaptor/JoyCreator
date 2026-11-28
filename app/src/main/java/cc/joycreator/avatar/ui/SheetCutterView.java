@@ -97,7 +97,10 @@ public final class SheetCutterView extends FrameLayout {
         tools = new LinearLayout(c);
         tools.setGravity(Gravity.CENTER_VERTICAL);
         tools.setPadding(px(12), px(2), px(12), px(2));
-        col.addView(tools);
+        android.widget.HorizontalScrollView toolScroll = new android.widget.HorizontalScrollView(c);     // the grid's tools are wider than a phone: they scroll
+        toolScroll.setHorizontalScrollBarEnabled(false);
+        toolScroll.addView(tools);
+        col.addView(toolScroll);
         groupRow = new LinearLayout(c);
         groupRow.setPadding(px(12), px(2), px(12), px(2));
         zoneRow = new LinearLayout(c);

@@ -1324,3 +1324,5 @@ When the owner asks to conserve review credits, keep concurrency small, checkpoi
 - Keep the supported platform and the physical performance floor distinct. The available Snapdragon Note 9 anchors timing checks. Use the existing Android test fleet to broaden coverage, and report evidence by device and OS. A device the owner has explicitly ruled out is recorded as untested outside the required matrix.
 
 - 11-28 (Avatar lead): a UI port split across fast sessions passed every parity test yet looked unlike Studio (emoji icons, half-empty columns, off-spec radii); the owner caught it. Rule: name one session as the look owner from day one, using Studio's own drawables, sizes and palette, with before/after emulator screenshots judged against Studio, checked by the lead at each landing.
+
+- 2026-11-28 (STU-7): a review page sent to the owner showed no pictures, because it linked to images in the repo and only the page itself was sent. Before sending a page to the owner, embed every image (data URIs) or publish it with its files. Open it from where he will open it before saying it is ready.

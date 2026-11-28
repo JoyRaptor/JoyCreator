@@ -61,6 +61,19 @@ public final class PerformPopup implements PerformPanel.Host {
          * {@code voiceAtMs} on the timeline. One undo step.
          */
         void passDone(@NonNull SpriteOverlayItem item, @NonNull String takeJson, @Nullable File voice, long voiceAtMs);
+
+        /** Whether Studio is playing now (the pop-up's Play asks, rather than keeping a flag of its own). */
+        default boolean isPlaying() {
+            return false;
+        }
+
+        /**
+         * Take back: Studio undoes the last pass on this item when that pass is its last step (X6 M14), and says
+         * whether it did. The pop-up then shows the take as it is now.
+         */
+        default boolean takeBackPass(@NonNull SpriteOverlayItem item) {
+            return false;
+        }
     }
 
     private static final int REQ_MIC = 7311, REQ_CAMERA = 7312;
@@ -73,8 +86,9 @@ public final class PerformPopup implements PerformPanel.Host {
     private Dialog dialog;
     private StageView stage;
     private PerformPanel panel;
-    private boolean playing;
     private boolean looping;
+    private boolean passOn;                 // a pass is being recorded (the recorder may stop it by itself)
+    @Nullable private android.app.Application.ActivityLifecycleCallbacks away;
     private long lastNs;
     @Nullable private VoiceoverRecorder voice;
     private final VoiceMouth mouth = new VoiceMouth(VoiceoverRecorder.sampleRate());
@@ -169,6 +183,17 @@ public final class PerformPopup implements PerformPanel.Host {
             w.clearFlags(WindowManager.LayoutParams.FLAG_DIM_BEHIND);   // Studio's picture stays in view above it
         }
         dialog.setOnDismissListener(d -> close());
+        // Home or another screen: the pop-up closes, so the camera and the microphone let go (X6 F10)
+        away = new android.app.Application.ActivityLifecycleCallbacks() {
+            @Override public void onActivityPaused(@NonNull Activity x) { if (x == a && dialog != null && dialog.isShowing()) dialog.dismiss(); }
+            @Override public void onActivityCreated(@NonNull Activity x, @Nullable android.os.Bundle b) { }
+            @Override public void onActivityStarted(@NonNull Activity x) { }
+            @Override public void onActivityResumed(@NonNull Activity x) { }
+            @Override public void onActivityStopped(@NonNull Activity x) { }
+            @Override public void onActivitySaveInstanceState(@NonNull Activity x, @NonNull android.os.Bundle b) { }
+            @Override public void onActivityDestroyed(@NonNull Activity x) { }
+        };
+        a.getApplication().registerActivityLifecycleCallbacks(away);
         dialog.show();
         looping = true;
         lastNs = 0;
@@ -189,6 +214,8 @@ public final class PerformPopup implements PerformPanel.Host {
     private void frame(double dt) {
         if (inputs.micOn()) inputs.micHeard(micOpen, micVis);
         if (inputs.faceOn() && face != null) inputs.faceSaw(face.sample(System.nanoTime()));
+        // the recorder can end a pass by itself (its longest take): the pass is ended and kept, never dropped (X6 M1)
+        if (passOn && !inputs.recorder.recording()) endPass();
         if (!inputs.recorder.recording()) inputs.recorder.scrubTo(host.playheadInTakeMs(item) / 1000.0);
         Map<String, Object> sig = inputs.frame(dt, System.currentTimeMillis());
         stage.setSignals(sig);
@@ -210,12 +237,14 @@ public final class PerformPopup implements PerformPanel.Host {
         inputs.record();
         inputs.recorder.scrubTo(host.playheadInTakeMs(item) / 1000.0);
         passAtMs = host.playheadMs();
+        passOn = true;
         if (inputs.micOn()) restartVoice();   // the voice kept with the pass starts with it
         host.play();
         panel.tick();
     }
 
     private void endPass() {
+        passOn = false;
         inputs.recorder.stop();
         host.pause();
         File heard = null;
@@ -233,20 +262,33 @@ public final class PerformPopup implements PerformPanel.Host {
     @Override
     public void togglePlay() {
         if (inputs.recorder.recording()) return;
-        if (playing) host.pause();
+        if (host.isPlaying()) host.pause();       // Studio's own state: a pass or the end of the video may have changed it
         else host.play();
-        playing = !playing;
     }
 
     /** Take back: Studio's Undo takes the last pass back (each pass is one step there). */
     @Override
     public void takeBack() {
-        Toast.makeText(a, R.string.ava_perform_take_back, Toast.LENGTH_SHORT).show();
+        if (inputs.recorder.recording()) return;
+        if (host.takeBackPass(item)) {
+            inputs.recorder.setTake(StudioCharacter.takeOf(item));   // the take as Studio now has it
+            panel.tick();
+        } else {
+            Toast.makeText(a, R.string.ava_perform_take_back, Toast.LENGTH_SHORT).show();
+        }
     }
 
+    /** Clear: the item keeps its length and stands still, one undo step in Studio (X6 M14). */
     @Override
     public void clearTake() {
-        Toast.makeText(a, R.string.ava_perform_take_back, Toast.LENGTH_SHORT).show();
+        if (inputs.recorder.recording()) return;
+        Take old = StudioCharacter.takeOf(item);
+        Take still = new Take();
+        still.n = old != null && old.n > 0 ? old.n : StudioCharacter.EMPTY_TAKE_FRAMES;
+        if (old != null) still.fps = old.fps;
+        host.passDone(item, StudioCharacter.json(still), null, 0);
+        inputs.recorder.setTake(StudioCharacter.takeOf(item));
+        panel.tick();
     }
 
     @Override public CharacterDoc.Node inHandNode() { return null; }
@@ -351,7 +393,11 @@ public final class PerformPopup implements PerformPanel.Host {
 
     /** Leaving: the pass ends, the camera and the microphone let go at once. */
     private void close() {
-        if (inputs.recorder.recording()) endPass();
+        if (passOn || inputs.recorder.recording()) endPass();
+        if (away != null) {
+            a.getApplication().unregisterActivityLifecycleCallbacks(away);
+            away = null;
+        }
         looping = false;
         stopVoice();
         inputs.mic(false);

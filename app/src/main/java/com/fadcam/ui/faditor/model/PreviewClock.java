@@ -84,4 +84,21 @@ public final class PreviewClock {
         long mediaLen = Math.max(1L, a.getOutPointMs() - a.getInPointMs());
         return mediaLen - blendMediaMs(tl, seam);
     }
+
+    /**
+     * Where, in the media time of the pass through the clip now playing, the blend at {@code seam} opens; the pass started
+     * [passStartVisualMs] into the clip's visual length (its loop-before, plus the passes already played).
+     * {@link Long#MAX_VALUE}: not on this pass. A looped clip blends only on its LAST pass, where its visual length runs
+     * out (STU-F7: opening it on every pass loaded the next clip under a held frame on the first pass and froze the
+     * picture for the rest of the loop). A clip without a loop has one pass and blends where it always did.
+     */
+    public static long blendOpensAtInPass(@NonNull Timeline tl, int seam, long passStartVisualMs) {
+        if (seam < 0 || seam >= tl.getClipCount()) return Long.MAX_VALUE;
+        Clip a = tl.getClip(seam);
+        if (!a.hasLoopExtension()) return blendStartMediaMs(tl, seam);
+        long remainingVisual = a.getVisualDurationMs() - Math.max(0L, passStartVisualMs);
+        if (remainingVisual > a.getTrimmedDurationMs()) return Long.MAX_VALUE;
+        long passMedia = Math.round(Math.max(0L, remainingVisual) * (double) Math.max(0.1f, a.getSpeedMultiplier()));
+        return Math.max(0L, passMedia - blendMediaMs(tl, seam));
+    }
 }

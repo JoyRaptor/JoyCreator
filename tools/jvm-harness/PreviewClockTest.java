@@ -166,6 +166,24 @@ public class PreviewClockTest {
                         && act.contains("PreviewClock.clipMediaMs(tl, idx, absoluteMs)")
                         && act.contains("PreviewClock.editorMs(project.getTimeline(), selectedClipIndex, relativePositionMs)"));
 
+        // STU-F7 (11-28, Note 9): an 18 s clip ping-ponged 4 s further, then a 1 s transition into the next clip. The
+        // preview opened the blend near the end of the clip's FIRST pass (17 s), loaded the next clip under a held frame
+        // while the clock ran on through the extension, and the picture froze (frame 30, 1.000 s) for 4 s.
+        Clip pong = clip(18_000, 1f);
+        pong.setLoopMode(Clip.LOOP_MODE_PING_PONG);
+        pong.setLoopAfterMs(4_000);
+        Timeline loopTl = timeline(new Clip[]{pong, clip(18_000, 1f)}, new long[][]{{0, 1_000}});
+        check("a looped clip's first pass does not open the blend (its extension is still to play)",
+                PreviewClock.blendOpensAtInPass(loopTl, 0, 0L) == Long.MAX_VALUE);
+        long lastPass = PreviewClock.blendOpensAtInPass(loopTl, 0, 18_000L);
+        check("its last pass opens the blend 1 s before the extension ends (3 s into the 4 s pass), got " + lastPass,
+                lastPass == 3_000L);
+        Timeline plain = timeline(new Clip[]{clip(18_000, 1f), clip(18_000, 1f)}, new long[][]{{0, 1_000}});
+        check("a clip without a loop opens it where it always did",
+                PreviewClock.blendOpensAtInPass(plain, 0, 0L) == PreviewClock.blendStartMediaMs(plain, 0));
+        check("preview: the poll opens the blend by the pass-aware rule",
+                act.contains("PreviewClock.blendOpensAtInPass("));
+
         System.out.println("PreviewClockTest: " + passed + " passed, " + failed + " failed");
         if (failed > 0) System.exit(1);
     }

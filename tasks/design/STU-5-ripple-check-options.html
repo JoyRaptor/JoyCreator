@@ -1,0 +1,346 @@
+<title>Ripple Check Options</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@600;700&family=IBM+Plex+Sans:wght@400;500&family=IBM+Plex+Mono:wght@500&family=Roboto:wght@400;500&display=swap">
+<style>
+/* Layout: a true-size Studio phone strip (1 css px = 1 dp, Note 9 width) that plays whatever is picked, beside (wide) or above (narrow) the rows A-F; one picks line fixed at the foot. Single dark look on purpose: Studio's old-black room. */
+:root {
+  color-scheme: dark;
+  --ground: #000000;   /* Studio GROUND */
+  --surface: #0D0D10;  /* Studio SURFACE */
+  --panel: #111114;    /* a sheet, a drawer */
+  --raised: #1c1c22;   /* a control on a panel */
+  --line: #2c2c35;     /* hairline */
+  --ink: #e4e4e7;
+  --dim: #a1a1aa;
+  --faint: #71717a;
+  --armed: #22d3ee;    /* chosen = solid cyan (shared palette) */
+  --live: #f43f8e;     /* magenta: the layers the check is about */
+  --on-armed: #050507;
+  --clip1: #4397FD;    /* Studio VIDEO */
+  --clip2: #2f6fc0;
+  --display: "Archivo", "Arial Narrow", system-ui, sans-serif;
+  --body: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, Menlo, Consolas, monospace;
+  --phone: "Roboto", system-ui, "Segoe UI", sans-serif;
+}
+body { background: var(--ground); color: var(--ink); font-family: var(--body); font-size: 14px; line-height: 1.5;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); padding-block: 20px 120px; }
+.page { max-width: 1120px; margin: 0 auto; display: grid; gap: 24px; }
+h1 { font-family: var(--display); font-size: 24px; margin: 0; text-wrap: balance; }
+.lede { color: var(--dim); margin: 6px 0 0; max-width: 70ch; }
+.cols { display: grid; gap: 28px; align-items: start; }
+@media (min-width: 940px) { .cols { grid-template-columns: 411px minmax(0, 1fr); } .demo { position: sticky; top: calc(12px + env(safe-area-inset-top, 0px)); } }
+.demo { display: grid; gap: 10px; min-width: 0; }
+.rows { display: grid; gap: 26px; min-width: 0; }
+section { display: grid; gap: 10px; }
+h2 { font-family: var(--display); font-size: 15px; margin: 0; display: flex; gap: 8px; align-items: baseline; }
+h2 .key { font-family: var(--mono); font-size: 12px; color: var(--faint); }
+.q { color: var(--dim); margin: 0; font-size: 13px; max-width: 64ch; }
+.opts { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 10px; }
+.opt { all: unset; box-sizing: border-box; cursor: pointer; display: grid; gap: 6px; padding: 10px; align-content: start;
+  background: var(--panel); border: 1px solid var(--line); border-radius: 12px; min-width: 0; }
+.opt:focus-visible { outline: 2px solid var(--armed); outline-offset: 2px; }
+.opt[aria-pressed="true"] { border-color: var(--armed); box-shadow: inset 0 0 0 1px var(--armed); }
+.opt .head { display: flex; align-items: center; gap: 8px; }
+.opt .tag { font-family: var(--mono); font-size: 11px; padding: 2px 7px; border-radius: 99px; background: var(--raised); color: var(--dim); }
+.opt[aria-pressed="true"] .tag { background: var(--armed); color: var(--on-armed); }
+.opt .name { font-weight: 500; font-size: 13px; }
+.opt p { margin: 0; color: var(--dim); font-size: 12px; }
+.opt .new { font-family: var(--mono); font-size: 10px; color: var(--armed); }
+.edits { display: flex; flex-wrap: wrap; gap: 6px; }
+.chip { all: unset; cursor: pointer; font-size: 12px; padding: 5px 11px; border-radius: 99px; background: var(--panel); border: 1px solid var(--line); color: var(--dim); }
+.chip[aria-pressed="true"] { background: var(--armed); border-color: var(--armed); color: var(--on-armed); }
+.chip:focus-visible, .link:focus-visible { outline: 2px solid var(--armed); outline-offset: 2px; }
+.link { all: unset; cursor: pointer; color: var(--dim); font-size: 12.5px; text-decoration: underline; }
+.small { color: var(--faint); font-size: 12px; margin: 0; }
+.list { margin: 0; padding-left: 18px; color: var(--dim); font-size: 13px; display: grid; gap: 2px; }
+
+/* the phone strip */
+.phone { width: 411px; max-width: 100%; background: var(--surface); border: 1px solid var(--line); border-radius: 14px; overflow: hidden; font-family: var(--phone); position: relative; }
+.pic { height: 64px; background: linear-gradient(160deg, #1a2433, #0b0f16); display: grid; place-items: center; color: var(--faint); font-size: 11px; }
+.stage { position: relative; height: 190px; background: var(--ground); overflow: hidden; }
+.ruler { position: absolute; left: 0; right: 0; top: 0; height: 16px; border-bottom: 1px solid var(--line); }
+.ruler span { position: absolute; top: 2px; font-size: 9px; color: var(--faint); transform: translateX(-50%); font-variant-numeric: tabular-nums; }
+.blk { position: absolute; height: 22px; border-radius: 5px; font-size: 10px; line-height: 22px; padding: 0 6px; white-space: nowrap; overflow: hidden; color: #050507;
+  transition: transform .45s cubic-bezier(.3,.7,.2,1), box-shadow .2s; box-sizing: border-box; }
+.blk.text { background: #E4E4E7; } .blk.picture { background: #A78BFA; } .blk.sprite { background: #FBBF24; } .blk.sound { background: #4ADE80; }
+.glow .blk.after { box-shadow: 0 0 0 2px var(--live), 0 0 10px rgba(244,63,142,.55); }
+.clip { position: absolute; top: 128px; height: 40px; border-radius: 6px; color: #050507; font-size: 11px; padding: 4px 7px; box-sizing: border-box; transition: left .45s, width .45s; }
+.overlap { position: absolute; top: 128px; height: 40px; border-radius: 4px; background: repeating-linear-gradient(135deg, rgba(255,255,255,.3) 0 4px, transparent 4px 8px); }
+.ui-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px; padding: 9px 12px; background: var(--panel); border-bottom: 1px solid var(--line); font-size: 13px; }
+.ui-bar .msg { flex: 1 1 190px; min-width: 0; }
+.pill { font: 500 12.5px var(--phone); border: 0; border-radius: 999px; padding: 7px 12px; background: var(--raised); color: var(--ink); cursor: pointer; }
+.pill.go { background: var(--armed); color: var(--on-armed); }
+.pill:focus-visible, .tick:focus-visible, .flag:focus-visible, .ui-line button:focus-visible { outline: 2px solid var(--armed); outline-offset: 2px; }
+.tick { display: inline-flex; align-items: center; gap: 7px; font: 12px var(--phone); color: var(--dim); background: none; border: 0; padding: 4px 0; cursor: pointer; }
+.box { width: 16px; height: 16px; border-radius: 4px; border: 1.5px solid var(--faint); display: grid; place-items: center; box-sizing: border-box; }
+.box svg { width: 12px; height: 12px; opacity: 0; }
+.tick[aria-pressed="true"] .box { background: var(--armed); border-color: var(--armed); }
+.tick[aria-pressed="true"] .box svg { opacity: 1; }
+.sheet { position: absolute; left: 0; right: 0; bottom: 0; background: rgba(17,17,20,.96); border-top: 1px solid var(--line); border-radius: 16px 16px 0 0; padding: 10px 12px 12px; display: grid; gap: 8px; font-size: 13px; }
+.sheet .title { color: var(--dim); font-size: 12px; }
+.card { position: absolute; top: 34px; width: 290px; max-width: calc(100% - 16px); background: var(--raised); border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; display: grid; gap: 8px; font-size: 13px; transform: translateX(-50%); }
+.row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.flag { position: absolute; top: 102px; transform: translateX(-50%); font: 500 11px var(--phone); background: var(--panel); color: var(--ink); border: 1.5px solid var(--armed); border-radius: 999px; padding: 3px 9px; cursor: pointer; white-space: nowrap; }
+.ui-line { display: flex; flex-wrap: wrap; gap: 6px 12px; align-items: center; padding: 10px 12px; font-size: 12.5px; color: var(--dim); border-top: 1px solid var(--line); min-height: 20px; }
+.ui-line button { font: 500 12.5px var(--phone); background: none; border: 0; color: var(--armed); cursor: pointer; padding: 2px 0; }
+
+.foot { position: fixed; left: 0; right: 0; bottom: 0; background: var(--panel); border-top: 1px solid var(--line);
+  padding: 12px max(16px, env(safe-area-inset-right, 0px)) calc(12px + env(safe-area-inset-bottom, 0px)) max(16px, env(safe-area-inset-left, 0px)); }
+.foot .frow { max-width: 1120px; margin: 0 auto; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+#picks { font-family: var(--mono); font-size: 13px; flex: 1 1 220px; min-width: 0; user-select: all; }
+#copy { all: unset; cursor: pointer; font-weight: 500; font-size: 13px; padding: 8px 16px; border-radius: 99px; background: var(--armed); color: var(--on-armed); }
+#copy:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+@media (prefers-reduced-motion: reduce) { .blk, .clip { transition: none; } }
+</style>
+
+<div class="page">
+  <header>
+    <h1>When an edit changes the video's length</h1>
+    <p class="lede">Your pick on 11-27: at a transition the two clips overlap, so the video gets shorter, the way the export already works. Trimming, a speed change, a longer loop and deleting a clip change the length too. Each time, the question is what happens to the layers above the video that start after that point: pictures, sprites, text and sounds. Moved with the clips, they stay on the same moment of the video. Left where they are, they keep their clock time and land on a different moment. Either way the whole change is one Undo.</p>
+  </header>
+
+  <div class="cols">
+    <div class="demo">
+      <div class="edits" role="group" aria-label="The edit to try">
+        <button class="chip" type="button" data-edit="trans">Add a 1 s transition</button>
+        <button class="chip" type="button" data-edit="trim">Trim 2 s off</button>
+        <button class="chip" type="button" data-edit="speed">Speed 2×</button>
+        <button class="chip" type="button" data-edit="loop">Loop 2 s longer</button>
+      </div>
+      <div class="phone" id="phone"></div>
+      <button class="link" type="button" id="again">Do the edit again</button>
+      <p class="small">True size on the Note 9's width, in Studio's colours. Everything you pick on the right plays here. Tick "don't ask again", answer, then do the edit again to see row E.</p>
+    </div>
+
+    <div class="rows">
+      <section data-key="A">
+        <h2><span class="key">A</span> Where the check appears</h2>
+        <p class="q">It only appears when layers start after the point. Otherwise nothing is asked.</p>
+        <div class="opts">
+          <button class="opt" type="button" data-pick="A1"><div class="head"><span class="tag">A1</span><span class="name">A strip over the timeline</span></div>
+            <p>A slim strip sits just above the timeline. The picture keeps playing and nothing is covered. Nothing moves until you tap.</p></button>
+          <button class="opt" type="button" data-pick="A2"><div class="head"><span class="tag">A2</span><span class="name">Inside the edit's own sheet</span></div>
+            <p>The line sits under the transition, trim, speed or loop choices, so the answer is part of the same pick.</p></button>
+          <button class="opt" type="button" data-pick="A3"><div class="head"><span class="tag">A3</span><span class="name">A card at the cut</span></div>
+            <p>A small card points at the spot on the timeline, so you see exactly where the change starts.</p></button>
+          <button class="opt" type="button" data-pick="A4"><div class="head"><span class="tag">A4</span><span class="name">A flag at the cut</span><span class="new">new</span></div>
+            <p>Your default happens. A small flag stays on the spot; tap it to see what happened and change it.</p></button>
+          <button class="opt" type="button" data-pick="A5"><div class="head"><span class="tag">A5</span><span class="name">Do it, keep the way back</span><span class="new">new</span></div>
+            <p>Your default happens straight away. One line says what happened and offers the other answer in one tap, like every automatic guess in the app.</p></button>
+        </div>
+      </section>
+
+      <section data-key="B">
+        <h2><span class="key">B</span> What it says</h2>
+        <p class="q">The words, here for the edit picked on the left with six layers after it.</p>
+        <div class="opts">
+          <button class="opt" type="button" data-pick="B1"><div class="head"><span class="tag">B1</span><span class="name">Short</span></div><p class="say" data-w="1"></p></button>
+          <button class="opt" type="button" data-pick="B2"><div class="head"><span class="tag">B2</span><span class="name">Says which layers</span></div><p class="say" data-w="2"></p></button>
+          <button class="opt" type="button" data-pick="B3"><div class="head"><span class="tag">B3</span><span class="name">As a question</span></div><p class="say" data-w="3"></p></button>
+        </div>
+      </section>
+
+      <section data-key="C">
+        <h2><span class="key">C</span> The default</h2>
+        <p class="q">Which answer is lit in cyan and happens if you do not tap?</p>
+        <div class="opts">
+          <button class="opt" type="button" data-pick="C1"><div class="head"><span class="tag">C1</span><span class="name">Move with the clips</span></div>
+            <p>Titles, stickers and sounds stay on the moment they were placed on. Lead's pick: it is what you would expect if you had moved the clip yourself.</p></button>
+          <button class="opt" type="button" data-pick="C2"><div class="head"><span class="tag">C2</span><span class="name">Leave them</span></div>
+            <p>Nothing above the video moves unless you say so. Right for music laid to a clock, wrong for a caption on a face.</p></button>
+          <button class="opt" type="button" data-pick="C3"><div class="head"><span class="tag">C3</span><span class="name">Your last answer</span></div>
+            <p>The first time it is Move; after that it is whatever you chose last in this project.</p></button>
+        </div>
+      </section>
+
+      <section data-key="D">
+        <h2><span class="key">D</span> Don't ask again</h2>
+        <p class="q">For people who know what they are doing. Whatever you pick, Studio settings has the same tick box to turn the check back on.</p>
+        <div class="opts">
+          <button class="opt" type="button" data-pick="D1"><div class="head"><span class="tag">D1</span><span class="name">A tick box in the check</span></div>
+            <p>Under the two answers, solid cyan when on with the tick cut out. Ticked, your answer becomes the rule.</p></button>
+          <button class="opt" type="button" data-pick="D2"><div class="head"><span class="tag">D2</span><span class="name">From the second time</span></div>
+            <p>The tick box shows only after you have answered once, so nobody skips something they have never seen.</p></button>
+          <button class="opt" type="button" data-pick="D3"><div class="head"><span class="tag">D3</span><span class="name">Settings only</span></div>
+            <p>The check itself stays clean; "Ask when an edit changes the length" lives in Studio settings.</p></button>
+        </div>
+      </section>
+
+      <section data-key="E">
+        <h2><span class="key">E</span> When it no longer asks</h2>
+        <p class="q">After "don't ask again", what do you see when it acts on its own?</p>
+        <div class="opts">
+          <button class="opt" type="button" data-pick="E1"><div class="head"><span class="tag">E1</span><span class="name">A quiet line with Undo</span></div>
+            <p>"Moved 6 layers with the video · Undo" for three seconds, then gone.</p></button>
+          <button class="opt" type="button" data-pick="E2"><div class="head"><span class="tag">E2</span><span class="name">Nothing</span></div>
+            <p>It just happens. Undo still takes it all back in one press.</p></button>
+        </div>
+      </section>
+
+      <section data-key="F">
+        <h2><span class="key">F</span> Showing which layers</h2>
+        <p class="q">While the check is up, do the layers it talks about light up?</p>
+        <div class="opts">
+          <button class="opt" type="button" data-pick="F1"><div class="head"><span class="tag">F1</span><span class="name">They glow on the timeline</span></div>
+            <p>A soft magenta ring on each one, so the number in the check is something you can see.</p></button>
+          <button class="opt" type="button" data-pick="F2"><div class="head"><span class="tag">F2</span><span class="name">No highlight</span></div>
+            <p>The count in the words is enough.</p></button>
+        </div>
+      </section>
+
+      <section>
+        <h2>The edits it covers</h2>
+        <ul class="list">
+          <li>Adding a transition, making one longer or shorter, or removing it</li>
+          <li>Trimming the start or end of a clip</li>
+          <li>Changing a clip's speed</li>
+          <li>Making a loop or ping-pong longer or shorter</li>
+          <li>Deleting a clip, or adding one in the middle</li>
+        </ul>
+        <p class="small">Layers that span the point (start before it, end after it) are not moved; only ones that start after it are. Nothing changes in Studio until your picks are built.</p>
+      </section>
+    </div>
+  </div>
+</div>
+
+<div class="foot"><div class="frow">
+  <span id="picks"></span>
+  <button id="copy" type="button">Copy picks</button>
+</div></div>
+
+<script>
+(function () {
+  var PX = 26, X0 = 8;                    // 1 s = 26 dp on this strip
+  var EDITS = {                           // the first clip is 6 s; each edit changes its end, so the point is 6 s
+    trans: { label: "Cross Dissolve · 1.0 s", delta: -1, clip1: 6, b: 5, overlap: true },
+    trim:  { label: "Trim · out point 4.0 s", delta: -2, clip1: 4, b: 4 },
+    speed: { label: "Speed · 2×", delta: -3, clip1: 3, b: 3 },
+    loop:  { label: "Loop · 2 s longer", delta: 2, clip1: 8, b: 8 }
+  };
+  var LAYERS = [ // lane, start s, end s, kind, label
+    [0, 1, 3, "text", "Title"], [0, 7, 9, "text", "Hello"], [0, 9.5, 11.5, "picture", "Photo"],
+    [1, 6.2, 7.8, "text", "Caption"], [1, 8, 10, "sprite", "Bird"], [1, 10.5, 12.4, "picture", "Sticker"],
+    [2, 6.5, 12.6, "sound", "Song"]
+  ];
+  var POINT = 6, N = 6;
+  var pick = { A: null, B: null, C: null, D: null, E: null, F: null };
+  var seen = { A: "A1", B: "B1", C: "C1", D: "D1", E: "E1", F: "F1" };   // what the phone shows before you pick
+  var edit = "trans", answered = 0, rule = null, last = "move";
+  var TICK = '<svg viewBox="0 0 12 12"><path d="M2.5 6.2l2.3 2.3 4.7-4.9" fill="none" stroke="#050507" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+  function v(k) { return pick[k] || seen[k]; }
+  function amount() { var d = EDITS[edit].delta; return Math.abs(d) + " s " + (d < 0 ? "shorter" : "longer"); }
+  function words(w) {
+    if (w === "2") return "The video gets " + amount() + ". 2 pictures, 1 sprite, 2 texts and 1 sound start after this point.";
+    if (w === "3") return "Keep " + N + " layers in step with the video? It gets " + amount() + " here.";
+    return amount() + " · " + N + " layers after this";
+  }
+  function answers() { return v("B") === "B3" ? ["Keep in step", "Leave them"] : v("B") === "B2" ? ["Move them with the video", "Leave them"] : ["Move with clips", "Leave them"]; }
+  function def() { return v("C") === "C2" ? "leave" : v("C") === "C3" ? last : "move"; }
+
+  function stage(moved) {
+    var e = EDITS[edit], shift = moved ? e.delta * PX : 0, h = '<div class="ruler">';
+    for (var s = 0; s <= 14; s += 2) h += '<span style="left:' + (s * PX + X0) + 'px">' + s + ' s</span>';
+    h += '</div>';
+    LAYERS.forEach(function (l) {
+      var after = l[1] >= POINT;
+      h += '<div class="blk ' + l[3] + (after ? ' after' : '') + '" style="top:' + (22 + l[0] * 28) + 'px;left:' + (l[1] * PX + X0) + 'px;width:' + ((l[2] - l[1]) * PX) + 'px;transform:translateX(' + (after ? shift : 0) + 'px)">' + l[4] + '</div>';
+    });
+    h += '<div class="clip" style="background:var(--clip1);left:' + X0 + 'px;width:' + (e.clip1 * PX) + 'px">Clip 1</div>';
+    h += '<div class="clip" style="background:var(--clip2);left:' + (e.b * PX + X0) + 'px;width:' + (6 * PX) + 'px">Clip 2</div>';
+    if (e.overlap) h += '<div class="overlap" style="left:' + (e.b * PX + X0) + 'px;width:' + PX + 'px"></div>';
+    return h;
+  }
+  function cutX() { return EDITS[edit].b * PX + X0; }
+  function tickHtml() {
+    if (v("D") === "D3" || (v("D") === "D2" && answered === 0)) return "";
+    return '<button class="tick" type="button" aria-pressed="false" title="Stop asking; use this answer every time (Studio settings brings the check back)"><span class="box">' + TICK + '</span>Don\'t ask again</button>';
+  }
+  function choiceHtml() {
+    var a = answers(), d = def();
+    var mv = '<button class="pill' + (d === "move" ? " go" : "") + '" type="button" data-act="move" title="Move the ' + N + ' layers with their clips">' + a[0] + '</button>';
+    var lv = '<button class="pill' + (d === "leave" ? " go" : "") + '" type="button" data-act="leave" title="Leave the ' + N + ' layers where they are">' + a[1] + '</button>';
+    return d === "move" ? mv + lv : lv + mv;
+  }
+  var phone = document.getElementById("phone");
+  function draw() {
+    var A = v("A"), d = def(), glow = v("F") === "F1";
+    var top = "", inStage = "", line = "", moved = false, asking = true;
+    if (rule) {                                       // don't ask again: it acts on its own (row E)
+      moved = rule === "move"; asking = false;
+      if (v("E") === "E1") line = '<span>' + (moved ? "Moved " + N + " layers with the video" : "Left " + N + " layers where they were") + '</span><button type="button" data-undo="1" title="Undo the whole edit in one step">Undo</button>';
+    } else if (A === "A1") {
+      top = '<div class="ui-bar"><span class="msg">' + words(v("B").slice(1)) + '</span>' + choiceHtml() + tickHtml() + '</div>';
+    } else if (A === "A2") {
+      inStage = '<div class="sheet"><div class="title">' + EDITS[edit].label + '</div><div>' + words(v("B").slice(1)) + '</div><div class="row">' + choiceHtml() + '</div>' + (tickHtml() ? '<div class="row">' + tickHtml() + '</div>' : '') + '</div>';
+    } else if (A === "A3") {
+      inStage = '<div class="card" style="left:' + Math.min(Math.max(cutX(), 153), 258) + 'px"><div>' + words(v("B").slice(1)) + '</div><div class="row">' + choiceHtml() + '</div>' + (tickHtml() ? '<div class="row">' + tickHtml() + '</div>' : '') + '</div>';
+    } else if (A === "A4") {
+      moved = d === "move"; asking = false;
+      inStage = '<button class="flag" type="button" style="left:' + cutX() + 'px" title="What happened to the layers after this point">' + (EDITS[edit].delta < 0 ? "−" : "+") + Math.abs(EDITS[edit].delta) + ' s · ' + N + ' layers</button>';
+      line = '<span>' + (moved ? "Layers after this point moved with their clips." : "Layers after this point stayed where they were.") + '</span>';
+    } else {
+      moved = d === "move"; asking = true;
+      var other = moved ? "leave" : "move";
+      line = '<span>' + (moved ? N + " layers moved with their clips." : N + " layers left where they were.") + '</span><button type="button" data-act="' + other + '" title="Change your mind about this edit">' + (other === "move" ? "Move them" : "Leave them") + '</button>' + tickHtml();
+    }
+    phone.innerHTML = top + '<div class="pic">Preview</div>' + '<div class="stage' + (glow && asking ? ' glow' : '') + '">' + stage(false) + inStage + '</div><div class="ui-line">' + line + '</div>';
+    if (moved) requestAnimationFrame(function () { requestAnimationFrame(function () { setMoved(true); }); });
+    wire();
+  }
+  function setMoved(m) {
+    var shift = m ? EDITS[edit].delta * PX : 0;
+    phone.querySelectorAll(".blk.after").forEach(function (b) { b.style.transform = "translateX(" + shift + "px)"; });
+  }
+  function settle(act) {
+    var ticked = phone.querySelector('.tick[aria-pressed="true"]');
+    answered++; last = act;
+    if (ticked) rule = act;
+    setMoved(act === "move");
+    var st = phone.querySelector(".stage"); st.classList.remove("glow");
+    ["ui-bar", "sheet", "card", "flag"].forEach(function (c) { var el = phone.querySelector("." + c); if (el) el.remove(); });
+    phone.querySelector(".ui-line").innerHTML = '<span>' + (act === "move" ? "Moved with their clips." : "Left where they were.") + (rule ? " It won't ask again." : "") + '</span><button type="button" data-undo="1" title="Undo the whole edit in one step">Undo</button>';
+    wire();
+  }
+  function wire() {
+    phone.querySelectorAll("[data-act]").forEach(function (b) { b.onclick = function () { settle(b.dataset.act); }; });
+    phone.querySelectorAll(".tick").forEach(function (t) { t.onclick = function () { t.setAttribute("aria-pressed", t.getAttribute("aria-pressed") === "true" ? "false" : "true"); }; });
+    phone.querySelectorAll("[data-undo]").forEach(function (b) { b.onclick = function () { setMoved(false); phone.querySelector(".ui-line").innerHTML = "<span>Undone: the edit and the layers, one step.</span>"; }; });
+    var flag = phone.querySelector(".flag");
+    if (flag) flag.onclick = function () {
+      if (phone.querySelector(".card")) return;
+      phone.querySelector(".stage").insertAdjacentHTML("beforeend", '<div class="card" style="left:' + Math.min(Math.max(cutX(), 153), 258) + 'px"><div>' + words(v("B").slice(1)) + '</div><div class="row">' + choiceHtml() + '</div>' + (tickHtml() ? '<div class="row">' + tickHtml() + '</div>' : '') + '</div>');
+      if (v("F") === "F1") phone.querySelector(".stage").classList.add("glow");
+      wire();
+    };
+  }
+  document.querySelectorAll("[data-edit]").forEach(function (c) {
+    c.addEventListener("click", function () { edit = c.dataset.edit; syncEdits(); sayAll(); draw(); });
+  });
+  function syncEdits() { document.querySelectorAll("[data-edit]").forEach(function (c) { c.setAttribute("aria-pressed", String(c.dataset.edit === edit)); }); }
+  function sayAll() { document.querySelectorAll(".say").forEach(function (p) { p.textContent = words(p.dataset.w); p.style.color = "var(--ink)"; }); }
+  document.getElementById("again").addEventListener("click", draw);
+  document.querySelectorAll("section[data-key]").forEach(function (sec) {
+    var key = sec.dataset.key;
+    sec.querySelectorAll(".opt").forEach(function (b) {
+      b.setAttribute("aria-pressed", "false");
+      b.addEventListener("click", function () {
+        sec.querySelectorAll(".opt").forEach(function (o) { o.setAttribute("aria-pressed", "false"); });
+        b.setAttribute("aria-pressed", "true");
+        pick[key] = b.dataset.pick;
+        if (key === "D" || key === "C") { rule = null; answered = 0; last = "move"; }
+        line(); draw();
+      });
+    });
+  });
+  var picksEl = document.getElementById("picks");
+  function line() { picksEl.textContent = "Length-change picks: " + ["A", "B", "C", "D", "E", "F"].map(function (k) { return pick[k] || (k + "?"); }).join(" "); }
+  var copy = document.getElementById("copy");
+  copy.addEventListener("click", function () {
+    function done() { copy.textContent = "Copied"; setTimeout(function () { copy.textContent = "Copy picks"; }, 1500); }
+    function sel() { var r = document.createRange(); r.selectNodeContents(picksEl); var s = getSelection(); s.removeAllRanges(); s.addRange(r); copy.textContent = "Selected: copy it"; }
+    try { navigator.clipboard.writeText(picksEl.textContent).then(done, sel); } catch (e) { sel(); }
+  });
+  syncEdits(); sayAll(); line(); draw();
+})();
+</script>

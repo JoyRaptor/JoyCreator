@@ -72,7 +72,7 @@ final class MouthSections {
                     v -> host.setValue(art.id, "squash.min", v, "Mouth: shuts to"), dp));
         col.addView(MotionSections.slider(c, "Try: talk", 0, 1, 0.05, 0, v -> v < 0.05 ? "shut" : Math.round(v * 100) + "% open", "Slide to see it talk",
                 v -> {
-                }, dp, v -> parts.tryMouth(v)));
+                }, v -> parts.tryMouth(v), dp));
         LinearLayout acts = new LinearLayout(c);
         acts.addView(MotionSections.chip(c, "Same on every angle", false, "Copy this way of talking to the mouth at every head angle (each keeps its own hinge pin)", dp, v -> parts.mouthAction(art.id, "everywhere")));
         if (hinge != null)

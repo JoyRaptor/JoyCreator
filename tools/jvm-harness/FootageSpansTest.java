@@ -2,6 +2,7 @@ import com.fadcam.ui.faditor.keyframe.Easing;
 import com.fadcam.ui.faditor.keyframe.KeyframeSet;
 import com.fadcam.ui.faditor.model.Clip;
 import com.fadcam.ui.faditor.model.FootageSpans;
+import com.fadcam.ui.faditor.model.PingPongLeg;
 import com.fadcam.ui.faditor.model.PreviewClock;
 import com.fadcam.ui.faditor.model.TimeMap;
 import com.fadcam.ui.faditor.model.Timeline;
@@ -48,6 +49,24 @@ public class FootageSpansTest {
         if (oldClipRules && (c.effectiveCropFractions() != null
                 || (c.isSpineTransformArmed() && c.hasSpineTransform()))) return false;
         return FootageSpans.eligible(c);
+    }
+
+    static boolean oldLoopRule;
+
+    /** The spans of a looped clip, or (planted) none: the pre-11-28 rule kept every loop sharp. */
+    static FootageSpans.Span loopBody(Timeline tl, int i) {
+        return oldLoopRule && tl.getClip(i).hasLoopExtension() ? null : FootageSpans.body(tl, i);
+    }
+
+    static FootageSpans.Span loopPass(Timeline tl, int i, boolean before, int rep) {
+        return oldLoopRule ? null : FootageSpans.loopPass(tl, i, before, rep);
+    }
+
+    static Clip loop(Clip c, int mode, long beforeMs, long afterMs) {
+        c.setLoopMode(mode);
+        c.setLoopBeforeMs(beforeMs);
+        c.setLoopAfterMs(afterMs);
+        return c;
     }
 
     static Clip withSpineKeys(float... xs) {
@@ -102,6 +121,7 @@ public class FootageSpansTest {
         for (String a : args) {
             if (a.equals("--old-project-rule")) oldProjectRule = true;
             if (a.equals("--old-clip-rules")) oldClipRules = true;
+            if (a.equals("--old-loop-rule")) oldLoopRule = true;
         }
 
         // ── Step 2: crop and an armed placement (owner plan 11-28) ─────────────────────────
@@ -121,6 +141,82 @@ public class FootageSpansTest {
                 "placementMoves: two keys move, one key holds");
         Clip unarmed = clip(0, 3000, 1f);
         check(eligible(unarmed) && !FootageSpans.placementMoves(unarmed), "no placement: blurs");
+
+        // ── Step 3: NORMAL loops blur inside each pass, sharp across each loop seam ────────
+        Clip looped = loop(clip(1000, 3000, 1f), Clip.LOOP_MODE_NORMAL, 2500, 1000);
+        Timeline lt = timeline(new Clip[]{clip(0, 2000, 1f), looped, clip(0, 2000, 1f)}, new long[][]{});
+        check(eligible(looped), "loop: a NORMAL loop blurs");
+        FootageSpans.Span lm = loopBody(lt, 1);
+        check(lm != null, "loop: the clip's own pass has a span");
+        if (lm != null) {
+            eq(lm.editorStartUs(), 4_500_000, "loop: own pass starts after the 2.5 s loop-before");
+            eq(lm.editorEndUs(), 6_500_000, "loop: own pass ends 2 s later");
+        }
+        FootageSpans.Span b0 = loopPass(lt, 1, true, 0), b1 = loopPass(lt, 1, true, 1),
+                a0 = loopPass(lt, 1, false, 0);
+        check(b0 != null && b1 != null && a0 != null, "loop: every repeat has a span");
+        check(loopPass(lt, 1, true, 2) == null && loopPass(lt, 1, false, 1) == null, "loop: no extra repeats");
+        if (b0 != null && b1 != null && a0 != null && lm != null) {
+            eq(b0.editorStartUs(), 2_000_000, "loop-before 0 starts at the clip");
+            eq(b0.sourceEndUs(), 3_000_000, "loop-before 0 plays the whole pass");
+            eq(b1.editorStartUs(), 4_000_000, "loop-before 1 starts one pass later");
+            eq(b1.sourceEndUs(), 1_500_000, "loop-before 1 is cut short to 500 ms");
+            eq(a0.editorStartUs(), 6_500_000, "loop-after 0 starts after the own pass");
+            eq(a0.editorEndUs(), 7_500_000, "loop-after 0 lasts 1 s");
+            FootageSpans.Span[] order = {b0, b1, lm, a0};
+            boolean seamsFenced = true;
+            for (int k = 1; k < order.length; k++) {
+                // Each pass ends at or before the next one starts: the jump back to the in-point
+                // is a fence both sides of, never inside one span.
+                if (order[k - 1].editorEndUs() > order[k].editorStartUs()) seamsFenced = false;
+                if (order[k].sourceStartUs() != 1_000_000) seamsFenced = false;
+            }
+            check(seamsFenced, "loop: every loop seam is a fence (passes never overlap)");
+            check(lm.equals(FootageSpans.passStartingAt(lt, 1, 4500)), "legacy: offset 0 is the own pass");
+            FootageSpans.Span after = FootageSpans.passStartingAt(lt, 1, 6500);
+            check(after != null && after.pass() == FootageSpans.Pass.AFTER && after.rep() == 0,
+                    "legacy: one wrap is loop-after 0");
+            check(FootageSpans.passStartingAt(lt, 1, 5000) == null, "legacy: no pass starts mid-pass");
+        }
+        check(!eligible(loop(clip(0, 2000, 1f), Clip.LOOP_MODE_PING_PONG, 0, 1000)),
+                "ping-pong: backward legs come from another file, stays sharp");
+        check(!eligible(loop(clip(0, 2000, 1f), Clip.LOOP_MODE_STILL, 0, 1000)), "still loop: stays sharp");
+        Timeline lx = timeline(new Clip[]{loop(clip(0, 2000, 1f), Clip.LOOP_MODE_NORMAL, 0, 1000),
+                clip(0, 2000, 1f)}, new long[][]{{0, 300}});
+        check(loopBody(lx, 0) == null, "a loop touching a transition stays sharp");
+        check(loopBody(lx, 1) != null, "...but its neighbour across the transition blurs");
+
+        // The export lays each repeat exactly here (frozen copy of buildLoopExtensionItem).
+        Random lr = new Random(11_28L);
+        int loopOk = 0, loopSeen = 0;
+        for (int round = 0; round < 300; round++) {
+            long in = lr.nextInt(3000);
+            float sp = new float[]{0.5f, 1f, 2f}[lr.nextInt(3)];
+            Clip lc = loop(clip(in, in + 300 + lr.nextInt(3000), sp), Clip.LOOP_MODE_NORMAL,
+                    lr.nextInt(5000), lr.nextInt(5000));
+            if (!lc.hasLoopExtension()) continue;
+            Timeline tl = timeline(new Clip[]{clip(0, 1000 + lr.nextInt(2000), 1f), lc}, new long[][]{});
+            long passMs = lc.getTrimmedDurationMs();
+            long cursor = TimeMap.of(tl).clipEditorStartMs(1);
+            for (int side = 0; side < 2; side++) {
+                boolean before = side == 0;
+                long ext = before ? lc.getLoopBeforeMs() : lc.getLoopAfterMs();
+                if (ext <= 0) continue;
+                int reps = (int) Math.ceil(ext / (double) passMs);
+                for (int r = 0; r < reps; r++) {
+                    loopSeen++;
+                    long played = Math.min(passMs, ext - (long) r * passMs);
+                    long span = Math.max(1L, (long) (played * sp));
+                    PingPongLeg leg = PingPongLeg.of(before, reps, r, lc.getInPointMs(), lc.getOutPointMs(), span, false);
+                    long editorStart = before ? cursor + Math.min((long) r * passMs, lc.getLoopBeforeMs())
+                            : cursor + lc.getLoopBeforeMs() + passMs + (long) r * passMs;
+                    FootageSpans.Span s = loopPass(tl, 1, before, r);
+                    if (s != null && s.covers(leg.startMs * 1000, leg.endMs * 1000)
+                            && s.editorUs(leg.startMs * 1000) == editorStart * 1000) loopOk++;
+                }
+            }
+        }
+        eq(loopOk, loopSeen, "random loops: span == export repeat, on the timeline's clock");
 
         // ── One 600 ms transition between the first two of three clips ─────────────────────
         Timeline t = timeline(new Clip[]{clip(0, 3000, 1f), clip(1000, 5000, 1f), clip(0, 3000, 1f)},

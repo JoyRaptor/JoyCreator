@@ -18,9 +18,11 @@ final class PreviewDecoderClock {
      * A decoder time {@code mediaOriginUs} lands on editor time {@code editorOriginUs}; frames are
      * latched only inside {@code [editorStartUs, editorEndUs)}, which is the clip less any
      * transition overlap at either end (FxLivePreviewController#bindMotionClock).
+     * {@code passBound}: one pass of a loop the legacy player replays by seeking back, so a seek
+     * in the same window starts another pass and this anchor no longer holds.
      */
     record Anchor(Object windowUid, long mediaOriginUs, long editorOriginUs, long editorStartUs,
-                  long editorEndUs, float speed, @Nullable String footageSourceKey) {
+                  long editorEndUs, float speed, @Nullable String footageSourceKey, boolean passBound) {
         long toEditorUs(long sourceUs) {
             return editorOriginUs + Math.round((sourceUs - mediaOriginUs) / (double) speed);
         }
@@ -37,6 +39,7 @@ final class PreviewDecoderClock {
             // Clear the latch immediately, before a frame from the old location can be drawn.
             frames.reset();
             if (previous.mediaItemIndex == current.mediaItemIndex && anchor != null && player != null
+                    && !anchor.passBound
                     && previous.periodUid != null && previous.periodUid.equals(current.periodUid)) {
                 installMetadataListener();
             } else {

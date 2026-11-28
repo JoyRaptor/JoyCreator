@@ -68,6 +68,12 @@ public final class FxLivePreviewController {
         }
         default boolean gaplessVideoPlayer() { return false; }
         @Nullable default String loadedVideoClipId() { return null; }
+        /**
+         * Legacy (one decoder) player on a looped clip: how far past the clip's own pass the
+         * loop has wrapped, in editor ms (0 on the clip's own pass, one pass length per wrap).
+         * -1 when unknown, or the player is gapless. A pass's footage blur needs it.
+         */
+        default long legacyLoopOffsetMs() { return -1L; }
         /** Hand video output back to the PlayerView's own surface. */
         void restoreVideoOutput();
         /** The clip under the playhead, whose colour grade the preview must show. */
@@ -676,7 +682,13 @@ public final class FxLivePreviewController {
     private void bindMotionClock(@NonNull Timeline timeline, @Nullable Clip clip, boolean shutterFootage,
                                  boolean orderedMesh) {
         if ((!host.motionBlurEnabled() && debugLaneOrder == null && !orderedMesh) || clip == null || clip.isImageClip()
-                || clip.hasLoopExtension() || clip.hasRemovedSpans()) {
+                || clip.hasRemovedSpans()) {
+            clearMotionClock();
+            return;
+        }
+        // A looped clip binds per pass, and only for its own footage blur (below).
+        boolean looped = clip.hasLoopExtension();
+        if (looped && !(shutterFootage && eligibleFastFootage(clip))) {
             clearMotionClock();
             return;
         }
@@ -712,7 +724,11 @@ public final class FxLivePreviewController {
         boolean gapless = host.gaplessVideoPlayer();
         String playerClipId = gapless ? motionWindow.mediaItem.mediaId : host.loadedVideoClipId();
         float speed = clip.getSpeedMultiplier();
-        if (!clip.getId().equals(playerClipId) || motionWindow.firstPeriodIndex != motionWindow.lastPeriodIndex
+        // A loop repeat's window in the gapless playlist is "<clip id>#BEFORE<r>" / "#AFTER<r>"
+        // (MasterPlaybackEngine.addLoopReps).
+        boolean idMatches = clip.getId().equals(playerClipId) || (looped && gapless && playerClipId != null
+                && playerClipId.startsWith(clip.getId() + "#"));
+        if (!idMatches || motionWindow.firstPeriodIndex != motionWindow.lastPeriodIndex
                 || !Float.isFinite(speed) || speed <= 0f) {
             clearMotionClock();
             return;
@@ -724,20 +740,63 @@ public final class FxLivePreviewController {
         long endUs = windowEndMs * 1000L;
         // The footage blurs over its span (FootageSpans): the same source window and editor
         // clock the export's piece gets, so both routes blur the same frames.
-        var span = shutterFootage && eligibleFastFootage(clip) ? FootageSpans.body(timeline, index) : null;
+        FootageSpans.Span span;
+        if (looped) {
+            // Each pass of a NORMAL loop replays the source from the in-point: its own clock and
+            // its own fences, so the jump back at the loop seam stays sharp like a cut.
+            span = loopPassNowPlaying(timeline, index, clip, gapless, playerClipId);
+            if (span == null || span.sourceOriginUs() != originUs) {
+                clearMotionClock();
+                return;
+            }
+            editorOriginUs = span.editorOriginUs();
+            startUs = span.editorStartUs();
+            endUs = span.editorEndUs();
+        } else {
+            span = shutterFootage && eligibleFastFootage(clip) ? FootageSpans.body(timeline, index) : null;
+        }
         // Relinking preserves the clip ID. Also fence a rebased trim or speed change between
-        // the decoder callback and the GL thread's settings snapshot.
+        // the decoder callback and the GL thread's settings snapshot. The clip's own start, not
+        // the pass's, so a loop's next pass keeps its decoder index instead of opening it again.
         String footageSourceKey = span != null
-                ? clip.getId() + "\n" + clip.getSourceUri() + "\n"
-                        + originUs + ":" + span.editorStartUs() + ":" + span.editorEndUs() + ":" + speed
+                ? clip.getId() + "\n" + clip.getSourceUri() + "\n" + originUs + ":"
+                        + map.clipEditorStartMs(index) + ":" + span.sourceStartUs() + ":"
+                        + span.sourceEndUs() + ":" + speed
                 : null;
         motionClock.bind(player, new PreviewDecoderClock.Anchor(
-                motionWindow.uid, originUs, editorOriginUs, startUs, endUs, speed, footageSourceKey));
+                motionWindow.uid, originUs, editorOriginUs, startUs, endUs, speed, footageSourceKey,
+                looped && !gapless));
         view.setFastFootageInput(footageSourceKey == null ? null
                 : new FxPreviewTextureView.FastFootageInput(footageSourceKey, span.editorStartUs(),
                         span.editorEndUs(), speed, clip.getRigidMotionShutter(), clip.getRigidMotionShutterKeys(),
                         clip.getSourceUri(), span.sourceStartUs(), span.sourceEndUs()));
         view.setMotionClockActive(motionClock.anchor() != null);
+    }
+
+    /**
+     * The pass of looped clip {@code index} the decoder is playing, or null. Gapless: the window's
+     * id names the repeat. Legacy: the one decoder replays the clip from its in-point at every
+     * wrap, and the editor knows how far into the loop it is ({@link Host#legacyLoopOffsetMs}).
+     */
+    @Nullable
+    private FootageSpans.Span loopPassNowPlaying(@NonNull Timeline timeline, int index, @NonNull Clip clip,
+                                                 boolean gapless, @Nullable String playerClipId) {
+        if (gapless) {
+            if (clip.getId().equals(playerClipId)) return FootageSpans.body(timeline, index);
+            String rep = playerClipId == null ? "" : playerClipId.substring(clip.getId().length() + 1);
+            boolean before = rep.startsWith("BEFORE");
+            if (!before && !rep.startsWith("AFTER")) return null;
+            try {
+                int r = Integer.parseInt(rep.substring(before ? 6 : 5));
+                return FootageSpans.loopPass(timeline, index, before, r);
+            } catch (NumberFormatException e) {
+                return null;
+            }
+        }
+        long offsetMs = host.legacyLoopOffsetMs();
+        if (offsetMs < 0) return null;
+        long passStartMs = TimeMap.of(timeline).clipEditorStartMs(index) + clip.getLoopBeforeMs() + offsetMs;
+        return FootageSpans.passStartingAt(timeline, index, passStartMs);
     }
 
     private static boolean eligibleFastFootage(Clip clip) {

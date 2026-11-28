@@ -43,4 +43,6 @@ expect_failure() {
 expect_failure --old-project-rule
 # ...and the pre-11-28 clip gate kept any crop or armed placement sharp.
 expect_failure --old-clip-rules
+# ...and kept every loop sharp.
+expect_failure --old-loop-rule
 java @"$RUNARGS" FootageSpansTest

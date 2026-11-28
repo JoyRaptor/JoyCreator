@@ -32,9 +32,15 @@ public final class FootageSpans {
 
     private FootageSpans() {}
 
-    /** One continuous run of source frames that may blur, and its place on the editor clock. */
-    public record Span(int clipIndex, long sourceStartUs, long sourceEndUs, long sourceOriginUs,
-                       long editorOriginUs, double speed) {
+    /** Which pass of a clip a span is: its own, or a repeat of a NORMAL loop before or after it. */
+    public enum Pass { MAIN, BEFORE, AFTER }
+
+    /**
+     * One continuous run of source frames that may blur, and its place on the editor clock.
+     * {@code rep} numbers a loop repeat in the order the export lays them (0 for the main pass).
+     */
+    public record Span(int clipIndex, Pass pass, int rep, long sourceStartUs, long sourceEndUs,
+                       long sourceOriginUs, long editorOriginUs, double speed) {
 
         /** The editor (timeline) time of source time {@code sourceUs}. */
         public long editorUs(long sourceUs) {
@@ -69,11 +75,16 @@ public final class FootageSpans {
      *
      * <p>Mesh and corner pin stay sharp: they warp per pixel after the gather, which a rigid
      * placement shutter does not describe either.</p>
+     *
+     * <p><b>Loops</b>: a NORMAL loop blurs inside every pass and stays sharp across each loop
+     * seam, which is a cut (the source jumps from its out-point back to its in-point). A
+     * ping-pong loop plays its backward legs from a separate baked file and a still loop holds
+     * one frame, so those stay sharp.</p>
      */
     public static boolean eligible(@Nullable Clip clip) {
         if (clip == null || clip.isImageClip() || !clip.isRigidMotionBlurEnabled()
-                || clip.hasLoopExtension() || clip.hasMesh() || clip.hasCornerPin()
-                || placementMoves(clip)) {
+                || (clip.hasLoopExtension() && clip.getLoopMode() != Clip.LOOP_MODE_NORMAL)
+                || clip.hasMesh() || clip.hasCornerPin() || placementMoves(clip)) {
             return false;
         }
         float speed = clip.getSpeedMultiplier();
@@ -93,6 +104,10 @@ public final class FootageSpans {
         Clip clip = timeline.getClip(index);
         if (!eligible(clip)) return null;
         TimeMap map = TimeMap.of(timeline);
+        // A looped clip touching a transition: the export plays the blend from its own pass and
+        // the loop-after repeats after the blend, the preview blends on its last pass. Until
+        // the two agree on where that seam is, the whole clip stays sharp.
+        if (clip.hasLoopExtension() && (map.headMs(index) > 0 || map.seamMs(index) > 0)) return null;
         float speed = clip.getSpeedMultiplier();
         long inMs = clip.getInPointMs();
         long outMs = clip.getOutPointMs();
@@ -108,8 +123,66 @@ public final class FootageSpans {
         if (sourceMs > 0) endMs = Math.min(endMs, sourceMs);
         if (endMs <= startMs) return null;
         long editorOriginMs = map.clipEditorStartMs(index) + mainPassOffsetMs(clip);
-        return new Span(index, startMs * 1000L, endMs * 1000L, inMs * 1000L,
+        return new Span(index, Pass.MAIN, 0, startMs * 1000L, endMs * 1000L, inMs * 1000L,
                 editorOriginMs * 1000L, speed);
+    }
+
+    /**
+     * Repeat {@code rep} of a NORMAL loop's extension before ({@code before}) or after the clip's
+     * own pass, or null. The repeats are the export's ({@code ExportManager.buildLoopExtensionItem})
+     * and the gapless preview's ({@code MasterPlaybackEngine.addLoopReps}): {@code ceil(extension
+     * / pass)} of them, laid in order, each playing the clip from its in-point for
+     * {@code min(pass, extension - rep * pass)} ms, the last one cut short.
+     */
+    @Nullable
+    public static Span loopPass(@NonNull Timeline timeline, int index, boolean before, int rep) {
+        Span main = body(timeline, index);
+        if (main == null || rep < 0) return null;
+        Clip clip = timeline.getClip(index);
+        if (!clip.hasLoopExtension()) return null;
+        long passMs = clip.getTrimmedDurationMs();
+        long extensionMs = before ? clip.getLoopBeforeMs() : clip.getLoopAfterMs();
+        if (passMs <= 0 || extensionMs <= 0) return null;
+        int reps = (int) Math.ceil(extensionMs / (double) passMs);
+        if (rep >= reps) return null;
+        long playedMs = Math.min(passMs, extensionMs - (long) rep * passMs);
+        if (playedMs <= 0) return null;
+        float speed = clip.getSpeedMultiplier();
+        long inMs = clip.getInPointMs();
+        long spanMs = Math.max(1L, (long) (playedMs * speed));
+        long endMs = Math.min(clip.getOutPointMs(), inMs + spanMs);
+        long sourceMs = clip.getSourceDurationMs();
+        if (sourceMs > 0) endMs = Math.min(endMs, sourceMs);
+        if (endMs <= inMs) return null;
+        long clipStartMs = TimeMap.of(timeline).clipEditorStartMs(index);
+        long passStartMs = before
+                ? clipStartMs + Math.min((long) rep * passMs, clip.getLoopBeforeMs())
+                : clipStartMs + clip.getLoopBeforeMs() + passMs + (long) rep * passMs;
+        return new Span(index, before ? Pass.BEFORE : Pass.AFTER, rep, inMs * 1000L, endMs * 1000L,
+                inMs * 1000L, passStartMs * 1000L, speed);
+    }
+
+    /**
+     * The pass of clip {@code index} whose own start sits at editor time {@code passStartMs}: the
+     * main pass, or the loop repeat laid there. How the legacy preview player, which replays one
+     * decoder from the in-point at every wrap and only knows how far into the loop it is, finds
+     * the pass it is playing. Null when no pass starts there.
+     */
+    @Nullable
+    public static Span passStartingAt(@NonNull Timeline timeline, int index, long passStartMs) {
+        Span main = body(timeline, index);
+        if (main == null) return null;
+        if (main.editorOriginUs() == passStartMs * 1000L) return main;
+        Clip clip = timeline.getClip(index);
+        if (!clip.hasLoopExtension()) return null;
+        for (int side = 0; side < 2; side++) {
+            for (int rep = 0; ; rep++) {
+                Span s = loopPass(timeline, index, side == 0, rep);
+                if (s == null) break;
+                if (s.editorOriginUs() == passStartMs * 1000L) return s;
+            }
+        }
+        return null;
     }
 
     /** Does the clip's spine placement change over time (any track with two or more keys)? */

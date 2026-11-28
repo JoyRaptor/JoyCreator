@@ -5756,6 +5756,20 @@ public class ExportManager {
                 /* preOverlayExtra = */ null,
                 /* isLoopBeforeItem = */ isBefore, 0L, Math.max(sourceSpanMs, playedMs), 0L);
 
+        // Filmed-video Motion Blur inside this repeat (FootageSpans.loopPass): a forward NORMAL
+        // repeat is a continuous run of the source, fenced at both ends, so the jump back to
+        // the in-point at each loop seam stays sharp like a cut. The preview asks the same span.
+        if (!leg.reverse && highFootageExportEnabled(project)) {
+            int index = com.fadcam.ui.faditor.model.FootageSpans.indexOf(project.getTimeline(), clip);
+            var span = index < 0 ? null : com.fadcam.ui.faditor.model.FootageSpans.loopPass(
+                    project.getTimeline(), index, isBefore, repIndex);
+            if (span != null && span.covers(startMs * 1000L, endMs * 1000L)) {
+                videoEffects.add(0, new HighFootageExportEffect(itemUri, startMs * 1000L,
+                        endMs * 1000L, span, clip.getRigidMotionShutter(),
+                        clip.getRigidMotionShutterKeys()));
+            }
+        }
+
         if (!audioProcessors.isEmpty() || !videoEffects.isEmpty()) {
             eb.setEffects(new Effects(audioProcessors, videoEffects));
         }

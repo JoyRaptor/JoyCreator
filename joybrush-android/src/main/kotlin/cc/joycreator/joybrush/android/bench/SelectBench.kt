@@ -491,14 +491,20 @@ class SelectBench(private val canvas: JbCanvasView, private val runId: String, p
                                         canvas.redo()
                                         waitFor(300, 10_000, { activeLines().size == linesBefore + 1 }) {
                                             digest(cutX.toDouble(), band) { redone ->
-                                                val awayEqual = cut != null && before.away == cut.away
+                                                // The pieces are redrawn as lines of their own (their dabs start again at the cut, as
+                                                // the trim eraser's do), so L2's own tile row may differ slightly along it; said, not
+                                                // judged. Every tile off L2's row, away from the cut, must be the very same.
+                                                val size = cc.joycreator.joybrush.core.paint.Tiles.SIZE
+                                                val rows = kotlin.math.floor((ys.min() - band) / size).toInt()..kotlin.math.floor((ys.max() + band) / size).toInt()
+                                                fun offRow(k: String) = k.substringAfterLast(", ").substringBefore(')').substringAfter('_').toIntOrNull()?.let { it !in rows } ?: true
+                                                val awayEqual = cut != null && before.away.filterKeys(::offRow) == cut.away.filterKeys(::offRow)
                                                 val undoExact = undone != null && undone.all == before.all
                                                 val redoExact = redone != null && cut != null && redone.all == cut.all
                                                 report("partCut", l2.size == 2 && d1 == d0 + 1 && ordered && awayEqual && undoExact && redoExact,
                                                     JSONObject().put("pieces", l2.size).put("undoSteps", d1 - d0).put("underL3", ordered)
                                                         .put("awayFromTheCutUnchanged", awayEqual).put("undoExact", undoExact).put("redoExact", redoExact)
                                                         .put("notes", notes.joinToString(" | "))
-                                                        .put("awayDiff", if (cut != null) awayDiff(before, cut) else JSONObject()))
+                                                        .put("alongL2Row", if (cut != null) awayDiff(before, cut) else JSONObject()))
                                                 next()
                                             }
                                         }

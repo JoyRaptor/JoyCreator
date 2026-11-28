@@ -209,28 +209,44 @@ public class AvatarCameraTest {
     private static int open(ProcessCameraProvider p, CameraPlan.Plan plan, int[] facing, AtomicInteger bodyFrames) {
         Owner owner = new Owner();
         AtomicInteger faceFrames = new AtomicInteger();
+        java.util.concurrent.ExecutorService fx = Executors.newSingleThreadExecutor(), bx = Executors.newSingleThreadExecutor();
         ImageAnalysis face = new ImageAnalysis.Builder().setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST).build();
         ImageAnalysis body = new ImageAnalysis.Builder().setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST).build();
-        face.setAnalyzer(Executors.newSingleThreadExecutor(), img -> { faceFrames.incrementAndGet(); img.close(); });
-        body.setAnalyzer(Executors.newSingleThreadExecutor(), img -> { if (bodyFrames != null) bodyFrames.incrementAndGet(); img.close(); });
+        face.setAnalyzer(fx, img -> { faceFrames.incrementAndGet(); img.close(); });
+        body.setAnalyzer(bx, img -> { if (bodyFrames != null) bodyFrames.incrementAndGet(); img.close(); });
+        String what = plan.face.key + (plan.two ? " + " + plan.body.key : "");
+        long t0 = android.os.SystemClock.uptimeMillis();
+        Log.i(Emu.TAG, "cameras: opening " + what);
         Emu.ins().runOnMainSync(() -> {
             owner.reg.setCurrentState(Lifecycle.State.RESUMED);
             TrackerCameras.Opened o = TrackerCameras.open(p, owner, plan, face, body);
             facing[0] = o.face.getCameraInfo().getLensFacing();
         });
+        Log.i(Emu.TAG, "cameras: " + what + " bound in " + (android.os.SystemClock.uptimeMillis() - t0) + " ms");
+        // pictures for two seconds once the first arrives (the emulator's cameras can take a while to start), at most 20 s
+        long until = android.os.SystemClock.uptimeMillis() + 20000;
+        while (faceFrames.get() == 0 && android.os.SystemClock.uptimeMillis() < until) Emu.sleep(100);
+        int first = faceFrames.get();
         Emu.sleep(2000);
+        int frames = faceFrames.get() - first + (first > 0 ? 1 : 0);
+        Log.i(Emu.TAG, "cameras: " + what + " first picture after " + (android.os.SystemClock.uptimeMillis() - t0 - 2000) + " ms; " + frames + " in 2 s");
+        long t1 = android.os.SystemClock.uptimeMillis();
         Emu.ins().runOnMainSync(() -> {
             owner.reg.setCurrentState(Lifecycle.State.DESTROYED);
             p.unbindAll();
         });
-        Emu.sleep(500);
-        return faceFrames.get();
+        fx.shutdown();
+        bx.shutdown();
+        Emu.sleep(1500);                                                     // (let the camera close before the next opens)
+        Log.i(Emu.TAG, "cameras: " + what + " closed in " + (android.os.SystemClock.uptimeMillis() - t1) + " ms");
+        return frames;
     }
 
     // ── small pieces ────────────────────────────────────────────────────────────────────────────────
 
     private void check(boolean c, String what) {
         log.append(c ? "PASS  " : "FAIL  ").append(what).append('\n');
+        Log.i(Emu.TAG, (c ? "PASS  " : "FAIL  ") + what);                  // (as it happens: a stalled run shows where)
         if (!c) fails++;
     }
 

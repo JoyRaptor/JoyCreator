@@ -24,11 +24,18 @@ public final class PingPongLeg {
      * {@code pingPong}: the clip ping-pongs and its reversed copy exists; otherwise every leg replays forward.
      */
     public static PingPongLeg of(boolean isBefore, int reps, int r, long inMs, long outMs, long spanMs, boolean pingPong) {
-        boolean reverse = pingPong && ((isBefore ? reps - 1 - r : r) % 2 == 1);
+        // How far this leg is from the clip's own (forward) pass: the nearest one is 0. It plays backward, and from there
+        // the legs alternate, so each starts where its neighbour ended (STU-F7: the nearest played forward, a plain repeat).
+        int fromPass = isBefore ? reps - 1 - r : r;
+        boolean reverse = pingPong && fromPass % 2 == 0;
+        long revLen = outMs - inMs;
+        long span = Math.max(0L, Math.min(spanMs, revLen));
         if (reverse) {
-            long revLen = outMs - inMs;
-            return new PingPongLeg(true, Math.max(0L, revLen - spanMs), revLen);
+            // After the clip a backward leg starts at its end (reversed copy from 0); before it, a backward leg ends at
+            // its start (the reversed copy's end).
+            return isBefore ? new PingPongLeg(true, revLen - span, revLen) : new PingPongLeg(true, 0L, span);
         }
-        return new PingPongLeg(false, inMs, Math.min(outMs, inMs + spanMs));
+        // A forward leg after the clip starts at its start; before the clip (ping-pong) it ends at its end.
+        return isBefore && pingPong ? new PingPongLeg(false, outMs - span, outMs) : new PingPongLeg(false, inMs, inMs + span);
     }
 }

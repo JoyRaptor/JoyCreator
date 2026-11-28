@@ -1672,6 +1672,17 @@ class JbCanvasView(context: Context) : GLSurfaceView(context), UnibrushCanvasPor
                     }
                 }
                 frameStats.afterWork()
+                if (loadingSteps) {
+                    // A drawing being put back a task at a time (load): the paper alone until its last task, never half of it.
+                    GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER, 0)
+                    GLES30.glViewport(0, 0, viewW, viewH)
+                    val pa = paperArgb
+                    GLES30.glClearColor(((pa shr 16) and 0xFF) / 255f, ((pa shr 8) and 0xFF) / 255f, (pa and 0xFF) / 255f, 1f)
+                    GLES30.glClear(GLES30.GL_COLOR_BUFFER_BIT)
+                    frameStats.afterDisplay()
+                    while (afterFrameWork.isNotEmpty()) afterFrameWork.removeFirst()()
+                    return
+                }
                 // Media strokes and running water advance once per drawn frame, and keep frames coming while they run.
                 try {
                     if (mediaCanvas.frame(SystemClock.uptimeMillis())) {
@@ -3502,7 +3513,13 @@ class JbCanvasView(context: Context) : GLSurfaceView(context), UnibrushCanvasPor
         stackUi = stack
         activeLayer = active
         editingMask = false
+        // ATLAS-SOLID item 2, the load split: the tiles go on in a chain of short graphics tasks ([LoadSteps]), not one
+        // task that grew with the drawing; each finished task tells the host the load is moving ([onLoadProgress]), so its
+        // watchdogs wait on progress. The screen shows the paper until the last task (a half-put-back drawing is never
+        // drawn: [loadingSteps]). A load begun later ends this chain where it is ([loadGeneration]).
+        val generation = ++loadGeneration
         onGl(allowLost = true) {
+            if (generation != loadGeneration) { cc.joycreator.joybrush.androidkit.io.DeferredMedia.release(contents); return@onGl }
             // The previous drawing's realistic paint (its media window and any moving water) is discarded first, never
             // flushed into the new drawing's layers (audit 2026-10-18 P1: a wet wash could paint into the next drawing).
             if (contentLost) mediaCanvas.forget() else mediaCanvas.release()
@@ -3511,24 +3528,17 @@ class JbCanvasView(context: Context) : GLSurfaceView(context), UnibrushCanvasPor
             engine.resetDocument()
             engine.setStack(stack)
             engine.setBoardDocument(doc)
+            loadingSteps = true
+            val units = ArrayList<() -> Unit>(wanted.size + contents.mediaTiles.size / 4 + 1)
             // A PICTURE tile that cannot be read again (the disk failed since it was checked) ends the load: a drawing
             // with a hole in it must never be shown, let alone saved. The canvas becomes an empty drawing and the caller
             // is told ([onFailed]); the file is untouched.
-            try {
-                for ((index, want) in wanted.withIndex()) {
-                    val (address, read) = want
-                    val rgba = read()
-                    loadedAt[index]?.let { it.size = rgba.size; it.blank = Tiles.isBlank(rgba) }
-                    if(address.first.endsWith(MASK_SUFFIX))engine.writeTile(address.first,address.third,rgba)
-                    else engine.writeCelTile(address.first,address.second,address.third,rgba)
-                }
-            } catch (e: JbArchiveException) {
-                cc.joycreator.joybrush.androidkit.io.DeferredMedia.release(contents)
-                cc.joycreator.joybrush.androidkit.diag.TileIncidents.e("a drawing could not be opened: a picture tile could not be read again", e)
-                noteBenchError("open", e)
-                engine.resetDocument()
-                post { loadEmptyAfterFailure("This drawing could not be read from the phone's storage just now. Your saved drawing was kept.", onFailed, onDone) }
-                return@onGl
+            for ((index, want) in wanted.withIndex()) units.add {
+                val (address, read) = want
+                val rgba = read()
+                loadedAt[index]?.let { it.size = rgba.size; it.blank = Tiles.isBlank(rgba) }
+                if(address.first.endsWith(MASK_SUFFIX))engine.writeTile(address.first,address.third,rgba)
+                else engine.writeCelTile(address.first,address.second,address.third,rgba)
             }
             // Media payloads (DocModel v8, v9): their stores and grounds, beside the look the tiles already put back, which
             // they agree with.
@@ -3536,23 +3546,39 @@ class JbCanvasView(context: Context) : GLSurfaceView(context), UnibrushCanvasPor
             // holds a tile and not the drawing. A tile whose state cannot be read again (the disk failed since it was
             // checked) keeps its picture and gets no paint state at all, never half of it: the look is its ground.
             var unread = 0
-            try {
-                for ((_, stores) in contents.mediaTiles.keys.groupBy { Triple(it.layerId, it.celId, it.key) }) {
-                    val bytes = try { stores.map { k -> k to contents.mediaTiles.getValue(k) } } catch (e: JbArchiveException) {
-                        if (unread++ == 0) android.util.Log.w("JoyBrushCanvas", "paint state could not be read again; those tiles open as their picture", e)
-                        continue
-                    }
-                    for ((k, b) in bytes) {
-                        val key = tileKeyOf(k.key)
-                        engine.writeMediaTile(k.layerId, k.store, key, b, k.celId)
-                        if (printing) loaded.add(Loaded(k, MediaTileKey(k.layerId, k.celId, key.toString(), k.store),
-                            GlPaintEngine.TileAsk.media(k.layerId, k.store, key, engine.mediaPlaneOfCel(k.layerId, k.celId)), b.size, Tiles.isBlank(b)))
-                    }
+            for ((_, stores) in contents.mediaTiles.keys.groupBy { Triple(it.layerId, it.celId, it.key) }) units.add unit@{
+                val bytes = try { stores.map { k -> k to contents.mediaTiles.getValue(k) } } catch (e: JbArchiveException) {
+                    if (unread++ == 0) android.util.Log.w("JoyBrushCanvas", "paint state could not be read again; those tiles open as their picture", e)
+                    return@unit
                 }
-            } finally {
-                // Whatever ends the load (a failed upload, the graphics going), the file is let go: a retry opens its own.
-                cc.joycreator.joybrush.androidkit.io.DeferredMedia.release(contents)
+                for ((k, b) in bytes) {
+                    val key = tileKeyOf(k.key)
+                    engine.writeMediaTile(k.layerId, k.store, key, b, k.celId)
+                    if (printing) loaded.add(Loaded(k, MediaTileKey(k.layerId, k.celId, key.toString(), k.store),
+                        GlPaintEngine.TileAsk.media(k.layerId, k.store, key, engine.mediaPlaneOfCel(k.layerId, k.celId)), b.size, Tiles.isBlank(b)))
+                }
             }
+            val began = SystemClock.elapsedRealtime()
+            val chain = arrayOfNulls<LoadSteps>(1)
+            chain[0] = LoadSteps(units, LoadSteps.BUDGET_NANOS,
+                schedule = { task -> onGl(allowLost = true) { task() } },
+                alive = { (generation == loadGeneration).also { if (!it) cc.joycreator.joybrush.androidkit.io.DeferredMedia.release(contents) } },
+                onProgress = { _, _ -> post { onLoadProgress?.invoke() } },
+                onFailed = { e ->
+                    // Whatever ends the load (a failed upload, the graphics going), the file is let go: a retry opens its own.
+                    cc.joycreator.joybrush.androidkit.io.DeferredMedia.release(contents)
+                    loadingSteps = false
+                    if (e !is JbArchiveException) throw e   // as from the one-task load: logged by the frame, the host's watchdog answers
+                    cc.joycreator.joybrush.androidkit.diag.TileIncidents.e("a drawing could not be opened: a picture tile could not be read again", e)
+                    noteBenchError("open", e)
+                    engine.resetDocument()
+                    post { loadEmptyAfterFailure("This drawing could not be read from the phone's storage just now. Your saved drawing was kept.", onFailed, onDone) }
+                },
+                onFinish = finish@{
+                    cc.joycreator.joybrush.androidkit.io.DeferredMedia.release(contents)
+                    loadingSteps = false
+                    android.util.Log.i("JoyBrushCanvas", "drawing put on the canvas: ${units.size} parts in ${chain[0]?.tasks} graphics tasks, " +
+                        "${SystemClock.elapsedRealtime() - began} ms")
             if (unread > 0) {
                 // Paint that became a flat picture after every check had passed is said, not only logged.
                 val n = unread
@@ -3589,11 +3615,20 @@ class JbCanvasView(context: Context) : GLSurfaceView(context), UnibrushCanvasPor
             paperWarnings.forEach { android.util.Log.w("JoyBrushPaper",it) }
             reportHistory()
             post { onPaperChanged?.invoke(doc.paper); onDone() }
+                })
+            chain[0]!!.start()
         }
         pageW = board.w
         pageH = board.h
         documentName = name
     }
+
+    /** Loads begun; a load's chain of tasks stops when this moves past its own ([LoadSteps.alive]). UI thread writes, GL thread reads. */
+    @Volatile private var loadGeneration = 0
+    /** GL thread: a load is between its first and last task; frames show the paper, not a half-put-back drawing. */
+    private var loadingSteps = false
+    /** UI thread: a load finished another of its graphics tasks and is still going (the host's watchdogs wait on this). */
+    var onLoadProgress: (() -> Unit)? = null
 
     /**
      * Why this file cannot be shown in full, in the person's words — or null, which means EVERY

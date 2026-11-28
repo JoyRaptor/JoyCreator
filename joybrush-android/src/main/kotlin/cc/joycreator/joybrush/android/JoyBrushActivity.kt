@@ -521,6 +521,8 @@ class JoyBrushActivity : Activity() {
     private var drawingLoadVersion = 0
     private var recoveryVersion = 0
     private var recoveryTimeout: Runnable? = null
+    /** The Open path's watchdog while its drawing is going onto the canvas ([JbCanvasView.onLoadProgress] pushes it back). */
+    private var loadWatch: Runnable? = null
     private val recovery by lazy {
         DrawingRecovery(File(cacheDir, "joybrush-recovery-${UUID.randomUUID()}.joybrush"))
     }
@@ -705,6 +707,12 @@ class JoyBrushActivity : Activity() {
         canvas.onRefused = { why -> toast(why) }
         canvas.onCombineClipsRequired = { a,b -> boardController?.offerCombine(a,b) }
         canvas.onNotice = { sentence -> toast(sentence) }
+        // ATLAS-SOLID item 2: a drawing goes onto the canvas a graphics task at a time, and each finished task says the load
+        // is still moving. A watchdog waiting on this load then times thirty seconds without progress, not the whole load,
+        // so a large drawing is never called stuck while a stuck one still is.
+        canvas.onLoadProgress = {
+            for (r in listOfNotNull(recoveryTimeout, loadWatch)) { ui.removeCallbacks(r); ui.postDelayed(r, 30_000L) }
+        }
         canvas.onGraphicsLost = { documentId -> boardController?.stop(); recoverGraphics(documentId) }
         JoybotHands.attach(joybotEnv)
         setColumnOpen(prefs.getBoolean(PREF_LAYERS_OPEN, false))
@@ -3063,7 +3071,9 @@ class JoyBrushActivity : Activity() {
                                     return@post
                                 }
                                 ui.postDelayed(watchdog, 30_000L)
+                                loadWatch = watchdog
                                 showContents(selected) { loaded ->
+                                    loadWatch = null
                                     if (loaded) {
                                         changes = 1
                                         saves.request(SaveReason.IDLE, SaveDest.Working)

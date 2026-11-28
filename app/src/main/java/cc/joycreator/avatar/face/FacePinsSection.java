@@ -174,7 +174,7 @@ public final class FacePinsSection extends LinearLayout {
         t.setTextSize(11);
         t.setTextColor(Studio.INK_FAINT);
         t.setPadding(0, px(12), 0, px(4));
-        return t;
+        return cc.joycreator.avatar.ui.RoomType.label(t);              // (as every other card's section label)
     }
 
     private TextView body(String s) {
@@ -183,7 +183,7 @@ public final class FacePinsSection extends LinearLayout {
         t.setTextSize(13);
         t.setTextColor(Studio.INK_DIM);
         t.setPadding(0, px(4), 0, px(6));
-        return t;
+        return cc.joycreator.avatar.ui.RoomType.body(t);
     }
 
     /** ON = solid cyan with the label punched out; off = the zinc pill. */

@@ -83,9 +83,9 @@ public class AvatarSceneTakeTest {
             Emu.tap(must(root, "Record a pass"));
             Emu.sleep(1500);
             assertEquals("one take in the scene", 1, takes(a[0]));
-            // the second takes the hand and records
-            View pip = byDesc(root, "Take Pip in hand");
-            assertNotNull("Pip's card on the Character part", pip);
+            // the other one (Topps) takes the hand and records
+            View pip = byDesc(root, "Take Topps in hand");
+            assertNotNull("Topps card on the Character part", pip);
             Emu.tap(pip);
             Emu.sleep(1500);
             Emu.tap(must(root, "Record a pass"));

@@ -117,5 +117,39 @@ file) is acceptable, because it is the one place the artist could lose the newes
   graphics destroyed at the pause (`0e1e8199` / `186b4f05` both sides); switch off, the same as before. The autosaves in
   those runs streamed (330 to 336 tiles frozen). Not run on the phone: the Library picture from the file (a bench
   drawing is not in the Library; covered by the JVM test).
-- **S5** (raising `SAVE_PAINT_MAX_BYTES`, `MEDIA_RAM_SHARE` and the read limits) is next, in measured steps. All
-  JBX-36 switches stay off at launch unless the owner says otherwise.
+- **11-27, S5 measured (nothing changed in code).** Note 9, the real drawing screen (`jb_bench_life`), build 576b74a12;
+  each run: a streamed save measured alone, the screen's own saves, then Android rebuilt the screen and the reopened
+  drawing was compared. **Every run reopened exactly** (digests equal both sides).
+
+  | Run | Snapshot holds | Heap peak in the save | Pen waits | Write | Paint kept |
+  |---|---|---|---|---|---|
+  | R1 streamed, today's caps | 1 MB | 89 MB | 309 ms | 7.1 s | 264 pictures, 256 store tiles |
+  | R2 streamed, save budget 1 GB | 1 MB | 88 MB | 307 ms | 7.1 s | the same |
+  | R3 streamed, room 512 MB, bigger page | 0 MB | 101 MB | 330 ms | 9.6 s | 481 pictures, 230 store tiles |
+  | R4 old path, save budget 1 GB | 193 MB | 238 MB | 702 ms | 7.0 s | 264 / 256 |
+  | R5 old path, room 512 MB, bigger page | 67 MB (190 before) | 280 MB of 512 | 1006 ms | 9.1 s | 480 / 230 |
+
+  **What it shows.** The save is no longer what limits the paint room: streamed, a save holds a megabyte whatever the
+  drawing. But raising the save budget or the room did not keep more paint: with a 512 MB room and a bigger page only
+  115 tiles kept their paint and the rest set. Something before the save sets old paint, most likely the paint atlas's
+  own tile window (second review E3, "admission still counts the old 1024 window"). Raising the room is therefore an
+  engine job (atlas admission), not a save change, and is not started.
+  Seen on the bench only: the bench's measured save and the screen's own saves share what the canvas has read, so the
+  next screen save found its file out of step, said so ("the last save did not write ... as it is now") and read the
+  whole drawing: the safety net working; in the app only the screen saves.
+
+## Recommendation for launch (11-27)
+
+**Switch S1-S4 on for launch (`streamTiles`, `finishInterruptedMove`, `sparseLeave`), after one check on a second
+phone; leave S5 (bigger caps) off.**
+
+- For: every streamed save on the Note 9 reopened exactly (16 saves and 5 lifecycle runs, two with an undo while the
+  save was reading); a rebuilt screen and lost graphics reopened the same drawing; a kill in the middle of a write left
+  the file byte for byte; a save's snapshot went from about 190 MB to 1 MB and its peak from 238 to about 90 MB of the
+  512 MB heap, so a save no longer risks running out of memory; the pen waits about half as long. Every failure falls
+  back to the old whole read, and nothing is written until the file is whole.
+- Against: only one graphics chip (the Note 9's Adreno) has run the GPU copy and the half-float readback of the copies.
+  A driver that copies wrongly would save wrong paint without noticing. The bench `printcheck` and `savestream`
+  (EXACT) on the Fold or the tablet would cover it in about ten minutes; without that, ship with the switches off.
+- S5: no launch change. The paint room is held by the atlas, not the save; raising it needs the atlas admission work
+  (E3), its own job.

@@ -29,8 +29,9 @@ import cc.joycreator.avatar.file.CharacterDoc;
  * Every card of the room opened and photographed (AVA-1 slice 1): a card nobody has looked at is not done. Topps is opened, a part
  * is put in hand for each card (an eye, the mouth, the head, the body), a stance is edited, reshape is switched on, Motion is scrolled
  * through, the joystick and its gestures are opened, the menu, and the two full-screen doors (the pin wizard and the sheet cutter) are
- * shown over the room with a made-up picture. Nothing is asserted but that the room survives each step and a picture is saved:
- * the pictures are the evidence (pictures/cards/*.png in the run's artifact).
+ * shown over the room with a made-up picture. The room must survive each step and a picture is saved: the pictures are the
+ * evidence (pictures/cards/*.png in the run's artifact). Since 11-28 it also checks what the lead found in those pictures: the
+ * take bar's words show whole, the head's first drawing tile shows the drawing, and Perform's chips have room.
  */
 @RunWith(AndroidJUnit4.class)
 public class AvatarCardsTest {
@@ -38,6 +39,8 @@ public class AvatarCardsTest {
     private File out;
     private AvatarRoomActivity room;
     private final StringBuilder log = new StringBuilder();
+    /** What the checks along the way found wrong (all of them run; the test fails at the end if any did). */
+    private final StringBuilder problems = new StringBuilder();
 
     @Test
     public void everyCardOpensAndIsPhotographed() throws Exception {
@@ -65,6 +68,7 @@ public class AvatarCardsTest {
             shot("setup-mouth-lower");
             scrollTo(0f);
             part("head", "setup-head");
+            firstDrawingTileShowsTheDrawing();
             part("browL", "setup-brow");
             part("jaw", "setup-jaw");
             part("nose", "setup-nose");
@@ -112,6 +116,8 @@ public class AvatarCardsTest {
             Emu.tap(tabs[3]);
             Emu.sleep(1500);
             shot("perform-joystick");
+            takeBarWordsShowWhole();
+            performChipsHaveRoom();
             ui(() -> room.inHand((String) get("inHand")));              // put the part in hand away: its outline hides the picture
             Emu.sleep(800);
             shot("perform-joystick-clear");
@@ -136,10 +142,147 @@ public class AvatarCardsTest {
             Emu.sleep(300);
             assertFalse("the room closed", room.isFinishing());
             Log.i(TAG, "cards\n" + log);
+            org.junit.Assert.assertEquals("the cards' checks", "", problems.toString());
         }
     }
 
     // ── helpers ───────────────────────────────────────────────────────────────────────────────────
+
+    /**
+     * The head's first drawing under "Its drawings" shows that drawing, not a blank box (the lead, 11-28: setup-head showed a white
+     * box, the drawing's first piece, its upper lid): at most half of what the tile's picture draws is near white.
+     */
+    private void firstDrawingTileShowsTheDrawing() throws Exception {
+        String[] said = {null};
+        double[] white = {-1};
+        Emu.ins().runOnMainSync(() -> {
+            try {
+                View parts = (View) field(room, "parts");
+                android.widget.ImageView iv = firstTilePicture(parts, room.getString(com.fadcam.R.string.avatar_its_drawings));
+                if (iv == null) {
+                    said[0] = "no Its drawings row";
+                    return;
+                }
+                android.graphics.drawable.Drawable d = iv.getDrawable();
+                if (!(d instanceof android.graphics.drawable.BitmapDrawable)) {
+                    said[0] = "the first tile has no picture";
+                    return;
+                }
+                Bitmap b = ((android.graphics.drawable.BitmapDrawable) d).getBitmap();
+                int shown = 0, near = 0;
+                for (int y = 0; y < b.getHeight(); y++)
+                    for (int x = 0; x < b.getWidth(); x++) {
+                        int c = b.getPixel(x, y);
+                        if ((c >>> 24) < 128) continue;
+                        shown++;
+                        if (((c >> 16) & 255) > 220 && ((c >> 8) & 255) > 220 && (c & 255) > 220) near++;
+                    }
+                white[0] = shown == 0 ? 1 : near / (double) shown;
+                said[0] = b.getWidth() + " x " + b.getHeight() + ", " + shown + " pixels shown, " + Math.round(white[0] * 100) + "% near white";
+            } catch (Exception e) {
+                said[0] = "(could not read the tile: " + e + ")";
+            }
+        });
+        log.append("first drawing tile: ").append(said[0]).append('\n');
+        if (white[0] < 0 || white[0] > 0.5) problems.append("the head's first drawing shows a blank box: ").append(said[0]).append('\n');
+    }
+
+    /**
+     * Perform with the joystick open (the lead, 11-28): Mic, Face and the joystick's chip no longer squeeze against the stick pad
+     * (none of them reaches within 4 dp of it), and Walk settings sits in their row, not alone on a row of its own.
+     */
+    private void performChipsHaveRoom() throws Exception {
+        StringBuilder wrong = new StringBuilder();
+        Emu.ins().runOnMainSync(() -> {
+            try {
+                Object panel = field(room, "performPanel");
+                View mic = (View) field(panel, "micChip"), pad = (View) field(panel, "stickPad");
+                if (pad == null) {
+                    wrong.append("the stick pad is not open");
+                    return;
+                }
+                android.graphics.Rect pr = onScreen(pad);
+                pr.inset(-Math.round(4 * room.getResources().getDisplayMetrics().density), 0);
+                ViewGroup chips = (ViewGroup) mic.getParent();
+                for (int i = 0; i < chips.getChildCount(); i++) {
+                    View ch = chips.getChildAt(i);
+                    if (ch.getVisibility() == View.VISIBLE && android.graphics.Rect.intersects(onScreen(ch), pr))
+                        wrong.append(" a chip (").append(ch.getContentDescription()).append(") squeezes against the stick pad;");
+                }
+                TextView walk = withText((View) panel, room.getString(com.fadcam.R.string.avatar_walk_settings));
+                if (walk != null && walk.getParent() != chips) wrong.append(" Walk settings is on a row of its own;");
+            } catch (Exception e) {
+                wrong.append("(could not read Perform: ").append(e).append(')');
+            }
+        });
+        log.append("perform chips: ").append(wrong.length() == 0 ? "room" : wrong).append('\n');
+        if (wrong.length() > 0) problems.append("Perform is crowded:").append(wrong).append('\n');
+    }
+
+    private static android.graphics.Rect onScreen(View v) {
+        int[] at = new int[2];
+        v.getLocationOnScreen(at);
+        return new android.graphics.Rect(at[0], at[1], at[0] + v.getWidth(), at[1] + v.getHeight());
+    }
+
+    private static TextView withText(View v, String text) {
+        if (v instanceof TextView && text.contentEquals(((TextView) v).getText())) return (TextView) v;
+        if (v instanceof ViewGroup)
+            for (int i = 0; i < ((ViewGroup) v).getChildCount(); i++) {
+                TextView t = withText(((ViewGroup) v).getChildAt(i), text);
+                if (t != null) return t;
+            }
+        return null;
+    }
+
+    /** The picture of the first tile in the row under the label {@code label}, or null. */
+    private static android.widget.ImageView firstTilePicture(View v, String label) {
+        if (v instanceof ViewGroup) {
+            ViewGroup g = (ViewGroup) v;
+            for (int i = 0; i < g.getChildCount(); i++) {
+                View k = g.getChildAt(i);
+                if (k instanceof TextView && label.contentEquals(((TextView) k).getText()) && i + 1 < g.getChildCount()
+                        && g.getChildAt(i + 1) instanceof android.widget.HorizontalScrollView) {
+                    ViewGroup row = (ViewGroup) ((ViewGroup) g.getChildAt(i + 1)).getChildAt(0);
+                    ViewGroup tile = (ViewGroup) row.getChildAt(0);
+                    return (android.widget.ImageView) tile.getChildAt(0);
+                }
+                android.widget.ImageView f = firstTilePicture(k, label);
+                if (f != null) return f;
+            }
+        }
+        return null;
+    }
+
+    /**
+     * The take bar's "No take yet" line shows whole (the lead, 11-28: "No take yet. Tap the red dot, then pe" was cut off on the
+     * phone): the lines the strip draws, at its own width and paint, say every word with no ellipsis.
+     */
+    private void takeBarWordsShowWhole() throws Exception {
+        String[] said = new String[1];
+        Emu.ins().runOnMainSync(() -> {
+            try {
+                Object panel = field(room, "performPanel");
+                View strip = (View) field(panel, "strip");
+                android.graphics.Paint p = (android.graphics.Paint) field(strip, "p");
+                float dp = room.getResources().getDisplayMetrics().density;
+                Method lines = null;
+                try {
+                    lines = panel.getClass().getDeclaredMethod("lines", String.class, android.graphics.Paint.class, float.class);
+                    lines.setAccessible(true);
+                } catch (NoSuchMethodException old) {                       // a panel from before 11-28: it drew one line
+                }
+                String t = room.getString(com.fadcam.R.string.avatar_no_take);
+                float width = strip.getWidth() - 20 * dp;
+                said[0] = lines != null ? String.join(" ", (String[]) lines.invoke(null, t, p, width))
+                        : android.text.TextUtils.ellipsize(t, new android.text.TextPaint(p), width, android.text.TextUtils.TruncateAt.END).toString();
+            } catch (Exception e) {
+                said[0] = "(could not read the strip: " + e + ")";
+            }
+        });
+        log.append("take bar: ").append(said[0]).append('\n');
+        if (!room.getString(com.fadcam.R.string.avatar_no_take).equals(said[0])) problems.append("the take bar's words are cut off: ").append(said[0]).append('\n');
+    }
 
     private void part(String role, String name) throws Exception {
         String id = idOfRole(role);

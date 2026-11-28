@@ -724,7 +724,7 @@ public final class FxLivePreviewController {
     private static boolean eligibleFastFootage(Clip clip) {
         // The initial route covers ordinary sources. Animated placement keeps the existing
         // rigid-only exposure until footage and placement can share one trajectory.
-        if (clip.isImageClip() || !clip.isRigidMotionBlurEnabled() || clip.hasLoopExtension()
+        if (clip.isImageClip() || !clip.isMotionBlurInPreview() || clip.hasLoopExtension()
                 || clip.hasRemovedSpans() || clip.effectiveCropFractions() != null
                 || clip.hasMesh() || clip.hasCornerPin()
                 || (clip.isSpineTransformArmed() && clip.hasSpineTransform())) {
@@ -739,7 +739,7 @@ public final class FxLivePreviewController {
     private FxPreviewTextureView.ShutterExposure spineShutter(@Nullable Clip clip, int[] size,
                                                                int rotation) {
         var clock = motionClock.anchor();
-        if (!host.motionBlurEnabled() || clock == null || clip == null || rotation != 0 || !clip.isRigidMotionBlurEnabled()
+        if (!host.motionBlurEnabled() || clock == null || clip == null || rotation != 0 || !clip.isMotionBlurInPreview()
                 || !clip.isSpineTransformArmed() || !clip.hasSpineTransform()) return null;
         if (!clip.getRigidMotionShutterKeys().everBlurs(clip.getRigidMotionShutter())) return null;
         var snapshot = new Clip(clip);
@@ -1077,7 +1077,7 @@ public final class FxLivePreviewController {
             com.fadcam.ui.faditor.sprite.SpriteOverlayItem sp = v.item.getSprite();
             if (sp == null || !sp.isVisibleAt(playheadMs)) continue;
             PreviewDecoderClock.Anchor clock = motionClock.anchor();
-            if (shutterSprites && clock != null && sp.isRigidMotionBlurEnabled()
+            if (shutterSprites && clock != null && sp.isMotionBlurInPreview()
                     && (RigidSpriteMotion.supports(sp) ? addSpriteMotion(rungs, sp, size, playheadMs, clock)
                     : addAvatarMotion(rungs, sp, size, playheadMs, clock))) {
                 glSprites.add(sp.getId());
@@ -1186,7 +1186,7 @@ public final class FxLivePreviewController {
             rungs.add(FxPreviewTextureView.Rung.pip(mesh));
             return true;
         }
-        if (clock != null && sprite.isRigidMotionBlurEnabled() && RigidSpriteMotion.supports(sprite)
+        if (clock != null && sprite.isMotionBlurInPreview() && RigidSpriteMotion.supports(sprite)
                 && addSpriteMotion(rungs, sprite, size, playheadMs, clock)) return true;
         var cell = host.spriteMotionCell(sprite, playheadMs);
         if (cell == null || cell.window() == null) return false;
@@ -1274,7 +1274,7 @@ public final class FxLivePreviewController {
     private FxPreviewTextureView.AuthoredMeshSource authoredMeshSource(SpriteOverlayItem sprite, long playheadMs) {
         var clock = motionClock.anchor();
         // The sprite's own Motion Blur must be on: the project switch alone is not an opt-in.
-        if (clock == null || !sprite.isRigidMotionBlurEnabled()
+        if (clock == null || !sprite.isMotionBlurInPreview()
                 || !AuthoredSpriteMeshExposure.supportsDirectMesh(sprite) || !authoredMeshVisible()) {
             return null;
         }
@@ -1301,7 +1301,7 @@ public final class FxLivePreviewController {
 
     private static boolean eligibleLivePiP(Clip clip) {
         var comp = clip.getCompositing();
-        return clip.isRigidMotionBlurEnabled() && RigidPipMotion.supports(clip)
+        return clip.isMotionBlurInPreview() && RigidPipMotion.supports(clip)
                 && !clip.isImageClip() && clip.getSpeedMultiplier() == 1f
                 && com.fadcam.ui.faditor.model.BlendModes.modeCode(clip.getOverlayBlendMode()) == 0f
                 && (comp == null || comp.mattePeerId == null);
@@ -1335,13 +1335,13 @@ public final class FxLivePreviewController {
     }
 
     /** Keep the first sprite route in its original surface order. */
-    private static boolean ordinarySpriteRun(Timeline timeline) {
+    public static boolean ordinarySpriteRun(Timeline timeline) {
         if (!timeline.getWaveformOverlays().isEmpty()) return false;
         int sprites = 0;
         for (var visual : LayerPreviewController.orderedVisualItems(timeline)) {
             if (visual.item.getCaptionSpan() != null) continue;
             var item = visual.item.getSprite();
-            if (item == null || !item.isRigidMotionBlurEnabled()
+            if (item == null || !item.isMotionBlurInPreview()
                     || !RigidSpriteMotion.supports(item)) return false;
             sprites++;
         }
@@ -1454,7 +1454,7 @@ public final class FxLivePreviewController {
 
     /** Move the entire ordinary still run together so titles and pictures keep their order. */
     @NonNull
-    private static List<TextOverlayItem> ordinaryStillRun(@NonNull Timeline timeline) {
+    public static List<TextOverlayItem> ordinaryStillRun(@NonNull Timeline timeline) {
         if (!timeline.getWaveformOverlays().isEmpty()) return java.util.Collections.emptyList();
         List<TextOverlayItem> pictures = new ArrayList<>();
         boolean optedIn = false;
@@ -1466,7 +1466,7 @@ public final class FxLivePreviewController {
                 return java.util.Collections.emptyList();
             }
             pictures.add(picture);
-            optedIn |= picture.isRigidMotionBlurEnabled() && (picture.isImage()
+            optedIn |= picture.isMotionBlurInPreview() && (picture.isImage()
                     ? RigidPictureMotion.supports(picture) : RigidTitleRaster.supports(picture));
         }
         return optedIn ? pictures : java.util.Collections.emptyList();
@@ -1502,7 +1502,7 @@ public final class FxLivePreviewController {
                 raster.getWidth() / (2f * width), raster.getHeight() / (2f * height),
                 -position[3], 1f, null, playheadMs, null, 0f, width, height,
                 "title-motion#" + item.getId(), raster, 1f);
-        if (clock == null || !item.isRigidMotionBlurEnabled()) {
+        if (clock == null || !item.isMotionBlurInPreview()) {
             rungs.add(FxPreviewTextureView.Rung.pip(p));
             return true;
         }
@@ -1525,7 +1525,7 @@ public final class FxLivePreviewController {
     @Nullable
     private RigidPictureMotion pictureMotion(TextOverlayItem item, FxPreviewTextureView.Pip p,
                                               int[] size, PreviewDecoderClock.Anchor time) {
-        if (!item.isRigidMotionBlurEnabled() || !RigidPictureMotion.supports(item)
+        if (!item.isMotionBlurInPreview() || !RigidPictureMotion.supports(item)
                 || host.isManipulatingOverlay(item) || p.still == null) return null;
         return new RigidPictureMotion(item.copyWithNewId(item.getId()),
                 p.still.getWidth() / (float) p.still.getHeight(), size[0], size[1],

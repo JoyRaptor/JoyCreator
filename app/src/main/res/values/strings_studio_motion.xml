@@ -54,6 +54,16 @@
     <string name="studio_motion_key_next">%1$s: go to the next key</string>
     <string name="studio_motion_key_toggle">%1$s: add or remove a key at the playhead</string>
 
+    <!-- STU-7 spec §K.3: on, off, export only, and the picture at rest -->
+    <string name="studio_motion_icon_on">Motion Blur is on. Tap to turn it off, hold to see the frame without it</string>
+    <string name="studio_motion_icon_off">Motion Blur is off, its settings kept. Tap to turn it on, hold to see it on</string>
+    <string name="studio_motion_export_only">Export only</string>
+    <string name="studio_motion_export_only_hint">Keep the blur in the export but don’t draw it while editing, so a heavy project stays quick</string>
+    <string name="studio_motion_undo_off">Motion Blur off</string>
+    <string name="studio_motion_undo_on">Motion Blur on</string>
+    <string name="studio_motion_undo_export_only">Motion Blur export only</string>
+    <string name="studio_motion_rest_busy">Drawing the exact frame</string>
+
     <!-- §K D1: one plain line, why this stays sharp and what to do instead -->
     <string name="studio_motion_why_clip">Nothing moves yet: give the clip position, scale or rotation keys to blur it.</string>
     <string name="studio_motion_why_pip">Stays sharp: masks, keys, mattes, clip effects and blend modes can’t be blurred yet.</string>

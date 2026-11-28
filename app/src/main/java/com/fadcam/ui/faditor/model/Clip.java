@@ -752,6 +752,8 @@ public class Clip implements AudioParams, MotionBlurItem {
         this.spineScaleY = other.spineScaleY;
         this.spineRotationDeg = other.spineRotationDeg;
         this.rigidMotionBlur = other.rigidMotionBlur;
+        this.motionBlurOff = other.motionBlurOff;
+        this.motionBlurExportOnly = other.motionBlurExportOnly;
         this.rigidMotionShutter = other.rigidMotionShutter;
         this.rigidMotionShutterKeys = other.rigidMotionShutterKeys;
         this.spineTransform = other.spineTransform != null
@@ -852,6 +854,8 @@ public class Clip implements AudioParams, MotionBlurItem {
         c.spineScaleY = spineScaleY;
         c.spineRotationDeg = spineRotationDeg;
         c.rigidMotionBlur = rigidMotionBlur;
+        c.motionBlurOff = motionBlurOff;
+        c.motionBlurExportOnly = motionBlurExportOnly;
         c.rigidMotionShutter = rigidMotionShutter;
         c.rigidMotionShutterKeys = rigidMotionShutterKeys;
         c.spineTransform = spineTransform != null ? spineTransform.copy() : null;
@@ -1959,6 +1963,19 @@ public class Clip implements AudioParams, MotionBlurItem {
     public boolean isRigidMotionBlurEnabled() { return rigidMotionBlur; }
 
     public void setRigidMotionBlurEnabled(boolean enabled) { rigidMotionBlur = enabled; }
+
+    /** STU-7 §K.3: card kept, nothing drawn (see MotionBlurItem). */
+    private boolean motionBlurOff;
+    /** STU-7 §K.3: exported, never drawn in the editor. */
+    private boolean motionBlurExportOnly;
+
+    @Override public boolean isMotionBlurOff() { return motionBlurOff; }
+
+    @Override public void setMotionBlurOff(boolean off) { motionBlurOff = off; }
+
+    @Override public boolean isMotionBlurExportOnly() { return motionBlurExportOnly; }
+
+    @Override public void setMotionBlurExportOnly(boolean exportOnly) { motionBlurExportOnly = exportOnly; }
 
     /**
      * Optional animation of the six numbers above, in CLIP-LOCAL milliseconds — the same time

@@ -776,6 +776,8 @@ public class TextOverlayItem implements LinkFollower, MotionBlurItem {
         System.arraycopy(cornerPin, 0, c.cornerPin, 0, CornerPin.SIZE);
         c.passThrough = passThrough;
         c.rigidMotionBlur = rigidMotionBlur;
+        c.motionBlurOff = motionBlurOff;
+        c.motionBlurExportOnly = motionBlurExportOnly;
         c.rigidMotionShutter = rigidMotionShutter;
         c.rigidMotionShutterKeys = rigidMotionShutterKeys;
         c.compositing = compositing == null ? null : compositing.copy();
@@ -1183,6 +1185,19 @@ public class TextOverlayItem implements LinkFollower, MotionBlurItem {
     public boolean isRigidMotionBlurEnabled() { return rigidMotionBlur; }
 
     public void setRigidMotionBlurEnabled(boolean enabled) { rigidMotionBlur = enabled; }
+
+    /** STU-7 §K.3: card kept, nothing drawn (see MotionBlurItem). */
+    private boolean motionBlurOff;
+    /** STU-7 §K.3: exported, never drawn in the editor. */
+    private boolean motionBlurExportOnly;
+
+    @Override public boolean isMotionBlurOff() { return motionBlurOff; }
+
+    @Override public void setMotionBlurOff(boolean off) { motionBlurOff = off; }
+
+    @Override public boolean isMotionBlurExportOnly() { return motionBlurExportOnly; }
+
+    @Override public void setMotionBlurExportOnly(boolean exportOnly) { motionBlurExportOnly = exportOnly; }
 
     public boolean isPassThrough() { return passThrough; }
 

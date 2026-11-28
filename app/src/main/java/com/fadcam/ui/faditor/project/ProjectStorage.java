@@ -1991,6 +1991,7 @@ public class ProjectStorage {
             clipJson.add("spineTransform", st);
         }
         if (clip.isRigidMotionBlurEnabled()) clipJson.addProperty("rigidMotionBlur", true);
+        writeMotionBlurModes(clipJson, clip);
         writeRigidMotionShutter(clipJson, clip.getRigidMotionShutter());
         writeRigidMotionShutterKeys(clipJson, clip.getRigidMotionShutterKeys());
         return clipJson;
@@ -2024,6 +2025,29 @@ public class ProjectStorage {
      */
     private static boolean hasValue(@NonNull JsonObject o, @NonNull String key) {
         return o.has(key) && !o.get(key).isJsonNull();
+    }
+
+    /**
+     * STU-7 §K.3: Off and Export only, each written only when true, so a project without them
+     * stays byte-identical and an old file loads as "on, live".
+     */
+    private static void writeMotionBlurModes(JsonObject item,
+            com.fadcam.ui.faditor.motion.MotionBlurItem source) {
+        if (source.isMotionBlurOff()) item.addProperty("motionBlurOff", true);
+        if (source.isMotionBlurExportOnly()) item.addProperty("motionBlurExportOnly", true);
+    }
+
+    /** Tolerant: absent or not a boolean = false. Read after "rigidMotionBlur": Off wins over it. */
+    private static void readMotionBlurModes(JsonObject item,
+            com.fadcam.ui.faditor.motion.MotionBlurItem target) {
+        boolean off = trueFlag(item.get("motionBlurOff"));
+        target.setMotionBlurOff(off);
+        if (off) target.setRigidMotionBlurEnabled(false);
+        target.setMotionBlurExportOnly(trueFlag(item.get("motionBlurExportOnly")));
+    }
+
+    private static boolean trueFlag(@Nullable JsonElement e) {
+        return e != null && e.isJsonPrimitive() && e.getAsJsonPrimitive().isBoolean() && e.getAsBoolean();
     }
 
     private static void writeRigidMotionShutter(JsonObject item, MotionShutter.Controls controls) {
@@ -2504,6 +2528,7 @@ public class ProjectStorage {
                 && rigidMotionBlur.getAsJsonPrimitive().isBoolean()) {
             clip.setRigidMotionBlurEnabled(rigidMotionBlur.getAsBoolean());
         }
+        readMotionBlurModes(clipObj, clip);
         clip.setRigidMotionShutter(readRigidMotionShutter(clipObj));
         clip.setRigidMotionShutterKeys(readRigidMotionShutterKeys(clipObj));
         // §4.5 per-object eye/lock (tolerant: absent = false).
@@ -3036,6 +3061,7 @@ public class ProjectStorage {
                 // so every pre-existing project stays byte-identical.
                 if (o.isPassThrough()) oJson.addProperty("passThrough", true);
                 if (o.isRigidMotionBlurEnabled()) oJson.addProperty("rigidMotionBlur", true);
+                writeMotionBlurModes(oJson, o);
                 writeRigidMotionShutter(oJson, o.getRigidMotionShutter());
                 writeRigidMotionShutterKeys(oJson, o.getRigidMotionShutterKeys());
                 if (!o.isScaleLinked()) oJson.addProperty("scaleLinked", false);
@@ -3396,6 +3422,7 @@ public class ProjectStorage {
                     if (so.isHidden()) sj.addProperty("objHidden", true);
                     if (so.isLocked()) sj.addProperty("objLocked", true);
                     if (so.isRigidMotionBlurEnabled()) sj.addProperty("rigidMotionBlur", true);
+                    writeMotionBlurModes(sj, so);
                     writeRigidMotionShutter(sj, so.getRigidMotionShutter());
                     writeRigidMotionShutterKeys(sj, so.getRigidMotionShutterKeys());
                     spArray.add(sj);
@@ -4037,6 +4064,7 @@ public class ProjectStorage {
                         if (hasValue(oObj, "rigidMotionBlur")) {
                             o.setRigidMotionBlurEnabled(oObj.get("rigidMotionBlur").getAsBoolean());
                         }
+                        readMotionBlurModes(oObj, o);
                         o.setRigidMotionShutter(readRigidMotionShutter(oObj));
                         o.setRigidMotionShutterKeys(readRigidMotionShutterKeys(oObj));
                         if (hasValue(oObj, "scaleLinked")) o.setScaleLinked(oObj.get("scaleLinked").getAsBoolean());
@@ -4561,6 +4589,7 @@ public class ProjectStorage {
                             if (hasValue(sj, "rigidMotionBlur")) {
                                 so.setRigidMotionBlurEnabled(sj.get("rigidMotionBlur").getAsBoolean());
                             }
+                            readMotionBlurModes(sj, so);
                             so.setRigidMotionShutter(readRigidMotionShutter(sj));
                             so.setRigidMotionShutterKeys(readRigidMotionShutterKeys(sj));
                             project.getTimeline().addSpriteOverlay(so);

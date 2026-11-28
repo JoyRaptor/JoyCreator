@@ -61,6 +61,19 @@ public final class MotionBlurCard {
         void showExactFrame();
         /** While held, show the frame without the blur. */
         void compare(boolean sharp);
+        /** §K.3: the icon is grey; the card keeps its settings and nothing is drawn. */
+        default boolean isOff() { return false; }
+        /** §K.3: the blur is exported but never drawn in the editor. */
+        default boolean isExportOnly() { return false; }
+        /** The icon was tapped. One undo step. */
+        default void setOff(boolean off) { }
+        /** The Export only chip was tapped. One undo step. */
+        default void setExportOnly(boolean exportOnly) { }
+        /**
+         * §K.3: while the icon is held, show the other state: sharp when the editor draws the
+         * blur, the exact frame with the blur on when it is off or export only.
+         */
+        default void peek(boolean held) { compare(held); }
         /**
          * The one plain line saying why this object stays sharp in the preview and what to do,
          * or 0 when the preview shows its blur.

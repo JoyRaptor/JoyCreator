@@ -1110,7 +1110,8 @@ public class FaditorEditorActivity extends AppCompatActivity {
         slot.removeAllViews();
         MotionBlurItem item = findMotionBlurItem(id);
         if (item == null) return;
-        if (item.isRigidMotionBlurEnabled() && project.isMotionBlurEnabled()) {
+        // §K.3: an Off card stays, with its settings (hasMotionBlurCard covers on, export only, off).
+        if (item.hasMotionBlurCard() && project.isMotionBlurEnabled()) {
             slot.addView(com.fadcam.ui.faditor.motion.card.MotionBlurCard.build(
                     ctx, id, motionCardHost(ctx, id, withTile)));
         } else if (withTile) {
@@ -1132,7 +1133,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         return com.fadcam.ui.faditor.motion.card.MotionBlurCard.pickerTile(ctx, () -> {
             MotionBlurItem item = findMotionBlurItem(id);
             if (item != null && project != null
-                    && !(item.isRigidMotionBlurEnabled() && project.isMotionBlurEnabled())) {
+                    && !(item.hasMotionBlurCard() && project.isMotionBlurEnabled())) {
                 addMotionBlur(ctx, id, false);
             }
             close.run();
@@ -1144,21 +1145,45 @@ public class FaditorEditorActivity extends AppCompatActivity {
         MotionBlurItem item = findMotionBlurItem(id);
         if (item == null) return;
         boolean projectWas = project.isMotionBlurEnabled();
-        boolean itemWas = item.isRigidMotionBlurEnabled();
-        Runnable on = () -> setMotionBlurOn(id, true, true, ctx, withTile);
+        com.fadcam.ui.faditor.motion.MotionBlurModes itemWas =
+                com.fadcam.ui.faditor.motion.MotionBlurModes.of(item);
+        Runnable on = () -> setMotionBlurModes(id, true,
+                com.fadcam.ui.faditor.motion.MotionBlurModes.LIVE, ctx, withTile);
         on.run();
         undoManager.recordAction(new EditActions.LambdaAction(getString(R.string.studio_motion_undo),
-                on, () -> setMotionBlurOn(id, projectWas, itemWas, ctx, withTile)));
+                on, () -> setMotionBlurModes(id, projectWas, itemWas, ctx, withTile)));
     }
 
-    private void setMotionBlurOn(@NonNull String id, boolean projectOn, boolean itemOn,
-                                 @NonNull Context ctx, boolean withTile) {
-        // The undo step is recorded by the callers: addMotionBlur and the card's remove().
+    /**
+     * §K.3: one tap of the card's icon or its Export only chip, as one undo step. Settings stay
+     * where they are; only the three display flags change.
+     */
+    private void changeMotionBlurModes(@NonNull String id, @NonNull Context ctx, boolean withTile,
+            @androidx.annotation.StringRes int label,
+            @NonNull java.util.function.UnaryOperator<com.fadcam.ui.faditor.motion.MotionBlurModes> change) {
+        MotionBlurItem item = findMotionBlurItem(id);
+        if (item == null || project == null) return;
+        boolean projectOn = project.isMotionBlurEnabled();
+        com.fadcam.ui.faditor.motion.MotionBlurModes before =
+                com.fadcam.ui.faditor.motion.MotionBlurModes.of(item);
+        com.fadcam.ui.faditor.motion.MotionBlurModes after = change.apply(before);
+        if (after.equals(before)) return;
+        Runnable redo = () -> setMotionBlurModes(id, projectOn, after, ctx, withTile);
+        redo.run();
+        undoManager.recordAction(new EditActions.LambdaAction(getString(label),
+                redo, () -> setMotionBlurModes(id, projectOn, before, ctx, withTile)));
+    }
+
+    private void setMotionBlurModes(@NonNull String id, boolean projectOn,
+                                    @NonNull com.fadcam.ui.faditor.motion.MotionBlurModes modes,
+                                    @NonNull Context ctx, boolean withTile) {
+        // The undo step is recorded by the callers: addMotionBlur, changeMotionBlurModes and
+        // the card's remove().
         if (project == null) return;
         MotionBlurItem item = findMotionBlurItem(id);
         if (item == null) return;
         project.setMotionBlurEnabled(projectOn);
-        item.setRigidMotionBlurEnabled(itemOn);
+        modes.applyTo(item);
         if (id.equals(motionSlotId)) {
             fillMotionSlot(ctx, withTile);
             // The panel's "changes nothing yet" note follows whether the blur is on.
@@ -1204,11 +1229,15 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 MotionBlurItem item = findMotionBlurItem(id);
                 if (item == null || project == null) return;
                 boolean projectWas = project.isMotionBlurEnabled();
-                Runnable off = () -> setMotionBlurOn(id, projectWas, false, ctx, withTile);
+                // ✕ takes the card away whatever its state; undo brings back that state.
+                com.fadcam.ui.faditor.motion.MotionBlurModes was =
+                        com.fadcam.ui.faditor.motion.MotionBlurModes.of(item);
+                Runnable off = () -> setMotionBlurModes(id, projectWas,
+                        com.fadcam.ui.faditor.motion.MotionBlurModes.NONE, ctx, withTile);
                 off.run();
                 undoManager.recordAction(new EditActions.LambdaAction(
                         getString(R.string.studio_motion_remove), off,
-                        () -> setMotionBlurOn(id, projectWas, true, ctx, withTile)));
+                        () -> setMotionBlurModes(id, projectWas, was, ctx, withTile)));
             }
             @Override public void showExactFrame() {
                 inspectMotionFrame(projectId, id, state());
@@ -1222,6 +1251,44 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 item.setRigidMotionBlurEnabled(!sharp);
                 refreshMotionPreview();
                 if (!sharp) scheduleAutoSave();
+            }
+            @Override public boolean isOff() {
+                MotionBlurItem item = findMotionBlurItem(id);
+                return item != null && item.isMotionBlurOff();
+            }
+            @Override public boolean isExportOnly() {
+                MotionBlurItem item = findMotionBlurItem(id);
+                return item != null && item.isMotionBlurExportOnly();
+            }
+            @Override public void setOff(boolean off) {
+                changeMotionBlurModes(id, ctx, withTile,
+                        off ? R.string.studio_motion_undo_off : R.string.studio_motion_undo_on,
+                        m -> m.switched(!off));
+            }
+            @Override public void setExportOnly(boolean exportOnly) {
+                changeMotionBlurModes(id, ctx, withTile, R.string.studio_motion_undo_export_only,
+                        m -> m.withExportOnly(exportOnly));
+            }
+            @Override public void peek(boolean held) {
+                MotionBlurItem item = findMotionBlurItem(id);
+                if (item == null) return;
+                if (!held) {
+                    if (peekingSharpId != null) {
+                        peekingSharpId = null;
+                        compare(false);
+                    }
+                    if (restFrame != null) restFrame.endPeek();
+                    return;
+                }
+                if (item.isMotionBlurInPreview()) {
+                    // On: the other state is sharp, and the live preview can show that at once.
+                    peekingSharpId = id;
+                    compare(true);
+                } else {
+                    // Off or export only: the other state is the blur, which only the exact
+                    // frame can promise. Drawn now, over the preview, until the finger lifts.
+                    peekMotionFrame(id);
+                }
             }
             @Override public int cannotBlurReason() {
                 MotionBlurItem item = findMotionBlurItem(id);
@@ -1254,6 +1321,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
 
     /** Re-render the paused frame: the rigid shutter is read when a frame is drawn. */
     private void refreshMotionPreview() {
+        pokeRestFrame();   // a preview draft takes the frame at rest away
         syncAdjustmentPreview(Math.max(0, lastPlayheadAbsoluteMs));
         refreshOverlayPreview();
         refreshSpritePreviewData();
@@ -1330,6 +1398,114 @@ public class FaditorEditorActivity extends AppCompatActivity {
             item.setRigidMotionShutterKeys(draft.keys());
             return ComposedFrame.render(app, copy, frameMs);
         });
+    }
+
+    // ── STU-7 §K.3 rule 4: the picture at rest ─────────────────────────────────────────────
+    // When the playhead rests and an object there has live-mode blur the live preview did not
+    // draw, the exact export frame is drawn in the background and laid over the preview
+    // (RestFrameView sits just above the text/image layer: see PREVIEW_STACK_DP). Anything that
+    // moves takes it away: pokeRestFrame() is called on play/pause, every playhead change, a
+    // finger down or up, every edit (scheduleAutoSave) and every preview draft.
+
+    @Nullable private com.fadcam.ui.faditor.motion.rest.RestFrameView restFrameView;
+    @Nullable private com.fadcam.ui.faditor.motion.rest.ExactFrameAtRest restFrame;
+    private long restFramePlayheadMs = Long.MIN_VALUE;
+    /** The card whose icon is held to see it sharp (the live compare), or null. */
+    @Nullable private String peekingSharpId;
+
+    private void initRestFrame() {
+        if (playerContainer == null || restFrameView != null) return;
+        restFrameView = new com.fadcam.ui.faditor.motion.rest.RestFrameView(this,
+                this::computeCanvasRect, getString(R.string.studio_motion_rest_busy));
+        playerContainer.addView(restFrameView, new FrameLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
+        // The picture's rect moves when a drawer resizes the preview: draw the frame there too.
+        if (playerView != null) {
+            playerView.addOnLayoutChangeListener((v, l, t, r, b, ol, ot, or, ob) -> {
+                if (restFrameView != null) restFrameView.invalidate();
+            });
+        }
+        restFrame = new com.fadcam.ui.faditor.motion.rest.ExactFrameAtRest(restFrameView,
+                new com.fadcam.ui.faditor.motion.rest.ExactFrameAtRest.Host() {
+                    @Override public boolean atRest() { return restFrameAtRest(); }
+                    @Nullable @Override
+                    public com.fadcam.ui.faditor.motion.rest.ExactFrameAtRest.Job restJob() {
+                        return restFrameJob();
+                    }
+                });
+        applyPreviewStackElevations();
+    }
+
+    private void pokeRestFrame() {
+        if (restFrame != null) restFrame.poke();
+    }
+
+    private boolean restFrameAtRest() {
+        boolean playing = (playerManager != null && playerManager.isPlaying())
+                || imagePlaybackActive || audioTailActive;
+        return editorOnScreen && !playing && !editorTouchDown && project != null
+                && !motionBlurHidden(this)
+                && (motionFrameDialog == null || !motionFrameDialog.isShowing())
+                && (exportManager == null || !exportManager.isExporting());
+    }
+
+    @Nullable
+    private com.fadcam.ui.faditor.motion.rest.ExactFrameAtRest.Job restFrameJob() {
+        if (project == null || !project.isMotionBlurEnabled()) return null;
+        long ms = Math.max(0, lastPlayheadAbsoluteMs);
+        Timeline tl = project.getTimeline();
+        if (!com.fadcam.ui.faditor.motion.rest.RestFrameRule.needsFrame(tl, ms,
+                item -> liveDrawsAtRest(tl, item, ms))) return null;
+        return motionFrameJob(ms, null);
+    }
+
+    /**
+     * The live preview already drew {@code item}'s blur: the "ordinary runs", whose blur is the
+     * live shutter (a lone sprite; a run of plain titles and pictures), and not a long trail
+     * (the live path takes fewer samples of those than export). Anything else: not sure, so
+     * the exact frame is drawn.
+     */
+    private static boolean liveDrawsAtRest(@NonNull Timeline tl, @NonNull MotionBlurItem item, long ms) {
+        if (item.rigidMotionShutterAt(ms).isLongTrail()) return false;
+        if (item instanceof SpriteOverlayItem sprite) {
+            return !sprite.isCharacter() && !sprite.hasAvatarPerformance()
+                    && com.fadcam.ui.faditor.compositor.RigidSpriteMotion.supports(sprite)
+                    && com.fadcam.ui.faditor.compositor.FxLivePreviewController.ordinarySpriteRun(tl);
+        }
+        if (item instanceof TextOverlayItem overlay) {
+            boolean supported = overlay.isImage()
+                    ? com.fadcam.ui.faditor.compositor.RigidPictureMotion.supports(overlay)
+                    : com.fadcam.ui.faditor.compositor.RigidTitleRaster.supports(overlay);
+            return supported && com.fadcam.ui.faditor.compositor.FxLivePreviewController
+                    .ordinaryStillRun(tl).contains(overlay);
+        }
+        return false;
+    }
+
+    /**
+     * The exact frame at {@code ms} as the editor shows it (Export only objects sharp), drawn
+     * from a snapshot of the project; {@code peekId} is an object drawn with its blur on.
+     */
+    @NonNull
+    private com.fadcam.ui.faditor.motion.rest.ExactFrameAtRest.Job motionFrameJob(
+            long ms, @Nullable String peekId) {
+        String snapshot = projectStorage.toJson(project);
+        // The save time is the one thing that changes without the picture changing.
+        String key = ms + "|" + peekId + "|" + snapshot.replaceFirst("\"lastModified\":-?[0-9]+", "");
+        Context app = getApplicationContext();
+        return new com.fadcam.ui.faditor.motion.rest.ExactFrameAtRest.Job(key, () -> {
+            FaditorProject copy = new ProjectStorage(app).fromJson(snapshot);
+            if (copy == null || Thread.currentThread().isInterrupted()) return null;
+            com.fadcam.ui.faditor.motion.rest.RestFrameRule.forEditor(copy.getTimeline(), peekId);
+            if (peekId != null) copy.setMotionBlurEnabled(true);
+            return ComposedFrame.render(app, copy, ms);
+        });
+    }
+
+    /** §K.3 rule 2: the icon of an Off or Export only object is held: show it blurred. */
+    private void peekMotionFrame(@NonNull String id) {
+        if (restFrame == null || project == null || findMotionBlurItem(id) == null) return;
+        restFrame.peek(motionFrameJob(Math.max(0, lastPlayheadAbsoluteMs), id));
     }
 
     /**
@@ -1773,12 +1949,16 @@ public class FaditorEditorActivity extends AppCompatActivity {
     @Override
     public boolean dispatchTouchEvent(@NonNull MotionEvent ev) {
         int action = ev.getActionMasked();
-        if (action == MotionEvent.ACTION_DOWN) editorTouchDown = true;
+        if (action == MotionEvent.ACTION_DOWN) {
+            editorTouchDown = true;
+            pokeRestFrame();   // STU-7 §K.3: a finger down takes the frame at rest away
+        }
         try {
             return dispatchEditorTouchEvent(ev);
         } finally {
             if (action == MotionEvent.ACTION_UP || action == MotionEvent.ACTION_CANCEL) {
                 editorTouchDown = false;
+                pokeRestFrame();   // ...and its lift starts the wait for the next one
                 // Posted only now, so it queues behind anything the lift itself posted (a
                 // click is one): the gesture's edit records before the capture runs.
                 releaseHeldBaselineRefresh();
@@ -2711,6 +2891,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         // A touch cut off by leaving may never deliver its lift.
         editorTouchDown = false;
         releaseHeldBaselineRefresh();
+        if (restFrame != null) restFrame.stop();
         // Save project on pause (e.g. user switches away) — force-flush undo history.
         saveProjectNow(true);
         editorOnScreen = false;
@@ -2735,6 +2916,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
     @Override
     protected void onDestroy() {
         if (motionFrameDialog != null) motionFrameDialog.dismiss();
+        if (restFrame != null) restFrame.release();
         if (studioVoiceJob != null) studioVoiceJob.cancel();
         if (handoffArrival != null) { handoffArrival.drop(); handoffArrival = null; }
         super.onDestroy();
@@ -2880,6 +3062,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         overlayLayerBelow = findViewById(R.id.overlay_layer_below);
         spriteOverlayViewBelow = findViewById(R.id.sprite_overlay_layer_below);
         overlayVideoLayer = findViewById(R.id.overlay_video_layer);
+        initRestFrame();
         waveformOverlayView = findViewById(R.id.waveform_overlay);
         if (waveformOverlayView != null) {
             // A blended visualizer's new look frame (R11): paused, nothing else re-runs the GL
@@ -11781,6 +11964,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
 
     private void updatePlayPauseButton(boolean isPlaying) {
         btnPlayPause.setText(isPlaying ? "pause" : "play_arrow");
+        pokeRestFrame();   // STU-7 §K.3: play takes the frame at rest away; pause looks again
         // F3c (PERF_SPEC_LONGFILE_20260718): every play/pause transition funnels through
         // here — gate background waveform analysis while playback owns the codec/disk.
         if (editorTimeline != null) editorTimeline.setAnalysisSuspended(isPlaying);
@@ -11978,6 +12162,11 @@ public class FaditorEditorActivity extends AppCompatActivity {
     private void updateCurrentTimeDisplay(long positionInCurrentSegmentMs) {
         long absoluteMs = getAbsolutePlayheadMs(positionInCurrentSegmentMs);
         lastPlayheadAbsoluteMs = absoluteMs;
+        // STU-7 §K.3: a playhead that moved (play, scrub, seek) takes the frame at rest away.
+        if (absoluteMs != restFramePlayheadMs) {
+            restFramePlayheadMs = absoluteMs;
+            pokeRestFrame();
+        }
         // B4: feed the level meters. The renderer cannot be reached through
         // EditorTimelineView (it owns its instance privately), so the playhead goes through
         // the static channel and the master meter ticks alongside — both read the SAME value
@@ -13379,7 +13568,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
     // background, so they already cast a shadow today: the keyframe ribbon (10), the transcript
     // tab (11) and the transcript panel (12). Those three keep their exact values, because
     // changing an elevation changes a shadow and this pass must be invisible. Everything below
-    // them is packed in half-dp steps, which is sub-pixel as a shadow, and the run from 5.5 to 8
+    // them is packed in half-dp steps, which is sub-pixel as a shadow, and the run from 6 to 8
     // is deliberately left empty for whatever needs inserting next.
     //
     // Derived by reading the CURRENT order out of the layout and the addView sites rather than
@@ -13391,13 +13580,16 @@ public class FaditorEditorActivity extends AppCompatActivity {
             1.0f,   // layer_image_overlay
             1.5f,   // sprite_overlay_layer
             2.0f,   // overlay_layer            (text AND image overlays)
-            2.5f,   // audio_caption_overlay
-            3.0f,   // caption_overlay
-            3.5f,   // captionMultiContainer
-            4.0f,   // caption_style_bar        — has a background; outline nulled below
-            4.5f,   // crop_overlay
-            5.0f,   // safe_zone_overlay
-            5.5f,   // missingOverlayView
+            2.5f,   // restFrameView            STU-7 §K.3: the exact frame at rest covers the
+                    //                          composed picture, under captions and handles
+                    //                          (inserted 11-28; the six below moved up 0.5)
+            3.0f,   // audio_caption_overlay
+            3.5f,   // caption_overlay
+            4.0f,   // captionMultiContainer
+            4.5f,   // caption_style_bar        — has a background; outline nulled below
+            5.0f,   // crop_overlay
+            5.5f,   // safe_zone_overlay
+            6.0f,   // missingOverlayView
             8.0f,   // previewHandlesOverlay
             9.0f,   // transformOverlay
             10.0f,  // keyframeRibbon           — unchanged, keeps its shadow
@@ -13421,6 +13613,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 layerImageOverlay,
                 spriteOverlayView,
                 overlayLayer,
+                restFrameView,
                 audioCaptionOverlay,
                 captionOverlay,
                 captionMultiContainer,
@@ -48699,6 +48892,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
     // ── Auto-save ────────────────────────────────────────────────────
 
     private void scheduleAutoSave() {
+        pokeRestFrame();   // STU-7 §K.3: every edit takes the frame at rest away
         autoSaveHandler.removeCallbacks(autoSaveRunnable);
         autoSaveHandler.postDelayed(autoSaveRunnable, AUTO_SAVE_DELAY_MS);
         // Avatar slice 2b: a "Keep as driver" video that was just moved or trimmed is read again (cheap when none is)

@@ -375,7 +375,7 @@ public class SpriteOverlayView extends View {
         if (callback == null || item == manipulating) return null;
         if (item.isCharacter()) return characterMotionCell(item, playheadMs);
         if (item.hasAvatarPerformance()) {
-            if (!item.isRigidMotionBlurEnabled() || !item.isVisibleAt(playheadMs)
+            if (!item.isMotionBlurInPreview() || !item.isVisibleAt(playheadMs)
                     || !com.fadcam.ui.faditor.compositor.RecordedAvatarMotion.supports(item)) return null;
             return avatarMotionCell(item, playheadMs);
         }
@@ -402,7 +402,7 @@ public class SpriteOverlayView extends View {
      */
     @Nullable
     private MotionCell characterMotionCell(@NonNull SpriteOverlayItem item, long playheadMs) {
-        if (!item.isRigidMotionBlurEnabled() || !item.isVisibleAt(playheadMs)) return null;
+        if (!item.isMotionBlurInPreview() || !item.isVisibleAt(playheadMs)) return null;
         cc.joycreator.avatar.studio.ItemPuppet puppet = characterPuppetFor(item);
         var sheet = callback.lookupSheet(item.getSheetId());
         var renderer = callback.lookupRenderer(item.getSheetId());

@@ -718,6 +718,12 @@ public final class AvatarRoomActivity extends Activity implements RoomMenu.Host,
     }
 
     @Override
+    public void makeSwing(String nodeId, String kind) {
+        guessPins(nodeId, "swing:" + kind);
+        if (stageIndex == 2) performPanel.bind(character, false);
+    }
+
+    @Override
     public void blinkNow() {
         inputs.blinkNow(System.currentTimeMillis());
     }
@@ -1087,7 +1093,18 @@ public final class AvatarRoomActivity extends Activity implements RoomMenu.Host,
         edit.apply(getString(R.string.avatar_step_guess_pins, label), d -> {
             org.json.JSONObject j = d.find(nodeId).json;
             if (kind.equals("fan")) cc.joycreator.avatar.file.PinGuess.guessFan(j, pics, tc[0], false);
-            else if (kind.equals("swing")) cc.joycreator.avatar.file.PinGuess.guessSwing(j, pics, tc[0], null);
+            else if (kind.startsWith("swing")) {
+                String sk = kind.contains(":") ? kind.substring(kind.indexOf(':') + 1) : null;               // swing:bendy, swing:stiff
+                org.json.JSONObject target = j;
+                if (!"art".equals(j.optString("type", "art"))) {                                              // a set or folder: the first drawing showing
+                    java.util.List<CharacterDoc.Node> shown = r.shown(d.find(nodeId));
+                    for (CharacterDoc.Node k : shown) if ("art".equals(k.type)) {
+                        target = d.find(k.id).json;
+                        break;
+                    }
+                }
+                cc.joycreator.avatar.file.PinGuess.guessSwing(target, pics, sk != null && sk.equals("stiff") ? null : tc[0], sk);
+            }
             else {
                 org.json.JSONObject art = j;
                 if ("set".equals(j.optString("type"))) {

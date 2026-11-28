@@ -48,6 +48,10 @@ public final class MotionSections {
         default void removeLink(String nodeId, int index) {
         }
 
+        /** Makes the part swing: kind "bendy" (hair, tails) or "stiff" (chain links, charms); the root and tip are guessed from the pixels. One named undo step. */
+        default void makeSwing(String nodeId, String kind) {
+        }
+
         /** A blink right now, to see it. */
         default void blinkNow() {
         }
@@ -69,7 +73,16 @@ public final class MotionSections {
         if (inHand != null && "head".equals(inHand.role)) head(c, col, inHand, host, dp);
         if (inHand != null) FollowSections.add(c, col, doc, inHand, host, dp);
         if (swinger != null) swing(c, col, swinger, host, dp);
-        else col.addView(note(c, inHand == null ? "Take a part in hand to see how it moves by itself." : "This part does not swing. Hair, feathers, a tail or a chain can.", dp));
+        else if (inHand == null) col.addView(note(c, "Take a part in hand to see how it moves by itself.", dp));
+        else {
+            final String hid = inHand.id;
+            col.addView(label(c, "Make it move by itself", dp));
+            col.addView(note(c, "It moves when whatever it is fixed to moves. Hair, feathers, a tail or a chain can.", dp));
+            LinearLayout kinds = new LinearLayout(c);
+            kinds.addView(chip(c, "Bendy", false, "Hair, a braid, a feather, a tail, a ribbon: it bends along its length", dp, v -> host.makeSwing(hid, "bendy")));
+            kinds.addView(chip(c, "Stiff", false, "A chain link, an earring, a charm: it never bends, it swings and rattles", dp, v -> host.makeSwing(hid, "stiff")));
+            col.addView(scroll(c, kinds));
+        }
 
         JSONObject st = doc.json.optJSONObject("settings");
         if (st == null) st = new JSONObject();

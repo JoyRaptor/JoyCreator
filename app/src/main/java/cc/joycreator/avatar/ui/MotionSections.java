@@ -72,6 +72,19 @@ public final class MotionSections {
         }
         if (inHand != null && "head".equals(inHand.role)) head(c, col, inHand, host, dp);
         if (inHand != null) FollowSections.add(c, col, doc, inHand, host, dp);
+        if (inHand != null && "set".equals(inHand.type) && ("cycle".equals(inHand.pickBy) || "default".equals(inHand.pickBy))) {          // frames of a loop
+            final String sid = inHand.id;
+            final JSONObject pk = inHand.json.optJSONObject("pick");
+            final boolean looped = "cycle".equals(inHand.pickBy);
+            col.addView(label(c, "Loop", dp));
+            col.addView(WalkSections.tick(c, "Its drawings are frames of a loop", looped, "It plays through its drawings, top to bottom, over and over", dp, v -> {
+                host.setValue(sid, "pick.by", v ? "cycle" : "default", "Frames of a loop");
+                if (v && (pk == null || !pk.has("fps"))) host.setValue(sid, "pick.fps", 12, "Frames of a loop");
+            }));
+            if (looped)
+                col.addView(slider(c, "Loop speed", 1, 30, 1, pk == null ? 12 : pk.optDouble("fps", 12), v -> Math.round(v) + " a second", "How many frames a second it plays",
+                        v -> host.setValue(sid, "pick.fps", Math.round(v), "Loop speed"), dp));
+        }
         if (swinger != null) swing(c, col, swinger, host, dp);
         else if (inHand == null) col.addView(note(c, "Take a part in hand to see how it moves by itself.", dp));
         else {

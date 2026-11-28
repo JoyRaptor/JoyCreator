@@ -11,3 +11,9 @@ Project "Untitled 7" (two identical 18 s frame-counter clips, Radial transition 
 **Row marks from this export:**
 - **Transition export (STU-1 "play and export it" row, STU-E3 transition piece): PASS for black frames, glitches and time alignment.** STU-E3's missing volume curve or fades on the transition piece was not examined (the audio runs 35.41 s with no gap).
 - STU-C1 export vs preview for Bend / corner pin, STU-F1, STU-F6, STU-F7, STU-C6: not run in this session.
+
+## STU-C1: Bend on text, export against preview (11-27, Note 9, "Restore video test", 0:00)
+`bend_preview_0s.png` (Studio preview, whole screen) and `bend_export_0s.png` (Export single frame, PNG, 720p, Low, frame time 00:00.0; the file `Restore video test/Restore video test.png` in the Joy Creator folder). `bend_compare.png` puts the preview stage (left) beside the export (right); mean brightness difference 9.7 of 255 over the stage.
+- **The bend matches:** the curved "hello 2" text (the arc that runs up the right side of the star) has the same curve, size and position in both.
+- **Two things do not match, cause not found:** (1) the white "e" mark on the star is bright and opaque in the preview but faded and translucent in the export; (2) the blue dotted guide lines near the sprite grid sit in different places and the export lacks the dotted rim the preview shows. The dotted lines may be preview-only handles; the "e" fade could be an opacity or timing difference at exactly 0:00 (an animated layer), or a real preview-versus-export mismatch (house rule 5). I did not tell these apart.
+- **Verdict for the STU-1 row "Bend on text (export must match the preview)": PARTLY PASS** (bend geometry exact), **with one open question** (the "e" layer's brightness). The corner-pinned-text-with-effect half of the row was not tried.

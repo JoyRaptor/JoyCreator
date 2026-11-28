@@ -444,6 +444,71 @@ class SelectBench(private val canvas: JbCanvasView, private val runId: String, p
                 }
             } else clearSelection()
         }
+        // Concepts parity 4a (11-28): L2 cut in its middle through the real host, as the Part of a line eraser does. L3,
+        // drawn after L2, crosses L2's right-hand piece: that piece must stay under L3, so every pixel away from the cut is
+        // the same; one edit is one undo step; Undo gives back the drawing exactly, Redo the cut exactly.
+        step("partCut") { next ->
+            fun fail(why: String) { report("partCut", false, JSONObject().put("why", why)); next() }
+            val target = ids.getOrNull(1) ?: return@step fail("no L2")
+            val rec = record(target) ?: return@step fail("L2 is not in the drawing")
+            val brush = canvas.lineSnapshot.brush(rec.brushId) ?: return@step fail("L2's brush is not in the drawing")
+            val xs = rec.samples.map { it.x }; val ys = rec.samples.map { it.y }
+            val cutX = xs.min() + 0.3f * (xs.max() - xs.min())
+            val r = 6.0
+            val path = cc.joycreator.joybrush.core.vector.EraserPath(doubleArrayOf(cutX.toDouble(), cutX.toDouble()),
+                doubleArrayOf(ys.min() - 40.0, ys.max() + 40.0), r)
+            val out = cc.joycreator.joybrush.core.vector.InkErase.run(target.celId ?: target.layerId, listOf(rec), path,
+                cc.joycreator.joybrush.core.vector.InkEraseMode.PARTIAL) { brush }
+            val pieces = (out as? cc.joycreator.joybrush.core.vector.InkEraseOutcome.Erased)?.records.orEmpty()
+            if (pieces.size != 2) return@step fail("the eraser left ${pieces.size} pieces, not 2")
+            val notes = ArrayList<String>()
+            val host = cc.joycreator.joybrush.android.select.CanvasSelectionHost(cc.joycreator.joybrush.android.select.JbHostCanvas(canvas),
+                object : cc.joycreator.joybrush.android.select.HostUi {
+                    override fun say(text: String, action: String?, onAction: (() -> Unit)?) { notes += text }
+                    override fun penButtonTap(x: Float, y: Float) {}
+                    override fun overlaysChanged() {}
+                    override fun editRefused(message: String) { notes += message }
+                    override fun log(note: String) {}
+                })
+            // Away from the cut means more than the eraser and the line's own reach from it.
+            val band = r + 48.0
+            digest(cutX.toDouble(), band) { before ->
+                if (before == null) return@digest fail("no picture before the cut")
+                undoDepth { d0 ->
+                    val linesBefore = activeLines().size
+                    if (!host.eraseParts(emptyList(), emptySet(), listOf(cc.joycreator.joybrush.androidkit.lines.LineCutPlan.Cut(target, pieces))))
+                        return@undoDepth fail("the host refused the cut: $notes")
+                    waitFor(300, 10_000, { activeLines().size == linesBefore + 1 }) {
+                        digest(cutX.toDouble(), band) { cut ->
+                            undoDepth { d1 ->
+                                val l2 = activeLines().filter { it.address.recordId == rec.id || it.address.recordId.startsWith(rec.id + "~") }
+                                val l3 = ids.getOrNull(2)?.let { record(it) }
+                                val second = l2.map { it.record }.firstOrNull { it.id != rec.id }
+                                val ordered = second != null && l3 != null && second.seq < l3.seq && second.seq == (record(target)?.seq ?: -1L) + 1L
+                                canvas.undo()
+                                waitFor(300, 10_000, { activeLines().size == linesBefore }) {
+                                    digest(cutX.toDouble(), band) { undone ->
+                                        canvas.redo()
+                                        waitFor(300, 10_000, { activeLines().size == linesBefore + 1 }) {
+                                            digest(cutX.toDouble(), band) { redone ->
+                                                val awayEqual = cut != null && before.away == cut.away
+                                                val undoExact = undone != null && undone.all == before.all
+                                                val redoExact = redone != null && cut != null && redone.all == cut.all
+                                                report("partCut", l2.size == 2 && d1 == d0 + 1 && ordered && awayEqual && undoExact && redoExact,
+                                                    JSONObject().put("pieces", l2.size).put("undoSteps", d1 - d0).put("underL3", ordered)
+                                                        .put("awayFromTheCutUnchanged", awayEqual).put("undoExact", undoExact).put("redoExact", redoExact)
+                                                        .put("notes", notes.joinToString(" | ")))
+                                                next()
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
         step("end") { next ->
             emit(JSONObject().put("selectBench", "summary").put("passed", passed).put("failed", failed))
             canvas.editableLines = editableBefore
@@ -555,6 +620,34 @@ class SelectBench(private val canvas: JbCanvasView, private val runId: String, p
     }
 
     /** Wait at least [minMs], then until [cond] holds or [maxMs] has passed in all, then run [then]. */
+    /** What the drawing holds ([all]: every tile, look, slab and line, by name) and its pictures with the band [half] doc px
+     * either side of x [cutX] blanked ([away]), for partCut. */
+    private class Digest(val all: Map<String, Long>, val away: Map<String, Long>)
+
+    private fun digest(cutX: Double, half: Double, then: (Digest?) -> Unit) {
+        canvas.snapshot({ c ->
+            if (!active) return@snapshot
+            fun crc(b: ByteArray) = java.util.zip.CRC32().also { it.update(b) }.value
+            val size = cc.joycreator.joybrush.core.paint.Tiles.SIZE
+            val all = HashMap<String, Long>(); val away = HashMap<String, Long>()
+            fun picture(kind: String, key: Any, name: String, bytes: ByteArray) {
+                all[kind + "|" + key] = crc(bytes)
+                val tx = name.substringBefore('_').toIntOrNull() ?: return
+                val x0 = tx * size
+                val copy = bytes.copyOf()
+                for (y in 0 until size) for (x in 0 until size) {
+                    if (kotlin.math.abs(x0 + x + 0.5 - cutX) <= half) { val i = (y * size + x) * 4; copy[i] = 0; copy[i + 1] = 0; copy[i + 2] = 0; copy[i + 3] = 0 }
+                }
+                away[kind + "|" + key] = crc(copy)
+            }
+            for ((k, b) in c.tiles) picture("tile", k, k.third, b)
+            for ((k, b) in c.looks) picture("look", k, k.third, b)
+            for ((k, b) in c.slabs) all["slab|" + k] = crc(b)
+            for ((k, l) in c.strokes) all["lines|" + k] = crc(cc.joycreator.joybrush.core.stroke.StrokeCodec.encodeAll(l))
+            then(Digest(all, away))
+        }, { then(null) }, keepWet = true)
+    }
+
     private fun waitFor(minMs: Long, maxMs: Long, cond: () -> Boolean, then: () -> Unit) {
         val started = android.os.SystemClock.uptimeMillis()
         fun poll() {

@@ -6810,9 +6810,14 @@ public class FaditorEditorActivity extends AppCompatActivity {
      */
     @NonNull
     private java.util.Map<String, Long> beginStructuralEdit() {
-        return project == null ? java.util.Collections.emptyMap()
-                : project.getTimeline().beginStructural();
+        if (project == null) return java.util.Collections.emptyMap();
+        // STU-5 ripple check: the clips' track length before the OUTERMOST edit, for "N s shorter".
+        if (!project.getTimeline().hasOpenStructural()) rippleTrackBeforeMs = project.getTimeline().getVideoTrackDurationMs();
+        return project.getTimeline().beginStructural();
     }
+
+    /** The clips' track length when the outermost structural edit opened (STU-5 ripple check). */
+    private long rippleTrackBeforeMs = 0L;
 
     /**
      * Apply the anchor consequences of the edit that {@code before} bracketed.
@@ -6855,7 +6860,23 @@ public class FaditorEditorActivity extends AppCompatActivity {
         // close it, or the depth leaks and every later edit is treated as nested and shifts nothing.
         // An empty "before" is harmless — a rider whose host is absent from it is simply skipped.
         if (project == null) return null;
-        Timeline.AnchorShiftResult r = project.getTimeline().endStructural(before);
+        Timeline tl = project.getTimeline();
+        Timeline.AnchorShiftResult r;
+        if (com.fadcam.ui.faditor.model.RippleCheck.ENABLED && tl.closesStructural(before)
+                && com.fadcam.ui.faditor.model.RippleCheck.asksAfter(where)) {
+            // STU-5 ripple check, hidden (ENABLED off): what the edit did, then the person's stored answer. The
+            // screen for ASK (the owner's picks on STU-5-ripple-check-options.html) goes here; until it is built,
+            // ASK keeps the project's own ripple setting, which is today's behaviour.
+            com.fadcam.ui.faditor.model.RippleCheck.Summary check = com.fadcam.ui.faditor.model.RippleCheck.summarize(tl,
+                    rippleTrackBeforeMs, com.fadcam.ui.faditor.model.RippleCheck.pointOf(before, tl.captureClipStarts(), rippleTrackBeforeMs));
+            com.fadcam.ui.faditor.model.RippleCheck.Choice choice = check.nothingToAsk()
+                    ? com.fadcam.ui.faditor.model.RippleCheck.Choice.ASK
+                    : com.fadcam.ui.faditor.model.RippleCheck.Choice.of(
+                            com.fadcam.SharedPreferencesManager.getInstance(this).getStudioRippleCheckChoice());
+            r = com.fadcam.ui.faditor.model.RippleCheck.finish(tl, before, choice);
+        } else {
+            r = tl.endStructural(before);
+        }
         if (!r.isEmpty()) {
             FLog.d(TAG, "ANCHOR[" + where + "] moved=" + r.movedOverlayIds.size()
                     + " orphaned=" + r.orphanedOverlayIds.size());

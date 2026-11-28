@@ -71,19 +71,34 @@ public final class RippleCheck {
     }
 
     /**
-     * Whether the check follows the edit that closed a bracket, by the editor's name for it ("trim", "speed", ...).
-     * Today's rule: none.
+     * Whether the check follows the edit that closed a bracket, by the editor's name for it ("trim", "speed", ...):
+     * the person's own edits that can change the length. Never Undo or Redo (they put a state back, answer included),
+     * a correction the app makes itself, or a declined or reverted edit. A transition joins this list when choice A
+     * makes it overlap the clips (today it does not change the editor's length).
      */
     public static boolean asksAfter(String where) {
-        return false;
+        if (where == null) return false;
+        switch (where) {
+            case "trim": case "speed": case "loopExtend": case "loopResize": case "loopMode":
+            case "delete": case "deleteLinkedPair": case "silenceCuts":
+                return true;
+            default:
+                return false;
+        }
     }
 
     /**
      * Where an edit changed the clips' track, from their starts before and after it ({@link Timeline#captureClipStarts}):
-     * the earliest old start of a clip that moved or went. Today's rule: the start.
+     * the earliest old start of a clip that moved or went. When none did (only the last clip changed), the old end of
+     * the clips: what changes is what lies past them.
      */
     public static long pointOf(@NonNull Map<String, Long> before, @NonNull Map<String, Long> after, long trackBeforeMs) {
-        return 0L;
+        long point = Long.MAX_VALUE;
+        for (Map.Entry<String, Long> e : before.entrySet()) {
+            Long now = after.get(e.getKey());
+            if (now == null || now.longValue() != e.getValue().longValue()) point = Math.min(point, e.getValue());
+        }
+        return point == Long.MAX_VALUE ? trackBeforeMs : point;
     }
 
     /**

@@ -44,6 +44,12 @@ public class PipVolumeTest {
         check(PipVolume.includedAfter(true, true, true), "muting a PiP keeps its audio included (one tap brings it back)");
         check(!PipVolume.includedAfter(false, false, false), "a main-track clip's switch is left alone");
 
+        // STU-F6 on the Note 9 (11-28): "Include audio" ON for both PiPs and the export still had no PiP sound. A PiP is
+        // added muted, and including its audio flipped that one switch alone, so it stayed muted.
+        check(!PipVolume.mutedAfterInclude(true, true), "including a PiP's audio unmutes it (it is added muted)");
+        check(PipVolume.mutedAfterInclude(false, true), "leaving its audio out keeps it as it was");
+        check(!PipVolume.shownMuted(true, PipVolume.mutedAfterInclude(true, true), true), "after Include audio the PiP shows as playing");
+
         // The Volume controls act on the selected object, not the main clip under a selected PiP.
         String src = Files.readString(Path.of("app/src/main/java/com/fadcam/ui/faditor/FaditorEditorActivity.java"));
         String[] volumeFns = {"showVolumeControlSheet", "volumeDragBaseline", "selectedVolumeState", "applyDraggedVolume",
@@ -53,6 +59,11 @@ public class PipVolumeTest {
             if (b == null) { check(false, fn + " exists"); continue; }
             check(!b.contains("getSelectedClip()"), fn + " acts on the selected object, not the main clip under it");
         }
+ String src2 = src;
+        check(!src2.contains("c.setOverlayAudioEnabled(!c.isOverlayAudioEnabled());"),
+                "the PiP drawer's sound toggle does not flip Include audio alone (it left a muted PiP silent)");
+        String menu = body(src2, "addPipAudioAction");
+        check(menu != null && menu.contains("mutedAfterInclude"), "Include audio unmutes the PiP, and its undo puts the mute back");
         System.out.println("PipVolume: " + (ran - failed) + " passed, " + failed + " failed");
         System.exit(failed == 0 ? 0 : 1);
     }

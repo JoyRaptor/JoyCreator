@@ -13,6 +13,14 @@ public final class PipVolume {
         return audioMuted || (overlay && !audioIncluded);
     }
 
+    /**
+     * Whether a PiP is muted after its audio is included or left out ("Include audio", the drawer's sound toggle).
+     * Today's rule: the switch is flipped alone.
+     */
+    public static boolean mutedAfterInclude(boolean include, boolean mutedBefore) {
+        return mutedBefore;
+    }
+
     /** Whether the clip's audio is included after the Volume controls set it muted or not. */
     public static boolean includedAfter(boolean overlay, boolean nowMuted, boolean includedBefore) {
         // Unmuting a PiP from the Volume controls means "let me hear it": its audio is included in the same step.

@@ -94,3 +94,19 @@ the build. This also fixes the odd frame at the cut (preview shows the second cl
 - **Tests:** `RippleCheckTest` (harness, real Timeline): a 1 s shorter clip with a text and a song after the point:
   the check says 1 s shorter, 2 layers; Move moves both, Leave leaves both and the project stays ripple, Move in a gap
   project moves them and it stays gap, Ask keeps today's behaviour, nothing after the point is nothing to ask.
+
+**11-28, the owner's options page (ONE page, merged):** [tasks/design/STU-5-ripple-check-options.html](../design/STU-5-ripple-check-options.html),
+published https://claude.ai/artifact/A1HgBPYo5BPxCn9XD8GvzK. It replaces "Transition Length Picks"
+(https://claude.ai/artifact/EuHzwwqmrFq4CyCdAEUs6g, 11-27, now points to it) and covers every edit that changes the
+length (transition, trim, speed, loop, delete or insert a clip). Rows: A where the check appears (A1 strip over the
+timeline, A2 inside the edit's own sheet, A3 card at the cut, A4 flag at the cut, A5 do the default with a one-tap way
+back), B wording, C default, D don't ask again, E what you see once it stops asking, F the layers glow. A true-size
+Studio strip plays every pick live. His copied line ("Length-change picks: …") decides the build.
+
+**11-28, the hook (landed 01648ad5e, still off):** every length edit closes through the editor's one
+`endStructuralEdit`. With `RippleCheck.ENABLED` on, it works out what the edit did (`summarize`) and where
+(`pointOf`: the earliest old start of a clip that moved or went, else the old end of the clips), then applies the
+stored "don't ask again" answer (`SharedPreferencesManager.getStudioRippleCheckChoice`). It asks only after the
+person's own length edits (`asksAfter`: trim, speed, loop, delete, silence cuts), never after Undo, Redo or the app's
+own corrections. Left for the picks: the screen for ASK at that spot, and the transition overlap (choice A) joining
+`asksAfter`. Tests: RippleCheckTest 37/37; cloud Studio 107/0.

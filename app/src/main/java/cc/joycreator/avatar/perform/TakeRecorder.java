@@ -50,7 +50,7 @@ public final class TakeRecorder {
         if (g != null) return g;
         String p = name.length() >= 3 ? name.substring(0, 3) : name;
         if (name.equals("face.cheekPuff")) return "puff";               // (the Puff button's own: a pass with it held leaves the rest of the face)
-        if (p.equals("pt.") || name.startsWith("face.")) return "facepins";
+        if (p.equals("pt.") || p.equals("mk.") || p.equals("mp.") || name.startsWith("face.")) return "facepins";   // (the mask's lanes too: X6 P10)
         if (p.equals("dx:") || p.equals("dy:")) return "head";
         if (name.startsWith("p:")) return name.substring(0, name.lastIndexOf(':'));
         return name;
@@ -61,6 +61,7 @@ public final class TakeRecorder {
     private boolean recording, playing, scrub;
     private boolean fresh;
     private double ph;                      // the take's clock, seconds
+    private double passFrom = Double.NaN;   // where on that clock the pass began
     private final Map<String, Double> fade = new LinkedHashMap<>();
     private final Set<String> wrote = new HashSet<>();
 
@@ -114,6 +115,7 @@ public final class TakeRecorder {
         wrote.clear();
         fade.clear();
         fresh = take.n == 0;
+        passFrom = Double.NaN;   // taken on the pass's first frame (Studio puts the clock at its playhead after record())
     }
 
     /** Ends a pass (or stops playing). */
@@ -203,7 +205,8 @@ public final class TakeRecorder {
         if (playing || recording) ph += dt;
         if (recording) {
             tk.n = Math.max(tk.n, i + 1);
-            if (ph > MAX_SECONDS) stop();
+            if (Double.isNaN(passFrom)) passFrom = ph - dt;
+            if (ph - passFrom > MAX_SECONDS) stop();   // the longest pass, counted from where it began (X6 M1)
         } else if (playing && ph >= tk.n / (double) tk.fps) ph = 0;
         return out;
     }

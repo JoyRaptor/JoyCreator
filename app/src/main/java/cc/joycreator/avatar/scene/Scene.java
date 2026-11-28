@@ -60,10 +60,16 @@ public final class Scene {
         return -1;
     }
 
-    /** A fresh id that no thing in this scene uses. */
+    private boolean hasShot(String id) {
+        JSONArray a = shots();
+        for (int i = 0; a != null && i < a.length(); i++) if (id.equals(a.optJSONObject(i) == null ? null : a.optJSONObject(i).optString("id", null))) return true;
+        return false;
+    }
+
+    /** A fresh id that no thing and no shot in this scene uses. */
     public String newId(String prefix) {
         String id;
-        do id = prefix + Integer.toString(++ids, 36); while (item(id) != null);
+        do id = prefix + Integer.toString(++ids, 36); while (item(id) != null || hasShot(id));
         return id;
     }
 
@@ -146,7 +152,8 @@ public final class Scene {
     }
 
     public double backOf(double y) {
-        return (near() - y / SceneGeometry.H) / (near() - far()) * 100;
+        double span = near() - far();
+        return span == 0 ? 0 : (near() - y / SceneGeometry.H) / span * 100;
     }
 
     // ── undo: one step per edit ──

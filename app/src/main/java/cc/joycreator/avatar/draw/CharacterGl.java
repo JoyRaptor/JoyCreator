@@ -235,6 +235,8 @@ public final class CharacterGl {
             if (mk0 != null && !mk0.key.equals(last)) { paintMask(mk0, pics); last = mk0.key; }
             one(it, it.a, tint != null ? tint.of(it) : null, mk0 != null, pics);
         }
+        GLES20.glDisableVertexAttribArray(P.p);                      // (both are buffer-backed, so harmless as they were; but nothing that draws
+        GLES20.glDisableVertexAttribArray(P.t);                      // next, in this context, should inherit them enabled)
     }
 
     private void toneUniforms(Prog L, SolveOut out, View v) {
@@ -261,17 +263,28 @@ public final class CharacterGl {
     /** JavaScript's % (the sign follows the dividend). */
     private static double jsMod(double a, double b) { return a % b; }
 
-    private static FloatBuffer floats(float[] a) {
-        FloatBuffer f = ByteBuffer.allocateDirect(a.length * 4).order(ByteOrder.nativeOrder()).asFloatBuffer();
-        f.put(a).position(0);
-        return f;
+    // one grow-only scratch buffer of each kind per drawer (glBufferData copies at once, so each is free again when it
+    // returns): no new native buffer per piece per frame (X6 M10). Per instance, as preview and export draw on two threads.
+    private FloatBuffer fScratch;
+    private ShortBuffer sScratch;
+
+    private FloatBuffer floats(float[] a) {
+        if (fScratch == null || fScratch.capacity() < a.length) {
+            fScratch = ByteBuffer.allocateDirect(Math.max(a.length, 256) * 4).order(ByteOrder.nativeOrder()).asFloatBuffer();
+        }
+        fScratch.clear();
+        fScratch.put(a).flip();
+        return fScratch;
     }
 
-    private static ShortBuffer shorts(int[] a) {
-        ShortBuffer s = ByteBuffer.allocateDirect(a.length * 2).order(ByteOrder.nativeOrder()).asShortBuffer();
-        for (int x : a) s.put((short) x);
-        s.position(0);
-        return s;
+    private ShortBuffer shorts(int[] a) {
+        if (sScratch == null || sScratch.capacity() < a.length) {
+            sScratch = ByteBuffer.allocateDirect(Math.max(a.length, 256) * 2).order(ByteOrder.nativeOrder()).asShortBuffer();
+        }
+        sScratch.clear();
+        for (int x : a) sScratch.put((short) x);
+        sScratch.flip();
+        return sScratch;
     }
 
     /** Forget the textures (the character's pictures changed, or the surface went away). */

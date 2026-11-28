@@ -38,8 +38,8 @@ public final class HeadPad extends View {
     public HeadPad(Context c) {
         super(c);
         dp = c.getResources().getDisplayMetrics().density;
-        fill.setColor(0xFF18181B);
-        line.setColor(0xFF3F3F46);
+        fill.setColor(Studio.PANEL);
+        line.setColor(Studio.PRESSED);
         line.setStyle(Paint.Style.STROKE);
         line.setStrokeWidth(Math.max(1f, dp));
     }
@@ -76,7 +76,7 @@ public final class HeadPad extends View {
         c.drawLine(w / 2, 10 * dp, w / 2, h - 10 * dp, line);
         c.drawLine(10 * dp, h / 2, w - 10 * dp, h / 2, line);
         c.drawRoundRect(new RectF(dp, dp, w - dp, h - dp), r, r, line);
-        dot.setColor(0xFF71717A);
+        dot.setColor(Studio.INK_FAINT);
         for (float[] a : angles) c.drawCircle(toPx(a[0], w), toPx(a[1], h), 3 * dp, dot);
         dot.setColor(Studio.ARMED);
         c.drawCircle(toPx(x, w), toPx(y, h), (down ? 9 : 7) * dp, dot);

@@ -25,6 +25,8 @@ FPN = "app/src/main/java/cc/joycreator/avatar/face/FacePins.java"
 M = "app/src/main/java/cc/joycreator/avatar/ui/SignalMap.java"
 SF = "app/src/main/java/com/fadcam/ui/faditor/avatar/face/ShoulderFeed.java"
 SH = "app/src/main/java/cc/joycreator/avatar/face/Shrugs.java"
+CP = "app/src/main/java/com/fadcam/ui/faditor/avatar/face/CameraPlan.java"
+FWD = "app/src/main/java/cc/joycreator/avatar/face/FaceWalkDrawer.java"
 
 PLANTS = [
     ("the chip skips while-talking-only", [(D, "mode == Mode.ALWAYS ? Mode.TALK : Mode.OFF", "mode == Mode.ALWAYS ? Mode.OFF : Mode.OFF")]),
@@ -92,6 +94,20 @@ PLANTS = [
     ("a part's own shrug Link is not seen (no Shoulders tick box for it)", [(SH, "l.optJSONObject(i).optString(\"sig\").startsWith(SHRUG)) return true;", "l.optJSONObject(i).optString(\"sig\").startsWith(\"never\")) return true;")]),
     ("Try does nothing", [(I, "        if (tryShrug > 0) for (String k : SHRUG_LANES) {", "        if (false) for (String k : SHRUG_LANES) {")]),
     ("Try stays up after the finger lifts", [(I, "        tryShrug = Math.max(0, Math.min(1, v));", "        tryShrug = Math.max(tryShrug, Math.min(1, v));")]),
+    # X6 audit P3: values that are not numbers (a take is JSON)
+    ("an infinite camera value reaches the lanes (only NaN was caught)", [(D, "        return v == null || !Float.isFinite(v) ? 0 : v;", "        return v == null || v.isNaN() ? 0 : v;")]),
+    ("a shrug that is not a number reaches its lane", [(D, "            if (v != null && Float.isFinite(v)) { o.lanes.put(k, (double) v); shrugSeen = true; }", "            if (v != null) { o.lanes.put(k, (double) v); shrugSeen = true; }")]),
+    ("one body reading that is not a number stops the shoulders for good", [(SF, "        if (d != null && (!Float.isFinite(d[0]) || !Float.isFinite(d[1]))) d = null;", "")]),
+    ("X6 P10: the mask's lanes have no owner in a take (a second pass replays the old mask)", [(TR, 'if (p.equals("pt.") || p.equals("mk.") || p.equals("mp.") || name.startsWith("face.")) return "facepins";', 'if (p.equals("pt.") || name.startsWith("face.")) return "facepins";')]),
+    ("X6: a face control writes a palette grey as hex again", [(FWD, "note.setTextColor(Studio.INK_FAINT);", "note.setTextColor(0xFF71717A);")]),
+    # cameras per tracker (the owner, 11-27): what a phone offers and what opens (CameraPlan)
+    ("a back camera that zooms out is never offered wide", [(CP, "            else if (back.minZoom < WIDE_ZOOM) out.add(", "            else if (false) out.add(")]),
+    ("an ultra-wide listed as its own camera is not used", [(CP, "            if (wide != null) out.add(new Choice(BACK_WIDE, wide, 1f));", "            if (false) out.add(new Choice(BACK_WIDE, wide, 1f));")]),
+    ("Back opens the last back lens listed, not the main one", [(CP, "            if (l.back && back == null) back = l;", "            if (l.back) back = l;")]),
+    ("two cameras opened without asking the phone", [(CP, "        return new Plan(face, face, false, true, face.zoom);", "        return new Plan(face, b, true, false, face.zoom);")]),
+    ("a refused pair says nothing", [(CP, "        return new Plan(face, face, false, true, face.zoom);", "        return new Plan(face, face, false, false, face.zoom);")]),
+    ("the body stays on Front when the face moves", [(CP, "        if (b == null) b = face;", "        if (b == null) b = find(choices, FRONT);")]),
+    ("Back and Back wide on one camera keep the narrow view", [(CP, "return new Plan(face, b, false, false, Math.min(face.zoom, b.zoom));", "return new Plan(face, b, false, false, face.zoom);")]),
 ]
 
 

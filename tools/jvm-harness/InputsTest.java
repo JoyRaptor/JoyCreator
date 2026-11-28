@@ -165,6 +165,14 @@ public class InputsTest {
         for (int i = 0; i < 10; i++) tick(q);
         q.recorder.stop();
         ok(lane(q.recorder.take(), "g:t1", 0) == 0.0 && lane(q.recorder.take(), "g:t1", 15) == 1.0, "a button press is recorded on its own lane");
+        // the Weather slider is drawn at the wind that is blowing, and Let go calms it
+        {
+            Inputs w = new Inputs();
+            w.breeze(0.6, 0);
+            ok(Math.abs(w.windNow() - 0.6) < 1e-9, "the wind now is what the slider last said");
+            w.letGoOfEverything();
+            ok(w.windNow() == 0, "Let go of everything calms the wind");
+        }
         System.out.println((fail > 0 ? "FAILED " : "PASSED ") + pass + " checks, " + fail + " failures");
         System.exit(fail > 0 ? 1 : 0);
     }

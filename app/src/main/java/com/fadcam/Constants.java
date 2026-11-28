@@ -651,6 +651,8 @@ public abstract class Constants {
     public static final String PREF_PLAYER_CONTROLS_TIMEOUT_SECONDS =
         "pref_player_controls_timeout_seconds";
     public static final int DEFAULT_PLAYER_CONTROLS_TIMEOUT_SECONDS = 5; // default 5 seconds
+    /** STU-5 ripple check: the stored "don't ask again" answer, a RippleCheck.Choice name (ASK, MOVE, LEAVE). */
+    public static final String PREF_STUDIO_RIPPLE_CHECK_CHOICE = "studio_ripple_check_choice";
     // Faditor: whether adding a new video clip offers to transcribe it. Turned off
     // permanently when the user checks "Don't ask me again" on the prompt; can be
     // re-enabled from the editor's Settings sheet.

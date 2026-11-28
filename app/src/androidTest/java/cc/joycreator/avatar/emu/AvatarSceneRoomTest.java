@@ -86,6 +86,19 @@ public class AvatarSceneRoomTest {
             assertTrue("Topps", click("Topps"));
             Emu.sleep(3500);
             shot(out, "8-topps-in-the-scene");
+            // the room's Undo is the scene's while a scene is open: it takes Topps back out (not an edit of some character)
+            assertEquals("Topps is in the scene", 1, castCount(a[0]));
+            View undo = byDesc(root, "Undo");
+            assertNotNull("the Undo button says what it undoes in the scene", undo);
+            Emu.tap(undo);
+            Emu.sleep(1500);
+            assertEquals("Undo took Topps back out of the scene", 0, castCount(a[0]));
+            shot(out, "8b-undone");
+            View redo = byDesc(root, "Redo");
+            assertNotNull("the Redo button follows the scene's history", redo);
+            Emu.tap(redo);
+            Emu.sleep(2500);
+            assertEquals("Redo brought Topps back", 1, castCount(a[0]));
             Emu.tap(byText(root, "Motion"));
             Emu.sleep(1200);
             shot(out, "9-motion");
@@ -100,6 +113,20 @@ public class AvatarSceneRoomTest {
             shot(out, "11-back-on-the-empty-scene");
             assertFalse("the room closed", a[0].isFinishing());
         }
+    }
+
+    private static int castCount(AvatarRoomActivity a) throws Exception {
+        Object r = field(a, "sceneRoom");
+        int[] v = new int[1];
+        Emu.ins().runOnMainSync(() -> {
+            try {
+                Object sc = r.getClass().getMethod("scene").invoke(r);
+                v[0] = ((java.util.List<?>) sc.getClass().getMethod("cast").invoke(sc)).size();
+            } catch (Exception e) {
+                throw new RuntimeException(e);
+            }
+        });
+        return v[0];
     }
 
     private static boolean open(AvatarRoomActivity a) throws Exception {

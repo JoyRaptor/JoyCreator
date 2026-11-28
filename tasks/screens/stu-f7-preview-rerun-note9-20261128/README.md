@@ -1,0 +1,6 @@
+# STU-F7 preview re-run, Note 9, 11-28 (build 0dd90399b, which contains ba9d74aa7): the preview does NOT play the return leg backward
+Set-up: new project "Untitled 9" from `stu-b3-talk.mp4` (18 s, each frame prints its own time and number); select the clip, Loop, Ping-pong, Extend to end three times (the clip label reads 22 s; `pingpong_set_clip_22s.png`). The phone baked the reversed copy (`cache/reversed/rev-v2-4299-18021-12630.mp4` appeared at 13:07).
+Test: playhead to 0:00, play, and a 30 s screen recording of the phone (`adb screenrecord`), one picture every 0.5 s (`preview_play_contact_sheet.png`, read left to right, top to bottom).
+**Result: FAIL.** The picture plays forward 0.000, 0.467 ... 17.933 (frame 538), then jumps to frame 0/11 and plays FORWARD again (0.367, 0.833, 1.300 ... 9.300). A ping-pong's return leg must show 17.9, 17.5 ... going down. It is a forward loop. Better than before in one way: the picture keeps moving and no longer sits on frame 30.
+Also seen: Jump to time (the m:ss box) to 0:19 and 0:21 both land on 18.021, the end of the film; the playhead cannot be placed inside the extension by that dialog. The timeline's total time reads 00:18 while the clip label says 22 s.
+Export for the same clip passes (see stu-f7-mirror-frames-note9-20261128).

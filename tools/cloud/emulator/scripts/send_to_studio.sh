@@ -18,12 +18,13 @@ wait_for "Square" 20 >/dev/null; tap_text "Square" >/dev/null 2>&1 || tap_text "
 shot board_ready
 dump board; python3 "$HERE_LIB/uia.py" list /tmp/ui.xml | head -60
 # the board's own bar has a send-to-Studio icon (the film-and-arrow one); find it by its words
+CHIP_DONE=0
 send_it() {
     tap_text "Export this board" >/dev/null 2>&1 || { echo "no export control found"; return 1; }
     settle 4
-    # the export sheet: "This board" with the Send to Studio chip, then the big Export button
-    # "Send to Studio" is already the chosen way (tapping its chip again switches it back to PNG)
-    tap_text "=Export" >/dev/null 2>&1; settle 8
+    # the sheet opens on PNG every time: pick Send to Studio, then the big Export button (read from the sheet's shot, 1080x2220)
+    tap_text "=Send to Studio" >/dev/null 2>&1; settle 2
+    tap 540 2069; settle 10
 }
 echo "== 1. back out of the chooser"
 send_it; shot chooser; dump chooser; python3 "$HERE_LIB/uia.py" list /tmp/ui.xml | head -30

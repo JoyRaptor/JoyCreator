@@ -14,6 +14,7 @@ import androidx.media3.effect.PassthroughShaderProgram;
 
 import com.fadcam.FLog;
 import com.fadcam.ui.faditor.compositor.lane.LaneCompositor;
+import com.fadcam.ui.faditor.model.FootageSpans;
 import com.fadcam.ui.faditor.motion.MotionBreaks;
 import com.fadcam.ui.faditor.motion.MotionShutter;
 import com.fadcam.ui.faditor.motion.flow.DecodedFlowWork;
@@ -30,11 +31,21 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
-/** Source-space High gather, before timeline retiming, crop, grade and compositing. */
-record HighFootageExportEffect(Uri uri, long startUs, long endUs, double speed,
+/**
+ * Source-space High gather, before timeline retiming, crop, grade and compositing.
+ *
+ * <p>{@code [startUs, endUs]} is this piece's source window and {@code span} the continuous run
+ * of the clip it lies in ({@link FootageSpans}). Every shutter time is on the EDITOR clock the
+ * span gives, the clock the preview and the shutter keys use. It was the piece's own clock from
+ * 0, so the keys of any clip after the first were read at the wrong time, and a piece after a
+ * transition would have been fenced on a different clock from the preview.</p>
+ */
+record HighFootageExportEffect(Uri uri, long startUs, long endUs, FootageSpans.Span span,
                                MotionShutter.Controls shutter,
                                com.fadcam.ui.faditor.motion.ShutterKeys keys) implements GlEffect {
     private static final String TAG = "HighFootageExport";
+
+    double speed() { return span.speed(); }
 
     @Override public GlShaderProgram toGlShaderProgram(Context context, boolean hdr) {
         return new PassthroughShaderProgram();
@@ -82,8 +93,8 @@ record HighFootageExportEffect(Uri uri, long startUs, long endUs, double speed,
             this.context = context;
             this.offsetUs = offsetUs;
             gather = new HighFootageGatherGl(context.getAssets());
-            fences = new MotionBreaks.Builder().add(0)
-                    .add(Math.round((endUs - startUs) / speed)).build();
+            fences = new MotionBreaks.Builder().add(span.editorUs(startUs))
+                    .add(span.editorUs(endUs)).build();
         }
 
         @Override public void setInputListener(InputListener listener) {
@@ -148,12 +159,13 @@ record HighFootageExportEffect(Uri uri, long startUs, long endUs, double speed,
                 throws IOException, GlUtil.GlException, ExecutionException, InterruptedException {
             Staged prior = previous;
             Staged current = centre;
+            double speed = speed();
             long periodUs = prior == null || current.sourceUs() <= prior.sourceUs()
                     ? 0 : Math.round((current.sourceUs() - prior.sourceUs()) / speed);
             if (periodUs <= 0 || current.sourceUs() - prior.sourceUs() > IndexedFootageMedia.MAX_GAP_US) {
                 return false;
             }
-            long editorUs = Math.round((current.sourceUs() - startUs) / speed);
+            long editorUs = span.editorUs(current.sourceUs());
             int width = destination.width, height = destination.height;
             Analysed fields = worker.submit(() -> analyse(prior, current, next, width, height)).get();
             if (fields.before() != null && fields.before().crossesCut()) {
@@ -163,7 +175,7 @@ record HighFootageExportEffect(Uri uri, long startUs, long endUs, double speed,
                 return false;
             }
             MotionBreaks sourceCuts = fields.after() != null && fields.after().crossesCut()
-                    ? new MotionBreaks.Builder().add(Math.round((next.sourceUs() - startUs) / speed)).build()
+                    ? new MotionBreaks.Builder().add(span.editorUs(next.sourceUs())).build()
                     : MotionBreaks.none();
             var taps = keys.at(editorUs / 1000L, shutter).schedule(editorUs, periodUs, HighFootageGatherGl.MAX_TAPS,
                     fences, sourceCuts);

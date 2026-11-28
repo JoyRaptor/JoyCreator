@@ -32,7 +32,7 @@ public final class SceneGeometry {
 
     /** How big a thing is drawn for where it stands: 1 at the front of the floor, {@code shrink} at the back. */
     public static double depth(double near, double far, double shrink, double y) {
-        double t = (y / H - far) / (near - far);
+        double t = near == far ? 1 : (y / H - far) / (near - far);
         return shrink + (1 - shrink) * clamp(t, -0.35, 1.4);
     }
 

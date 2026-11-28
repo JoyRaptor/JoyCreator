@@ -105,7 +105,7 @@ public final class LayersView extends RecyclerView {
             bg.setCornerRadius(8 * dp);
             bg.setColor(on ? Studio.ARMED : 0x00000000);
             h.itemView.setBackground(bg);
-            int ink = on ? Studio.GROUND : (n.hidden ? 0xFF71717A : 0xFFE4E4E7);
+            int ink = on ? Studio.GROUND : (n.hidden ? Studio.INK_FAINT : Studio.INK);
             h.name.setTextColor(ink);
             String label = labelOf(n);
             h.name.setText(label);
@@ -119,11 +119,14 @@ public final class LayersView extends RecyclerView {
             GradientDrawable e = new GradientDrawable();
             e.setCornerRadius(8 * dp);
             if (n.hidden) {
-                e.setStroke(Math.max(1, Math.round(dp)), 0xFF52525B);
-                h.eye.setText("");
+                e.setStroke(Math.max(1, Math.round(dp)), Studio.INK_OFF);
+                h.eye.setTypeface(com.fadcam.ui.faditor.SheetKit.icons(getContext()));
+                h.eye.setText("visibility_off");                        // (Studio's eye, not a typed mark)
+                h.eye.setTextColor(Studio.INK_FAINT);
             } else {
                 e.setColor(on ? Studio.GROUND : Studio.ARMED);
-                h.eye.setText("✓");
+                h.eye.setTypeface(com.fadcam.ui.faditor.SheetKit.icons(getContext()));
+                h.eye.setText("visibility");
                 h.eye.setTextColor(on ? Studio.ARMED : Studio.GROUND);
             }
             h.eye.setBackground(inset(e, Math.round(6 * dp)));

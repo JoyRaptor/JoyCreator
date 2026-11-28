@@ -104,4 +104,8 @@
     <string name="ava_export_failed">That could not be made just now. Try again.</string>
     <string name="ava_export_send_title">Send to which project?</string>
     <string name="ava_export_send_new">A new project</string>
+    <string name="ava_export_see_through_hover">See-through: only the character, no background</string>
+    <string name="ava_export_name_hover">The name the file is kept under</string>
+    <string name="ava_export_go_hover">Make the export you chose</string>
+    <string name="ava_cancel_hover">Close without doing anything</string>
 </resources>

@@ -13,14 +13,28 @@ merged plan's.
 
 ## Resume here
 
-- **Later (owner 11-28):** live motion blur on puppets in the Avatar Studio room only if it can be made cheap; it is not today (3-4 puppet redraws a frame at 2-15 ms each). Nice-to-have after everything else.
-- **Owner of the job:** Claude (Opus 5.5) since 2026-11-27; Codex ran out of usage and handed off ([C6_CUT_HANDOFF](../motionblur/C6_CUT_HANDOFF.md)). Card build on `claude/stu7-card-20261127`.
-- **Active step:** C6 in-file hard-cut fence. C5 physical parity and C7 release gates remain open.
-- **Candidate:** `codex/stu7-finish-20261125` at `ea236f311`.
-- **Last landed:** C4 `3c0179278` and gated C7 Help and Joybot `51b838070`.
-- **Next action:** Capture `boxing-original` and `boxing-changed` on pinned Android APK `dfef8d1f7` and compare the raw High frame at 1,200,000 µs.
-- **Owner asks:** Look #1 and final defaults approval are open.
-- [Branch register](../motionblur/BRANCHES.md) · [Claude handoff](../motionblur/C6_CUT_HANDOFF.md) · [Channel](../motionblur/CHANNEL.md).
+- **Owner of the job:** Claude (Opus 5.5) since 2026-11-27. Codex is gone; its branches were checked and nothing is owed ([register](../motionblur/BRANCHES.md#claude-takeover-check-2026-11-28)).
+- **Shown (owner 11-28, `3271fbb5d`):** "there is no public… I need to be able to see these things". Motion Blur is off the hide list. Item blur (pictures, titles, sprites, PiP, keyframed clips, characters) and filmed video (one frame max) are all visible.
+- **Owner 11-28: thumbs up on the item blur from the samples.** His phone test found the three gaps below. He wants them all to work.
+
+### Plan (owner 11-28): make everything he tried work
+1. **Video blur reaches more footage.** Today a filmed clip blurs only up to one frame. It also stays sharp whenever the project has any transition, the clip loops, has a cut inside it, or is cropped, meshed, corner-pinned or has an armed transform. Do these, in order:
+   1. Lift the project-wide "no transitions anywhere" rule to per-clip: only the frames inside a transition stay sharp.
+   2. Support crop, loops and armed transforms.
+   3. Longer shutters on video: a trail built from the real earlier decoded frames (the same Fade and Look controls), instead of refusing.
+   - Proof: emulator plus the Note 9; preview matches export.
+2. **True layer order ships.** Today it is debug-only. It becomes a release Canvas setting, and new projects start with it on. Old projects keep the legacy order until switched, with one undo. Where the preview cannot yet draw something in true order (a second PiP, transitions, loops), it says so in one plain line, never a wrong picture.
+   - Gates: the C4 §6 corpus, export not slower, latch, memory.
+   - Remaining C4b items: a corpus with titles, sprites and PiPs, and loop fallback.
+3. **Effect-layer Motion Blur card.** Motion Blur appears in an effect layer's Add effect, with the same card. It blurs each moving thing beneath the layer with that thing's own motion (spec §7, C4 design: per-producer). Things that already carry their own blur keep theirs. Order of support:
+   1. Pictures and titles (export path exists: `lane_motion_blur`).
+   2. Sprites, PiP and characters.
+   3. Footage (from step 1).
+   4. Preview and export both, with a test that fails first.
+- **Order:** 1, then 2, then 3. Step 3 needs 2. Step 1 is independent and gives him video now.
+- **Re-time** the 24-tap live preview on the Note 9 (`MotionTimingTest`) at the next install.
+- **Later:** C5 physical parity; C7 replay on the release candidate; live puppet blur only if cheap.
+- [Branch register](../motionblur/BRANCHES.md) · [Channel](../motionblur/CHANNEL.md).
 
 ### No-loss rules (binding while Codex runs the job)
 1. **Landmark = commit + push + a channel entry + this block updated**, in that order, every time.

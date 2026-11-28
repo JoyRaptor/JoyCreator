@@ -96,6 +96,11 @@ public final class BackdropGl {
         GLES20.glEnableVertexAttribArray(aT);
         GLES20.glEnableVertexAttribArray(aC);
         GLES20.glDrawArrays(GLES20.GL_TRIANGLE_STRIP, 0, 4);
+        // These arrays point at a buffer that is free to be collected the moment this returns. Left enabled, the character's next
+        // glDrawElements packs them too and reads memory that is gone (SIGSEGV in the graphics thread). Switch them off here.
+        GLES20.glDisableVertexAttribArray(aP);
+        GLES20.glDisableVertexAttribArray(aT);
+        GLES20.glDisableVertexAttribArray(aC);
     }
 
     /**

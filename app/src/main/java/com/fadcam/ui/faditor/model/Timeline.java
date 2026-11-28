@@ -2455,6 +2455,16 @@ public class Timeline {
      * <p>A map that never came from {@link #beginStructural()} (no bracket is open) is applied
      * directly — that is the standalone contract the harness and the AI paths rely on.</p>
      */
+    /** Whether a structural bracket is open now (an edit nested inside it defers to it). */
+    public boolean hasOpenStructural() {
+        return structuralOwner != null;
+    }
+
+    /** Whether closing [beforeStarts] closes the outermost bracket: the one whose shift is applied. */
+    public boolean closesStructural(@NonNull Map<String, Long> beforeStarts) {
+        return structuralOwner == null || structuralOwner == beforeStarts;
+    }
+
     @NonNull
     public AnchorShiftResult endStructural(@NonNull Map<String, Long> beforeStarts) {
         if (structuralOwner != null && structuralOwner != beforeStarts) {

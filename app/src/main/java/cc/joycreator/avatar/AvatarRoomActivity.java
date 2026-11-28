@@ -228,12 +228,18 @@ public final class AvatarRoomActivity extends Activity implements RoomMenu.Host,
                 glStage.setVisibility(shown ? View.GONE : View.VISIBLE);
                 stage.setVisibility(shown ? View.GONE : View.VISIBLE);
                 applyPanels();
+                if (edit != null) paintUndo();                       // Undo and Redo follow the scene, or the character again
                 if (sceneUi != null) sceneUi.roomChanged();
             }
 
             @Override
             public void stageChosen(int idx) {
                 if (idx != stageIndex) selectStage(idx);
+            }
+
+            @Override
+            public void historyChanged() {
+                paintUndo();
             }
 
             @Override
@@ -279,7 +285,7 @@ public final class AvatarRoomActivity extends Activity implements RoomMenu.Host,
 
         panel = new LinearLayout(this);
         panel.setOrientation(LinearLayout.VERTICAL);
-        panel.setBackgroundColor(0xFF09090B);
+        panel.setBackgroundColor(Studio.SURFACE);
         panel.addView(buildPanelHeader(), new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, px(44)));
         panel.addView(buildStageRow(), new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, px(36)));
         parts = new PartsView(this, this);
@@ -293,7 +299,7 @@ public final class AvatarRoomActivity extends Activity implements RoomMenu.Host,
         body.addView(sceneRoom.cardView(), new android.widget.FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
         panel.addView(body, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f));
         rail = new cc.joycreator.avatar.ui.LayersView(this, this);
-        rail.setBackgroundColor(0xFF0D0D10);
+        rail.setBackgroundColor(Studio.SURFACE);
         bottomRow = new LinearLayout(this);
         bottomRow.addView(panel, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, 1f));
         root.addView(bottomRow);
@@ -335,16 +341,16 @@ public final class AvatarRoomActivity extends Activity implements RoomMenu.Host,
         LinearLayout bar = new LinearLayout(this);
         bar.setGravity(Gravity.CENTER_VERTICAL);
         bar.setPadding(px(8), 0, px(8), 0);
-        TextView menu = roundButton("☰", getString(R.string.avatar_hover_menu));
+        TextView menu = roundButton("menu", getString(R.string.avatar_hover_menu));
         menu.setOnClickListener(v -> openMenu());
         bar.addView(menu, new LinearLayout.LayoutParams(px(36), px(36)));
-        undoButton = roundButton("\u21B6", getString(R.string.avatar_hover_undo_none));
-        undoButton.setOnClickListener(v -> { if (edit != null && edit.undo()) rebindCards(); });
+        undoButton = roundButton("undo", getString(R.string.avatar_hover_undo_none));
+        undoButton.setOnClickListener(v -> { if (sceneRoom != null && sceneRoom.isOpen()) sceneRoom.undo(false); else if (edit != null && edit.undo()) rebindCards(); });
         LinearLayout.LayoutParams ul = new LinearLayout.LayoutParams(px(36), px(36));
         ul.leftMargin = px(8);
         bar.addView(undoButton, ul);
-        redoButton = roundButton("\u21B7", getString(R.string.avatar_hover_redo_none));
-        redoButton.setOnClickListener(v -> { if (edit != null && edit.redo()) rebindCards(); });
+        redoButton = roundButton("redo", getString(R.string.avatar_hover_redo_none));
+        redoButton.setOnClickListener(v -> { if (sceneRoom != null && sceneRoom.isOpen()) sceneRoom.undo(true); else if (edit != null && edit.redo()) rebindCards(); });
         bar.addView(redoButton, ul);
         // the save dot (spec A2): never says "saved" for a character nobody has saved; says so on a long press or hover
         saveDot = new View(this);
@@ -374,14 +380,14 @@ public final class AvatarRoomActivity extends Activity implements RoomMenu.Host,
         LinearLayout col = new LinearLayout(this);
         col.setOrientation(LinearLayout.VERTICAL);
         col.setPadding(px(4), px(8), px(4), 0);
-        TextView fit = roundButton("\u2316", getString(R.string.avatar_hover_fit));
+        TextView fit = roundButton("center_focus_strong", getString(R.string.avatar_hover_fit));
         fit.setOnClickListener(v -> stage.fitToHand());
-        TextView look = roundButton("\u25CE", getString(R.string.avatar_hover_look));
+        TextView look = roundButton("highlight", getString(R.string.avatar_hover_look));
         look.setOnClickListener(v -> {
             int i = stage.cycleLook();
             Toast.makeText(this, getResources().getStringArray(R.array.avatar_looks)[i], Toast.LENGTH_SHORT).show();
         });
-        pickTool = roundButton("\u261D", getString(R.string.avatar_hover_pick));
+        pickTool = roundButton("touch_app", getString(R.string.avatar_hover_pick));
         pickTool.setOnClickListener(v -> {
             boolean on = !stage.picking();
             stage.setPicking(on, id -> {
@@ -401,11 +407,17 @@ public final class AvatarRoomActivity extends Activity implements RoomMenu.Host,
 
     private void paintPickTool() {
         boolean on = stage.picking();
-        GradientDrawable g = new GradientDrawable();
-        g.setShape(GradientDrawable.OVAL);
-        g.setColor(on ? Studio.ARMED : 0xFF27272A);
-        pickTool.setBackground(g);
-        pickTool.setTextColor(on ? Studio.GROUND : 0xFFFAFAFA);
+        if (on) {                                                       // on: solid cyan, the icon cut out of it (the owner's rule)
+            GradientDrawable g = new GradientDrawable();
+            g.setShape(GradientDrawable.OVAL);
+            g.setColor(Studio.ARMED);
+            pickTool.setBackground(g);
+        } else {
+            TypedValue tv = new TypedValue();
+            if (getTheme().resolveAttribute(android.R.attr.selectableItemBackgroundBorderless, tv, true)) pickTool.setBackgroundResource(tv.resourceId);
+            else pickTool.setBackground(null);
+        }
+        pickTool.setTextColor(on ? Studio.GROUND : Studio.INK);
     }
 
     /** The export sheet (slice 2's RoomExportSheet): the character is saved first, so the file it works from is current. */
@@ -426,7 +438,7 @@ public final class AvatarRoomActivity extends Activity implements RoomMenu.Host,
         boolean saved = characterPath != null && !unsaved;
         GradientDrawable g = new GradientDrawable();
         g.setShape(GradientDrawable.OVAL);
-        g.setColor(saved ? Studio.ARMED : 0xFF52525B);
+        g.setColor(saved ? Studio.ARMED : Studio.INK_OFF);
         saveDot.setBackground(g);
         String s = getString(saved ? R.string.avatar_hover_saved : R.string.avatar_hover_not_saved);
         TooltipCompat.setTooltipText(saveDot, s);
@@ -438,8 +450,9 @@ public final class AvatarRoomActivity extends Activity implements RoomMenu.Host,
         h.setGravity(Gravity.CENTER_VERTICAL);
         h.setPadding(px(12), 0, px(12), 0);
         pathName = new TextView(this);
-        pathName.setTextColor(0xFFFAFAFA);
-        pathName.setTextSize(TypedValue.COMPLEX_UNIT_SP, 14);
+        pathName.setTextColor(Studio.INK);
+        pathName.setTextSize(TypedValue.COMPLEX_UNIT_SP, com.fadcam.ui.faditor.SheetKit.TITLE_SP);
+        com.fadcam.ui.type.Type.display(pathName, com.fadcam.ui.type.Type.EXTRA);   // (Studio's title face, as its sheets')
         TooltipCompat.setTooltipText(pathName, getString(R.string.avatar_hover_path_character));
         h.addView(pathName, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
         // Parts | Layers: two equal ways to look at the same character, so a two-way switch (rule A0)
@@ -458,6 +471,7 @@ public final class AvatarRoomActivity extends Activity implements RoomMenu.Host,
         t.setText(label);
         t.setGravity(Gravity.CENTER);
         t.setTextSize(TypedValue.COMPLEX_UNIT_SP, 12);
+        com.fadcam.ui.type.Type.body(t, com.fadcam.ui.type.Type.MEDIUM);
         TooltipCompat.setTooltipText(t, hover);
         t.setContentDescription(hover);
         return t;
@@ -470,9 +484,9 @@ public final class AvatarRoomActivity extends Activity implements RoomMenu.Host,
             boolean chosen = (i == 1) == on;
             GradientDrawable g = new GradientDrawable();
             g.setCornerRadius(px(10));
-            g.setColor(chosen ? Studio.ARMED : 0xFF27272A);
+            g.setColor(chosen ? Studio.ARMED : Studio.RAISED);
             t.setBackground(g);
-            t.setTextColor(chosen ? Studio.GROUND : 0xFFA1A1AA);
+            t.setTextColor(chosen ? Studio.GROUND : Studio.INK_DIM);
         }
         applyPanels();
         refreshPins();
@@ -502,6 +516,7 @@ public final class AvatarRoomActivity extends Activity implements RoomMenu.Host,
             t.setText(STAGE_NAMES[i]);
             t.setGravity(Gravity.CENTER);
             t.setTextSize(TypedValue.COMPLEX_UNIT_SP, 13);
+            com.fadcam.ui.type.Type.body(t, com.fadcam.ui.type.Type.MEDIUM);
             TooltipCompat.setTooltipText(t, getString(STAGE_HOVER[i]));
             t.setContentDescription(getString(STAGE_HOVER[i]));
             t.setOnClickListener(v -> selectStage(idx));
@@ -813,6 +828,8 @@ public final class AvatarRoomActivity extends Activity implements RoomMenu.Host,
         e.put("rot", rot);
         if (sc != 1) e.put("sc", sc);
         else e.remove("sc");
+        if (dx == 0 && dy == 0 && rot == 0 && sc == 1 && !e.has("z") && !e.has("orbit") && !e.has("auto") && p.optJSONObject("d") != null)
+            p.getJSONObject("d").remove(nodeId);                          // put back to nothing: no empty entry is left (Undo of a box move)
     }
 
     @Override
@@ -1230,12 +1247,21 @@ public final class AvatarRoomActivity extends Activity implements RoomMenu.Host,
         if (character != null && stageIndex >= 2) performPanel.bind(character, stageIndex == 3);
     }
 
+    /** The line under the picture: what this stage is for, and who is on it (the pilot's coach line for the stage). */
+    private void paintHint() {
+        if (stage == null || character == null) return;
+        int[] words = {R.string.avatar_coach_setup, R.string.avatar_coach_arrange, R.string.avatar_coach_motion, R.string.avatar_coach_perform};
+        String name = character.name.isEmpty() ? getString(R.string.avatar_untitled) : character.name;
+        stage.setHint(getString(words[Math.max(0, Math.min(3, stageIndex))], name));
+    }
+
     private void selectStage(int idx) {
         if (landmarks != null && landmarks.isOpen()) closeLandmarks();
         if (inputs.recorder.recording() && idx < 2) endRecord();     // a pass belongs to Motion and Perform
         if (idx < 2 && inputs.micOn()) micOff();                     // the microphone listens only in Motion and Perform
         if (idx < 2 && inputs.faceOn()) faceOff();                   // and so does the camera
         stageIndex = idx;
+        paintHint();
         if (idx != 1) stopReshape();
         testMouth = 0;
         clearTried();
@@ -1247,7 +1273,7 @@ public final class AvatarRoomActivity extends Activity implements RoomMenu.Host,
             g.setCornerRadius(px(14));
             g.setColor(on ? Studio.ARMED : Color.TRANSPARENT);
             stageTabs[i].setBackground(g);
-            stageTabs[i].setTextColor(on ? Studio.GROUND : 0xFFA1A1AA);
+            stageTabs[i].setTextColor(on ? Studio.GROUND : Studio.INK_DIM);
         }
         if (character != null) {
             parts.show(character, inHand, stageIndex);
@@ -1258,16 +1284,21 @@ public final class AvatarRoomActivity extends Activity implements RoomMenu.Host,
         if (sceneRoom != null && sceneRoom.isOpen() && sceneRoom.stage() != idx) sceneRoom.setStage(idx);
     }
 
-    private TextView roundButton(String glyph, String hover) {
+    /**
+     * A room button as Studio draws its own (the owner, 11-28: "emoji buttons, off spec round overs"): a Material icon
+     * ({@code ligature}) in Studio's ink, 20 sp, borderless with Studio's press, and its hover label.
+     */
+    private TextView roundButton(String ligature, String hover) {
         TextView t = new TextView(this);
-        t.setText(glyph);
+        t.setTypeface(com.fadcam.ui.faditor.SheetKit.icons(this));
+        t.setText(ligature);
         t.setGravity(Gravity.CENTER);
-        t.setTextColor(0xFFFAFAFA);
-        t.setTextSize(TypedValue.COMPLEX_UNIT_SP, 18);
-        GradientDrawable g = new GradientDrawable();
-        g.setShape(GradientDrawable.OVAL);
-        g.setColor(0xFF27272A);
-        t.setBackground(g);
+        t.setTextColor(Studio.INK);
+        t.setTextSize(TypedValue.COMPLEX_UNIT_SP, 20);
+        t.setIncludeFontPadding(false);
+        TypedValue tv = new TypedValue();
+        if (getTheme().resolveAttribute(android.R.attr.selectableItemBackgroundBorderless, tv, true)) t.setBackgroundResource(tv.resourceId);
+        com.fadcam.ui.faditor.SheetKit.press(t);
         TooltipCompat.setTooltipText(t, hover);
         t.setContentDescription(hover);
         return t;
@@ -1289,7 +1320,7 @@ public final class AvatarRoomActivity extends Activity implements RoomMenu.Host,
         shoulderHinted = false;
         feedInputs(character);
         pathName.setText(character.name.isEmpty() ? getString(R.string.avatar_untitled) : character.name);
-        stage.setHint(getString(R.string.avatar_hint_character, character.name.isEmpty() ? getString(R.string.avatar_untitled) : character.name));
+        paintHint();
         paintSaveDot();
     }
 
@@ -1338,6 +1369,7 @@ public final class AvatarRoomActivity extends Activity implements RoomMenu.Host,
         if (landmarks != null) landmarks.refresh(d);
         syncTake(d);
         performPanel.refreshSettings(d);
+        syncCameras();                                          // (cameras per tracker: an undone choice opens the camera it names)
         if (fromEdit) {
             unsaved = true;
             editStamp++;
@@ -1722,8 +1754,56 @@ public final class AvatarRoomActivity extends Activity implements RoomMenu.Host,
 
     /** The face capture, made when first asked for (its settings are this phone's; the camera starts only with Face). */
     private com.fadcam.ui.faditor.avatar.face.FaceCapture faceCaptureNow() {
-        if (faceCapture == null) faceCapture = new com.fadcam.ui.faditor.avatar.face.FaceCapture(this);
+        if (faceCapture == null) {
+            faceCapture = new com.fadcam.ui.faditor.avatar.face.FaceCapture(this);
+            faceCapture.setOnCamerasKnown(() -> {                   // (cameras per tracker: the chips can show now)
+                if (stageIndex >= 2 && character != null) performPanel.bind(character, stageIndex == 3);
+            });
+            syncCameras();
+        }
         return faceCapture;
+    }
+
+    // ── cameras per tracker (the owner, 11-27: one person acts the body, another does the face) ─────────────
+
+    @Override
+    public java.util.List<String> cameraChoices() {
+        return faceCaptureNow().cameraChoices();
+    }
+
+    @Override
+    public String faceCamera() {
+        org.json.JSONObject st = character == null ? null : character.json.optJSONObject("settings");
+        return st == null ? com.fadcam.ui.faditor.avatar.face.CameraPlan.FRONT : st.optString("faceCamera", com.fadcam.ui.faditor.avatar.face.CameraPlan.FRONT);
+    }
+
+    @Override
+    public String bodyCamera() {
+        org.json.JSONObject st = character == null ? null : character.json.optJSONObject("settings");
+        return st == null ? faceCamera() : st.optString("bodyCamera", faceCamera());   // (one camera for both until chosen)
+    }
+
+    @Override
+    public void setCamera(boolean body, String key) {
+        int word = "back-wide".equals(key) ? R.string.avatar_cam_back_wide : "back".equals(key) ? R.string.avatar_cam_back : R.string.avatar_cam_front;
+        edit.apply(getString(body ? R.string.avatar_step_body_camera : R.string.avatar_step_face_camera, getString(word)),
+                d -> setPath(d.json, body ? "settings.bodyCamera" : "settings.faceCamera", key));   // (the step's listener opens it and redraws the chips)
+    }
+
+    @Override
+    public boolean camerasRefused() {
+        return faceCapture != null && faceCapture.camerasRefused();
+    }
+
+    private String camerasSeen;
+
+    /** The face capture follows the character's camera choices (a step, an undo, another character); the panel too. */
+    private void syncCameras() {
+        if (faceCapture == null || character == null) return;
+        String now = faceCamera() + "/" + bodyCamera();
+        faceCapture.setCameras(faceCamera(), bodyCamera());
+        if (camerasSeen != null && !camerasSeen.equals(now) && stageIndex >= 2) performPanel.bind(character, stageIndex == 3);
+        camerasSeen = now;
     }
 
     @Override
@@ -1805,7 +1885,7 @@ public final class AvatarRoomActivity extends Activity implements RoomMenu.Host,
 
     private void faceOn() {
         try {
-            if (faceCapture == null) faceCapture = new com.fadcam.ui.faditor.avatar.face.FaceCapture(this);
+            faceCaptureNow();
             faceCapture.setPreview(facePreview instanceof com.fadcam.ui.faditor.avatar.MediaPipeTrackingSource.PreviewSink ? (com.fadcam.ui.faditor.avatar.MediaPipeTrackingSource.PreviewSink) facePreview : null, false);
             faceCapture.start();
             inputs.face(true);
@@ -2034,7 +2114,8 @@ public final class AvatarRoomActivity extends Activity implements RoomMenu.Host,
     }
 
     private void paintUndo() {
-        String u = edit.undoName(), r = edit.redoName();
+        boolean inScene = sceneRoom != null && sceneRoom.isOpen();              // a scene in hand has its own history
+        String u = inScene ? sceneRoom.undoLabel() : edit.undoName(), r = inScene ? sceneRoom.redoLabel() : edit.redoName();
         paintHistoryButton(undoButton, u == null ? getString(R.string.avatar_hover_undo_none) : getString(R.string.avatar_hover_undo, u), u != null);
         paintHistoryButton(redoButton, r == null ? getString(R.string.avatar_hover_redo_none) : getString(R.string.avatar_hover_redo, r), r != null);
     }
@@ -2082,20 +2163,25 @@ public final class AvatarRoomActivity extends Activity implements RoomMenu.Host,
 
     @Override
     public void restack(String id, int by) {
+        restackDone(id, by);
+    }
+
+    /** Moves the part in the stack; false when it was already as far as it goes (nothing changed, no step). */
+    private boolean restackDone(String id, int by) {
         CharacterDoc.Node node = character.find(id);
-        if (node == null) return;
+        if (node == null) return false;
         final CharacterDoc.Node[] parent = {null};
         character.walk((n, d, p) -> {
             if (n.id.equals(id)) parent[0] = p;
         });
-        if (parent[0] == null) return;
+        if (parent[0] == null) return false;
         final String parentId = parent[0].id;
         final int count = parent[0].kids.size();
         int at = 0;
         for (int i = 0; i < count; i++) if (parent[0].kids.get(i).id.equals(id)) at = i;
         final int from = at;
         final int to = by == Integer.MIN_VALUE ? 0 : by == Integer.MAX_VALUE ? count - 1 : Math.max(0, Math.min(count - 1, at + by));
-        if (to == from) return;
+        if (to == from) return false;
         String label = node.name.isEmpty() ? node.id : node.name;
         int word = by == Integer.MIN_VALUE ? R.string.avatar_step_very_back : by == Integer.MAX_VALUE ? R.string.avatar_step_very_front
                 : by < 0 ? R.string.avatar_step_back_one : R.string.avatar_step_forward_one;
@@ -2110,6 +2196,7 @@ public final class AvatarRoomActivity extends Activity implements RoomMenu.Host,
             }
             doc.find(parentId).json.put("kids", rebuilt);
         });
+        return true;
     }
 
     @Override
@@ -2162,11 +2249,14 @@ public final class AvatarRoomActivity extends Activity implements RoomMenu.Host,
     boolean joybotChoose(String what) {
         CharacterDoc.Node n = byName(what);
         if (n == null) return false;
+        stopReshape();                                          // what a tap on a part does: reshape pins do not stay up on the new part
         inHand = n.id;
         stage.setSelected(inHand);
         layers.show(character, inHand);
         rail.show(character, inHand);
         parts.show(character, inHand, stageIndex);
+        refreshPins();
+        if (stageIndex == 2) performPanel.bind(character, false);
         return true;
     }
 
@@ -2205,13 +2295,20 @@ public final class AvatarRoomActivity extends Activity implements RoomMenu.Host,
         int by = h.contains("very back") ? Integer.MIN_VALUE : h.contains("very front") ? Integer.MAX_VALUE
                 : h.contains("back") ? -1 : h.contains("forward") || h.contains("front") ? 1 : 0;
         if (by == 0) return "";
-        restack(n.id, by);
-        return "Moved " + (n.name.isEmpty() ? n.id : n.name) + " " + h + ".";
+        String nm = n.name.isEmpty() ? n.id : n.name;
+        return restackDone(n.id, by) ? "Moved " + nm + " " + h + "." : nm + " is already as far " + (by < 0 ? "back" : "forward") + " as it goes.";
     }
 
     /** Saves into the Joy Creator folder now (the same as Menu, Save). */
-    void joybotSave() {
-        saveNow();
+    void joybotSave(java.util.function.Consumer<String> done) {
+        if (character == null) {
+            done.accept(null);
+            return;
+        }
+        saveCurrent(rel -> {
+            if (!isFinishing()) Toast.makeText(this, rel == null ? R.string.avatar_cannot_save : R.string.avatar_saved, Toast.LENGTH_SHORT).show();
+            done.accept(rel);
+        });
     }
 
     private void autosaveNow() {
@@ -2462,6 +2559,21 @@ public final class AvatarRoomActivity extends Activity implements RoomMenu.Host,
                 showCharacter();
                 setLayersShown(true);
                 main.postDelayed(autosave, 1500);
+            });
+        });
+    }
+
+    @Override
+    public void characterAction(CharacterStore.Entry entry, String what, String arg) {
+        JoyFolderHome.io().execute(() -> {
+            boolean ok;
+            if (what.equals("copy")) ok = CharacterStore.copy(this, entry.path) != null;
+            else if (what.equals("rename")) ok = CharacterStore.rename(this, entry.path, arg) != null;
+            else ok = CharacterStore.remove(this, entry.path);
+            main.post(() -> {
+                if (isFinishing()) return;
+                Toast.makeText(this, ok ? R.string.avatar_card_done : R.string.avatar_card_failed, Toast.LENGTH_SHORT).show();
+                openMenu();
             });
         });
     }

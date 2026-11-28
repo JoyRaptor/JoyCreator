@@ -85,6 +85,12 @@ public class PsdUpdateTest {
         JSONObject extras = find(doc.getJSONObject("root"), "Extras");
         ok(tail != null && extras != null && extras.getJSONArray("kids").length() == 1, "a new layer lands in Extras");
         ok(find(doc.getJSONObject("root"), "Hat") != null, "a drawing that is not in the new file stays");
+        // the SAME bigger file again: the eye is already finer art; it must stay finer and stay put (it used to double and jump)
+        PsdUpdate.apply(doc, PsdReader.parse(PsdReaderTest.psd(v2)), enc(3));
+        JSONObject eye2 = find(doc.getJSONObject("root"), "Eye");
+        ok(doc.getJSONObject("fine").has(eye2.getString("img")) && doc.getJSONObject("fine").getJSONArray(eye2.getString("img")).getInt(0) == 2,
+                "the same bigger file again keeps the eye's finer-art size (2 x 2 on the character)");
+        ok(eye2.getInt("x") == 2 && eye2.getInt("y") == 2, "and the eye stays where it was");
         List<FormatCheck.Problem> bad = FormatCheck.check(doc);
         ok(bad.isEmpty(), "the updated character follows the rules: " + bad);
         ok(PsdUpdate.size("data:image/png;base64,AAAA") == null && PsdUpdate.size("nothing") == null, "a picture that is not a PNG has no size");

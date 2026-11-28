@@ -78,6 +78,29 @@ public final class PerformPanel extends ScrollView {
         default void setShouldersOn(boolean on) {
         }
 
+        /** Cameras per tracker: the cameras this phone offers ("front", "back", "back-wide"), or null while not known. */
+        default List<String> cameraChoices() {
+            return null;
+        }
+
+        /** The face's camera and the body's (the character's choices; the body follows the face unless chosen). */
+        default String faceCamera() {
+            return "front";
+        }
+
+        default String bodyCamera() {
+            return faceCamera();
+        }
+
+        /** The face's ({@code body} false) or the body's camera, as one named undo step. */
+        default void setCamera(boolean body, String key) {
+        }
+
+        /** Two cameras were asked for and this phone cannot open them together: the face's reads both. */
+        default boolean camerasRefused() {
+            return false;
+        }
+
         /** The small private preview of the face (never kept): the view to give the camera, or null. */
         default View facePreview() {
             return null;
@@ -133,9 +156,10 @@ public final class PerformPanel extends ScrollView {
     private final List<String> buttonIds = new ArrayList<>();
     private final List<TextView> moodChips = new ArrayList<>();
     private final List<String> moodNames = new ArrayList<>();
-    private TextView micChip, faceChip, recentreChip, mirrorChip;
+    private TextView micChip, faceChip, faceSettingsChip;
+    private FaceSheet faceSheet;                                    // the face's settings, behind the Face chip
     private boolean compact, walkOpen;
-    private LinearLayout faceRow, shoulderBox;
+    private final List<Hold> activeHolds = new ArrayList<>();                  // hold buttons with a finger on them now
     private int faceWords = R.string.avatar_face;
     private final List<TextView> tickBoxes = new ArrayList<>();
     private final List<String[]> tickKeys = new ArrayList<>();   // {settings key, "t" when a missing key means on}
@@ -164,6 +188,8 @@ public final class PerformPanel extends ScrollView {
     public void bind(CharacterDoc doc, boolean takeBar) {
         boolean newStage = boundTakeBar == null || boundTakeBar != takeBar;
         boundTakeBar = takeBar;
+        for (Hold held : new ArrayList<>(activeHolds)) held.up();               // a hold button the rebuild takes away would never hear its finger lift
+        activeHolds.clear();
         column.removeAllViews();
         buttonChips.clear();
         buttonIds.clear();
@@ -274,49 +300,13 @@ public final class PerformPanel extends ScrollView {
                 }
             } else chipRow.addView(stickChip);
         }
-        // the face's own controls, there only while the camera is on: a private preview, Re-centre, Mirror
-        faceRow = new LinearLayout(c);
-        faceRow.setGravity(Gravity.CENTER_VERTICAL);
-        faceRow.setVisibility(View.GONE);
-        View preview = host.facePreview();
-        if (preview != null) {
-            if (preview.getParent() instanceof ViewGroup) ((ViewGroup) preview.getParent()).removeView(preview);
-            faceRow.addView(preview, new LinearLayout.LayoutParams(px(72), px(54)));
-        }
-        recentreChip = chip(c, c.getString(R.string.avatar_recentre), c.getString(R.string.avatar_hover_recentre), v -> host.recentreFace());
-        mirrorChip = chip(c, c.getString(R.string.avatar_mirror), c.getString(R.string.avatar_hover_mirror), v -> {
-            host.setFaceMirror(!host.faceMirror());
-            paintChips();
-        });
-        LinearLayout faceChips = new LinearLayout(c);
-        faceChips.setOrientation(LinearLayout.VERTICAL);
-        faceChips.setPadding(px(8), 0, 0, 0);
-        faceChips.addView(recentreChip);
-        faceChips.addView(mirrorChip);
-        faceChips.addView(chip(c, c.getString(R.string.avatar_face_dirs), c.getString(R.string.avatar_hover_face_dirs), v -> host.checkDirections()));
-        faceRow.addView(faceChips);
-        LinearLayout.LayoutParams fl = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
-        fl.topMargin = px(6);
-        side.addView(faceRow, fl);
-        // SHRUG-1: Shoulders (the pilot's tick box beside Mirror) and, while on, how little shrug makes a full one
-        shoulderBox = null;
-        if (host.shouldersShown()) {
-            shoulderBox = new LinearLayout(c);
-            shoulderBox.setOrientation(LinearLayout.VERTICAL);
-            shoulderBox.setVisibility(View.GONE);
-            boolean shOn = host.shouldersOn();
-            shoulderBox.addView(WalkSections.tick(c, c.getString(R.string.avatar_shoulders), shOn, c.getString(R.string.avatar_hover_shoulders), dp, v -> {
-                host.setShouldersOn(v);
-                bind(doc, takeBar);
-            }));
-            if (shOn && host instanceof ShrugSections.Host) shoulderBox.addView(ShrugSections.sensitivity(c, (ShrugSections.Host) host, dp));
-            side.addView(shoulderBox);
-        }
+        // the face's settings live in a sheet behind the Face chip (the owner, 11-28: no half-width column of them): a chip
+        // beside Face while the face is on (no long press on Face: a slow tap would open the sheet instead of changing the mode)
+        if (faceSheet == null) faceSheet = new FaceSheet((android.app.Activity) c, host);
+        faceSettingsChip = chip(c, c.getString(R.string.avatar_face_settings), c.getString(R.string.avatar_hover_face_settings), v -> faceSheet.open());
+        faceSettingsChip.setVisibility(View.GONE);
+        chipRow.addView(faceSettingsChip, chipRow.indexOfChild(faceChip) + 1);
         View walkWithFace = host.faceWalkDrawer();
-        if (walkWithFace != null) {
-            if (walkWithFace.getParent() instanceof ViewGroup) ((ViewGroup) walkWithFace.getParent()).removeView(walkWithFace);
-            side.addView(walkWithFace);
-        }
         row.addView(side, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
         stickPad = null;
         if (host.stick() != null && host.stickOpen()) {                      // the second pad, for the other thumb
@@ -387,7 +377,7 @@ public final class PerformPanel extends ScrollView {
             column.addView(weather);
             SeekBar sb = new SeekBar(c);
             sb.setMax(200);
-            sb.setProgress(100);
+            sb.setProgress(100 + (int) Math.round(in.windNow() * 100));
             sb.getProgressDrawable().setTint(Studio.ARMED);
             sb.getThumb().setTint(Studio.ARMED);
             sb.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
@@ -414,7 +404,7 @@ public final class PerformPanel extends ScrollView {
         letGo.setPadding(0, px(10), 0, 0);
         letGo.addView(chip(c, c.getString(R.string.avatar_let_go), c.getString(R.string.avatar_hover_let_go), v -> {
             in.letGoOfEverything();
-            paintChips();
+            bind(doc, takeBar);                                           // the cards are drawn again at rest: Weather says still
         }));
         column.addView(letGo);
         // alive by itself: the character's own habits (tick boxes: on or off, never two equals)
@@ -426,11 +416,13 @@ public final class PerformPanel extends ScrollView {
             column.addView(tickRow(c, "autoFlip", false, R.string.avatar_turns_around, R.string.avatar_hover_turns_around));
         refreshSettings(doc);
         paintChips();
+        if (faceSheet != null && faceSheet.isOpen()) faceSheet.rebuild();
         if (newStage) post(() -> scrollTo(0, 0));
     }
 
     /** Reads the habits' tick boxes from the character (after an undo or redo changed them). */
     public void refreshSettings(CharacterDoc doc) {
+        if (faceSheet != null) faceSheet.paint();
         JSONObject st = doc.json.optJSONObject("settings");
         for (int i = 0; i < tickBoxes.size(); i++) {
             String key = tickKeys.get(i)[0];
@@ -451,13 +443,13 @@ public final class PerformPanel extends ScrollView {
         TextView t = new TextView(c);
         t.setText(label);
         t.setTextSize(13);
-        t.setTextColor(0xFFD4D4D8);
+        t.setTextColor(Studio.LABEL);
         t.setPadding(px(10), 0, 0, 0);
         row.addView(t);
         tickBoxes.add(box);
         tickKeys.add(new String[]{key, defaultOn ? "t" : "f"});
         row.setOnClickListener(v -> {
-            boolean now = !"\u2713".contentEquals(box.getText());
+            boolean now = !"check".contentEquals(box.getText());
             host.setSetting(key, now, c.getString(now ? R.string.avatar_step_on : R.string.avatar_step_off, c.getString(label)));
         });
         TooltipCompat.setTooltipText(row, c.getString(hover));
@@ -470,9 +462,10 @@ public final class PerformPanel extends ScrollView {
         GradientDrawable g = new GradientDrawable();
         g.setCornerRadius(px(6));
         if (on) g.setColor(Studio.ARMED);
-        else g.setStroke(Math.max(1, px(1.5f)), 0xFF52525B);
+        else g.setStroke(Math.max(1, px(1.5f)), Studio.INK_OFF);
         box.setBackground(g);
-        box.setText(on ? "\u2713" : "");
+        box.setTypeface(com.fadcam.ui.faditor.SheetKit.icons(box.getContext()));             // (Studio's tick, not a typed mark)
+        box.setText(on ? "check" : "");
         box.setTextColor(Studio.GROUND);
     }
 
@@ -506,9 +499,11 @@ public final class PerformPanel extends ScrollView {
                 faceChip.setText(words);
             }
         }
-        if (faceRow != null) faceRow.setVisibility(in.faceOn() ? View.VISIBLE : View.GONE);
-        if (shoulderBox != null) shoulderBox.setVisibility(in.faceOn() ? View.VISIBLE : View.GONE);
-        if (mirrorChip != null) paintChip(mirrorChip, host.faceMirror());
+        if (faceSettingsChip != null) faceSettingsChip.setVisibility(in.faceOn() ? View.VISIBLE : View.GONE);
+        if (faceSheet != null && faceSheet.isOpen()) {
+            if (!in.faceOn()) faceSheet.close();                         // (the camera let go: nothing in the sheet works)
+            else faceSheet.paint();
+        }
     }
 
     // ── the take bar ──────────────────────────────────────────────────────────────────────────────
@@ -516,7 +511,7 @@ public final class PerformPanel extends ScrollView {
     private View takeBar(Context c) {
         LinearLayout bar = new LinearLayout(c);
         bar.setGravity(Gravity.CENTER_VERTICAL);
-        rec = round(c, "●", c.getString(R.string.avatar_hover_record));
+        rec = round(c, "fiber_manual_record", c.getString(R.string.avatar_hover_record));
         rec.setOnClickListener(v -> host.toggleRecord());
         bar.addView(rec, new LinearLayout.LayoutParams(px(40), px(40)));
         strip = new TakeStrip(c);
@@ -524,15 +519,15 @@ public final class PerformPanel extends ScrollView {
         sl.leftMargin = px(8);
         sl.rightMargin = px(8);
         bar.addView(strip, sl);
-        play = round(c, "▶", c.getString(R.string.avatar_hover_play));
+        play = round(c, "play_arrow", c.getString(R.string.avatar_hover_play));
         play.setOnClickListener(v -> host.togglePlay());
         bar.addView(play, new LinearLayout.LayoutParams(px(40), px(40)));
-        back = round(c, "↺", c.getString(R.string.avatar_hover_take_back));
+        back = round(c, "undo", c.getString(R.string.avatar_hover_take_back));
         back.setOnClickListener(v -> host.takeBack());
         LinearLayout.LayoutParams gap = new LinearLayout.LayoutParams(px(40), px(40));
         gap.leftMargin = px(6);
         bar.addView(back, gap);
-        clear = round(c, "✕", c.getString(R.string.avatar_hover_clear_take));
+        clear = round(c, "delete", c.getString(R.string.avatar_hover_clear_take));
         clear.setOnClickListener(v -> host.clearTake());
         bar.addView(clear, gap);
         paintTakeBar();
@@ -543,24 +538,32 @@ public final class PerformPanel extends ScrollView {
         Inputs in = host.inputs();
         boolean recording = in.recorder.recording(), playing = in.recorder.playing() && !recording;
         boolean hasTake = in.recorder.take() != null && in.recorder.take().n > 0;
-        GradientDrawable g = new GradientDrawable();
-        g.setShape(GradientDrawable.OVAL);
-        g.setColor(recording ? Studio.LIVE : 0xFF27272A);
-        rec.setBackground(g);
-        rec.setTextColor(recording ? Studio.GROUND : Studio.LIVE);
-        paintRound(play, playing);
-        play.setText(playing ? "■" : "▶");
+        paintRound(rec, recording, Studio.LIVE);                          // (recording: solid red, the dot cut out; else a red dot)
+        if (!recording) rec.setTextColor(Studio.LIVE);
+        paintRound(play, playing, Studio.ARMED);
+        play.setText(playing ? "stop" : "play_arrow");
         play.setAlpha(hasTake || playing ? 1f : 0.35f);
         back.setAlpha(!recording && in.recorder.hasPassToTakeBack() ? 1f : 0.35f);
         clear.setAlpha(hasTake ? 1f : 0.35f);
     }
 
-    private void paintRound(TextView t, boolean on) {
-        GradientDrawable g = new GradientDrawable();
-        g.setShape(GradientDrawable.OVAL);
-        g.setColor(on ? Studio.ARMED : 0xFF27272A);
-        t.setBackground(g);
-        t.setTextColor(on ? Studio.GROUND : 0xFFE4E4E7);
+    /** On: solid {@code onColour} with the icon cut out (the owner's rule); off: borderless, in Studio's ink. */
+    private void paintRound(TextView t, boolean on, int onColour) {
+        Integer was = (Integer) t.getTag();                               // (painted every frame: only a change repaints)
+        int now = on ? onColour : 0;
+        if (was != null && was == now) return;
+        t.setTag(now);
+        if (on) {
+            GradientDrawable g = new GradientDrawable();
+            g.setShape(GradientDrawable.OVAL);
+            g.setColor(onColour);
+            t.setBackground(g);
+        } else {
+            android.util.TypedValue tv = new android.util.TypedValue();
+            if (t.getContext().getTheme().resolveAttribute(android.R.attr.selectableItemBackgroundBorderless, tv, true)) t.setBackgroundResource(tv.resourceId);
+            else t.setBackground(null);
+        }
+        t.setTextColor(on ? Studio.GROUND : Studio.INK);
     }
 
     /** The take strip: drag to move through the take (silent), the time and length written on it. */
@@ -577,7 +580,7 @@ public final class PerformPanel extends ScrollView {
         protected void onDraw(Canvas c) {
             Inputs in = host.inputs();
             float w = getWidth(), h = getHeight(), r = 10 * dp;
-            p.setColor(0xFF18181B);
+            p.setColor(Studio.PANEL);
             c.drawRoundRect(new RectF(0, 0, w, h), r, r, p);
             double dur = in.recorder.duration(), now = in.recorder.clock();
             double total = Math.max(dur, in.recorder.recording() ? now : 0);
@@ -586,7 +589,7 @@ public final class PerformPanel extends ScrollView {
                 float x = (float) (6 * dp + (w - 12 * dp) * Math.min(1, now / total));
                 c.drawRect(x - dp, 4 * dp, x + dp, h - 4 * dp, p);
             }
-            p.setColor(0xFFA1A1AA);
+            p.setColor(Studio.INK_DIM);
             p.setTextSize(11 * dp);
             String t = total <= 0 ? getContext().getString(R.string.avatar_no_take) : String.format(Locale.US, "%.1f / %.1f s", now, total);
             c.drawText(t, 10 * dp, h / 2 + 4 * dp, p);
@@ -621,18 +624,20 @@ public final class PerformPanel extends ScrollView {
         t.setText(text);
         t.setGravity(Gravity.CENTER);
         t.setTextSize(compact ? 12 : 14);
+        RoomType.control(t);
         paintHold(t, false);
         t.setOnTouchListener((v, e) -> {
             switch (e.getActionMasked()) {
                 case MotionEvent.ACTION_DOWN:
                     v.getParent().requestDisallowInterceptTouchEvent(true);
                     paintHold(t, true);
+                    activeHolds.add(h);
                     h.down();
                     return true;
                 case MotionEvent.ACTION_UP:
                 case MotionEvent.ACTION_CANCEL:
                     paintHold(t, false);
-                    h.up();
+                    if (activeHolds.remove(h)) h.up();
                     return true;
                 default:
                     return true;
@@ -646,17 +651,21 @@ public final class PerformPanel extends ScrollView {
     private void paintHold(TextView t, boolean on) {
         GradientDrawable g = new GradientDrawable();
         g.setCornerRadius(px(14));
-        g.setColor(on ? Studio.ARMED : 0xFF27272A);
+        g.setColor(on ? Studio.ARMED : Studio.RAISED);
         t.setBackground(g);
-        t.setTextColor(on ? Studio.GROUND : 0xFFE4E4E7);
+        t.setTextColor(on ? Studio.GROUND : Studio.INK);
     }
 
-    private TextView round(Context c, String glyph, String hover) {
+    /** A take bar button as Studio's own: a Material icon ({@code ligature}), borderless, its hover label. */
+    private TextView round(Context c, String ligature, String hover) {
         TextView t = new TextView(c);
-        t.setText(glyph);
+        t.setTypeface(com.fadcam.ui.faditor.SheetKit.icons(c));
+        t.setText(ligature);
         t.setGravity(Gravity.CENTER);
-        t.setTextSize(16);
-        paintRound(t, false);
+        t.setTextSize(22);
+        t.setIncludeFontPadding(false);
+        com.fadcam.ui.faditor.SheetKit.press(t);
+        paintRound(t, false, Studio.ARMED);
         TooltipCompat.setTooltipText(t, hover);
         t.setContentDescription(hover);
         return t;
@@ -666,6 +675,7 @@ public final class PerformPanel extends ScrollView {
         TextView t = new TextView(c);
         t.setText(text);
         t.setTextSize(12);
+        RoomType.control(t);
         t.setGravity(Gravity.CENTER);
         t.setPadding(px(12), 0, px(12), 0);
         LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, px(32));
@@ -682,12 +692,12 @@ public final class PerformPanel extends ScrollView {
     private void paintChip(TextView t, boolean on) {
         GradientDrawable g = new GradientDrawable();
         g.setCornerRadius(px(16));
-        g.setColor(on ? Studio.ARMED : 0xFF27272A);
+        g.setColor(on ? Studio.ARMED : Studio.RAISED);
         t.setBackground(g);
-        t.setTextColor(on ? Studio.GROUND : 0xFFD4D4D8);
+        t.setTextColor(on ? Studio.GROUND : Studio.LABEL);
         if (t.getTag() instanceof Integer) {                         // a picture-only chip: the room's own vector, white, cyan cut-out when ON
             android.graphics.drawable.Drawable d = getContext().getDrawable((Integer) t.getTag()).mutate();
-            d.setTint(on ? Studio.GROUND : 0xFFFFFFFF);
+            d.setTint(on ? Studio.GROUND : Studio.INK);
             d.setBounds(0, 0, px(18), px(18));
             t.setCompoundDrawables(d, null, null, null);
         }
@@ -697,9 +707,9 @@ public final class PerformPanel extends ScrollView {
         TextView t = new TextView(getContext());
         t.setText(s);
         t.setTextSize(12);
-        t.setTextColor(0xFF71717A);
+        t.setTextColor(Studio.INK_FAINT);
         t.setPadding(0, px(8), 0, px(6));
-        return t;
+        return RoomType.label(t);
     }
 
     private static boolean hasRole(CharacterDoc d, String role) {

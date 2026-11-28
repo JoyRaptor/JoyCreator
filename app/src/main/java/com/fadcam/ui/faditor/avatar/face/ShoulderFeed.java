@@ -37,6 +37,7 @@ public final class ShoulderFeed {
      */
     public synchronized void reading(@Nullable float[] xyv, float tall, double t, boolean mirror, float sensitivity) {
         float[] d = ShoulderStage.drops(xyv, tall);
+        if (d != null && (!Float.isFinite(d[0]) || !Float.isFinite(d[1]))) d = null;   // (not a number is no body: the smoothing would keep it)
         stage.setSensitivity(sensitivity);
         Map<String, Float> o = stage.process(d, t, mirror);
         double dt = Double.isNaN(lastReadT) ? 0 : Math.max(0, Math.min(1, t - lastReadT));

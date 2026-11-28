@@ -124,6 +124,56 @@ class SelectBench(private val canvas: JbCanvasView, private val runId: String, p
             }
             draw(0)
         }
+        // CONCEPTS_LINE_PARITY_20261127: the Whole lines eraser, picked as a person picks it (the strip's Eraser, Eraser again
+        // for the erasers, the Whole lines row), then one pen stroke down across L1 and L2 (not L3, the upright one): both
+        // go at once as ONE undo step, and one Undo brings both back. Each check holds 3 s for a screenshot.
+        step("wholeLinesEraser") { next ->
+            val strip = g.find<ToolStripView>().singleOrNull()
+            val eraser = strip?.let { g.labelled("Eraser —", it) }
+            if (eraser == null) { report("wholeLinesEraser", false, JSONObject().put("why", "no strip Eraser")); next(); return@step }
+            fun rowOf(): View? = g.find<cc.joycreator.joybrush.android.chrome.BrushDrawerView>().singleOrNull()?.let { d ->
+                g.all(d).singleOrNull { it.isShown && it.contentDescription?.toString()?.startsWith("Whole lines. ") == true }
+            }
+            fun erase() {
+                val before = all()
+                undoDepth { d0 ->
+                    val x = 0.30f * w
+                    g.stroke(listOf(SelectGestures.P(x, 0.24f * h), SelectGestures.P(x + 2f, 0.35f * h), SelectGestures.P(x, 0.46f * h)),
+                        500, pen = true, settleMs = 900) {
+                        val after = all()
+                        undoDepth { d1 ->
+                            val gone = before - after
+                            val ok = gone == setOf(ids[0], ids[1]) && d1 == d0 + 1
+                            report("wholeLinesEraser", ok, JSONObject().put("before", before.size).put("after", after.size)
+                                .put("goneAreL1L2", gone == setOf(ids[0], ids[1])).put("steps", d1 - d0))
+                            ui.postDelayed({
+                                canvas.undo()
+                                waitFor(600, 4000, { all() == before }) {
+                                    undoDepth { d2 ->
+                                        report("wholeLinesEraserUndo", all() == before && d2 == d0,
+                                            JSONObject().put("lines", all().size).put("backToDepth", d2 == d0))
+                                        ui.postDelayed({
+                                            // The brush back in the hand for the steps that follow.
+                                            val brush = g.labelled("Brush —", strip)
+                                            if (brush != null) g.tapView(brush) { next() } else next()
+                                        }, 3000)
+                                    }
+                                }
+                            }, 3000)
+                        }
+                    }
+                }
+            }
+            g.tapView(eraser) {
+                val row = rowOf()
+                if (row != null) g.tapView(row, settleMs = 700) { erase() }
+                else g.tapView(eraser, settleMs = 700) {
+                    val r = rowOf()
+                    if (r == null) { report("wholeLinesEraser", false, JSONObject().put("why", "no Whole lines row in the erasers")); next() }
+                    else g.tapView(r, settleMs = 700) { erase() }
+                }
+            }
+        }
         step("chooseSelect") { next ->
             val b = g.labelled("Select —")
             if (b == null) { report("chooseSelect", false, JSONObject().put("why", "no shown strip button labelled Select")); next(); return@step }

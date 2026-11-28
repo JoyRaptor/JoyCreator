@@ -5,6 +5,8 @@
 #                              Mix), and the camera shutter path still draws
 #   MotionCardScreenshotTest   the real Motion Blur card at the Note 9's drawer width, driven: long trail, Streak,
 #                              More, Copies, a key; screenshots of each step
+#   MotionFootageTransitionTest filmed video with Motion Blur in a project with a transition, through the real
+#                              export: frames away from the seam blur, frames inside the blend stay sharp
 # Pictures, the instrument output and logcat are the run's artifact. Started by a push that touches the motion blur
 # card, the trail pass or these tests, or from the Actions tab. Rules as build.yml: never signs, no secrets, public logs.
 # What an emulator cannot show: the Note 9's real GPU (Adreno precision and speed). Those stay on the phone.
@@ -18,7 +20,7 @@ on:
         required: true
         default: joy-creator
       tests:
-        description: "all, trail (MotionTrailGlTest), card (MotionCardScreenshotTest) or gallery (MotionGalleryTest)"
+        description: "all, trail (MotionTrailGlTest), card (MotionCardScreenshotTest), gallery (MotionGalleryTest), timing, character or footage (MotionFootageTransitionTest)"
         required: false
         default: all
       fault:
@@ -40,6 +42,8 @@ on:
       - app/src/main/java/com/fadcam/ui/faditor/motion/card/**
       - app/src/main/java/com/fadcam/ui/faditor/compositor/RigidTextureShutterPass.java
       - app/src/main/java/com/fadcam/ui/faditor/compositor/CharacterMotionRaster.java
+      - app/src/main/java/com/fadcam/ui/faditor/model/FootageSpans.java
+      - app/src/main/java/com/fadcam/ui/faditor/export/HighFootageExportEffect.java
       - studiokit/src/main/java/com/fadcam/ui/faditor/motion/**
 
 run-name: "stu7 motion emulator ${{ inputs.tests || 'all' }} fault=${{ inputs.fault || 'none' }} @ ${{ inputs.ref || github.ref_name }} [${{ inputs.request_id || 'push' }}]"
@@ -189,7 +193,8 @@ jobs:
             gallery) CLASSES=com.fadcam.ui.faditor.motion.emu.MotionGalleryTest ;;
             timing) CLASSES=com.fadcam.ui.faditor.motion.emu.MotionTimingTest ;;
             character) CLASSES=com.fadcam.ui.faditor.motion.emu.MotionCharacterBlurTest ;;
-            *)     CLASSES=com.fadcam.ui.faditor.motion.emu.MotionTrailGlTest,com.fadcam.ui.faditor.motion.emu.MotionCardScreenshotTest,com.fadcam.ui.faditor.motion.emu.MotionGalleryTest,com.fadcam.ui.faditor.motion.emu.MotionTimingTest,com.fadcam.ui.faditor.motion.emu.MotionCharacterBlurTest ;;
+            footage) CLASSES=com.fadcam.ui.faditor.motion.emu.MotionFootageTransitionTest ;;
+            *)     CLASSES=com.fadcam.ui.faditor.motion.emu.MotionTrailGlTest,com.fadcam.ui.faditor.motion.emu.MotionCardScreenshotTest,com.fadcam.ui.faditor.motion.emu.MotionGalleryTest,com.fadcam.ui.faditor.motion.emu.MotionTimingTest,com.fadcam.ui.faditor.motion.emu.MotionCharacterBlurTest,com.fadcam.ui.faditor.motion.emu.MotionFootageTransitionTest ;;
           esac
           ARGS=(-e class "$CLASSES")
           [ "$FAULT" != none ] && ARGS+=(-e fault "$FAULT")

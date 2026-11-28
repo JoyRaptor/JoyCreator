@@ -9,6 +9,8 @@ check-in nudges any lane that has gone idle. (New sessions can't be started from
 **Owner 11-23 evening: the app comes first.** No more website or sizzle-video work until the app is done; the
 website draft stays as it is. Pick app jobs only.
 
+**Owner 11-28: land features visible.** "Right now there is no public. There's just me... I need to be able to see these things." No launch-hide lines, no finished feature behind an off switch, no never-land test build as the way to show him work. The hide list is empty (3271fbb5d).
+
 Rules for every lane: read `tasks/AGENT_START.md` and `tasks/BOARD.md` first; claim your files on BOARD; use your own
 worktree; build and test in the cloud (`tools/cloud-build.ps1`), never with local Gradle; land on `joy-creator` only
 when it is proven (no dirty overlap, nobody mid-edit, guard on); update the job card, the ROADMAP row and STATE.

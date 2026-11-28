@@ -347,6 +347,11 @@ public final class Inputs implements Walker.Body {
     }
 
     /** The Breeze slider: -1 (left) to 1 (right). */
+    /** The breeze now, -1..1 (the Weather slider is drawn at it, so a rebuilt card never says "still" while the wind blows). */
+    public double windNow() {
+        return wind;
+    }
+
     public void breeze(double v, long nowMs) {
         wind = Math.abs(v) < 0.06 ? 0 : Math.max(-1, Math.min(1, v));
         windUntil = nowMs + HOLD_WIND_MS;
@@ -375,6 +380,14 @@ public final class Inputs implements Walker.Body {
         moodNow = MOODS.get("Neutral");
         headHeld = talking = blinkHold = false;
         trig.clear();
+        // the hands go home too (the pilot's resetPose: handL = handR = null); a new character never inherits the last
+        // one's hand places (X6 P13)
+        for (int i = 0; i < 2; i++) {
+            handTo[i] = null;
+            handSm[i] = null;
+            handHeld[i] = false;
+        }
+        handsUsed = false;
     }
 
     // ── a pass ────────────────────────────────────────────────────────────────────────────────────

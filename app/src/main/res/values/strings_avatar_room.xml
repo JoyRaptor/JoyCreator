@@ -322,5 +322,17 @@ Perform by talking, turning the head on the pad, tapping buttons and walking the
     <string name="avatar_step_mouth_swap">Mouth: swap only</string>
     <string name="avatar_follow_how">How does it move?</string>
     <string name="avatar_follow_what">What does it follow?</string>
+    <string name="avatar_coach_setup">%1$s · Set up: pick a part, then its pins</string>
+    <string name="avatar_coach_arrange">%1$s · Arrange: drag to move, a corner resizes</string>
+    <string name="avatar_coach_motion">%1$s · Motion: how the part in hand moves</string>
+    <string name="avatar_coach_perform">%1$s · Perform: head pad, hold to talk, record</string>
+    <string name="avatar_card_rename">Rename</string>
+    <string name="avatar_card_copy">Copy</string>
+    <string name="avatar_card_remove">Remove</string>
+    <string name="avatar_card_rename_title">Name this character</string>
+    <string name="avatar_card_remove_title">Remove %1$s?</string>
+    <string name="avatar_card_remove_body">It goes to the trash of the folder, where it can be got back.</string>
+    <string name="avatar_card_done">Done</string>
+    <string name="avatar_card_failed">That did not work: the folder could not be reached.</string>
 </resources>
 

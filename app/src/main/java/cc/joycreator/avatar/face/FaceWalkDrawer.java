@@ -77,7 +77,7 @@ public final class FaceWalkDrawer extends LinearLayout {
         upBox = row(c, R.string.avatar_face_walk_up, R.string.avatar_face_walk_up_sub, R.string.avatar_hover_face_walk_up, () -> walk.setUpClose(!walk.upClose()));
         note = new TextView(c);
         note.setTextSize(11);
-        note.setTextColor(0xFF71717A);
+        note.setTextColor(Studio.INK_FAINT);
         note.setPadding(0, px(2), 0, px(4));
         boxes.addView(note);
         addView(boxes);
@@ -117,11 +117,11 @@ public final class FaceWalkDrawer extends LinearLayout {
         TextView t = new TextView(c);
         t.setText(label);
         t.setTextSize(13);
-        t.setTextColor(0xFFD4D4D8);
+        t.setTextColor(Studio.LABEL);
         TextView s = new TextView(c);
         s.setText(sub);
         s.setTextSize(11);
-        s.setTextColor(0xFF71717A);
+        s.setTextColor(Studio.INK_FAINT);
         words.addView(t);
         words.addView(s);
         row.addView(words, new LayoutParams(0, LayoutParams.WRAP_CONTENT, 1f));
@@ -139,18 +139,19 @@ public final class FaceWalkDrawer extends LinearLayout {
         GradientDrawable g = new GradientDrawable();
         g.setCornerRadius(px(6));
         if (on) g.setColor(Studio.ARMED);
-        else g.setStroke(Math.max(1, px(1.5f)), 0xFF52525B);
+        else g.setStroke(Math.max(1, px(1.5f)), Studio.INK_OFF);
         box.setBackground(g);
-        box.setText(on ? "✓" : "");
+        box.setTypeface(com.fadcam.ui.faditor.SheetKit.icons(box.getContext()));             // (Studio's tick, not a typed mark)
+        box.setText(on ? "check" : "");
         box.setTextColor(Studio.GROUND);
     }
 
     private void paintChip(TextView t, boolean on) {
         GradientDrawable g = new GradientDrawable();
         g.setCornerRadius(px(16));
-        g.setColor(on ? Studio.ARMED : 0xFF27272A);
+        g.setColor(on ? Studio.ARMED : Studio.RAISED);
         t.setBackground(g);
-        t.setTextColor(on ? Studio.GROUND : 0xFFD4D4D8);
+        t.setTextColor(on ? Studio.GROUND : Studio.LABEL);
     }
 
     private static void tip(View v, String s) {

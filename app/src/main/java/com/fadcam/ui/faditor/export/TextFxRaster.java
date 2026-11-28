@@ -11,6 +11,7 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
 import com.fadcam.ui.faditor.model.TextOverlayItem;
+import com.fadcam.ui.faditor.overlay.TextOverlayRenderer;
 
 /**
  * The full-frame picture of a text that carries its own effects: what the effects run on. ONE drawing for the export

@@ -124,7 +124,7 @@ public final class StanceCard {
         LinearLayout box = new LinearLayout(c);
         box.setOrientation(LinearLayout.VERTICAL);
         LinearLayout head = new LinearLayout(c);
-        TextView l = text(c, label, 13, 0xFFD4D4D8), val = text(c, fmt.of(value), 12, 0xFFA1A1AA);
+        TextView l = text(c, label, 13, Studio.LABEL), val = text(c, fmt.of(value), 12, Studio.INK_DIM);
         head.addView(l, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
         head.addView(val);
         box.addView(head);
@@ -157,12 +157,12 @@ public final class StanceCard {
     }
 
     private static View chip(Context c, String text, boolean on, String hover, float dp, View.OnClickListener tap) {
-        TextView t = text(c, text, 12, on ? Studio.GROUND : 0xFFD4D4D8);
+        TextView t = text(c, text, 12, on ? Studio.GROUND : Studio.LABEL);
         t.setGravity(Gravity.CENTER);
         t.setPadding(Math.round(12 * dp), 0, Math.round(12 * dp), 0);
         GradientDrawable g = new GradientDrawable();
         g.setCornerRadius(16 * dp);
-        g.setColor(on ? Studio.ARMED : 0xFF27272A);
+        g.setColor(on ? Studio.ARMED : Studio.RAISED);
         t.setBackground(g);
         LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, Math.round(32 * dp));
         lp.rightMargin = Math.round(6 * dp);
@@ -181,13 +181,13 @@ public final class StanceCard {
     }
 
     private static TextView label(Context c, String s, float dp) {
-        TextView t = text(c, s, 12, 0xFF71717A);
+        TextView t = text(c, s, 12, Studio.INK_FAINT);
         t.setPadding(0, Math.round(8 * dp), 0, Math.round(6 * dp));
         return t;
     }
 
     private static TextView note(Context c, String s, float dp) {
-        TextView t = text(c, s, 13, 0xFFA1A1AA);
+        TextView t = text(c, s, 13, Studio.INK_DIM);
         t.setPadding(0, Math.round(6 * dp), 0, Math.round(6 * dp));
         return t;
     }

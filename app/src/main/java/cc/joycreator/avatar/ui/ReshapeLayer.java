@@ -9,6 +9,7 @@ import org.json.JSONObject;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import com.fadcam.ui.faditor.Studio;
 
 /**
  * Arrange, Reshape with pins: the pins of the part in hand sit on the picture where they are now; tap the part for a new one, drag
@@ -46,7 +47,7 @@ public final class ReshapeLayer implements StageView.LandmarkLayer {
         void say(int string);
     }
 
-    private static final int VIOLET = 0xFFA78BFA;
+    private static final int VIOLET = Studio.GUIDE;
 
     private final Host host;
     private JSONArray old;

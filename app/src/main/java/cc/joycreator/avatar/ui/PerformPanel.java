@@ -445,7 +445,7 @@ public final class PerformPanel extends ScrollView {
         TextView t = new TextView(c);
         t.setText(label);
         t.setTextSize(13);
-        t.setTextColor(0xFFD4D4D8);
+        t.setTextColor(Studio.LABEL);
         t.setPadding(px(10), 0, 0, 0);
         row.addView(t);
         tickBoxes.add(box);
@@ -464,7 +464,7 @@ public final class PerformPanel extends ScrollView {
         GradientDrawable g = new GradientDrawable();
         g.setCornerRadius(px(6));
         if (on) g.setColor(Studio.ARMED);
-        else g.setStroke(Math.max(1, px(1.5f)), 0xFF52525B);
+        else g.setStroke(Math.max(1, px(1.5f)), Studio.INK_OFF);
         box.setBackground(g);
         box.setTypeface(com.fadcam.ui.faditor.SheetKit.icons(box.getContext()));             // (Studio's tick, not a typed mark)
         box.setText(on ? "check" : "");
@@ -582,7 +582,7 @@ public final class PerformPanel extends ScrollView {
         protected void onDraw(Canvas c) {
             Inputs in = host.inputs();
             float w = getWidth(), h = getHeight(), r = 10 * dp;
-            p.setColor(0xFF18181B);
+            p.setColor(Studio.PANEL);
             c.drawRoundRect(new RectF(0, 0, w, h), r, r, p);
             double dur = in.recorder.duration(), now = in.recorder.clock();
             double total = Math.max(dur, in.recorder.recording() ? now : 0);
@@ -591,7 +591,7 @@ public final class PerformPanel extends ScrollView {
                 float x = (float) (6 * dp + (w - 12 * dp) * Math.min(1, now / total));
                 c.drawRect(x - dp, 4 * dp, x + dp, h - 4 * dp, p);
             }
-            p.setColor(0xFFA1A1AA);
+            p.setColor(Studio.INK_DIM);
             p.setTextSize(11 * dp);
             String t = total <= 0 ? getContext().getString(R.string.avatar_no_take) : String.format(Locale.US, "%.1f / %.1f s", now, total);
             c.drawText(t, 10 * dp, h / 2 + 4 * dp, p);
@@ -651,9 +651,9 @@ public final class PerformPanel extends ScrollView {
     private void paintHold(TextView t, boolean on) {
         GradientDrawable g = new GradientDrawable();
         g.setCornerRadius(px(14));
-        g.setColor(on ? Studio.ARMED : 0xFF27272A);
+        g.setColor(on ? Studio.ARMED : Studio.RAISED);
         t.setBackground(g);
-        t.setTextColor(on ? Studio.GROUND : 0xFFE4E4E7);
+        t.setTextColor(on ? Studio.GROUND : Studio.INK);
     }
 
     /** A take bar button as Studio's own: a Material icon ({@code ligature}), borderless, its hover label. */
@@ -691,12 +691,12 @@ public final class PerformPanel extends ScrollView {
     private void paintChip(TextView t, boolean on) {
         GradientDrawable g = new GradientDrawable();
         g.setCornerRadius(px(16));
-        g.setColor(on ? Studio.ARMED : 0xFF27272A);
+        g.setColor(on ? Studio.ARMED : Studio.RAISED);
         t.setBackground(g);
-        t.setTextColor(on ? Studio.GROUND : 0xFFD4D4D8);
+        t.setTextColor(on ? Studio.GROUND : Studio.LABEL);
         if (t.getTag() instanceof Integer) {                         // a picture-only chip: the room's own vector, white, cyan cut-out when ON
             android.graphics.drawable.Drawable d = getContext().getDrawable((Integer) t.getTag()).mutate();
-            d.setTint(on ? Studio.GROUND : 0xFFFFFFFF);
+            d.setTint(on ? Studio.GROUND : Studio.INK);
             d.setBounds(0, 0, px(18), px(18));
             t.setCompoundDrawables(d, null, null, null);
         }
@@ -706,7 +706,7 @@ public final class PerformPanel extends ScrollView {
         TextView t = new TextView(getContext());
         t.setText(s);
         t.setTextSize(12);
-        t.setTextColor(0xFF71717A);
+        t.setTextColor(Studio.INK_FAINT);
         t.setPadding(0, px(8), 0, px(6));
         return t;
     }

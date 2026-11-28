@@ -7,6 +7,7 @@ import android.graphics.Paint;
 import android.view.View;
 
 import cc.joycreator.avatar.file.CharacterDoc;
+import com.fadcam.ui.faditor.Studio;
 
 /**
  * The stage: old-black, the character fitted into the room left between the hint line and the stage buttons
@@ -50,8 +51,8 @@ public final class StageView extends View {
                 return true;
             }
         });
-        setBackgroundColor(0xFF000000);
-        hint.setColor(0xFFA1A1AA);
+        setBackgroundColor(Studio.GROUND);
+        hint.setColor(Studio.INK_DIM);
         hint.setTextSize(12f * c.getResources().getDisplayMetrics().density);
         line.setStyle(Paint.Style.STROKE);
         line.setColor(com.fadcam.ui.faditor.Studio.ARMED);
@@ -187,19 +188,19 @@ public final class StageView extends View {
                 dotPaint.setStrokeWidth(2 * dp / fitS);
                 c.drawCircle(x, y, r, dotPaint);
             } else if ("off".equals(d.state)) {
-                dotPaint.setColor(0xFF71717A);
+                dotPaint.setColor(Studio.INK_FAINT);
                 dotPaint.setStyle(Paint.Style.FILL);
                 c.drawCircle(x, y, r * 0.8f, dotPaint);
                 dotPaint.setStyle(Paint.Style.STROKE);
                 dotPaint.setStrokeWidth(1.5f * dp / fitS);
-                dotPaint.setColor(0xFFFAFAFA);
+                dotPaint.setColor(Studio.INK);
                 c.drawLine(x - r, y + r, x + r, y - r, dotPaint);
             } else {
                 dotPaint.setStyle(Paint.Style.FILL);
                 c.drawCircle(x, y, r, dotPaint);
             }
             if (d.label != null) {
-                dotText.setColor(0xFFFAFAFA);
+                dotText.setColor(Studio.INK);
                 dotText.setTextSize(11 * dp / fitS);
                 c.drawText(d.label, x + r * 1.1f, y - r * 1.1f, dotText);
             }
@@ -214,7 +215,7 @@ public final class StageView extends View {
         android.graphics.Path clip = new android.graphics.Path();
         clip.addCircle(lx, ly, r, android.graphics.Path.Direction.CW);
         c.clipPath(clip);
-        c.drawColor(0xFF09090B);
+        c.drawColor(Studio.SURFACE);
         float z = fitS * 3f;
         c.translate(lx - dragX * z, ly - dragY * z);
         c.scale(z, z);
@@ -226,7 +227,7 @@ public final class StageView extends View {
         c.restoreToCount(save);
         dotPaint.setStyle(Paint.Style.STROKE);
         dotPaint.setStrokeWidth(2 * dp);
-        dotPaint.setColor(0xFFFAFAFA);
+        dotPaint.setColor(Studio.INK);
         c.drawCircle(lx, ly, r, dotPaint);
         dotPaint.setStyle(Paint.Style.FILL);
         dotPaint.setColor(com.fadcam.ui.faditor.Studio.ARMED);
@@ -370,7 +371,7 @@ public final class StageView extends View {
      */
     public void setGlBacked(boolean on) {
         glBacked = on;
-        setBackgroundColor(on ? 0x00000000 : 0xFF000000);
+        setBackgroundColor(on ? 0x00000000 : Studio.GROUND);
         invalidate();
     }
 

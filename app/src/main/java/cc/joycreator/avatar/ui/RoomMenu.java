@@ -73,7 +73,7 @@ public final class RoomMenu {
         bg.setCornerRadii(new float[]{r, r, r, r, 0, 0, 0, 0});
         box.setBackground(bg);
 
-        TextView title = text(c, host.characterName(), 16, 0xFFFAFAFA);
+        TextView title = text(c, host.characterName(), 16, Studio.INK);
         box.addView(title);
 
         HorizontalScrollView scroll = new HorizontalScrollView(c);
@@ -111,12 +111,12 @@ public final class RoomMenu {
     }
 
     private static View card(Context c, float dp, String name, String hover, View.OnClickListener tap) {
-        TextView t = text(c, name, 12, 0xFFD4D4D8);
+        TextView t = text(c, name, 12, Studio.LABEL);
         t.setGravity(Gravity.CENTER);
         t.setMaxLines(2);
         GradientDrawable g = new GradientDrawable();
         g.setCornerRadius(10 * dp);
-        g.setColor(0xFF27272A);
+        g.setColor(Studio.RAISED);
         t.setBackground(g);
         LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(px(dp, 58), px(dp, 52));
         lp.rightMargin = px(dp, 8);
@@ -128,7 +128,7 @@ public final class RoomMenu {
     }
 
     private static View action(Context c, float dp, String label, String hover, View.OnClickListener tap) {
-        TextView t = text(c, label, 14, 0xFFFAFAFA);
+        TextView t = text(c, label, 14, Studio.INK);
         t.setGravity(Gravity.CENTER_VERTICAL);
         t.setMinHeight(px(dp, 44));
         t.setOnClickListener(tap);
@@ -143,8 +143,8 @@ public final class RoomMenu {
         box.setOrientation(LinearLayout.VERTICAL);
         box.setMinimumHeight(px(dp, 52));
         box.setGravity(Gravity.CENTER_VERTICAL);
-        box.addView(text(c, label, 14, 0xFFFAFAFA));
-        box.addView(text(c, sub, 11, 0xFF71717A));
+        box.addView(text(c, label, 14, Studio.INK));
+        box.addView(text(c, sub, 11, Studio.INK_FAINT));
         box.setPadding(0, px(dp, 4), 0, px(dp, 4));
         box.setOnClickListener(tap);
         TooltipCompat.setTooltipText(box, hover);
@@ -156,7 +156,7 @@ public final class RoomMenu {
     private static void about(Context c) {
         TextView t = new TextView(c);
         t.setText(c.getString(R.string.avatar_about_body));
-        t.setTextColor(0xFFD4D4D8);
+        t.setTextColor(Studio.LABEL);
         t.setTextSize(14);
         int p = Math.round(20 * c.getResources().getDisplayMetrics().density);
         t.setPadding(p, p / 2, p, 0);

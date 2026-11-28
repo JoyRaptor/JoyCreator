@@ -377,10 +377,10 @@ public final class LandmarksScreen implements StageView.LandmarkLayer {
         t.setTextSize(12);
         t.setGravity(Gravity.CENTER);
         t.setPadding(px(12), 0, px(12), 0);
-        t.setTextColor(on ? Studio.GROUND : 0xFFD4D4D8);
+        t.setTextColor(on ? Studio.GROUND : Studio.LABEL);
         GradientDrawable g = new GradientDrawable();
         g.setCornerRadius(px(16));
-        g.setColor(on ? Studio.ARMED : 0xFF27272A);
+        g.setColor(on ? Studio.ARMED : Studio.RAISED);
         t.setBackground(g);
         LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, px(32));
         lp.rightMargin = px(6);
@@ -395,7 +395,7 @@ public final class LandmarksScreen implements StageView.LandmarkLayer {
         TextView t = new TextView(c);
         t.setText(s);
         t.setTextSize(16);
-        t.setTextColor(0xFFFAFAFA);
+        t.setTextColor(Studio.INK);
         t.setPadding(0, px(4), 0, px(2));
         return t;
     }
@@ -404,7 +404,7 @@ public final class LandmarksScreen implements StageView.LandmarkLayer {
         TextView t = new TextView(c);
         t.setText(s);
         t.setTextSize(12);
-        t.setTextColor(0xFF71717A);
+        t.setTextColor(Studio.INK_FAINT);
         t.setPadding(0, px(8), 0, px(6));
         return t;
     }
@@ -413,7 +413,7 @@ public final class LandmarksScreen implements StageView.LandmarkLayer {
         TextView t = new TextView(c);
         t.setText(s);
         t.setTextSize(13);
-        t.setTextColor(0xFFA1A1AA);
+        t.setTextColor(Studio.INK_DIM);
         t.setPadding(0, px(6), 0, px(6));
         return t;
     }

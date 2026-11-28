@@ -72,7 +72,7 @@ public final class ShrugSections {
         LinearLayout box = new LinearLayout(c);
         box.setOrientation(LinearLayout.VERTICAL);
         LinearLayout head = new LinearLayout(c);
-        TextView l = MotionSections.text(c, c.getString(R.string.avatar_shrug_try), 13, 0xFFD4D4D8);
+        TextView l = MotionSections.text(c, c.getString(R.string.avatar_shrug_try), 13, Studio.LABEL);
         TextView val = MotionSections.text(c, c.getString(R.string.avatar_shrug_rest), 12, Studio.INK_DIM);
         head.addView(l, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
         head.addView(val);

@@ -285,7 +285,7 @@ public final class AvatarRoomActivity extends Activity implements RoomMenu.Host,
 
         panel = new LinearLayout(this);
         panel.setOrientation(LinearLayout.VERTICAL);
-        panel.setBackgroundColor(0xFF09090B);
+        panel.setBackgroundColor(Studio.SURFACE);
         panel.addView(buildPanelHeader(), new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, px(44)));
         panel.addView(buildStageRow(), new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, px(36)));
         parts = new PartsView(this, this);
@@ -299,7 +299,7 @@ public final class AvatarRoomActivity extends Activity implements RoomMenu.Host,
         body.addView(sceneRoom.cardView(), new android.widget.FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
         panel.addView(body, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f));
         rail = new cc.joycreator.avatar.ui.LayersView(this, this);
-        rail.setBackgroundColor(0xFF0D0D10);
+        rail.setBackgroundColor(Studio.SURFACE);
         bottomRow = new LinearLayout(this);
         bottomRow.addView(panel, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, 1f));
         root.addView(bottomRow);
@@ -438,7 +438,7 @@ public final class AvatarRoomActivity extends Activity implements RoomMenu.Host,
         boolean saved = characterPath != null && !unsaved;
         GradientDrawable g = new GradientDrawable();
         g.setShape(GradientDrawable.OVAL);
-        g.setColor(saved ? Studio.ARMED : 0xFF52525B);
+        g.setColor(saved ? Studio.ARMED : Studio.INK_OFF);
         saveDot.setBackground(g);
         String s = getString(saved ? R.string.avatar_hover_saved : R.string.avatar_hover_not_saved);
         TooltipCompat.setTooltipText(saveDot, s);
@@ -450,7 +450,7 @@ public final class AvatarRoomActivity extends Activity implements RoomMenu.Host,
         h.setGravity(Gravity.CENTER_VERTICAL);
         h.setPadding(px(12), 0, px(12), 0);
         pathName = new TextView(this);
-        pathName.setTextColor(0xFFFAFAFA);
+        pathName.setTextColor(Studio.INK);
         pathName.setTextSize(TypedValue.COMPLEX_UNIT_SP, 14);
         TooltipCompat.setTooltipText(pathName, getString(R.string.avatar_hover_path_character));
         h.addView(pathName, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
@@ -482,9 +482,9 @@ public final class AvatarRoomActivity extends Activity implements RoomMenu.Host,
             boolean chosen = (i == 1) == on;
             GradientDrawable g = new GradientDrawable();
             g.setCornerRadius(px(10));
-            g.setColor(chosen ? Studio.ARMED : 0xFF27272A);
+            g.setColor(chosen ? Studio.ARMED : Studio.RAISED);
             t.setBackground(g);
-            t.setTextColor(chosen ? Studio.GROUND : 0xFFA1A1AA);
+            t.setTextColor(chosen ? Studio.GROUND : Studio.INK_DIM);
         }
         applyPanels();
         refreshPins();
@@ -1259,7 +1259,7 @@ public final class AvatarRoomActivity extends Activity implements RoomMenu.Host,
             g.setCornerRadius(px(14));
             g.setColor(on ? Studio.ARMED : Color.TRANSPARENT);
             stageTabs[i].setBackground(g);
-            stageTabs[i].setTextColor(on ? Studio.GROUND : 0xFFA1A1AA);
+            stageTabs[i].setTextColor(on ? Studio.GROUND : Studio.INK_DIM);
         }
         if (character != null) {
             parts.show(character, inHand, stageIndex);

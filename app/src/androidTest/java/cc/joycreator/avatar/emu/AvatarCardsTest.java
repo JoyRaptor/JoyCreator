@@ -64,6 +64,9 @@ public class AvatarCardsTest {
             shot("setup-mouth-lower");
             scrollTo(0f);
             part("head", "setup-head");
+            part("browL", "setup-brow");
+            part("jaw", "setup-jaw");
+            part("nose", "setup-nose");
             part("armL", "setup-arm");
 
             // Arrange: a part, a stance, in front or behind, reshape

@@ -89,6 +89,14 @@ public class RoomEditTest {
         Object pics = e.doc().json.opt("pictures");
         e.undo();
         ok(e.doc().json.opt("pictures") == pics, "the pictures are never copied or swapped by a step");
+        // a step that changes nothing is not an undo step (a chip already on, a slider let go where it was)
+        {
+            RoomEdit e2 = new RoomEdit(CharacterDoc.parse(text), doc -> {
+            });
+            e2.apply("Nothing", doc -> {
+            });
+            ok(e2.undoName() == null, "a step that changed nothing leaves nothing to undo");
+        }
         System.out.println((fail > 0 ? "FAILED " : "PASSED ") + pass + " checks, " + fail + " failures");
         System.exit(fail > 0 ? 1 : 0);
     }

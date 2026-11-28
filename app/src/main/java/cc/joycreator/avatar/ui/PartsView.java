@@ -67,8 +67,19 @@ public final class PartsView extends ScrollView {
         default void mouthAction(String nodeId, String action) {
         }
 
+        /** Try a sound, on Set up: the mouth says this shape (null = off), shown on the stage without a step. */
+        default void tryVis(String shape) {
+        }
+
         /** Try: talk, on Set up: the mouth open this much (0 = off), shown on the stage without a step. */
         default void tryMouth(double v) {
+        }
+
+        /** "What it is": rename the part (asks for the name) or take it out (asks first): one named undo step each. */
+        default void renameNode(String nodeId) {
+        }
+
+        default void removeNode(String nodeId) {
         }
 
         /** What Motion and the eyes' card write through (null: none). */
@@ -114,6 +125,11 @@ public final class PartsView extends ScrollView {
         return Math.round(v * dp);
     }
 
+    /** Forget the drawing being tried (the stage was told separately). */
+    public void clearTrying() {
+        trying = null;
+    }
+
     public void show(CharacterDoc doc, String inHandId, int stage) {
         thumbs.use(doc);
         column.removeAllViews();
@@ -157,7 +173,15 @@ public final class PartsView extends ScrollView {
     // ── Set up: its drawings ──────────────────────────────────────────────────────────────────────
 
     private void setUp(CharacterDoc doc, CharacterDoc.Node node) {
+        LinearLayout what = new LinearLayout(getContext());                  // What it is: its name, and a way to take it out
+        what.addView(chip(getContext().getString(R.string.avatar_rename), false, v -> host.renameNode(node.id), getContext().getString(R.string.avatar_hover_rename)));
+        what.addView(chip(getContext().getString(R.string.avatar_remove), false, v -> host.removeNode(node.id), getContext().getString(R.string.avatar_hover_remove)));
+        HorizontalScrollView whatScroll = new HorizontalScrollView(getContext());
+        whatScroll.setHorizontalScrollBarEnabled(false);
+        whatScroll.addView(what);
+        column.addView(whatScroll);
         if (EyeSections.isEye(node) && host.motion() != null) EyeSections.add(getContext(), column, doc, host.motion(), dp);
+        if (FeatureSections.applies(node) && host.motion() != null) FeatureSections.add(getContext(), column, doc, node, host.motion(), dp);
         if (MouthSections.isMouth(node) && host.motion() != null) MouthSections.add(getContext(), column, node, host.motion(), host, dp);
         column.addView(body(getContext().getString(R.string.avatar_pins_hint)));
         // pins guessed from the pixels, one tap to guess again
@@ -191,6 +215,33 @@ public final class PartsView extends ScrollView {
         scroll.addView(row);
         column.addView(scroll);
         column.addView(body(getContext().getString(R.string.avatar_try_note)));
+        if ("viseme".equals(node.pickBy) && host.motion() != null) {                  // a mouth with one drawing per sound
+            final String[] sounds = {"Neutral", "Aa", "Ee", "Oh", "W-Oo", "M", "F", "L", "S", "D", "R", "Uh", "Smile", "Surprised"};
+            if (trying != null) {
+                column.addView(label("This is the sound"));
+                LinearLayout snd = new LinearLayout(getContext());
+                String cur = "";
+                for (CharacterDoc.Node k : node.kids) if (k.id.equals(trying)) cur = k.json.optString("shape", "");
+                final String tid = trying;
+                for (String sName : sounds)
+                    snd.addView(chip(sName, sName.equals(cur), v -> host.motion().setValue(tid, "shape", sName, "This is the sound"), "The sound this drawing is, for the voice to pick"));
+                HorizontalScrollView ss = new HorizontalScrollView(getContext());
+                ss.setHorizontalScrollBarEnabled(false);
+                ss.addView(snd);
+                column.addView(ss);
+            }
+            column.addView(label("Try a sound"));
+            LinearLayout tr = new LinearLayout(getContext());
+            for (CharacterDoc.Node k : node.kids) {
+                final String sh = k.json.optString("shape", "");
+                if (!sh.isEmpty()) tr.addView(chip(sh, false, v -> host.tryVis(sh), "Say it: the mouth shows this shape"));
+            }
+            tr.addView(chip("Stop", false, v -> host.tryVis(null), "Back to the still mouth"));
+            HorizontalScrollView ts = new HorizontalScrollView(getContext());
+            ts.setHorizontalScrollBarEnabled(false);
+            ts.addView(tr);
+            column.addView(ts);
+        }
         if ("turn".equals(node.pickBy) && node.kids.size() > 1) {
             LinearLayout lm = new LinearLayout(getContext());
             lm.addView(chip(getContext().getString(R.string.avatar_marks_title), false, v -> host.openLandmarks(node.id), getContext().getString(R.string.avatar_hover_marks_open)));

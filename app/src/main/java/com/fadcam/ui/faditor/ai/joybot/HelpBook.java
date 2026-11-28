@@ -179,9 +179,12 @@ public final class HelpBook {
                             + "graphite, a grey lightens the lead and white is a white pencil.", "joybrush", null),
             new Topic("joybrush_brush_editor", "brush editor|brush settings screen|test stroke|footprint of a brush"
                     + "|tilt curve|pressure curve|edit a brush|tune a brush",
-                    "Hold any brush in the drawer to open its editor. It shows a live test stroke, the pen's pressure and "
-                            + "tilt curves, the brush's footprint at three tilts, and every slider with words and a small "
-                            + "picture at each end. Done keeps your changes and the cross puts the brush back.",
+                    "Hold any brush in the drawer to open its editor. Every brush has the same look: a live test stroke "
+                            + "on your paper, then one pen row with the pen monitor, the brush's footprint at three tilts and "
+                            + "separate Pressure and Tilt curves, then every slider with words and a small picture at each "
+                            + "end. Unibrush shows its A and B shapes inside the pen monitor: tap one to reshape it and set its "
+                            + "options just under. The small grey corner button makes the monitor big. Changes apply as you "
+                            + "make them, and the cross closes the editor.",
                     "joybrush", null),
             new Topic("joybrush_new_brushes", "new brushes|brush set|glaze brush|granulating|impasto|charcoal|pastel brush"
                     + "|airbrush|stipple|hatch brush|which brushes",
@@ -407,17 +410,20 @@ public final class HelpBook {
                             + "Quick, Tip and All editors, also under a hold. Oil brushes, the fan and Palette knife 1 fold "
                             + "under the pen at a sharp corner; a brush's settings → Sharp turns keeps the old swing instead.",
                     "joybrush", null),
-            new Topic("joybrush_lines", "editable lines|lines per brush|make lines editable|brush makes lines|brush mode"
+            new Topic("joybrush_lines", "layers hold lines|layer holds lines|which layers have lines|lines mark|editable lines|lines per brush|make lines editable|brush makes lines|brush mode"
                     + "|pixels or lines|lines or pixels|drawer badge",
                     "In JoyBrush, hold a brush and use the switch in its settings to choose whether it draws editable "
-                            + "lines (which Select can change) or plain pixels. A badge in the drawer shows which. Brushes "
-                            + "that can only make pixels stay pixels.",
+                            + "lines (which Select can change) or plain pixels. A little mark on the brush in the drawer, on "
+                            + "the strip's Brush, Smudge and Eraser buttons and on any layer that holds lines shows which. "
+                            + "Brushes that can only make pixels stay pixels.",
                     "joybrush", null),
             new Topic("joybrush_select", "select lines|select a line|select my lines|move a line|move my lines|resize a line"
-                    + "|nudge|copy and paste lines|copy lines|paste lines|select tool|joybrush select|edit a line",
+                    + "|nudge|copy and paste lines|copy lines|paste lines|select tool|joybrush select|edit a line"
+                    + "|same colour|same brush|select by colour|select by color|select all lines of one colour",
                     "In JoyBrush, use Select to pick editable lines, then move or resize them, Nudge them a step at a "
-                            + "time, Copy and Paste them, and pan with a finger. Select works on editable lines; selecting "
-                            + "plain pixels isn't finished.",
+                            + "time, Copy and Paste them, and pan with a finger. With a line selected, open Select's menu "
+                            + "and tap Same colour or Same brush to also pick every matching line on the layer. Select works "
+                            + "on editable lines; selecting plain pixels isn't finished.",
                     "joybrush", null),
             new Topic("joybrush_paper", "paper surface|paper background|drawing paper|paper texture|change the paper"
                     + "|choose paper|paper circle|paper sheet|paper grain|checkerboard",
@@ -781,6 +787,47 @@ public final class HelpBook {
                             + "SpriteLab (a sprite board). The ⋯ menu's Export → Whole drawing → Flat picture has Send to "
                             + "Studio too. A picture arrives as a picture: a new project made of it, or, in a project you "
                             + "pick, a new layer.", "joybrush", null),
+            new Topic("joybrush_line_erasers", "line eraser|erase a whole line|erase whole lines|whole lines eraser|whole lines"
+                    + "|trim to crossing|trim a line|part of a line|erase part of a line|rub out part of a line|stroke eraser",
+                    "In JoyBrush, the Erasers shelf has three that work on editable lines. Whole lines takes away every "
+                            + "line your stroke touches on the layer, as one undo step; locked lines stay. Trim to crossing "
+                            + "cuts a line that overshoots back to the line it crosses. Part of a line rubs out only the part "
+                            + "under the eraser. A cut in the middle of a line leaves it whole and tells you once. They work "
+                            + "on lines, so make the brush draw editable lines first.",
+                    "joybrush", null),
+            new Topic("studio_pip_sound", "pip silent|silent pip|sound of a picture in picture|picture in picture is silent|pip sound|pip audio|sound of a pip|sound from the pip|include audio|picture in picture sound"
+                    + "|picture-in-picture sound|overlay sound|sound of the overlay|pip is silent|pip has no sound|pip volume",
+                    "A picture-in-picture video is silent when you add it. Hold the PiP on the timeline to open its "
+                            + "drawer and tap the speaker (Include audio) to turn its sound on; Undo puts it back. The "
+                            + "Volume tool then changes that PiP, not the clip under it, and says Muted while its sound is "
+                            + "off. Known limit: two PiPs that start together are heard one after the other in the export.",
+                    "studio", null),
+            new Topic("studio_pingpong", "clip ping pong|clip ping-pong|ping pong a clip|ping-pong a clip|ping pong video|ping-pong video|pingpong|play backwards|plays backward|play it backwards|forwards and backwards"
+                    + "|back and forth clip|reverse leg",
+                    "Select the clip, tap Loop in the tool strip, choose Ping-pong, then extend it. After the clip's own "
+                            + "pass it plays backward, then forward again, each leg starting where the last one ended. The "
+                            + "export follows the same rule. In the preview, a seek far into the extension may show a stale "
+                            + "picture; the exported video is right.",
+                    "studio", null, "loop"),
+            new Topic("studio_audio_only", "audio only|just the audio|only the audio|export the audio|export audio|m4a|sound only export"
+                    + "|save the sound|music only|extract the soundtrack",
+                    "Tap Export at the top right of the Studio and choose Export audio only (.m4a). It saves the project's "
+                            + "whole sound, including the parts of video clips that have none (they stay silent). The file "
+                            + "lands in your Joy Creator folder.",
+                    "studio", null),
+            new Topic("studio_text_width", "text width|fit to width|fit text|wrap text|wide text|narrow text|text case|upper case|lower case"
+                    + "|capital letters|capitals|all caps",
+                    "Tap Text in the tool strip and open the text drawer. The width chip cycles Auto width, Wrap wide, "
+                            + "medium, narrow, Fit to width and back; Wrap and Fit show a slider beside the chip. The case "
+                            + "button changes the letters' case, one tap at a time.",
+                    "studio", null, "text"),
+            new Topic("studio_voice", "studio voice|clean up voice|clean my voice|clean up speech|clean the voice|remove background noise"
+                    + "|noise from my voice|dialogue cleanup|dialogue clean|rain under speech|make my voice clearer",
+                    "Open an audio clip, choose Clean, then tap Studio Voice. It prepares a cleaned copy on the phone, with "
+                            + "a Cancel button, and keeps your original: Undo or Revert in Clean puts it back. A clip that is "
+                            + "already quiet is left as it is, and a clip from a video's own soundtrack needs Extract audio "
+                            + "first. Not yet heard on a real room recording by the owner.",
+                    "studio", null),
             new Topic("studio_title_sliders", "look sliders|title look sliders|change my title's look|as it came"
                     + "|adjust the look of my title",
                     "When a title wears a TextLab look, its text drawer shows Look sliders. They open TextLab's own panel "

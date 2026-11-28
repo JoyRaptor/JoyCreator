@@ -24,7 +24,7 @@ import kotlin.math.roundToInt
  */
 object TestStroke {
     /** Bumped whenever the stroke, its marks or its stripes change: stored brush previews drawn with an older one are stale. */
-    const val VERSION = 10
+    const val VERSION = 11
 
     /** One traced point of the curve: [x], [y] as shares of the box (0..1), the pen's [pressure] and [tilt] (radians from upright) there. */
     class P(val x: Float, val y: Float, val pressure: Float, val tilt: Float)

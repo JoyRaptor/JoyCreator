@@ -612,6 +612,23 @@ public class IdeaEngineTest {
                     // STU-A2 (11-24)
                     {"how do I strike a word out of the video", "studio_strike_words"},
                     {"how do I put the drawer beside the picture on my tablet", "studio_tablet_drawers"},
+                    // HYG-5 fourth pass (11-28): the 11-26 to 11-28 landings
+                    {"how do I erase a whole line", "joybrush_line_erasers"},
+                    {"what does the trim to crossing eraser do", "joybrush_line_erasers"},
+                    {"can I rub out part of a line", "joybrush_line_erasers"},
+                    {"how do I select every line of the same colour", "joybrush_select"},
+                    {"how do I see which layers hold lines", "joybrush_lines"},
+                    {"what are the pressure and tilt curves in the brush editor", "joybrush_brush_editor"},
+                    {"why is my pip silent", "studio_pip_sound"},
+                    {"how do I turn on the sound of a picture in picture", "studio_pip_sound"},
+                    {"how do I make a clip ping pong", "studio_pingpong"},
+                    {"can a clip play backwards after it plays forwards", "studio_pingpong"},
+                    {"how do I export only the audio", "studio_audio_only"},
+                    {"how do I export audio as m4a", "studio_audio_only"},
+                    {"how do I make text fit to width", "studio_text_width"},
+                    {"how do I make my text all caps", "studio_text_width"},
+                    {"how do I use studio voice", "studio_voice"},
+                    {"how do I remove background noise from my voice", "studio_voice"},
                     // keys that must stay with their own topics
                     {"how do I add credits at the end", "slides"},
                     {"how do I use screen mode", "blend"},

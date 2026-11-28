@@ -79,3 +79,18 @@ what will happen ("this makes the project 1 s shorter; 6 layers start after this
 move those layers with their clips, or leave them where they are. A "don't ask again" switch for people who know what
 they're doing, and the whole change is one undo step. Owner's options page first (wording, placement, default), then
 the build. This also fixes the odd frame at the cut (preview shows the second clip's head twice).
+
+**11-28, the hidden plumbing (no screen):** `model/RippleCheck.java`, behind `RippleCheck.ENABLED` (off).
+- **Found first:** the moving already exists. The timeline's structural step (`beginStructural` / `endStructural`,
+  `applyAnchorShift`) moves everything after an edit's point in "ripple" mode (floating layers included) and nothing
+  in "gap" mode, and reports what moved for ONE undo step. A second model would have been a copy of it, so none was
+  built. RippleCheck adds only what the check needs: `summarize` (the clips' track got N ms shorter or longer; M layers
+  start at or after the point: text and pictures, sprites, sound, PiPs, adjustment layers, visualisers) and
+  `finish(timeline, before, choice)` (MOVE ripples, LEAVE leaves, ASK keeps the project's setting; the project's
+  setting is put back, so the answer is for that edit). `Choice` is the stored "don't ask again" answer.
+- **Also found:** today a transition does NOT change the editor's length (clips stay end to end; only the export
+  overlaps them), so there is no edit for the check to follow until choice A itself is built. That build calls
+  `beginStructural`, makes the overlap, then `summarize` (show the check, or use the stored answer) and `finish`.
+- **Tests:** `RippleCheckTest` (harness, real Timeline): a 1 s shorter clip with a text and a song after the point:
+  the check says 1 s shorter, 2 layers; Move moves both, Leave leaves both and the project stays ripple, Move in a gap
+  project moves them and it stays gap, Ask keeps today's behaviour, nothing after the point is nothing to ask.

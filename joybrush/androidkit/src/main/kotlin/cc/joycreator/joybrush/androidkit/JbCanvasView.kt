@@ -3117,8 +3117,8 @@ class JbCanvasView(context: Context) : GLSurfaceView(context), UnibrushCanvasPor
         activeLayer = FIRST_LAYER
         // [ground] (a brush settings stage, owner 11-16 and 11-18): a pattern over everything this view shows, in the layer
         // itself, where a smudge or an eraser reads and changes it, counted from the view's top left. [checker]: the fine
-        // grey checkerboard (UnderpaintPatterns.FINE).
-        val pattern = ground ?: if (checker) cc.joycreator.joybrush.androidkit.preview.UnderpaintPatterns.FINE else null
+        // grey checkerboard the owner picked (UnderpaintPatterns.STAGE).
+        val pattern = ground ?: if (checker) cc.joycreator.joybrush.androidkit.preview.UnderpaintPatterns.STAGE else null
         val groundTiles = if (pattern == null) null else {
             val (ax, ay) = view.screenToDoc(0f, 0f)
             val (bx, by) = view.screenToDoc(width.toFloat(), height.toFloat())

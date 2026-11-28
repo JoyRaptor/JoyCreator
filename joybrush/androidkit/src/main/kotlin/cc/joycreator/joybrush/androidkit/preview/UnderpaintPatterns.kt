@@ -89,6 +89,12 @@ object UnderpaintPatterns {
     fun byId(id: String?): Pattern? = ALL.firstOrNull { it.id == id }
 
     /**
+     * What the settings stage lays under a smudge, push or eraser: the owner's pick from the 14 Note 9 sheets (11-28,
+     * "number 4"), the large grey checker, 40 dp squares, so the pull shows before it turns grey.
+     */
+    val STAGE: Pattern = ALL.first { it.id == "checker-40" }
+
+    /**
      * Paints [p] over [x0, x1) × [y0, y1) into [tiles] (premultiplied RGBA8 tiles by engine key), replacing what was
      * there, counted from [originX], [originY]. Any coordinates, negative too.
      */

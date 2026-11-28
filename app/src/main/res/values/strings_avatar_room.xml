@@ -305,5 +305,22 @@ Heads turn through as many angles as you drew, and missing sides can be mirrored
 Perform by talking, turning the head on the pad, tapping buttons and walking the body. Record in passes: a second pass only replaces what you touch.</string>
     <string name="avatar_step_mouth_squash">Mouth: squash</string>
     <string name="avatar_step_mouth_everywhere">Mouth: same on every angle</string>
+    <string name="avatar_step_add_follow">Add a follow</string>
+    <string name="avatar_step_remove_follow">Remove a follow</string>
+    <string name="avatar_walk_settings">Walk settings</string>
+    <string name="avatar_hover_walk_settings">Stride, body bob, heel and toe</string>
+    <string name="avatar_rename">Rename</string>
+    <string name="avatar_hover_rename">Give this part another name</string>
+    <string name="avatar_remove">Remove</string>
+    <string name="avatar_hover_remove">Take this part out of the character (one Undo brings it back)</string>
+    <string name="avatar_rename_title">Name this part</string>
+    <string name="avatar_remove_title">Remove %1$s?</string>
+    <string name="avatar_remove_body">It goes from the character. Undo brings it back.</string>
+    <string name="avatar_step_rename_part">Rename a part</string>
+    <string name="avatar_step_remove_part">Remove %1$s</string>
+    <string name="avatar_step_mouth_hinge">Mouth: hinge</string>
+    <string name="avatar_step_mouth_swap">Mouth: swap only</string>
+    <string name="avatar_follow_how">How does it move?</string>
+    <string name="avatar_follow_what">What does it follow?</string>
 </resources>
 

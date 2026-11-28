@@ -40,6 +40,18 @@ public final class MotionSections {
         default void setMany(String stepName, java.util.List<Object[]> items) {
         }
 
+        /** Adds one "follows" link ({sig, prop, amt}) to a part: one named undo step. */
+        default void addLink(String nodeId, JSONObject link) {
+        }
+
+        /** Takes link {@code index} off a part: one named undo step. */
+        default void removeLink(String nodeId, int index) {
+        }
+
+        /** Makes the part swing: kind "bendy" (hair, tails) or "stiff" (chain links, charms); the root and tip are guessed from the pixels. One named undo step. */
+        default void makeSwing(String nodeId, String kind) {
+        }
+
         /** A blink right now, to see it. */
         default void blinkNow() {
         }
@@ -59,19 +71,51 @@ public final class MotionSections {
             break;
         }
         if (inHand != null && "head".equals(inHand.role)) head(c, col, inHand, host, dp);
+        if (inHand != null) FollowSections.add(c, col, doc, inHand, host, dp);
+        if (inHand != null && "set".equals(inHand.type) && ("cycle".equals(inHand.pickBy) || "default".equals(inHand.pickBy))) {          // frames of a loop
+            final String sid = inHand.id;
+            final JSONObject pk = inHand.json.optJSONObject("pick");
+            final boolean looped = "cycle".equals(inHand.pickBy);
+            col.addView(label(c, "Loop", dp));
+            col.addView(WalkSections.tick(c, "Its drawings are frames of a loop", looped, "It plays through its drawings, top to bottom, over and over", dp, v -> {
+                host.setValue(sid, "pick.by", v ? "cycle" : "default", "Frames of a loop");
+                if (v && (pk == null || !pk.has("fps"))) host.setValue(sid, "pick.fps", 12, "Frames of a loop");
+            }));
+            if (looped)
+                col.addView(slider(c, "Loop speed", 1, 30, 1, pk == null ? 12 : pk.optDouble("fps", 12), v -> Math.round(v) + " a second", "How many frames a second it plays",
+                        v -> host.setValue(sid, "pick.fps", Math.round(v), "Loop speed"), dp));
+        }
         if (swinger != null) swing(c, col, swinger, host, dp);
-        else col.addView(note(c, inHand == null ? "Take a part in hand to see how it moves by itself." : "This part does not swing. Hair, feathers, a tail or a chain can.", dp));
+        else if (inHand == null) col.addView(note(c, "Take a part in hand to see how it moves by itself.", dp));
+        else {
+            final String hid = inHand.id;
+            col.addView(label(c, "Make it move by itself", dp));
+            col.addView(note(c, "It moves when whatever it is fixed to moves. Hair, feathers, a tail or a chain can.", dp));
+            LinearLayout kinds = new LinearLayout(c);
+            kinds.addView(chip(c, "Bendy", false, "Hair, a braid, a feather, a tail, a ribbon: it bends along its length", dp, v -> host.makeSwing(hid, "bendy")));
+            kinds.addView(chip(c, "Stiff", false, "A chain link, an earring, a charm: it never bends, it swings and rattles", dp, v -> host.makeSwing(hid, "stiff")));
+            col.addView(scroll(c, kinds));
+        }
 
         JSONObject st = doc.json.optJSONObject("settings");
         if (st == null) st = new JSONObject();
         String facing = st.optString("facing", "front");
         WalkSections.add(c, col, doc, host, dp);
         col.addView(label(c, "Breathing and blinking", dp));
+        col.addView(WalkSections.tick(c, "Breathing", st.optBoolean("breathe", true), "A slow swell of the chest; head and arms ride it", dp, v -> host.setValue(null, "settings.breathe", v, "Breathing")));
+        CharacterDoc.Node torso = findRole(doc.root, "torso");
+        if (torso == null) torso = findRole(doc.root, "body");
+        if (torso != null && torso.json.optJSONObject("breathe") != null) {
+            final String tid = torso.id;
+            col.addView(slider(c, "How deep", 0, 3, 0.1, torso.json.optJSONObject("breathe").optDouble("amt", 1), v -> String.format(Locale.US, "%.1f×", v), "How far the chest swells",
+                    v -> host.setValue(tid, "breathe.amt", Math.round(v * 10) / 10.0, "Breathing depth"), dp));
+        }
         col.addView(slider(c, "Breaths a minute", 6, 40, 1, Math.round(st.optDouble("breathRate", 0.28) * 60), v -> String.valueOf((int) v), "How fast the chest rises and falls",
                 v -> host.setValue(null, "settings.breathRate", v / 60.0, "Breathing speed"), dp));
         col.addView(slider(c, "Blinks about every", 1.5, 9, 0.1, st.optDouble("blinkEvery", 3.6), v -> String.format(Locale.US, "%.1f s", v), "How often it blinks by itself",
                 v -> host.setValue(null, "settings.blinkEvery", Math.round(v * 10) / 10.0, "Blink rate"), dp));
         if (host instanceof ShrugSections.Host) ShrugSections.add(c, col, doc, (ShrugSections.Host) host, dp);   // SHRUG-1, after breathing as the pilot's
+        col.addView(WalkSections.tick(c, "Never quite still", st.optBoolean("idle", true), "A slight drift of head and body when nothing else is happening", dp, v -> host.setValue(null, "settings.idle", v, "Never quite still")));
         col.addView(label(c, "Which way it faces", dp));
         LinearLayout face = new LinearLayout(c);
         face.addView(chip(c, "Drawn facing left", "left".equals(facing), "Which way the body was drawn", dp, v -> host.setValue(null, "settings.facing", "left", "Drawn facing left")));
@@ -80,8 +124,10 @@ public final class MotionSections {
         col.addView(scroll(c, face));
         final boolean auto = st.optBoolean("autoFlip", false);
         col.addView(WalkSections.tick(c, "Turn around by itself", auto, "When the head turns the other way the whole character flips, so one three-quarter drawing faces both ways", dp, v -> {
-            if (v && "front".equals(facing)) host.setValue(null, "settings.facing", "left", "Drawn facing left");
-            host.setValue(null, "settings.autoFlip", v, "Turn around by itself");
+            java.util.List<Object[]> items = new java.util.ArrayList<>();                    // one undo step
+            if (v && "front".equals(facing)) items.add(new Object[]{null, "settings.facing", "left"});
+            items.add(new Object[]{null, "settings.autoFlip", v});
+            host.setMany("Turn around by itself", items);
         }));
         if (auto)
             col.addView(slider(c, "Flips past", 0.1, 0.9, 0.05, st.optDouble("flipAt", 0.4), v -> Math.round(v * 100) + "% turned", "How far the head has turned when the whole character flips",
@@ -101,6 +147,15 @@ public final class MotionSections {
                         v -> host.setValue(null, "settings.flipTuck", v, "Turn tuck"), dp));
             }
         }
+    }
+
+    private static CharacterDoc.Node findRole(CharacterDoc.Node n, String role) {
+        if (role.equals(n.role)) return n;
+        for (CharacterDoc.Node k : n.kids) {
+            CharacterDoc.Node r = findRole(k, role);
+            if (r != null) return r;
+        }
+        return null;
     }
 
     // ── the head: how it moves, and a round head ──────────────────────────────────────────────────

@@ -31,7 +31,7 @@ class KillMidSaveTest {
     private val names = (0 until 40).map { "${it % 8}_${it / 8}" }
 
     @BeforeTest fun on() { ArchiveCarrying.streamTiles = true; ArchiveCarrying.finishInterruptedMove = true }
-    @AfterTest fun off() { ArchiveCarrying.streamTiles = false; ArchiveCarrying.finishInterruptedMove = false }
+    @AfterTest fun off() { ArchiveCarrying.streamTiles = true; ArchiveCarrying.finishInterruptedMove = true }   // the defaults since 11-28
 
     private fun doc(name: String) = JbDocument(
         id = "doc-kill", name = name,

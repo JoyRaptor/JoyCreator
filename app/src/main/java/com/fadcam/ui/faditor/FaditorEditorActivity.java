@@ -1007,6 +1007,36 @@ public class FaditorEditorActivity extends AppCompatActivity {
         return getSelectedClip();
     }
 
+    /**
+     * The clip the Volume tool, its drawer and its sheet act on (STU-F6, 11-28): the selected picture-in-picture when one
+     * is selected, else the main clip. They used getSelectedClip(), so with a PiP selected they showed, and changed, the
+     * main clip under it.
+     */
+    @Nullable
+    private Clip volumeClip() { return selectedTargetClip(); }
+
+    /** What the Volume controls show as muted for [c]: a PiP is heard only with its audio included (PipVolume). */
+    private static boolean volumeShownMuted(@NonNull Clip c) {
+        return com.fadcam.ui.faditor.model.PipVolume.shownMuted(c.isOverlayClip(), c.isAudioMuted(), c.isOverlayAudioEnabled());
+    }
+
+    /** Sets [c] muted or not from the Volume controls; unmuting a PiP includes its audio. */
+    private static void setVolumeMuted(@NonNull Clip c, boolean muted) {
+        c.setOverlayAudioEnabled(com.fadcam.ui.faditor.model.PipVolume.includedAfter(c.isOverlayClip(), muted, c.isOverlayAudioEnabled()));
+        c.setAudioMuted(muted);
+    }
+
+    /** The preview hears [c]'s new level and mute: a PiP through its own player, the main clip through the main one. */
+    private void applyClipVolumeLive(@NonNull Clip c) {
+        if (c.isOverlayClip()) {
+            if (overlayVideoLayer != null) overlayVideoLayer.refreshVolume();
+            syncTimelineOverlays();
+        } else if (playerManager != null) {
+            playerManager.setVolume(project == null ? (c.isAudioMuted() ? 0f : c.getVolumeLevel())
+                    : com.fadcam.ui.faditor.compositor.LayerPreviewController.effectiveMasterVolume(project.getTimeline(), c));
+        }
+    }
+
     // ── STU-7 §K: the Motion Blur card ─────────────────────────────────────────────────────
     // Owner pick A1: Motion Blur is a card in each object's Effects tab, added from the same
     // "Add effect" picker. The tool button is now only a shortcut to that tab. The card edits
@@ -7699,28 +7729,31 @@ public class FaditorEditorActivity extends AppCompatActivity {
             }
         }
 
-        Clip clip = getSelectedClip();
-        float oldVol = clip.getVolumeLevel();
-        boolean oldMuted = clip.isAudioMuted();
-
+        Clip clip = volumeClip();
+        if (clip == null) return;
+        // The sheet shows what the export does, and every change in it is ONE undo step back to how it was opened.
+        final VolumeState opened = new VolumeState(clip);
         VolumeControlBottomSheet sheet = VolumeControlBottomSheet.newInstance(
-                clip.getVolumeLevel(), clip.isAudioMuted());
+                clip.getVolumeLevel(), volumeShownMuted(clip));
         sheet.setCallback(new VolumeControlBottomSheet.Callback() {
+            /** The state the one undo step redoes to: the sheet's latest change. Null until the first change. */
+            private VolumeState[] latest;
             @Override
             public void onVolumeChanged(float volume, boolean muted) {
-                if (oldVol != volume) {
-                    undoManager.recordAction(new EditActions.VolumeAction(
-                            clip, oldVol, volume));
-                }
-                if (oldMuted != muted) {
-                    undoManager.recordAction(new EditActions.MuteAction(
-                            clip, oldMuted, oldVol, muted, volume));
-                }
                 clip.setVolumeLevel(volume);
-                clip.setAudioMuted(muted);
+                setVolumeMuted(clip, muted);
                 updateVolumeUI(volume, muted);
-                playerManager.setVolume(muted ? 0f : volume);
+                applyClipVolumeLive(clip);
                 scheduleAutoSave();
+                final VolumeState now = new VolumeState(clip);
+                if (latest == null) {
+                    final VolumeState[] step = {now};
+                    latest = step;
+                    undoManager.recordAction(new EditActions.LambdaAction(getString(R.string.undo_step_volume),
+                            () -> applyVolumeState(step[0]), () -> applyVolumeState(opened)));
+                } else {
+                    latest[0] = now;
+                }
             }
         });
         sheet.show(getSupportFragmentManager(), "volumeControl");
@@ -7746,9 +7779,9 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 return ac.getVolumeLevel();
             }
         }
-        Clip clip = getSelectedClip();
+        Clip clip = volumeClip();
         if (clip != null) {
-            if (audioVolumeKeyframeMode) {
+            if (audioVolumeKeyframeMode && !clip.isOverlayClip()) {
                 long clipMs = editorTimeline.getPlayheadPositionMs();
                 return clip.gainAtClipMs(clipMs);
             }
@@ -7767,6 +7800,8 @@ public class FaditorEditorActivity extends AppCompatActivity {
         final Object owner;
         final float level;
         final boolean muted;
+        /** A PiP's "Include audio" (STU-F6): the Volume controls can turn it on, so a step restores it. */
+        final boolean included;
         final java.util.List<com.fadcam.ui.faditor.model.VolumeKeyframe> keys = new java.util.ArrayList<>();
 
         VolumeState(@NonNull Object owner) {
@@ -7776,11 +7811,13 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 AudioClip ac = (AudioClip) owner;
                 level = ac.getVolumeLevel();
                 muted = ac.isMuted();
+                included = true;
                 live = ac.getVolumeKeyframes();
             } else {
                 Clip c = (Clip) owner;
                 level = c.getVolumeLevel();
                 muted = c.isAudioMuted();
+                included = c.isOverlayAudioEnabled();
                 live = c.getVolumeKeyframes();
             }
             for (com.fadcam.ui.faditor.model.VolumeKeyframe k : live) {
@@ -7789,7 +7826,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         }
 
         boolean same(@NonNull VolumeState o) {
-            if (owner != o.owner || level != o.level || muted != o.muted || keys.size() != o.keys.size()) return false;
+            if (owner != o.owner || level != o.level || muted != o.muted || included != o.included || keys.size() != o.keys.size()) return false;
             for (int i = 0; i < keys.size(); i++) {
                 if (keys.get(i).timeMs != o.keys.get(i).timeMs || keys.get(i).volume != o.keys.get(i).volume) return false;
             }
@@ -7809,7 +7846,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
             AudioClip ac = project.getTimeline().getAudioClip(audioIdx);
             if (ac != null) return new VolumeState(ac);
         }
-        Clip clip = getSelectedClip();
+        Clip clip = volumeClip();
         return clip != null ? new VolumeState(clip) : null;
     }
 
@@ -7838,11 +7875,9 @@ public class FaditorEditorActivity extends AppCompatActivity {
             Clip c = (Clip) s.owner;
             c.setVolumeLevel(s.level);
             c.setAudioMuted(s.muted);
+            c.setOverlayAudioEnabled(s.included);
             c.setVolumeKeyframes(s.keys);
-            if (playerManager != null && project != null && c == getSelectedClip()) {
-                playerManager.setVolume(com.fadcam.ui.faditor.compositor.LayerPreviewController
-                        .effectiveMasterVolume(project.getTimeline(), c));
-            }
+            if (c.isOverlayClip() || c == getSelectedClip()) applyClipVolumeLive(c);
         }
         if (editorTimeline != null) editorTimeline.invalidate();
         if (volumeDrawer != null && volumeDrawer.getVisibility() == View.VISIBLE) refreshVolumeDrawer();
@@ -7870,19 +7905,21 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 return;
             }
         }
-        Clip clip = getSelectedClip();
+        Clip clip = volumeClip();
         if (clip != null) {
-            if (audioVolumeKeyframeMode) {
+            // A PiP's volume keys are authored on its own Volume row (clip-local time); the drag sets its level.
+            if (audioVolumeKeyframeMode && !clip.isOverlayClip()) {
                 long clipMs = lastPositionInSegmentMs;
                 clip.addOrUpdateFinalGainKeyframe(clipMs, volume);
                 editorTimeline.invalidate();
             } else {
                 clip.setVolumeLevel(volume);
-                if (volume > 0f) clip.setAudioMuted(false);
+                if (volume > 0f) setVolumeMuted(clip, false);
             }
-            playerManager.setVolume(project == null ? (clip.isAudioMuted() ? 0f : volume)
+            if (clip.isOverlayClip()) applyClipVolumeLive(clip);
+            else playerManager.setVolume(project == null ? (clip.isAudioMuted() ? 0f : volume)
                     : com.fadcam.ui.faditor.compositor.LayerPreviewController.effectiveMasterVolume(project.getTimeline(), clip, volume));
-            updateVolumeUI(volume, clip.isAudioMuted());
+            updateVolumeUI(volume, volumeShownMuted(clip));
         }
     }
 
@@ -7979,10 +8016,11 @@ public class FaditorEditorActivity extends AppCompatActivity {
                         }
                     }
                 } else {
-                    Clip clip = getSelectedClip();
-                    clip.setAudioMuted(!clip.isAudioMuted());
-                    playerManager.setVolume(project == null ? (clip.isAudioMuted() ? 0f : clip.getVolumeLevel())
-                        : com.fadcam.ui.faditor.compositor.LayerPreviewController.effectiveMasterVolume(project.getTimeline(), clip));
+                    Clip clip = volumeClip();
+                    if (clip != null) {
+                        setVolumeMuted(clip, !volumeShownMuted(clip));
+                        applyClipVolumeLive(clip);
+                    }
                 }
                 refreshVolumeDrawer();
                 scheduleAutoSave();
@@ -8082,9 +8120,10 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 vol = 1f;
             }
         } else {
-            Clip clip = getSelectedClip();
+            Clip clip = volumeClip();
             if (clip != null) {
-                long clipMs = lastPositionInSegmentMs;
+                long clipMs = clip.isOverlayClip()
+                        ? editorTimeline.getPlayheadPositionMs() - clip.getOverlayStartMs() : lastPositionInSegmentMs;
                 vol = clip.hasVolumeKeyframes() ? clip.gainAtClipMs(clipMs) : clip.getVolumeLevel();
                 for (Clip.VolumeKeyframe kf : clip.getVolumeKeyframes()) {
                     if (Math.abs(kf.timeMs - clipMs) <= 60) { onKf = true; break; }
@@ -8108,8 +8147,8 @@ public class FaditorEditorActivity extends AppCompatActivity {
             AudioClip ac = project.getTimeline().getAudioClip(audioIdx);
             muted = ac != null && ac.isMuted();
         } else {
-            Clip _sel6264 = getSelectedClip();
-            muted = _sel6264 != null && _sel6264.isAudioMuted();
+            Clip target = volumeClip();
+            muted = target != null && volumeShownMuted(target);
         }
         int color = (muted || vol > 1.01f) ? Studio.DANGER : Studio.GO;
         if (volumeDrawerValue != null) {
@@ -33438,7 +33477,9 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 R.drawable.ic_volume_off_24, R.drawable.ic_volume_up_24,
                 () -> !c.isOverlayAudioEnabled() || c.isAudioMuted(),
                 () -> {
-                    c.setOverlayAudioEnabled(!c.isOverlayAudioEnabled());
+                    // One tap turns the PiP's sound on (audio included AND unmuted) or off, as the icon shows it
+                    // (STU-F6: flipping Include audio alone left a PiP added muted still silent).
+                    setVolumeMuted(c, !volumeShownMuted(c));
                     if (overlayVideoLayer != null) overlayVideoLayer.refreshVolume();
                     syncTimelineOverlays();
                     scheduleAutoSave();
@@ -33956,16 +33997,20 @@ public class FaditorEditorActivity extends AppCompatActivity {
     private void addPipAudioAction(@NonNull java.util.List<ObjectMenuSheet.Action> actions,
             @NonNull Clip c) {
         final boolean was = c.isOverlayAudioEnabled();
+        final boolean mutedWas = c.isAudioMuted();
         actions.add(new ObjectMenuSheet.Action(
                 was ? getString(R.string.studio_opt_mute_overlay_audio) : getString(R.string.studio_opt_include_audio), false, () -> {
             final Runnable apply = () -> {
                 c.setOverlayAudioEnabled(!was);
+                // A PiP is added muted too: including its audio unmutes it, or it stays silent (STU-F6).
+                c.setAudioMuted(com.fadcam.ui.faditor.model.PipVolume.mutedAfterInclude(!was, mutedWas));
                 if (overlayVideoLayer != null) overlayVideoLayer.refreshVolume();
                 syncTimelineOverlays(); // the row's mute icon is content-derived
                 scheduleAutoSave();
             };
             final Runnable revert = () -> {
                 c.setOverlayAudioEnabled(was);
+                c.setAudioMuted(mutedWas);
                 if (overlayVideoLayer != null) overlayVideoLayer.refreshVolume();
                 syncTimelineOverlays();
                 scheduleAutoSave();

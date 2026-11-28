@@ -91,6 +91,7 @@ public final class AvatarRoomActivity extends Activity implements RoomMenu.Host,
     private cc.joycreator.avatar.perform.Stick stick;
     private int frameNo;
     private double testMouth;                                          // Try: talk, on Set up
+    private String testVis;                                            // Try a sound, on Set up
     private cc.joycreator.avatar.ui.LandmarksScreen landmarks;
     private cc.joycreator.avatar.ui.SolverStage glStage;
     private cc.joycreator.avatar.ui.SceneUi sceneUi;
@@ -1008,7 +1009,15 @@ public final class AvatarRoomActivity extends Activity implements RoomMenu.Host,
     }
 
     @Override
+    public void tryVis(String shape) {
+        testVis = shape;
+        testMouth = shape == null ? 0 : 1;
+        glStage.requestRender();
+    }
+
+    @Override
     public void tryMouth(double v) {
+        testVis = null;
         testMouth = v;
         glStage.requestRender();
     }
@@ -1886,6 +1895,7 @@ public final class AvatarRoomActivity extends Activity implements RoomMenu.Host,
             if (testMouth > 0.001) {
                 java.util.Map<String, Object> m = new java.util.HashMap<>();
                 m.put("mouth", testMouth);
+                if (testVis != null) m.put("vis", testVis);
                 glStage.frame(cc.joycreator.avatar.ui.SignalMap.toSignals(m, inputs.time(), 0), true, dt, stage.viewScale(), stage.viewX(), stage.viewY());
                 return;
             }

@@ -220,7 +220,7 @@ jobs:
             *.*)  # a whole class name from another package's emulator tests (GL-MASK: com.fadcam.ui.faditor.export.emu.MaskFallbackGlTest)
                   [[ "$TESTS" =~ ^[A-Za-z][A-Za-z0-9_.]+$ ]] || { echo "tests: a class name is letters, digits, dots"; exit 1; }
                   CLASSES="$TESTS" ;;
-            *)    [[ "$TESTS" =~ ^[A-Za-z]+$ ]] || { echo "tests: all, draw, room, studio, send, hand, face, shoulders or one test class name"; exit 1; }
+            *)    [[ "$TESTS" =~ ^[A-Za-z0-9]+$ ]] || { echo "tests: all, draw, room, studio, send, hand, face, shoulders or one test class name"; exit 1; }
                   CLASSES="cc.joycreator.avatar.emu.$TESTS" ;;
           esac
           ARGS=(-e class "$CLASSES" -e msaa "$MSAA" -e orientation "$ORIENT")

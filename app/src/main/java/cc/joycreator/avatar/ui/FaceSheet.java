@@ -119,7 +119,7 @@ final class FaceSheet {
 
         // SHRUG-1: Shoulders and, while on, how little shrug makes a full one
         if (host.shouldersShown()) {
-            b.addView(SheetKit.sectionLabel(a, a.getString(R.string.avatar_shoulders), 0));
+            b.addView(SheetKit.sectionLabel(a, a.getString(R.string.avatar_shrug), 0));   // (not "Shoulders": the tick box below says that)
             LinearLayout sh = inset();
             boolean shOn = host.shouldersOn();
             sh.addView(WalkSections.tick(a, a.getString(R.string.avatar_shoulders), shOn, a.getString(R.string.avatar_hover_shoulders),

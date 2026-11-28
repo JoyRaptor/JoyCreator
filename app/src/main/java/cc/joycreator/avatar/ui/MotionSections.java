@@ -71,6 +71,7 @@ public final class MotionSections {
                 v -> host.setValue(null, "settings.breathRate", v / 60.0, "Breathing speed"), dp));
         col.addView(slider(c, "Blinks about every", 1.5, 9, 0.1, st.optDouble("blinkEvery", 3.6), v -> String.format(Locale.US, "%.1f s", v), "How often it blinks by itself",
                 v -> host.setValue(null, "settings.blinkEvery", Math.round(v * 10) / 10.0, "Blink rate"), dp));
+        if (host instanceof ShrugSections.Host) ShrugSections.add(c, col, doc, (ShrugSections.Host) host, dp);   // SHRUG-1, after breathing as the pilot's
         col.addView(label(c, "Which way it faces", dp));
         LinearLayout face = new LinearLayout(c);
         face.addView(chip(c, "Drawn facing left", "left".equals(facing), "Which way the body was drawn", dp, v -> host.setValue(null, "settings.facing", "left", "Drawn facing left")));

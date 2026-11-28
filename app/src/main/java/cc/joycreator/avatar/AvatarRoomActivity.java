@@ -633,6 +633,19 @@ public final class AvatarRoomActivity extends Activity implements RoomMenu.Host,
     }
 
     @Override
+    public void setMany(String stepName, java.util.List<Object[]> items) {
+        edit.apply(stepName, d -> {
+            for (Object[] it : items) setPath(it[0] == null ? d.json : d.find((String) it[0]).json, (String) it[1], it[2]);
+        });
+        if (stageIndex == 2) performPanel.bind(character, false);
+    }
+
+    @Override
+    public void blinkNow() {
+        inputs.blinkNow(System.currentTimeMillis());
+    }
+
+    @Override
     public void remove(String nodeId, String path, String stepName) {
         edit.apply(stepName, d -> {
             org.json.JSONObject root = nodeId == null ? d.json : d.find(nodeId).json;

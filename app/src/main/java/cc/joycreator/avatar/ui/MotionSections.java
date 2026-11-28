@@ -36,6 +36,14 @@ public final class MotionSections {
         /** The round head: "on" (fit it if it has no ball yet), "off", or "guess" (fit it again), as one named undo step. */
         void roundHead(String nodeId, String action, String stepName);
 
+        /** Several values as ONE named undo step: each item is {nodeId or null, path, value}. */
+        default void setMany(String stepName, java.util.List<Object[]> items) {
+        }
+
+        /** A blink right now, to see it. */
+        default void blinkNow() {
+        }
+
         /** Removes one key (e.g. "swing") as a named undo step. */
         void remove(String nodeId, String path, String stepName);
     }

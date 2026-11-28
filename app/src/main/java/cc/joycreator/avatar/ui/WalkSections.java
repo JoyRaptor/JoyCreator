@@ -95,7 +95,7 @@ final class WalkSections {
     }
 
     /** A tick box: on or off (ON = solid cyan with the tick punched out). */
-    private static View tick(Context c, String label, boolean on, String hover, float dp, java.util.function.Consumer<Boolean> set) {
+    static View tick(Context c, String label, boolean on, String hover, float dp, java.util.function.Consumer<Boolean> set) {
         LinearLayout row = new LinearLayout(c);
         row.setGravity(Gravity.CENTER_VERTICAL);
         row.setPadding(0, Math.round(6 * dp), 0, Math.round(6 * dp));

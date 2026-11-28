@@ -10,11 +10,12 @@ public final class PipVolume {
 
     /** Whether the Volume controls show the clip as muted. */
     public static boolean shownMuted(boolean overlay, boolean audioMuted, boolean audioIncluded) {
-        return audioMuted;
+        return audioMuted || (overlay && !audioIncluded);
     }
 
     /** Whether the clip's audio is included after the Volume controls set it muted or not. */
     public static boolean includedAfter(boolean overlay, boolean nowMuted, boolean includedBefore) {
-        return includedBefore;
+        // Unmuting a PiP from the Volume controls means "let me hear it": its audio is included in the same step.
+        return overlay ? (includedBefore || !nowMuted) : includedBefore;
     }
 }

@@ -41,7 +41,6 @@ class StrokeEraserTool(
     private val pathX = ArrayList<Double>()
     private val pathY = ArrayList<Double>()
     private var radius = 0.0
-    private var toldMiddle = false
     private val whole get() = mode() == cc.joycreator.joybrush.core.vector.InkEraseMode.WHOLE_STROKE
 
     private var owning = false
@@ -142,8 +141,8 @@ class StrokeEraserTool(
     /**
      * Trim to crossing / Part of a line: the lines this path cut, as core's eraser cuts them (InkErase: the surviving piece
      * is the line's own samples, so it stays an editable line). A line left with one piece is shortened in place, a line
-     * with none is erased, and both go as ONE step. A line cut in its middle would be two lines, which a cel's one seq per
-     * line cannot hold yet: it is left as it was, and that is said once.
+     * with none is erased, a line cut in its middle becomes its pieces (11-28: the later ones take places right after it,
+     * LineCutPlan), and all of it goes as ONE step.
      */
     private fun finishParts() {
         owning = false
@@ -154,7 +153,7 @@ class StrokeEraserTool(
         val byPlane = touchable.groupBy { cc.joycreator.joybrush.androidkit.lines.LinePlane(it.layerId, it.celId) }
         val shortened = ArrayList<cc.joycreator.joybrush.core.stroke.AddressedStroke>()
         val removed = LinkedHashSet<LineAddress>()
-        var middle = false
+        val cuts = ArrayList<cc.joycreator.joybrush.androidkit.lines.LineCutPlan.Cut>()
         val path = cc.joycreator.joybrush.core.vector.EraserPath(pathX.toDoubleArray(), pathY.toDoubleArray(), radius)
         for ((plane, planeLines) in byPlane) {
             val outcome = try {
@@ -169,15 +168,11 @@ class StrokeEraserTool(
                 when {
                     pieces.isEmpty() -> removed += address
                     pieces.size == 1 && pieces[0].id == id -> shortened += cc.joycreator.joybrush.core.stroke.AddressedStroke(address, pieces[0])
-                    else -> middle = true
+                    pieces[0].id == id -> cuts += cc.joycreator.joybrush.androidkit.lines.LineCutPlan.Cut(address, pieces)
                 }
             }
         }
-        if (middle && !toldMiddle) {
-            toldMiddle = true
-            say("Cutting a line in two isn't possible yet, so a line erased in its middle was left whole. Its ends can be trimmed.")
-        }
-        if (shortened.isNotEmpty() || removed.isNotEmpty()) h.eraseParts(shortened, removed)
+        if (shortened.isNotEmpty() || removed.isNotEmpty() || cuts.isNotEmpty()) h.eraseParts(shortened, removed, cuts)
     }
 
     override fun cancel() {

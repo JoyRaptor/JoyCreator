@@ -3697,7 +3697,7 @@ class GlPaintEngine(
         // picture each written line needs, the same bytes under ids it knows, inside the saved-drawing budget: refused before
         // anything changes, as a new line's pictures are (lineAssetRefusal).
         val assets = when (edit) { is LineEdit.Replace -> edit.assets; is LineEdit.Add -> edit.assets; else -> emptyMap() }
-        val written = when (edit) { is LineEdit.Replace -> edit.after.map { it.record }; is LineEdit.Add -> edit.records.map { it.record }; is LineEdit.Split -> edit.after.map { it.record }; else -> emptyList() }
+        val written = when (edit) { is LineEdit.Replace -> edit.after.map { it.record }; is LineEdit.Add -> edit.records.map { it.record }; is LineEdit.Split -> edit.after.map { it.record } + edit.cuts.flatMap { it.pieces }; else -> emptyList() }
         for ((id, pngs) in assets) {
             require(id in brushes || nativeLines.brush(id) != null) { "Brush pictures name no brush" }
             require(nativeLines.asset(id)?.sameBytes(pngs) != false) { "These brush pictures differ from the ones this drawing keeps" }
@@ -3710,6 +3710,76 @@ class GlPaintEngine(
             val all = assets + nativeLines.assets()
             cc.joycreator.joybrush.androidkit.io.FrozenBrushAssets.prepare((nativeLines.brushes() + brushes).filterKeys { it in all }, all, retainEntries = false)
         }
+        // Concepts parity 4a (11-28): lines cut in their middle. Everything above each cut moves up to make room for the
+        // later pieces (LineCutPlan) BEFORE the lists are built, so the edit below sees the moved items as they stand and
+        // draws only what changed: the cut lines and their pieces. The moves change no pixel; they join the same ONE step.
+        val cuts = if (edit is LineEdit.Split) edit.cuts else emptyList()
+        val moves = if (cuts.isEmpty()) null else cutMoves(cuts)
+        try {
+            if (moves != null) LineItems.apply(nativeLines, moves.slabs, moves.lines, forward = true, moves.footprints, ::changePlane)
+            editLinesAfterMoves(edit, brushes, assets, moves, ::brushOf)
+        } catch (e: Throwable) {
+            if (moves != null) {
+                try { LineItems.apply(nativeLines, moves.slabs, moves.lines, forward = false, moves.footprints, ::changePlane) }
+                catch (secondary: Throwable) { e.addSuppressed(secondary) }
+                moves.copies.forEach(::recycleLayerTex)
+            }
+            throw e
+        }
+    }
+
+    /** What making room for cut pieces moves: net line and slab changes (one per address), and the slab copies it made. */
+    private class CutMoves(val lines: List<UndoLog.LineChange>, val slabs: List<UndoLog.SlabChange<Int>>,
+                           val footprints: Map<Pair<LinePlane, String>, Set<Long>>, val copies: List<Int>,
+                           val plans: Map<LinePlane, cc.joycreator.joybrush.androidkit.lines.LineCutPlan.Plan>)
+
+    private fun cutMoves(cuts: List<cc.joycreator.joybrush.androidkit.lines.LineCutPlan.Cut>): CutMoves {
+        val lines = ArrayList<UndoLog.LineChange>()
+        val slabs = ArrayList<UndoLog.SlabChange<Int>>()
+        val footprints = HashMap<Pair<LinePlane, String>, Set<Long>>()
+        val copies = ArrayList<Int>()
+        val plans = LinkedHashMap<LinePlane, cc.joycreator.joybrush.androidkit.lines.LineCutPlan.Plan>()
+        try {
+            for ((plane, ofPlane) in cuts.groupBy { c ->
+                val layer = layers[c.address.layerId] ?: throw IllegalArgumentException("That layer is gone")
+                LinePlane(c.address.layerId, c.address.celId ?: layer.sharedCel)
+            }) {
+                val layer = layers.getValue(plane.layerId)
+                val cel = engineCel(layer, plane)
+                val plan = cc.joycreator.joybrush.androidkit.lines.LineCutPlan.plan(nativeLines.lines(plane), nativeLines.slabSeqs(plane), ofPlane)
+                plans[plane] = plan
+                for (l in nativeLines.lines(plane)) {
+                    val to = plan.moves[l.seq] ?: continue
+                    lines += UndoLog.LineChange(layer.id, cel, l.id, CelComposer.Line(l.seq, l), CelComposer.Line(to, l.copy(seq = to)))
+                    footprints[plane to l.id] = nativeLines.footprint(plane, l.id)
+                }
+                // A slab that moves goes to its new place as a copy: history keeps the texture it had (UndoLog.SlabChange),
+                // the live slab owns the copy. One change per (seq, tile), from what was there to what is there now.
+                val before = HashMap<Pair<Long, Long>, UndoLog.SlabValue<Int>>()
+                val after = HashMap<Pair<Long, Long>, UndoLog.SlabValue<Int>>()
+                for (q in nativeLines.slabSeqs(plane)) {
+                    val to = plan.moves[q] ?: continue
+                    val slab = nativeLines.slab(plane, q) ?: continue
+                    for ((key, tex) in slab.tiles) {
+                        before[q to key] = UndoLog.SlabValue(tex, slab.op)
+                        val copy = copyOfTile(tex).also(copies::add)
+                        after[to to key] = UndoLog.SlabValue(copy, slab.op)
+                    }
+                }
+                for (at in (before.keys + after.keys).toSet()) {
+                    slabs += UndoLog.SlabChange(layer.id, cel, at.second, at.first, before[at], after[at])
+                }
+            }
+        } catch (e: Throwable) {
+            copies.forEach(::recycleLayerTex)
+            throw e
+        }
+        return CutMoves(lines, slabs, footprints, copies, plans)
+    }
+
+    private fun editLinesAfterMoves(edit: LineEdit, brushes: Map<String, BrushPreset>,
+                                    assets: Map<String, cc.joycreator.joybrush.core.brush.FrozenBrushPngs>, moves: CutMoves?,
+                                    brushOf: (StrokeRecord) -> BrushPreset) {
         // The next list of every plane the edit touches.
         val next = LinkedHashMap<LinePlane, MutableList<StrokeRecord>>()
         val nextSeq = HashMap<LinePlane, Long>()
@@ -3740,7 +3810,18 @@ class GlPaintEngine(
             }
             is LineEdit.Bake -> error("Rasterize Down is handled above")
             // 11-27 (orchestrator-approved, the one change here): shortened lines in place, erased lines out, one step.
-            is LineEdit.Split -> cc.joycreator.joybrush.androidkit.lines.LineSplitApply.apply(edit) { list(planeOf(it)) }
+            is LineEdit.Split -> {
+                cc.joycreator.joybrush.androidkit.lines.LineSplitApply.apply(edit) { list(planeOf(it)) }
+                for ((plane, plan) in moves?.plans.orEmpty()) {
+                    val l = list(plane)
+                    for ((id, first) in plan.first) {
+                        val i = l.indexOfFirst { it.id == id }
+                        require(i >= 0) { cc.joycreator.joybrush.androidkit.lines.LineSplitApply.GONE }
+                        l[i] = first.copy(seq = l[i].seq)
+                    }
+                    l += plan.extra
+                }
+            }
         }
         if (brushes.isNotEmpty() || assets.isNotEmpty()) nativeLines.addBrushes(brushes, assets)
         val tileChanges = ArrayList<UndoLog.TileChange<Int>>()
@@ -3855,7 +3936,16 @@ class GlPaintEngine(
             val plane = changePlane(c.layerId, c.celId)
             nativeLines.put(plane, c.id, c.after?.record, newFootprints[plane to c.id])
         }
-        undo.push(UndoLog.Step(tileChanges, lines = lineChanges, slabs = slabChanges))
+        if (moves == null) { undo.push(UndoLog.Step(tileChanges, lines = lineChanges, slabs = slabChanges)); return }
+        // A moved line that this edit also changed (a cut line above another cut) is one change, from where it was.
+        val merged = LinkedHashMap<Triple<String, String?, String>, UndoLog.LineChange>()
+        for (c in moves.lines) merged[Triple(c.layerId, c.celId, c.id)] = c
+        for (c in lineChanges) {
+            val at = Triple(c.layerId, c.celId, c.id)
+            val moved = merged[at]
+            merged[at] = if (moved == null) c else UndoLog.LineChange(c.layerId, c.celId, c.id, moved.before, c.after)
+        }
+        undo.push(UndoLog.Step(tileChanges, lines = merged.values.toList(), slabs = moves.slabs + slabChanges))
     }
 
     // ── lift preview (Select's live drag; NATIVE_LINES_V1 v1.1) ──────────────

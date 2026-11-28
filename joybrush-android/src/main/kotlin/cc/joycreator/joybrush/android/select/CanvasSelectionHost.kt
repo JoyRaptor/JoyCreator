@@ -255,6 +255,18 @@ class CanvasSelectionHost(
                 }
                 val gone = edit.removed.filter { planeOf(it) == plane }.map { it.recordId }.toSet()
                 if (gone.isNotEmpty()) list.removeAll { it.id in gone }
+                // Cut lines: the engine's own plan, so the pieces carry the names and order the engine gives them (the
+                // pixel slabs it also moves are not lines, so Select's order is the same without them).
+                val cuts = edit.cuts.filter { planeOf(it.address) == plane }
+                if (cuts.isNotEmpty() && cuts.all { c -> list.any { it.id == c.address.recordId } }) {
+                    val plan = cc.joycreator.joybrush.androidkit.lines.LineCutPlan.plan(list, emptyList(), cuts)
+                    for (i in list.indices) {
+                        val moved = plan.moves[list[i].seq]
+                        list[i] = plan.first[list[i].id]?.copy(seq = moved ?: list[i].seq) ?: if (moved != null) list[i].copy(seq = moved) else list[i]
+                    }
+                    list += plan.extra
+                    list.sortBy { it.seq }
+                }
             }
             is LineEdit.Delete, is LineEdit.Bake -> {
                 val ids = if (edit is LineEdit.Delete) edit.ids else (edit as LineEdit.Bake).ids
@@ -365,13 +377,15 @@ class CanvasSelectionHost(
         return submit(LineEdit.Add(records, brushesFor(records.map { it.record }), assetsFor(records.map { it.record })))
     }
 
-    override fun eraseParts(shortened: List<AddressedStroke>, removed: Set<LineAddress>): Boolean {
-        if (shortened.isEmpty() && removed.isEmpty()) return false
-        val all = shortened.map { it.address } + removed
+    override fun eraseParts(shortened: List<AddressedStroke>, removed: Set<LineAddress>,
+                            cuts: List<cc.joycreator.joybrush.androidkit.lines.LineCutPlan.Cut>): Boolean {
+        if (shortened.isEmpty() && removed.isEmpty() && cuts.isEmpty()) return false
+        val all = shortened.map { it.address } + removed + cuts.map { it.address }
         if (all.toSet().size != all.size) return refuse("Those lines can't be changed together.")
         if (all.any { find(it) == null }) return refuse(GONE)
-        checkDrawable(shortened)?.let { return refuse(it) }
-        return submit(LineEdit.Split(shortened, removed.toSet()))
+        if (cuts.any { it.pieces.size < 2 || it.pieces[0].id != it.address.recordId }) return refuse("Those lines can't be changed together.")
+        checkDrawable(shortened + cuts.flatMap { c -> c.pieces.map { AddressedStroke(c.address, it) } })?.let { return refuse(it) }
+        return submit(LineEdit.Split(shortened, removed.toSet(), cuts))
     }
 
     override fun deleteLines(ids: Set<LineAddress>): Boolean {

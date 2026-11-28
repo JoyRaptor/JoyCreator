@@ -76,11 +76,18 @@ class StrokeEraserToolTest {
         assertEquals("a line rubbed out completely goes", setOf("tiny"), edit.removed.map { it.recordId }.toSet())
     }
 
-    @Test fun aCutInTheMiddleOfALineLeavesItWholeAndSaysSo() {
-        val rig = Rig(mapOf(planeP to listOf(lineRecord("a", 1, y = 10f)), planeQ to emptyList()))
+    @Test fun aCutInTheMiddleOfALineMakesTwoLinesInOneStep() {
+        val rig = Rig(mapOf(planeP to listOf(lineRecord("a", 1, y = 10f), lineRecord("b", 2, y = 30f)), planeQ to emptyList()))
         stroke(tool(rig, mode = cc.joycreator.joybrush.core.vector.InkEraseMode.PARTIAL), 28f, 0f, 28f, 20f)
-        assertTrue("two pieces would need two seqs: nothing is written", rig.canvas.submitted.isEmpty())
-        assertEquals(1, rig.ui.notes.count { it.startsWith("Cutting a line in two isn't possible yet") })
+        assertEquals("one stroke is ONE edit, so one press of Undo", 1, rig.canvas.submitted.size)
+        val edit = rig.canvas.submitted.single().first as LineEdit.Split
+        assertTrue("nothing shortened or erased whole", edit.after.isEmpty() && edit.removed.isEmpty())
+        val cut = edit.cuts.single()
+        assertEquals("a", cut.address.recordId)
+        assertEquals(listOf("a", "a~2"), cut.pieces.map { it.id })
+        assertTrue("the first piece is the left end", cut.pieces[0].samples.maxOf { it.x } < 28f)
+        assertTrue("the second piece is the right end", cut.pieces[1].samples.minOf { it.x } > 28f)
+        assertTrue("nothing is said: it worked", rig.ui.notes.none { it.startsWith("Cutting a line in two") })
     }
 
     @Test fun aStrokeAcrossTwoLinesTakesBothAwayAsOneStep() {

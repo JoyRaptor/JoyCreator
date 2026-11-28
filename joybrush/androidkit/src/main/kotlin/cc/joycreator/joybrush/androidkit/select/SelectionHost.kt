@@ -77,9 +77,11 @@ interface SelectionHost {
 
     /**
      * The slice and partial erasers (11-27): [shortened] lines change in place (same addresses, same seqs) and [removed]
-     * lines go, together as ONE step. False when the host cannot (the default) or refuses.
+     * lines go, together as ONE step. [cuts] (11-28) are lines erased in their middle: each becomes its pieces, in the
+     * same step. False when the host cannot (the default) or refuses.
      */
-    fun eraseParts(shortened: List<AddressedStroke>, removed: Set<LineAddress>): Boolean = false
+    fun eraseParts(shortened: List<AddressedStroke>, removed: Set<LineAddress>,
+                   cuts: List<cc.joycreator.joybrush.androidkit.lines.LineCutPlan.Cut> = emptyList()): Boolean = false
 
     /** Rasterize Down: the lines become pixels at their own seqs (JB-5.20 D12), ONE step. */
     fun bakeLines(ids: Set<LineAddress>): Boolean

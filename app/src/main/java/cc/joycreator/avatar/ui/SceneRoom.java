@@ -71,6 +71,9 @@ public final class SceneRoom {
 
         /** The room's own recorder (the one the Record and Play buttons run), for the one in hand. */
         TakeRecorder handRecorder();
+
+        /** Ask for pictures from a file (the system picker); the answer comes to {@link SceneRoom#picturesChosen}. */
+        void pickPictures(String kind);
     }
 
     private final Host host;
@@ -97,6 +100,7 @@ public final class SceneRoom {
     private boolean dirtyCard;
     private boolean toldNoFolder;
     private final Map<String, Take> takes = new HashMap<>();             // each character's take in this scene, by cast item id
+    private final Map<String, String> pictureData = new LinkedHashMap<>();      // the pictures you added, as the scene file keeps them
     private String hand;                                                 // the cast item the room's performer is working on
     private cc.joycreator.avatar.solve.Signals handSig;
     private final ScenePlayers players = new ScenePlayers(new ScenePlayers.Env() {
@@ -202,6 +206,13 @@ public final class SceneRoom {
                 for (Map.Entry<String, JSONObject> e : r.characters.entrySet()) {
                     CharacterDoc d = cc.joycreator.avatar.file.CharacterOpen.read(e.getValue().toString());
                     if (d != null) carried.put(e.getKey(), d);
+                }
+                for (Map.Entry<String, String> e : r.pictures.entrySet()) {
+                    Bitmap b = decodeData(e.getValue());
+                    if (b != null) {
+                        pictures.put(e.getKey(), b);
+                        pictureData.put(e.getKey(), e.getValue());
+                    }
                 }
                 show(r.scene, p, carried, r.takes);
             });
@@ -318,8 +329,9 @@ public final class SceneRoom {
         final Map<String, JSONObject> chars = new LinkedHashMap<>();
         for (Map.Entry<String, CharacterDoc> e : docs.entrySet()) chars.put(e.getKey(), e.getValue().json);
         final Map<String, Take> tk = new HashMap<>(takes);
+        final Map<String, String> pd = new LinkedHashMap<>(pictureData);
         JoyFolderHome.io().execute(() -> {
-            String np = SceneStore.save(c, s, tk, chars, null, p);
+            String np = SceneStore.save(c, s, tk, chars, pd, p);
             boolean first = p == null && np != null;
             if (np != null && scene == s) path = np;
             if (first) main.post(host::saved);
@@ -399,6 +411,8 @@ public final class SceneRoom {
 
     private void obj(List<SceneStage.Layer> out, JSONObject it, double[] V) {
         String img = it.optString("img", "");
+        org.json.JSONArray loop = it.optJSONArray("frames");                 // several pictures as one object are a loop
+        if (loop != null && loop.length() > 0) img = loop.optString((int) (t * Math.max(1, it.optDouble("fps", 8))) % loop.length(), img);
         Bitmap b = pictures.get(img);
         if (b == null) return;
         SceneDraw.Quad q = SceneDraw.object(scene, it, b.getWidth(), b.getHeight(), t);
@@ -594,6 +608,77 @@ public final class SceneRoom {
         else takes.put(hand, tk.copy());
         players.forget(hand);
         changed();
+    }
+
+    // ── pictures from a file ──
+    private static Bitmap decodeData(String text) {
+        try {
+            int comma = text.indexOf(',');
+            byte[] raw = android.util.Base64.decode(text.substring(comma + 1), android.util.Base64.DEFAULT);
+            return android.graphics.BitmapFactory.decodeByteArray(raw, 0, raw.length);
+        } catch (RuntimeException e) {
+            return null;
+        }
+    }
+
+    /** The system picker answered ({@code kind}: back, obj or front): read them down to a size the phone can hold, then put them in the scene. */
+    public void picturesChosen(final String kind, final List<android.net.Uri> uris) {
+        final Scene s = scene;
+        if (s == null || uris.isEmpty()) return;
+        JoyFolderHome.io().execute(() -> {
+            final Map<String, Bitmap> got = new LinkedHashMap<>();
+            final Map<String, String> data = new LinkedHashMap<>();
+            for (android.net.Uri u : uris) {
+                try {
+                    Bitmap b = readSampled(u, 1600);
+                    if (b == null) continue;
+                    String id = "i" + Long.toString(System.nanoTime(), 36);
+                    java.io.ByteArrayOutputStream o = new java.io.ByteArrayOutputStream();
+                    boolean alpha = b.hasAlpha();
+                    b.compress(alpha ? Bitmap.CompressFormat.PNG : Bitmap.CompressFormat.JPEG, 88, o);
+                    data.put(id, "data:" + (alpha ? "image/png" : "image/jpeg") + ";base64," + android.util.Base64.encodeToString(o.toByteArray(), android.util.Base64.NO_WRAP));
+                    got.put(id, b);
+                } catch (java.io.IOException | RuntimeException | OutOfMemoryError e) {
+                    android.util.Log.w("AvatarRoom", "picture not read", e);
+                }
+            }
+            main.post(() -> {
+                if (scene != s) return;
+                if (got.isEmpty()) {
+                    host.toast(c.getString(com.fadcam.R.string.avatar_sc_pic_failed));
+                    return;
+                }
+                pictures.putAll(got);
+                pictureData.putAll(data);
+                gl.addPictures(got);
+                List<String> ids = new ArrayList<>(got.keySet());
+                Bitmap first = got.get(ids.get(0));
+                JSONObject it = s.addPictures(kind, "obj".equals(kind) ? ids : ids.subList(0, 1), first.getHeight(), null, 0.5);
+                if (it != null) {
+                    select(it.optString("id"));
+                    edited();
+                }
+            });
+        });
+    }
+
+    private Bitmap readSampled(android.net.Uri u, int longSide) throws java.io.IOException {
+        android.graphics.BitmapFactory.Options o = new android.graphics.BitmapFactory.Options();
+        o.inJustDecodeBounds = true;
+        try (java.io.InputStream in = c.getContentResolver().openInputStream(u)) {
+            android.graphics.BitmapFactory.decodeStream(in, null, o);
+        }
+        int sample = 1;
+        while (Math.max(o.outWidth, o.outHeight) / (sample * 2) >= longSide) sample *= 2;
+        o = new android.graphics.BitmapFactory.Options();
+        o.inSampleSize = sample;
+        try (java.io.InputStream in = c.getContentResolver().openInputStream(u)) {
+            return android.graphics.BitmapFactory.decodeStream(in, null, o);
+        }
+    }
+
+    void pick(String kind) {
+        host.pickPictures(kind);
     }
 
     /** Play everyone from the start, together on the one clock. */

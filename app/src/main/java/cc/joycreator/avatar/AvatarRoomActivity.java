@@ -58,6 +58,8 @@ public final class AvatarRoomActivity extends Activity implements RoomMenu.Host,
     private static final int REQ_UPDATE = 46;
     private static final int REQ_WHOLE = 47;
     private static final int REQ_SHEET = 48;
+    private static final int REQ_SCENEPIC = 49;               // pictures for a scene (slice 3)
+    private String scenePicKind = "obj";
 
     /** The four stages, in the order the owner reads them (spec A2). The second one's word is one string. */
     private static final int[] STAGE_NAMES = {
@@ -252,6 +254,18 @@ public final class AvatarRoomActivity extends Activity implements RoomMenu.Host,
             @Override
             public cc.joycreator.avatar.perform.TakeRecorder handRecorder() {
                 return inputs.recorder;
+            }
+
+            @Override
+            public void pickPictures(String kind) {
+                scenePicKind = kind;
+                Intent i = new Intent(Intent.ACTION_OPEN_DOCUMENT).addCategory(Intent.CATEGORY_OPENABLE).setType("image/*")
+                        .putExtra(Intent.EXTRA_ALLOW_MULTIPLE, "obj".equals(kind));
+                try {
+                    startActivityForResult(i, REQ_SCENEPIC);
+                } catch (Exception e) {
+                    Log.w(TAG, "no file picker", e);
+                }
             }
         }, sceneGl);
         stageBox.addView(sceneRoom.stageView(), new android.widget.FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
@@ -2740,6 +2754,14 @@ public final class AvatarRoomActivity extends Activity implements RoomMenu.Host,
         super.onActivityResult(req, res, data);
         if (req == REQ_UPDATE && res == RESULT_OK && data != null && data.getData() != null) {
             updateDoor(data.getData());
+            return;
+        }
+        if (req == REQ_SCENEPIC && res == RESULT_OK && data != null && sceneRoom != null) {
+            java.util.ArrayList<Uri> uris = new java.util.ArrayList<>();
+            if (data.getClipData() != null)
+                for (int i = 0; i < data.getClipData().getItemCount(); i++) uris.add(data.getClipData().getItemAt(i).getUri());
+            else if (data.getData() != null) uris.add(data.getData());
+            sceneRoom.picturesChosen(scenePicKind, uris);
             return;
         }
         if (req == REQ_SHEET && res == RESULT_OK && data != null && data.getData() != null) {

@@ -45755,6 +45755,18 @@ public class FaditorEditorActivity extends AppCompatActivity {
                                            @Nullable java.io.File voice, long voiceAtMs) {
                 recordCharacterPass(it, takeJson, voice, voiceAtMs);
             }
+
+            @Override public boolean isPlaying() {
+                return playerManager != null && playerManager.isPlaying();
+            }
+
+            @Override public boolean takeBackPass(@NonNull com.fadcam.ui.faditor.sprite.SpriteOverlayItem it) {
+                // only when the last step is a pass (each pass is one step); anything else is left to Studio's Undo
+                if (!undoManager.canUndo() || !getString(R.string.ava_perform_pass_undo).equals(undoManager.peekUndoDescription())) return false;
+                undoManager.undo();
+                scheduleAutoSave();
+                return true;
+            }
         });
     }
 

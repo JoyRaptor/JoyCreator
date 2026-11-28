@@ -13,6 +13,7 @@ for i in range(44100 * 6):
     fr.append(int(12000 * math.sin(2 * math.pi * 440 * t)) if on else 0)
 w.writeframes(struct.pack('<%dh' % len(fr), *fr)); w.close()
 PY
+adb shell mkdir -p /sdcard/Documents/JoyCreatorTest
 adb push /tmp/stu4_gaps_test.wav /sdcard/Download/stu4_gaps_test.wav >/dev/null
 through_intro
 settle 3

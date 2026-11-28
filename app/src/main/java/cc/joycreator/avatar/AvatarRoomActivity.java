@@ -2226,11 +2226,14 @@ public final class AvatarRoomActivity extends Activity implements RoomMenu.Host,
     boolean joybotChoose(String what) {
         CharacterDoc.Node n = byName(what);
         if (n == null) return false;
+        stopReshape();                                          // what a tap on a part does: reshape pins do not stay up on the new part
         inHand = n.id;
         stage.setSelected(inHand);
         layers.show(character, inHand);
         rail.show(character, inHand);
         parts.show(character, inHand, stageIndex);
+        refreshPins();
+        if (stageIndex == 2) performPanel.bind(character, false);
         return true;
     }
 

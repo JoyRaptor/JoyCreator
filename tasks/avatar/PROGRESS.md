@@ -9,9 +9,9 @@ the phone until the final phone run. Every session ticks its own rows here when 
 
 | | Points |
 |---|---|
-| Earned | **130.5 of 183 (71%)** (11-27 night, lead re-checked every row) |
-| Landed | 120 |
-| Built or partly landed (half) | 10.5 |
+| Earned | **149 of 183 (81%)** (11-28, lead re-checked every row; Set up, Arrange, walking and scene row 1 counted in full as every named part has landed) |
+| Landed | 141 |
+| Built or partly landed (half) | 8 |
 
 Updated 11-27 by the lead.
 

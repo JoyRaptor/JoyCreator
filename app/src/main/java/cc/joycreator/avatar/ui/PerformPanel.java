@@ -629,6 +629,7 @@ public final class PerformPanel extends ScrollView {
         t.setText(text);
         t.setGravity(Gravity.CENTER);
         t.setTextSize(compact ? 12 : 14);
+        RoomType.control(t);
         paintHold(t, false);
         t.setOnTouchListener((v, e) -> {
             switch (e.getActionMasked()) {
@@ -679,6 +680,7 @@ public final class PerformPanel extends ScrollView {
         TextView t = new TextView(c);
         t.setText(text);
         t.setTextSize(12);
+        RoomType.control(t);
         t.setGravity(Gravity.CENTER);
         t.setPadding(px(12), 0, px(12), 0);
         LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, px(32));
@@ -712,7 +714,7 @@ public final class PerformPanel extends ScrollView {
         t.setTextSize(12);
         t.setTextColor(Studio.INK_FAINT);
         t.setPadding(0, px(8), 0, px(6));
-        return t;
+        return RoomType.label(t);
     }
 
     private static boolean hasRole(CharacterDoc d, String role) {

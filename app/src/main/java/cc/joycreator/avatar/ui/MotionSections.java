@@ -287,7 +287,7 @@ public final class MotionSections {
     }
 
     static View chip(Context c, String text, boolean on, String hover, float dp, View.OnClickListener tap) {
-        TextView t = text(c, text, 12, on ? Studio.GROUND : Studio.LABEL);
+        TextView t = RoomType.control(text(c, text, 12, on ? Studio.GROUND : Studio.LABEL));
         t.setGravity(Gravity.CENTER);
         t.setPadding(Math.round(12 * dp), 0, Math.round(12 * dp), 0);
         GradientDrawable g = new GradientDrawable();
@@ -313,7 +313,7 @@ public final class MotionSections {
     static TextView label(Context c, String s, float dp) {
         TextView t = text(c, s, 12, Studio.INK_FAINT);
         t.setPadding(0, Math.round(10 * dp), 0, Math.round(6 * dp));
-        return t;
+        return RoomType.label(t);
     }
 
     static TextView note(Context c, String s, float dp) {
@@ -327,6 +327,6 @@ public final class MotionSections {
         t.setText(s);
         t.setTextSize(sp);
         t.setTextColor(color);
-        return t;
+        return RoomType.body(t);
     }
 }

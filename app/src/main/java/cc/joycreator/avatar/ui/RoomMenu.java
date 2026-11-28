@@ -171,7 +171,7 @@ public final class RoomMenu {
         t.setText(s);
         t.setTextSize(sp);
         t.setTextColor(color);
-        return t;
+        return RoomType.body(t);
     }
 
     private static int px(float dp, float v) {

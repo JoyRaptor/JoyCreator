@@ -71,6 +71,22 @@ public final class RippleCheck {
     }
 
     /**
+     * Whether the check follows the edit that closed a bracket, by the editor's name for it ("trim", "speed", ...).
+     * Today's rule: none.
+     */
+    public static boolean asksAfter(String where) {
+        return false;
+    }
+
+    /**
+     * Where an edit changed the clips' track, from their starts before and after it ({@link Timeline#captureClipStarts}):
+     * the earliest old start of a clip that moved or went. Today's rule: the start.
+     */
+    public static long pointOf(@NonNull Map<String, Long> before, @NonNull Map<String, Long> after, long trackBeforeMs) {
+        return 0L;
+    }
+
+    /**
      * Closes the edit's structural bracket with this edit's answer: MOVE ripples everything after the point, LEAVE
      * leaves it (the timeline's "gap" behaviour), ASK keeps the project's own setting. The project's setting is put
      * back afterwards whatever happens: the answer is for this edit.

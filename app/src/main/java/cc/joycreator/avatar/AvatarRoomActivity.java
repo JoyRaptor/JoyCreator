@@ -90,6 +90,7 @@ public final class AvatarRoomActivity extends Activity implements RoomMenu.Host,
     private org.json.JSONObject walkerDoc;
     private cc.joycreator.avatar.perform.Stick stick;
     private int frameNo;
+    private double testMouth;                                          // Try: talk, on Set up
     private cc.joycreator.avatar.ui.LandmarksScreen landmarks;
     private cc.joycreator.avatar.ui.SolverStage glStage;
     private cc.joycreator.avatar.ui.SceneUi sceneUi;
@@ -942,6 +943,73 @@ public final class AvatarRoomActivity extends Activity implements RoomMenu.Host,
     }
 
     @Override
+    public void tryMouth(double v) {
+        testMouth = v;
+        glStage.requestRender();
+    }
+
+    /** The mouth card's two bigger acts: "squash" (flatten shut, instead of a hinge) and "everywhere" (this way of talking at every head angle). */
+    @Override
+    public void mouthAction(String nodeId, String action) {
+        final cc.joycreator.avatar.ui.PoseRenderer r = stage.renderer();
+        if (r == null || character == null) return;
+        final cc.joycreator.avatar.solve.Pics pics = r.pics();
+        edit.apply(getString(action.equals("squash") ? R.string.avatar_step_mouth_squash : R.string.avatar_step_mouth_everywhere), d -> {
+            org.json.JSONObject j = d.find(nodeId).json;
+            org.json.JSONObject art = mouthArt(j);
+            if (action.equals("squash")) {
+                String keep = art.optJSONObject("hinge") != null ? art.getJSONObject("hinge").optString("rest", "open") : "open";
+                double[] b = r.restBounds(d.find(art.optString("id")));
+                art.remove("hinge");
+                art.put("squash", new org.json.JSONObject().put("rest", keep).put("min", 0.14));
+                if (b != null) art.put("pivot", new org.json.JSONObject().put("x", (b[0] + b[2]) / 2).put("y", b[1] + (b[3] - b[1]) * 0.15));
+                return;
+            }
+            final double[][] nose = {null}, face = {null};
+            d.walk((k, dd, p) -> {
+                if (nose[0] == null && "nose".equals(k.role)) nose[0] = r.restBounds(k);
+                if (face[0] == null && "face".equals(k.role)) face[0] = r.restBounds(k);
+            });
+            final java.util.List<org.json.JSONObject> others = new java.util.ArrayList<>();
+            d.walk((k, dd, p) -> {
+                if ("mouth".equals(k.role) && !k.id.equals(j.optString("id"))) others.add(k.json);
+            });
+            org.json.JSONObject hinge = art.optJSONObject("hinge"), squash = art.optJSONObject("squash");
+            for (org.json.JSONObject o : others) {
+                org.json.JSONObject a = mouthArt(o);
+                if (a == art || !"art".equals(a.optString("type", "art"))) continue;
+                double[] b = r.restBounds(d.find(a.optString("id")));
+                if (hinge != null) {
+                    org.json.JSONObject mine = a.optJSONObject("hinge");
+                    int sign = mine != null && mine.optDouble("angle", 30) < 0 ? -1 : 1;
+                    if (mine == null) {
+                        a.remove("squash");
+                        cc.joycreator.avatar.file.PinGuess.guessMouth(a, pics, nose[0], face[0]);
+                        a.remove("squash");
+                        mine = a.optJSONObject("hinge");
+                        if (mine == null) a.put("hinge", mine = new org.json.JSONObject().put("rest", "open").put("angle", 30));
+                        if (a.optJSONObject("pivot") == null && b != null) a.put("pivot", new org.json.JSONObject().put("x", (b[0] + b[2]) / 2).put("y", b[1]));
+                    }
+                    mine.put("rest", hinge.optString("rest", "open"));
+                    mine.put("angle", Math.abs(hinge.optDouble("angle", 30)) * (mine.optDouble("angle", 30) < 0 ? -1 : sign));
+                } else if (squash != null) {
+                    a.remove("hinge");
+                    a.put("squash", new org.json.JSONObject().put("rest", squash.optString("rest", "open")).put("min", squash.optDouble("min", 0.14)));
+                    if (b != null) a.put("pivot", new org.json.JSONObject().put("x", (b[0] + b[2]) / 2).put("y", b[1] + (b[3] - b[1]) * 0.15));
+                }
+            }
+        });
+    }
+
+    private static org.json.JSONObject mouthArt(org.json.JSONObject j) {
+        if (!"set".equals(j.optString("type"))) return j;
+        String rest = j.optJSONObject("pick") == null ? "" : j.optJSONObject("pick").optString("rest", "");
+        org.json.JSONArray ks = j.optJSONArray("kids");
+        for (int i = 0; ks != null && i < ks.length(); i++) if (ks.optJSONObject(i).optString("id").equals(rest)) return ks.optJSONObject(i);
+        return ks != null && ks.length() > 0 ? ks.optJSONObject(0) : j;
+    }
+
+    @Override
     public void guessPins(String nodeId, String kind) {
         final cc.joycreator.avatar.ui.PoseRenderer r = stage.renderer();
         if (r == null || character == null) return;
@@ -1007,6 +1075,9 @@ public final class AvatarRoomActivity extends Activity implements RoomMenu.Host,
         if (idx < 2 && inputs.faceOn()) faceOff();                   // and so does the camera
         stageIndex = idx;
         if (idx != 1) stopReshape();
+        testMouth = 0;
+        if (parts != null) parts.scrollTo(0, 0);                    // a new stage opens at the top of its card
+        if (performPanel != null) performPanel.scrollTo(0, 0);
         for (int i = 0; i < 4; i++) {
             boolean on = i == idx;
             GradientDrawable g = new GradientDrawable();
@@ -1734,8 +1805,14 @@ public final class AvatarRoomActivity extends Activity implements RoomMenu.Host,
 
     private void frame(double dt) {
         if (sceneUi != null) sceneUi.tick(dt);                  // the frame, the strip and the shot's camera (slice 3)
-        if (stageIndex < 2) {                                   // building: the still pose, nothing moving
+        if (stageIndex < 2) {                                   // building: the still pose, nothing moving (but Try: talk)
             stage.setSignals(null);
+            if (testMouth > 0.001) {
+                java.util.Map<String, Object> m = new java.util.HashMap<>();
+                m.put("mouth", testMouth);
+                glStage.frame(cc.joycreator.avatar.ui.SignalMap.toSignals(m, inputs.time(), 0), true, dt, stage.viewScale(), stage.viewX(), stage.viewY());
+                return;
+            }
             glStage.frame(null, false, dt, stage.viewScale(), stage.viewX(), stage.viewY());
             return;
         }

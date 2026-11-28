@@ -63,6 +63,14 @@ public final class PartsView extends ScrollView {
         default void reshapeAction(String what) {
         }
 
+        /** "squash" (flatten shut, instead of a hinge) or "everywhere" (this way of talking at every head angle): one named undo step. */
+        default void mouthAction(String nodeId, String action) {
+        }
+
+        /** Try: talk, on Set up: the mouth open this much (0 = off), shown on the stage without a step. */
+        default void tryMouth(double v) {
+        }
+
         /** What Motion and the eyes' card write through (null: none). */
         default MotionSections.Host motion() {
             return null;

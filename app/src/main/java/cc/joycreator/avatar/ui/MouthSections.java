@@ -44,9 +44,9 @@ final class MouthSections {
                 parts.guessPins(art.id, "mouth");
             }
         }));
-        if (squash != null)
-            seg.addView(MotionSections.chip(c, "Squash", true, "Flattens shut toward a line", dp, v -> {
-            }));
+        seg.addView(MotionSections.chip(c, "Squash", "squash".equals(mode), "Flattens shut toward a line", dp, v -> {
+            if (!"squash".equals(mode)) parts.mouthAction(art.id, "squash");
+        }));
         seg.addView(MotionSections.chip(c, "Swap only", "swap".equals(mode), "Does not move by itself", dp, v -> {
             host.remove(art.id, "hinge", "Mouth: swap only");
             host.remove(art.id, "squash", "Mouth: swap only");
@@ -70,9 +70,11 @@ final class MouthSections {
         else
             col.addView(MotionSections.slider(c, "Shuts to", 0, 0.6, 0.02, squash.optDouble("min", 0.14), v -> Math.round(v * 100) + "%", "How flat it squashes when shut",
                     v -> host.setValue(art.id, "squash.min", v, "Mouth: shuts to"), dp));
+        col.addView(MotionSections.slider(c, "Try: talk", 0, 1, 0.05, 0, v -> v < 0.05 ? "shut" : Math.round(v * 100) + "% open", "Slide to see it talk",
+                v -> {
+                }, v -> parts.tryMouth(v), dp));
         LinearLayout acts = new LinearLayout(c);
-        if (hinge != null)
-            acts.addView(MotionSections.chip(c, "Guess again", false, "Work the hinge out from the art again", dp, v -> parts.guessPins(art.id, "mouth")));
+        acts.addView(MotionSections.chip(c, "Same on every angle", false, "Copy this way of talking to the mouth at every head angle (each keeps its own hinge pin)", dp, v -> parts.mouthAction(art.id, "everywhere")));
         col.addView(MotionSections.scroll(c, acts));
     }
 }

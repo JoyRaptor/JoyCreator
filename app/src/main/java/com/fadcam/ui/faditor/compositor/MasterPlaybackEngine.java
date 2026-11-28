@@ -477,15 +477,10 @@ public class MasterPlaybackEngine {
      * Append the before/after loop-extension rep windows for one side of a looped clip. Returns
      * the visual cursor AFTER the appended reps (== {@code startVisualMs + extensionMs}).
      *
-     * <p>L2: when {@code reversedUri != null} this is a PING_PONG clip — alternate reps play the
-     * baked REVERSED file (true reverse). The reverse decision mirrors
-     * {@code ExportManager.buildLoopExtensionItem}: {@code reverse = (isBefore ? reps-1-r : r) % 2
-     * == 1}. For a forward rep the window clips the (forward) source {@code [inPoint, inPoint+span)}.
-     * For a reverse rep the window clips the reversed file to {@code [outPoint-endMs, outPoint-startMs)}
-     * where {@code [startMs,endMs]} is that forward source range — i.e. reversed-file coords
-     * {@code [(outPoint-inPoint) - span, (outPoint-inPoint))} = the LAST {@code span} ms of the
-     * reversed file = the clip's head rolling backward. This is the SAME mapping export uses, so
-     * preview reverse legs land on identical frames to export reverse legs.</p>
+     * <p>L2: when {@code reversedUri != null} this is a PING_PONG clip, and alternate reps play the baked REVERSED
+     * file (true reverse). Which reps, and the window each plays, come from {@link
+     * com.fadcam.ui.faditor.model.PingPongLeg}, the rule the export uses too (STU-F7, 11-27): the rep next to the clip's
+     * own pass plays backward and they alternate from there, each starting where its neighbour ended.</p>
      */
     private long addLoopReps(int clipIndex, @NonNull Clip clip, @NonNull Uri seekable,
                               @Nullable Uri reversedUri, @NonNull List<MediaItem> items,
@@ -504,25 +499,14 @@ public class MasterPlaybackEngine {
             if (playedMs <= 0) continue;
             long sourceSpanMs = Math.max(1L, (long) (playedMs * speed));
 
-            boolean reverse = reversedUri != null
-                    && ((isBefore ? reps - 1 - r : r) % 2 == 1);
-
-            Uri uri;
-            long startMs;
-            long endMs;
-            if (reverse) {
-                // Forward source range for this rep is [inPoint, inPoint+span]; map into the
-                // reversed file (baked-time t ↔ source outPoint-t) → [outPoint-(inPoint+span),
-                // outPoint-inPoint] == [(out-in)-span, (out-in)].
-                uri = reversedUri;
-                long revLen = outPointMs - inPointMs; // reversed file's own duration
-                startMs = Math.max(0L, revLen - sourceSpanMs);
-                endMs = revLen;
-            } else {
-                uri = seekable;
-                startMs = inPointMs;
-                endMs = Math.min(outPointMs, inPointMs + sourceSpanMs);
-            }
+            // STU-F7: the SAME rule as the export (PingPongLeg): the leg next to the clip's own pass plays
+            // backward and the legs alternate from there, each starting where its neighbour ended.
+            com.fadcam.ui.faditor.model.PingPongLeg leg = com.fadcam.ui.faditor.model.PingPongLeg.of(
+                    isBefore, reps, r, inPointMs, outPointMs, sourceSpanMs, reversedUri != null);
+            boolean reverse = leg.reverse;
+            Uri uri = reverse ? reversedUri : seekable;
+            long startMs = leg.startMs;
+            long endMs = leg.endMs;
             MediaItem item = new MediaItem.Builder()
                     .setUri(uri)
                     .setMediaId(clip.getId() + "#" + kind.name() + r)

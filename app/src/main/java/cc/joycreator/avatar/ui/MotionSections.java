@@ -189,6 +189,11 @@ public final class MotionSections {
     }
 
     static View slider(Context c, String label, double min, double max, double step, double value, Fmt fmt, String hover, Commit commit, float dp) {
+        return slider(c, label, min, max, step, value, fmt, hover, commit, null, dp);
+    }
+
+    /** As above, and {@code live} is told on every move of the finger (a preview that makes no undo step). */
+    static View slider(Context c, String label, double min, double max, double step, double value, Fmt fmt, String hover, Commit commit, Commit live, float dp) {
         LinearLayout box = new LinearLayout(c);
         box.setOrientation(LinearLayout.VERTICAL);
         LinearLayout head = new LinearLayout(c);
@@ -207,6 +212,7 @@ public final class MotionSections {
             @Override
             public void onProgressChanged(SeekBar s, int p, boolean user) {
                 val.setText(fmt.of(min + p * step));
+                if (live != null && user) live.to(min + p * step);
             }
 
             @Override

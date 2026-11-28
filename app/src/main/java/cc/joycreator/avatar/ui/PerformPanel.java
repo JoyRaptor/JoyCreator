@@ -134,6 +134,7 @@ public final class PerformPanel extends ScrollView {
     private final List<TextView> moodChips = new ArrayList<>();
     private final List<String> moodNames = new ArrayList<>();
     private TextView micChip, faceChip, recentreChip, mirrorChip;
+    private boolean compact;
     private LinearLayout faceRow, shoulderBox;
     private int faceWords = R.string.avatar_face;
     private final List<TextView> tickBoxes = new ArrayList<>();
@@ -197,7 +198,8 @@ public final class PerformPanel extends ScrollView {
         row.addView(pad);
         LinearLayout side = new LinearLayout(c);
         side.setOrientation(LinearLayout.VERTICAL);
-        side.setPadding(px(12), 0, 0, 0);
+        compact = host.stick() != null && host.stickOpen();                 // two pads share the width: the middle column steps in, as the pilot's
+        side.setPadding(px(compact ? 6 : 12), 0, 0, 0);
         side.addView(holdButton(c, c.getString(R.string.avatar_hold_to_talk), c.getString(R.string.avatar_hover_hold_to_talk), new Hold() {
             @Override
             public void down() {
@@ -254,7 +256,23 @@ public final class PerformPanel extends ScrollView {
                 bind(doc, takeBar);
             });
             paintChip(stickChip, host.stickOpen());
-            chipRow.addView(stickChip);
+            if (compact) {                                                   // Mic, Face and Joystick become pictures only (their words are in their hover labels)
+                chipRow.addView(stickChip, 0);
+                micChip.setTag(R.drawable.ic_avatar_mic);
+                faceChip.setTag(R.drawable.ic_avatar_face);
+                stickChip.setTag(R.drawable.ic_avatar_joystick);
+                micChip.setText("");
+                faceChip.setText("");
+                stickChip.setText("");
+                paintChip(micChip, false);
+                paintChip(faceChip, false);
+                paintChip(stickChip, true);
+                for (int i = 0; i < chipRow.getChildCount(); i++) {              // three pictures fit the middle column: 18 dp each, close together
+                    View ch = chipRow.getChildAt(i);
+                    ch.setPadding(px(7), 0, px(7), 0);
+                    ((LinearLayout.LayoutParams) ch.getLayoutParams()).rightMargin = px(3);
+                }
+            } else chipRow.addView(stickChip);
         }
         // the face's own controls, there only while the camera is on: a private preview, Re-centre, Mirror
         faceRow = new LinearLayout(c);
@@ -471,7 +489,7 @@ public final class PerformPanel extends ScrollView {
             paintChip(faceChip, in.faceOn());
             int words = !in.faceOn() ? R.string.avatar_face : in.faceDrive().mode() == cc.joycreator.avatar.face.FaceDrive.Mode.TALK
                     ? R.string.avatar_face_talk : R.string.avatar_face_always;
-            if (words != faceWords) {
+            if (words != faceWords && !compact) {
                 faceWords = words;
                 faceChip.setText(words);
             }
@@ -590,7 +608,7 @@ public final class PerformPanel extends ScrollView {
         TextView t = new TextView(c);
         t.setText(text);
         t.setGravity(Gravity.CENTER);
-        t.setTextSize(14);
+        t.setTextSize(compact ? 12 : 14);
         paintHold(t, false);
         t.setOnTouchListener((v, e) -> {
             switch (e.getActionMasked()) {
@@ -655,6 +673,12 @@ public final class PerformPanel extends ScrollView {
         g.setColor(on ? Studio.ARMED : 0xFF27272A);
         t.setBackground(g);
         t.setTextColor(on ? Studio.GROUND : 0xFFD4D4D8);
+        if (t.getTag() instanceof Integer) {                         // a picture-only chip: the room's own vector, white, cyan cut-out when ON
+            android.graphics.drawable.Drawable d = getContext().getDrawable((Integer) t.getTag()).mutate();
+            d.setTint(on ? Studio.GROUND : 0xFFFFFFFF);
+            d.setBounds(0, 0, px(18), px(18));
+            t.setCompoundDrawables(d, null, null, null);
+        }
     }
 
     private TextView label(String s) {

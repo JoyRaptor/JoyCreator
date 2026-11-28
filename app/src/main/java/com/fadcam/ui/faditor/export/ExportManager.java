@@ -5686,9 +5686,7 @@ public class ExportManager {
         // plain forward NORMAL-loop wrap — same graceful degrade as preview. Forcing reverse=false
         // routes every rep through the forward head-replay branch below, so export matches the
         // parked preview by construction and never references a baked reversed file.
-        boolean reverse = !Clip.PING_PONG_PARKED
-                && loopMode == Clip.LOOP_MODE_PING_PONG
-                && ((isBefore ? totalReps - 1 - repIndex : repIndex) % 2 == 1);
+        boolean pingPong = !Clip.PING_PONG_PARKED && loopMode == Clip.LOOP_MODE_PING_PONG;
 
         // Choose the source sub-range so playback length matches `playedMs`.
         float speed = clip.getSpeedMultiplier();
@@ -5704,21 +5702,14 @@ public class ExportManager {
         // failure) we fall back to a plain FORWARD head replay [inPoint, inPoint+span] with NO
         // mirror — matching exactly what the (forward-tail) preview shows in that same un-baked case
         // (the old setScale(-1) horizontal-mirror stand-in is GONE — it never matched preview).
-        android.net.Uri reversedUri = reverse ? resolveReversedFileUri(clip) : null;
-        android.net.Uri itemUri;
-        long startMs;
-        long endMs;
-        if (reverse && reversedUri != null) {
-            long revLen = outPointMs - inPointMs; // reversed file's own duration
-            itemUri = reversedUri;
-            startMs = Math.max(0L, revLen - sourceSpanMs);
-            endMs = revLen;
-        } else {
-            // Forward leg, or reverse leg with no bake → forward head replay.
-            itemUri = resolveSeekableSourceUri(clip);
-            startMs = inPointMs;
-            endMs = Math.min(outPointMs, inPointMs + sourceSpanMs);
-        }
+        // STU-F7: which legs play backward and the window each plays come from ONE rule shared with the preview
+        // (PingPongLeg): the leg next to the clip's own pass plays backward, and the legs alternate from there.
+        android.net.Uri reversedUri = pingPong ? resolveReversedFileUri(clip) : null;
+        com.fadcam.ui.faditor.model.PingPongLeg leg = com.fadcam.ui.faditor.model.PingPongLeg.of(
+                isBefore, totalReps, repIndex, inPointMs, outPointMs, sourceSpanMs, reversedUri != null);
+        android.net.Uri itemUri = leg.reverse ? reversedUri : resolveSeekableSourceUri(clip);
+        long startMs = leg.startMs;
+        long endMs = leg.endMs;
 
         MediaItem mediaItem = new MediaItem.Builder()
                 .setUri(itemUri)

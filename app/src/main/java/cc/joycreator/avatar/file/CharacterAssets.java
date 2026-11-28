@@ -21,6 +21,8 @@ public final class CharacterAssets {
             int n;
             while ((n = in.read(buf)) > 0) out.write(buf, 0, n);
         }
-        return CharacterDoc.parse(new String(out.toByteArray(), StandardCharsets.UTF_8));
+        CharacterDoc doc = CharacterDoc.parse(new String(out.toByteArray(), StandardCharsets.UTF_8));
+        if (!Js.truthy(Js.get(doc.json, "uid"))) doc.json.put("uid", java.util.UUID.randomUUID().toString().replace("-", "").substring(0, 12));   // one uid for every save of this copy
+        return doc;
     }
 }

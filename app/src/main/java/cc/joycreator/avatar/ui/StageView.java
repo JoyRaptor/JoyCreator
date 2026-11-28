@@ -136,6 +136,10 @@ public final class StageView extends View {
 
         void picked(Dot d);
 
+        /** The drag was cut short (a second finger, or the system took the touch): what the live drag wrote is put back, and no step is made. */
+        default void cancelDrag() {
+        }
+
         /** A dot dragged to x, y; {@code last} when the finger lifts (the edit is made then, as one undo step). */
         void moved(Dot d, float x, float y, boolean last);
     }
@@ -295,6 +299,7 @@ public final class StageView extends View {
         }
         scale.onTouchEvent(e);
         if (scale.isInProgress() || e.getPointerCount() > 1) {          // two fingers: zoom and pan, never a drag of a dot
+            if (marks != null && (dragging != null || moving)) marks.cancelDrag();
             dragging = null;
             moving = false;
             if (e.getActionMasked() == android.view.MotionEvent.ACTION_MOVE && e.getPointerCount() == 2 && zoom > 1.001f) {
@@ -349,7 +354,9 @@ public final class StageView extends View {
                 invalidate();
                 return true;
             case android.view.MotionEvent.ACTION_CANCEL:
+                if (dragging != null || moving) marks.cancelDrag();
                 dragging = null;
+                moving = false;
                 invalidate();
                 return true;
             default:

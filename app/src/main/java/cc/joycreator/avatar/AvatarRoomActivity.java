@@ -58,6 +58,8 @@ public final class AvatarRoomActivity extends Activity implements RoomMenu.Host,
     private static final int REQ_UPDATE = 46;
     private static final int REQ_WHOLE = 47;
     private static final int REQ_SHEET = 48;
+    private static final int REQ_SCENEPIC = 49;               // pictures for a scene (slice 3)
+    private String scenePicKind = "obj";
 
     /** The four stages, in the order the owner reads them (spec A2). The second one's word is one string. */
     private static final int[] STAGE_NAMES = {
@@ -91,6 +93,7 @@ public final class AvatarRoomActivity extends Activity implements RoomMenu.Host,
     private cc.joycreator.avatar.perform.Stick stick;
     private int frameNo;
     private double testMouth;                                          // Try: talk, on Set up
+    private String testVis;                                            // Try a sound, on Set up
     private cc.joycreator.avatar.ui.LandmarksScreen landmarks;
     private cc.joycreator.avatar.ui.SolverStage glStage;
     private cc.joycreator.avatar.ui.SceneUi sceneUi;
@@ -135,6 +138,11 @@ public final class AvatarRoomActivity extends Activity implements RoomMenu.Host,
     private CharacterDoc character;
     /** The character's file in the Joy Creator folder; null for Topps (his copy is made on the first save). */
     private String characterPath;
+    /** Where each character on this screen was saved, by the character itself: a save finishing late never points another character at its file. */
+    private final cc.joycreator.avatar.file.SaveLedger<CharacterDoc> ledger = new cc.joycreator.avatar.file.SaveLedger<>();
+    private View doorView;                                            // the pin wizard or the sheet cutter, while one is over the room
+    private android.graphics.Bitmap doorBitmap;
+    private int editStamp;                                            // counts the edits, so a save knows whether more came while it ran
     /** What is on the stage differs from what is in the folder. Nothing edits yet, so this stays false. */
     private boolean unsaved;
     /** Perform is where Topps opens (spec A1): ready to play. */
@@ -232,6 +240,33 @@ public final class AvatarRoomActivity extends Activity implements RoomMenu.Host,
             public void saved() {
                 if (sceneUi != null) sceneUi.refreshScenes();
             }
+
+            @Override
+            public void handChanged(CharacterDoc d, Take take) {           // the performer works on this scene character now
+                character = d;
+                characterPath = null;
+                unsaved = false;
+                showCharacter();
+                inputs.recorder.setTake(take);
+                applyPanels();
+            }
+
+            @Override
+            public cc.joycreator.avatar.perform.TakeRecorder handRecorder() {
+                return inputs.recorder;
+            }
+
+            @Override
+            public void pickPictures(String kind) {
+                scenePicKind = kind;
+                Intent i = new Intent(Intent.ACTION_OPEN_DOCUMENT).addCategory(Intent.CATEGORY_OPENABLE).setType("image/*")
+                        .putExtra(Intent.EXTRA_ALLOW_MULTIPLE, "obj".equals(kind));
+                try {
+                    startActivityForResult(i, REQ_SCENEPIC);
+                } catch (Exception e) {
+                    Log.w(TAG, "no file picker", e);
+                }
+            }
         }, sceneGl);
         stageBox.addView(sceneRoom.stageView(), new android.widget.FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
         stageBox.addView(buildStageTools(), new android.widget.FrameLayout.LayoutParams(px(44), ViewGroup.LayoutParams.WRAP_CONTENT, Gravity.END | Gravity.TOP));
@@ -304,12 +339,12 @@ public final class AvatarRoomActivity extends Activity implements RoomMenu.Host,
         menu.setOnClickListener(v -> openMenu());
         bar.addView(menu, new LinearLayout.LayoutParams(px(36), px(36)));
         undoButton = roundButton("\u21B6", getString(R.string.avatar_hover_undo_none));
-        undoButton.setOnClickListener(v -> { if (edit != null) edit.undo(); });
+        undoButton.setOnClickListener(v -> { if (edit != null && edit.undo()) rebindCards(); });
         LinearLayout.LayoutParams ul = new LinearLayout.LayoutParams(px(36), px(36));
         ul.leftMargin = px(8);
         bar.addView(undoButton, ul);
         redoButton = roundButton("\u21B7", getString(R.string.avatar_hover_redo_none));
-        redoButton.setOnClickListener(v -> { if (edit != null) edit.redo(); });
+        redoButton.setOnClickListener(v -> { if (edit != null && edit.redo()) rebindCards(); });
         bar.addView(redoButton, ul);
         // the save dot (spec A2): never says "saved" for a character nobody has saved; says so on a long press or hover
         saveDot = new View(this);
@@ -375,23 +410,15 @@ public final class AvatarRoomActivity extends Activity implements RoomMenu.Host,
 
     /** The export sheet (slice 2's RoomExportSheet): the character is saved first, so the file it works from is current. */
     private void openExport() {
-        final CharacterDoc d = character;
-        if (d == null) return;
-        final String path = characterPath;
+        if (character == null) return;
         final java.util.Map<String, Object> sig = lastSignals;
-        JoyFolderHome.io().execute(() -> {
-            String rel = CharacterStore.save(this, d, path);
-            main.post(() -> {
-                if (isFinishing()) return;
-                if (rel == null) {
-                    Toast.makeText(this, R.string.avatar_cannot_save, Toast.LENGTH_LONG).show();
-                    return;
-                }
-                characterPath = rel;
-                unsaved = false;
-                paintSaveDot();
-                cc.joycreator.avatar.studio.RoomExportSheet.show(this, rel, characterName(), sig);
-            });
+        saveCurrent(rel -> {
+            if (isFinishing()) return;
+            if (rel == null) {
+                Toast.makeText(this, R.string.avatar_cannot_save, Toast.LENGTH_LONG).show();
+                return;
+            }
+            cc.joycreator.avatar.studio.RoomExportSheet.show(this, rel, characterName(), sig);
         });
     }
 
@@ -457,11 +484,11 @@ public final class AvatarRoomActivity extends Activity implements RoomMenu.Host,
         if (layers == null || parts == null || performPanel == null) return;
         boolean matching = landmarks != null && landmarks.isOpen();
         boolean inScene = sceneRoom != null && sceneRoom.isOpen();         // a scene in hand has its own cards
-        boolean perform = !showLayers && !matching && !inScene && stageIndex >= 2;
+        boolean perform = !showLayers && !matching && (inScene ? stageIndex == 3 && sceneRoom.hand() != null : stageIndex >= 2);
         layers.setVisibility(showLayers && !matching && !inScene ? View.VISIBLE : View.GONE);
         parts.setVisibility(!showLayers && !matching && !perform && !inScene ? View.VISIBLE : View.GONE);
         performPanel.setVisibility(perform ? View.VISIBLE : View.GONE);
-        if (sceneRoom != null) sceneRoom.cardView().setVisibility(inScene && !matching ? View.VISIBLE : View.GONE);
+        if (sceneRoom != null) sceneRoom.cardView().setVisibility(inScene && !matching && !perform ? View.VISIBLE : View.GONE);
         if (landmarks != null) landmarks.view().setVisibility(matching ? View.VISIBLE : View.GONE);
         if (glStage != null) updateGl();
     }
@@ -592,9 +619,9 @@ public final class AvatarRoomActivity extends Activity implements RoomMenu.Host,
     }
 
     @Override
-    public void commit(String nodeId, String pinId, double x, double y, org.json.JSONArray oldOffset) {
+    public void restore(String nodeId, String pinId, org.json.JSONArray oldOffset) {
         final String pid = poseId();
-        try {                                                    // put the live offset back so the step starts from what was there
+        try {
             org.json.JSONObject fs = cc.joycreator.avatar.file.Reshape.fixShape(character.find(nodeId).json, pid);
             org.json.JSONObject dd = fs == null ? null : fs.optJSONObject("d");
             if (dd != null) {
@@ -604,6 +631,13 @@ public final class AvatarRoomActivity extends Activity implements RoomMenu.Host,
         } catch (org.json.JSONException e) {
             Log.w(TAG, "reshape put-back refused", e);
         }
+        redraw();
+    }
+
+    @Override
+    public void commit(String nodeId, String pinId, double x, double y, org.json.JSONArray oldOffset) {
+        final String pid = poseId();
+        restore(nodeId, pinId, oldOffset);                       // put the live offset back so the step starts from what was there
         edit.apply(getString(R.string.avatar_step_reshape_pin), d -> cc.joycreator.avatar.file.Reshape.dragTo(d.find(nodeId).json, pid, pinId, x, y));
     }
 
@@ -714,6 +748,12 @@ public final class AvatarRoomActivity extends Activity implements RoomMenu.Host,
             org.json.JSONArray l = d.find(nodeId).json.optJSONArray("links");
             if (l != null && index >= 0 && index < l.length()) l.remove(index);
         });
+        if (stageIndex == 2) performPanel.bind(character, false);
+    }
+
+    @Override
+    public void makeSwing(String nodeId, String kind) {
+        guessPins(nodeId, "swing:" + kind);
         if (stageIndex == 2) performPanel.bind(character, false);
     }
 
@@ -1002,7 +1042,15 @@ public final class AvatarRoomActivity extends Activity implements RoomMenu.Host,
     }
 
     @Override
+    public void tryVis(String shape) {
+        testVis = shape;
+        testMouth = shape == null ? 0 : 1;
+        glStage.requestRender();
+    }
+
+    @Override
     public void tryMouth(double v) {
+        testVis = null;
         testMouth = v;
         glStage.requestRender();
     }
@@ -1013,9 +1061,30 @@ public final class AvatarRoomActivity extends Activity implements RoomMenu.Host,
         final cc.joycreator.avatar.ui.PoseRenderer r = stage.renderer();
         if (r == null || character == null) return;
         final cc.joycreator.avatar.solve.Pics pics = r.pics();
-        edit.apply(getString(action.equals("squash") ? R.string.avatar_step_mouth_squash : R.string.avatar_step_mouth_everywhere), d -> {
+        edit.apply(getString(action.equals("squash") ? R.string.avatar_step_mouth_squash : action.equals("hinge") ? R.string.avatar_step_mouth_hinge : action.equals("swap") ? R.string.avatar_step_mouth_swap : R.string.avatar_step_mouth_everywhere), d -> {
             org.json.JSONObject j = d.find(nodeId).json;
             org.json.JSONObject art = mouthArt(j);
+            if (action.equals("swap")) {
+                art.remove("hinge");
+                art.remove("squash");
+                return;
+            }
+            if (action.equals("hinge")) {
+                String keep = art.optJSONObject("squash") != null ? art.getJSONObject("squash").optString("rest", "open")
+                        : art.optJSONObject("hinge") != null ? art.getJSONObject("hinge").optString("rest", "open") : "open";
+                art.remove("squash");
+                final double[][] nose1 = {null}, face1 = {null};
+                d.walk((k, dd, p) -> {
+                    if (nose1[0] == null && "nose".equals(k.role)) nose1[0] = r.restBounds(k);
+                    if (face1[0] == null && "face".equals(k.role)) face1[0] = r.restBounds(k);
+                });
+                cc.joycreator.avatar.file.PinGuess.guessMouth(art, pics, nose1[0], face1[0]);
+                art.remove("squash");
+                org.json.JSONObject h = art.optJSONObject("hinge");
+                if (h == null) art.put("hinge", h = new org.json.JSONObject().put("angle", 30));
+                h.put("rest", keep);
+                return;
+            }
             if (action.equals("squash")) {
                 String keep = art.optJSONObject("hinge") != null ? art.getJSONObject("hinge").optString("rest", "open") : "open";
                 double[] b = r.restBounds(d.find(art.optString("id")));
@@ -1087,7 +1156,18 @@ public final class AvatarRoomActivity extends Activity implements RoomMenu.Host,
         edit.apply(getString(R.string.avatar_step_guess_pins, label), d -> {
             org.json.JSONObject j = d.find(nodeId).json;
             if (kind.equals("fan")) cc.joycreator.avatar.file.PinGuess.guessFan(j, pics, tc[0], false);
-            else if (kind.equals("swing")) cc.joycreator.avatar.file.PinGuess.guessSwing(j, pics, tc[0], null);
+            else if (kind.startsWith("swing")) {
+                String sk = kind.contains(":") ? kind.substring(kind.indexOf(':') + 1) : null;               // swing:bendy, swing:stiff
+                org.json.JSONObject target = j;
+                if (!"art".equals(j.optString("type", "art"))) {                                              // a set or folder: the first drawing showing
+                    java.util.List<CharacterDoc.Node> shown = r.shown(d.find(nodeId));
+                    for (CharacterDoc.Node k : shown) if ("art".equals(k.type)) {
+                        target = d.find(k.id).json;
+                        break;
+                    }
+                }
+                cc.joycreator.avatar.file.PinGuess.guessSwing(target, pics, sk != null && sk.equals("stiff") ? null : tc[0], sk);
+            }
             else {
                 org.json.JSONObject art = j;
                 if ("set".equals(j.optString("type"))) {
@@ -1123,8 +1203,31 @@ public final class AvatarRoomActivity extends Activity implements RoomMenu.Host,
 
     @Override
     public void onBackPressed() {
-        if (landmarks != null && landmarks.isOpen()) closeLandmarks();
+        if (doorView != null) {                                        // the pin wizard or the sheet cutter over the room: Back leaves it, not the room
+            View v = doorView;
+            doorView = null;
+            if (v.getParent() instanceof ViewGroup) ((ViewGroup) v.getParent()).removeView(v);
+            if (doorBitmap != null) {
+                doorBitmap.recycle();
+                doorBitmap = null;
+            }
+        } else if (landmarks != null && landmarks.isOpen()) closeLandmarks();
         else super.onBackPressed();
+    }
+
+    /** A drawing tried on Set up is not kept: it goes when the stage or the character changes. */
+    private void clearTried() {
+        if (!forced.isEmpty()) {
+            forced.clear();
+            glStage.setForce(new java.util.HashMap<>(forced));
+        }
+        stage.tryDrawing(null, null);
+        if (parts != null) parts.clearTrying();
+    }
+
+    /** After Undo or Redo the Motion and Perform cards are drawn again, or their rows would hold parts the history replaced. */
+    private void rebindCards() {
+        if (character != null && stageIndex >= 2) performPanel.bind(character, stageIndex == 3);
     }
 
     private void selectStage(int idx) {
@@ -1135,6 +1238,7 @@ public final class AvatarRoomActivity extends Activity implements RoomMenu.Host,
         stageIndex = idx;
         if (idx != 1) stopReshape();
         testMouth = 0;
+        clearTried();
         if (parts != null) parts.scrollTo(0, 0);                    // a new stage opens at the top of its card
         if (performPanel != null) performPanel.scrollTo(0, 0);
         for (int i = 0; i < 4; i++) {
@@ -1206,20 +1310,21 @@ public final class AvatarRoomActivity extends Activity implements RoomMenu.Host,
         glPictures = pics;
         inputs.setSettings(d.json.optJSONObject("settings"));
         inputs.setStances(d.json);
+        inputs.setButtons(triggerIds(d));                        // a new stance's button works at once, not when the character is reopened
         if (walker == null || walkerDoc != d.json) {
             walker = new cc.joycreator.avatar.perform.Walker(d.json, inputs);
             walkerDoc = d.json;
-            stick = new cc.joycreator.avatar.perform.Stick(d.json, inputs, walker, new cc.joycreator.avatar.perform.Stick.Later() {
+            stick = new cc.joycreator.avatar.perform.Stick(d.json, inputs, walker, new cc.joycreator.avatar.perform.OwnJobs(new cc.joycreator.avatar.perform.OwnJobs.Poster() {
                 @Override
-                public void after(long ms, Runnable r) {
+                public void post(Runnable r, long ms) {
                     main.postDelayed(r, ms);
                 }
 
                 @Override
-                public void cancel(Object tag) {
-                    main.removeCallbacksAndMessages(null);
+                public void remove(Runnable r) {
+                    main.removeCallbacks(r);
                 }
-            });
+            }));
         } else walker.refresh();
         stickSize();
         bodyBox = null;                                         // (walking with your face measures the drawing again)
@@ -1235,6 +1340,7 @@ public final class AvatarRoomActivity extends Activity implements RoomMenu.Host,
         performPanel.refreshSettings(d);
         if (fromEdit) {
             unsaved = true;
+            editStamp++;
             paintSaveDot();
             main.removeCallbacks(autosave);
             main.postDelayed(autosave, 1500);   // it saves by itself in a moment
@@ -1245,16 +1351,21 @@ public final class AvatarRoomActivity extends Activity implements RoomMenu.Host,
     // ── performing: the hands, the take and the frame loop ──────────────────────────────────────────
 
     /** A new character on the stage: its buttons, its take, hands let go, the controls rebuilt. */
-    private void feedInputs(CharacterDoc d) {
+    /** The ids of the character's buttons (a stance made, copied or worked out brings a new one). */
+    private static java.util.ArrayList<String> triggerIds(CharacterDoc d) {
         java.util.ArrayList<String> ids = new java.util.ArrayList<>();
         org.json.JSONArray tr = d.json.optJSONArray("triggers");
         for (int i = 0; tr != null && i < tr.length(); i++) {
             org.json.JSONObject t = tr.optJSONObject(i);
             if (t != null) ids.add(t.optString("id"));
         }
+        return ids;
+    }
+
+    private void feedInputs(CharacterDoc d) {
         inputs.recorder.stop();
         inputs.letGoOfEverything();
-        inputs.setButtons(ids);
+        inputs.setButtons(triggerIds(d));
         inputs.recorder.setTake(takeOf(d));
         performPanel.bind(d, stageIndex == 3);
     }
@@ -1814,11 +1925,15 @@ public final class AvatarRoomActivity extends Activity implements RoomMenu.Host,
     }
 
     private void commitTake(String stepName) {
+        if (sceneRoom != null && sceneRoom.isOpen() && sceneRoom.hand() != null) {      // in a scene the take belongs to the scene
+            sceneRoom.takeKept(inputs.recorder.take());
+            return;
+        }
         if (edit == null) return;
         final Take t = inputs.recorder.take();
         edit.apply(stepName, doc -> {
             if (t == null || t.n == 0) doc.json.remove("take");
-            else doc.json.put("take", t.toJson());
+            else doc.json.put("take", t.toJson(doc.json.optJSONObject("take")));          // (a take's voice stays through a pass)
         });
     }
 
@@ -1869,6 +1984,7 @@ public final class AvatarRoomActivity extends Activity implements RoomMenu.Host,
             if (testMouth > 0.001) {
                 java.util.Map<String, Object> m = new java.util.HashMap<>();
                 m.put("mouth", testMouth);
+                if (testVis != null) m.put("vis", testVis);
                 glStage.frame(cc.joycreator.avatar.ui.SignalMap.toSignals(m, inputs.time(), 0), true, dt, stage.viewScale(), stage.viewX(), stage.viewY());
                 return;
             }
@@ -1900,6 +2016,7 @@ public final class AvatarRoomActivity extends Activity implements RoomMenu.Host,
             walker.step(dt, S, glStage.anchors(), glStage.tips());
             S.flip = inputs.flip();
         }
+        if (sceneRoom != null && sceneRoom.isOpen()) sceneRoom.handSignals(S);       // the scene draws the one in hand from these
         glStage.frame(S, true, dt, stage.viewScale(), stage.viewX(), stage.viewY());
         Object tx = sig.get("turnX"), ty = sig.get("turnY");
         if (tx instanceof Number && ty instanceof Number) performPanel.showHead(((Number) tx).doubleValue(), ((Number) ty).doubleValue());
@@ -2119,20 +2236,51 @@ public final class AvatarRoomActivity extends Activity implements RoomMenu.Host,
         if (unsaved && character != null) saveQuietly();
     }
 
-    private void saveQuietly() {
-        final CharacterDoc d = character;
-        final String path = characterPath;
+    /**
+     * Saves one character in the folder, one save at a time (the folder has one thread), reading where it was saved before at the
+     * moment its turn comes: two saves of a never-saved character make one file, not two. {@code done} gets the path, or null.
+     */
+    private void saveDoc(final CharacterDoc d, final String startPath, final java.util.function.Consumer<String> done) {
         JoyFolderHome.io().execute(() -> {
-            String rel = CharacterStore.save(this, d, path);
-            main.post(() -> {
-                if (rel == null) return;       // still on the stage; tried again with the next change
+            String rel = ledger.run(d, startPath, (doc, path) -> CharacterStore.save(this, doc, path));
+            main.post(() -> done.accept(rel));
+        });
+    }
+
+    /** The character on the stage, saved now: its path is kept only while it is still the one on the stage. */
+    private void saveCurrent(final java.util.function.Consumer<String> after) {
+        final CharacterDoc d = character;
+        if (d == null) return;
+        final int stamp = editStamp;
+        saveDoc(d, characterPath, rel -> {
+            if (rel != null && character == d) {
                 characterPath = rel;
-                if (character == d) {
+                if (editStamp == stamp) {
                     unsaved = false;
                     paintSaveDot();
+                } else if (unsaved) {                                   // more edits came while it saved: again in a moment
+                    main.removeCallbacks(autosave);
+                    main.postDelayed(autosave, 1500);
                 }
-            });
+            }
+            if (after != null) after.accept(rel);
         });
+    }
+
+    private void saveQuietly() {
+        saveCurrent(null);
+    }
+
+    /** Puts another character on the stage. The one that was there is saved first if it has changes (edits younger than the autosave included). */
+    private void adopt(CharacterDoc next, String path, boolean isUnsaved) {
+        main.removeCallbacks(autosave);
+        clearTried();
+        if (unsaved && character != null && character != next) saveDoc(character, characterPath, rel -> {
+        });
+        character = next;
+        characterPath = path;
+        unsaved = isUnsaved;
+        ledger.adopt(next, path);
     }
 
     // ── the Menu ──────────────────────────────────────────────────────────────────────────────────
@@ -2154,9 +2302,7 @@ public final class AvatarRoomActivity extends Activity implements RoomMenu.Host,
     @Override
     public void openBuiltIn(String asset) {
         try {
-            character = CharacterAssets.load(this, asset);
-            characterPath = null;
-            unsaved = false;
+            adopt(CharacterAssets.load(this, asset), null, false);
             showCharacter();
         } catch (Exception e) {
             Log.w(TAG, "built-in character did not open", e);
@@ -2174,9 +2320,7 @@ public final class AvatarRoomActivity extends Activity implements RoomMenu.Host,
                     Toast.makeText(this, R.string.avatar_cannot_open, Toast.LENGTH_LONG).show();
                     return;
                 }
-                character = d;
-                characterPath = entry.path;
-                unsaved = false;
+                adopt(d, entry.path, false);
                 showCharacter();
             });
         });
@@ -2282,6 +2426,8 @@ public final class AvatarRoomActivity extends Activity implements RoomMenu.Host,
             }
         });
         addContentView(cv[0], new ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
+        doorView = cv[0];
+        doorBitmap = pic;
     }
 
     /** The cut drawings become a new character: each a picture, laid out in Extras, ready to be told what it is. */
@@ -2311,9 +2457,7 @@ public final class AvatarRoomActivity extends Activity implements RoomMenu.Host,
                     Toast.makeText(this, R.string.avatar_no_pictures, Toast.LENGTH_LONG).show();
                     return;
                 }
-                character = result;
-                characterPath = null;
-                unsaved = true;
+                adopt(result, null, true);
                 inHand = null;
                 showCharacter();
                 setLayersShown(true);
@@ -2398,6 +2542,8 @@ public final class AvatarRoomActivity extends Activity implements RoomMenu.Host,
             }
         });
         addContentView(wiz[0], new ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
+        doorView = wiz[0];
+        doorBitmap = pic;
     }
 
     private void finishWhole(final android.graphics.Bitmap pic, final String name, final java.util.List<cc.joycreator.avatar.intake.WholeDrawing.Pin> pins) {
@@ -2421,9 +2567,7 @@ public final class AvatarRoomActivity extends Activity implements RoomMenu.Host,
                     Toast.makeText(this, R.string.avatar_no_pictures, Toast.LENGTH_LONG).show();
                     return;
                 }
-                character = result;
-                characterPath = null;
-                unsaved = true;
+                adopt(result, null, true);
                 inHand = null;
                 showCharacter();
                 Toast.makeText(this, R.string.avatar_wizard_pinned, Toast.LENGTH_LONG).show();
@@ -2532,9 +2676,7 @@ public final class AvatarRoomActivity extends Activity implements RoomMenu.Host,
                     Toast.makeText(this, line != null ? line : getString(R.string.avatar_psd_unreadable), Toast.LENGTH_LONG).show();
                     return;
                 }
-                character = result;
-                characterPath = null;
-                unsaved = true;
+                adopt(result, null, true);
                 inHand = null;
                 showCharacter();
                 setLayersShown(true);
@@ -2587,9 +2729,7 @@ public final class AvatarRoomActivity extends Activity implements RoomMenu.Host,
                     Toast.makeText(this, R.string.avatar_no_pictures, Toast.LENGTH_LONG).show();
                     return;
                 }
-                character = result;
-                characterPath = null;
-                unsaved = true;
+                adopt(result, null, true);
                 inHand = null;
                 showCharacter();
                 setLayersShown(true);      // the pictures are the layers: show them
@@ -2611,6 +2751,14 @@ public final class AvatarRoomActivity extends Activity implements RoomMenu.Host,
         super.onActivityResult(req, res, data);
         if (req == REQ_UPDATE && res == RESULT_OK && data != null && data.getData() != null) {
             updateDoor(data.getData());
+            return;
+        }
+        if (req == REQ_SCENEPIC && res == RESULT_OK && data != null && sceneRoom != null) {
+            java.util.ArrayList<Uri> uris = new java.util.ArrayList<>();
+            if (data.getClipData() != null)
+                for (int i = 0; i < data.getClipData().getItemCount(); i++) uris.add(data.getClipData().getItemAt(i).getUri());
+            else if (data.getData() != null) uris.add(data.getData());
+            sceneRoom.picturesChosen(scenePicKind, uris);
             return;
         }
         if (req == REQ_SHEET && res == RESULT_OK && data != null && data.getData() != null) {
@@ -2655,9 +2803,7 @@ public final class AvatarRoomActivity extends Activity implements RoomMenu.Host,
                     Toast.makeText(this, R.string.avatar_cannot_open, Toast.LENGTH_LONG).show();
                     return;
                 }
-                character = opened;
-                characterPath = null;      // not in the folder yet: Save puts it there
-                unsaved = true;
+                adopt(opened, null, true);                // not in the folder yet: Save puts it there
                 showCharacter();
             });
         });
@@ -2665,21 +2811,9 @@ public final class AvatarRoomActivity extends Activity implements RoomMenu.Host,
 
     @Override
     public void saveNow() {
-        final CharacterDoc d = character;
-        if (d == null) return;
-        JoyFolderHome.io().execute(() -> {
-            String rel = CharacterStore.save(this, d, characterPath);
-            main.post(() -> {
-                if (isFinishing()) return;
-                if (rel == null) {
-                    Toast.makeText(this, R.string.avatar_cannot_save, Toast.LENGTH_LONG).show();
-                    return;
-                }
-                characterPath = rel;
-                unsaved = false;
-                paintSaveDot();
-                Toast.makeText(this, R.string.avatar_saved, Toast.LENGTH_SHORT).show();
-            });
+        saveCurrent(rel -> {
+            if (isFinishing()) return;
+            Toast.makeText(this, rel == null ? R.string.avatar_cannot_save : R.string.avatar_saved, rel == null ? Toast.LENGTH_LONG : Toast.LENGTH_SHORT).show();
         });
     }
 }

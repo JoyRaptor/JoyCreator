@@ -42,6 +42,25 @@ public class TakeVoiceTest {
         for (int i = 0; same && i < sine.length; i++) same &= Math.abs(back.d[i] - sine[i]) < 1.0 / 16384;
         ok(same, "a WAV reads back at its own rate, sample for sample (to 16 bits)");
         ok(Wav.decode("not a wav".getBytes()) == null, "something that is not a WAV reads as nothing");
+        // a chunk that claims almost 4 GB must be refused at once, not loop for ever
+        {
+            byte[] evil = new byte[64];
+            System.arraycopy("RIFF".getBytes(), 0, evil, 0, 4);
+            System.arraycopy("WAVE".getBytes(), 0, evil, 8, 4);
+            System.arraycopy("junk".getBytes(), 0, evil, 12, 4);
+            evil[16] = (byte) 0xF7;
+            evil[17] = evil[18] = evil[19] = (byte) 0xFF;
+            final Wav.Pcm[] got = {new Wav.Pcm(1, new float[1])};
+            Thread th = new Thread(() -> got[0] = Wav.decode(evil));
+            th.setDaemon(true);
+            th.start();
+            try {
+                th.join(3000);
+            } catch (InterruptedException e) {
+                // the test is over either way
+            }
+            ok(!th.isAlive() && got[0] == null, "a WAV chunk of 0xFFFFFFF7 bytes is refused, not looped on");
+        }
 
         // a take of 2 s that already has a voice (constant 0.5); a pass laid 0.2 over 0.5 s to 1.0 s
         Wav.Pcm old = new Wav.Pcm(R, constant(2 * R, 0.5f));

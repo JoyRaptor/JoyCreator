@@ -59,5 +59,6 @@
     <string name="studio_motion_why_pip">Stays sharp: masks, keys, mattes, clip effects and blend modes can’t be blurred yet.</string>
     <string name="studio_motion_why_picture">Stays sharp: linked pictures, corner pins and custom pivots can’t be blurred yet.</string>
     <string name="studio_motion_why_title">Stays sharp: linked, styled, warped and preset-animated titles can’t be blurred yet.</string>
+    <string name="studio_motion_why_character">Blurs when the character moves across the picture: give it position, size or turn keys. Its own acting stays sharp.</string>
     <string name="studio_motion_why_sprite">Stays sharp: avatar rigs, preset sequences and mixed stacks can’t be blurred yet.</string>
 </resources>

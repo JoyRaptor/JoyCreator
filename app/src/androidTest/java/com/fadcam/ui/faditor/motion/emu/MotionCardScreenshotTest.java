@@ -131,12 +131,22 @@ public final class MotionCardScreenshotTest {
             root.measure(View.MeasureSpec.makeMeasureSpec(width, View.MeasureSpec.EXACTLY),
                     View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED));
             root.layout(0, 0, root.getMeasuredWidth(), root.getMeasuredHeight());
+            // Off-window, nothing runs the pre-draw pass in which a one-line centred TextView
+            // (every Kit.chip) places its text; without it the chips draw blank. Run it here.
+            preDraw(root);
             Bitmap b = Bitmap.createBitmap(root.getMeasuredWidth(), root.getMeasuredHeight(),
                     Bitmap.Config.ARGB_8888);
             root.draw(new Canvas(b));
             out.set(b);
         });
         MotionEmu.save(out.get(), f);
+    }
+
+    private static void preDraw(View v) {
+        v.getViewTreeObserver().dispatchOnPreDraw();
+        if (v instanceof ViewGroup g) {
+            for (int i = 0; i < g.getChildCount(); i++) preDraw(g.getChildAt(i));
+        }
     }
 
     private static void click(View v, String what) {

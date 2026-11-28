@@ -38,11 +38,13 @@ final class WalkSections {
             boolean on = hv != null && hv.optBoolean("on", true);
             col.addView(tick(c, "Floats where you drag the body", on, "For a character with no legs: a hovering robot, a ghost, a fish. It drifts after your finger and leans into the move.", dp,
                     v -> {
+                        java.util.List<Object[]> items = new java.util.ArrayList<>();           // one undo step, however many keys it takes
                         if (hv == null) {
-                            host.setValue(null, "settings.hover.lean", 1.0, "Floats where you drag");
-                            host.setValue(null, "settings.hover.quick", 9, "Floats where you drag");
+                            items.add(new Object[]{null, "settings.hover.lean", 1.0});
+                            items.add(new Object[]{null, "settings.hover.quick", 9});
                         }
-                        host.setValue(null, "settings.hover.on", v, "Floats where you drag");
+                        items.add(new Object[]{null, "settings.hover.on", v});
+                        host.setMany("Floats where you drag", items);
                     }));
             if (on && hv != null) {
                 col.addView(MotionSections.slider(c, "Lean", 0, 2.5, 0.05, hv.optDouble("lean", 1), v -> String.format(Locale.US, "%.2f×", v), "How far it tips into the move",

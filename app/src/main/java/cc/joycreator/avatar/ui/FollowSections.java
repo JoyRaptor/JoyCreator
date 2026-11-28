@@ -93,10 +93,10 @@ final class FollowSections {
     private static void pick(Context c, CharacterDoc.Node node, List<String[]> sigs, MotionSections.Host host) {
         String[] props = new String[PROPS.length];
         for (int i = 0; i < props.length; i++) props[i] = "It " + PROPS[i][1];
-        new AlertDialog.Builder(c, android.R.style.Theme_DeviceDefault_Dialog_Alert).setTitle("How does it move?").setItems(props, (d, pi) -> {
+        new AlertDialog.Builder(c, android.R.style.Theme_DeviceDefault_Dialog_Alert).setTitle(c.getString(com.fadcam.R.string.avatar_follow_how)).setItems(props, (d, pi) -> {
             String[] names = new String[sigs.size()];
             for (int i = 0; i < names.length; i++) names[i] = ("always".equals(sigs.get(i)[0]) ? "" : "with ") + sigs.get(i)[1];
-            new AlertDialog.Builder(c, android.R.style.Theme_DeviceDefault_Dialog_Alert).setTitle("What does it follow?").setItems(names, (d2, si) -> {
+            new AlertDialog.Builder(c, android.R.style.Theme_DeviceDefault_Dialog_Alert).setTitle(c.getString(com.fadcam.R.string.avatar_follow_what)).setItems(names, (d2, si) -> {
                 String pr = PROPS[pi][0];
                 double amt = "rot".equals(pr) ? 8 : "spin".equals(pr) ? 10 : "shake".equals(pr) ? 2 : isScale(pr) ? 0.15 : 4;
                 try {

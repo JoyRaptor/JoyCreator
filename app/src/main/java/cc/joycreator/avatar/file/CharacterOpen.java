@@ -3,6 +3,7 @@ package cc.joycreator.avatar.file;
 import org.json.JSONException;
 
 import java.util.List;
+import java.util.UUID;
 
 /**
  * Turns text into a character the room will open, or null: a file that does not follow the format's rules is not
@@ -19,6 +20,7 @@ public final class CharacterOpen {
                 android.util.Log.w("AvatarRoom", "character refused: " + bad.get(0));
                 return null;
             }
+            if (!Js.truthy(Js.get(doc.json, "uid"))) doc.json.put("uid", UUID.randomUUID().toString().replace("-", "").substring(0, 12));
             return doc;
         } catch (JSONException | RuntimeException e) {
             android.util.Log.w("AvatarRoom", "character not read", e);

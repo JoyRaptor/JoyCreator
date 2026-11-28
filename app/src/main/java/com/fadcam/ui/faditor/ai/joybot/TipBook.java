@@ -49,7 +49,7 @@ public final class TipBook {
             t("studio_greenscreen", Wing.STUDIO, "the Studio can key out a green screen right on your phone.", "studio"),
             t("studio_bend", Wing.STUDIO, "pictures and sprites can bend: warp them with a mesh, or pin their corners onto something in the video.", "studio"),
             t("studio_keyframes", Wing.STUDIO, "almost anything can be keyframed with easing, so titles and pictures can glide, grow and fade on their own.", "studio"),
-            t("studio_motion_blur", Wing.STUDIO, "the Crisp preset in Motion Blur gives a fast-moving title a shorter streak? Tap Show exact frame to check the edges as the export will draw them.", "studio"),
+            t("studio_motion_blur", Wing.STUDIO, "the Streak preset in Motion Blur leaves a long trail behind anything that moves? Open More and pick Copies for ghosts instead of a smear.", "studio"),
             t("studio_masks", Wing.STUDIO, "masks let one clip show through a shape in another.", "studio"),
             t("studio_fx_layer", Wing.STUDIO, "an adjustment layer puts one look over everything under it, for as long as you stretch it.", "studio"),
             t("studio_vislab_fx", Wing.STUDIO, "VisLab's finishes work in the Studio too: VHS, glitch, scanlines, kaleidoscope, CRT bend and more, and their sliders can follow the music.", "studio"),

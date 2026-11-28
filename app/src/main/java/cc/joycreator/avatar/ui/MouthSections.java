@@ -39,17 +39,13 @@ final class MouthSections {
         col.addView(MotionSections.label(c, "How it talks", dp));
         LinearLayout seg = new LinearLayout(c);
         seg.addView(MotionSections.chip(c, "Hinge", "hinge".equals(mode), "Swings open and shut around a pin", dp, v -> {
-            if (!"hinge".equals(mode)) {
-                host.remove(art.id, "squash", "Mouth: hinge");
-                parts.guessPins(art.id, "mouth");
-            }
+            if (!"hinge".equals(mode)) parts.mouthAction(art.id, "hinge");                   // one step: the squash goes, the hinge is guessed
         }));
         seg.addView(MotionSections.chip(c, "Squash", "squash".equals(mode), "Flattens shut toward a line", dp, v -> {
             if (!"squash".equals(mode)) parts.mouthAction(art.id, "squash");
         }));
         seg.addView(MotionSections.chip(c, "Swap only", "swap".equals(mode), "Does not move by itself", dp, v -> {
-            host.remove(art.id, "hinge", "Mouth: swap only");
-            host.remove(art.id, "squash", "Mouth: swap only");
+            if (!"swap".equals(mode)) parts.mouthAction(art.id, "swap");
         }));
         col.addView(MotionSections.scroll(c, seg));
         JSONObject cfg = hinge != null ? hinge : squash;

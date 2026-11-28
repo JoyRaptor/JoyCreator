@@ -11,6 +11,13 @@ public final class SignalMap {
 
     private SignalMap() {}
 
+    /** The mouth shapes in the pilot's order (AL.SHAPES): a pilot take stores a number, the phone a name. */
+    public static final String[] SHAPES = {"Neutral", "Aa", "Ee", "Oh", "W-Oo", "M", "F", "L", "S", "D", "R", "Uh", "Smile", "Surprised"};
+
+    static String shape(int i) {
+        return i >= 0 && i < SHAPES.length ? SHAPES[i] : "Neutral";
+    }
+
     private static double num(Map<String, Object> m, String k) {
         Object v = m.get(k);
         return v instanceof Number ? ((Number) v).doubleValue() : 0;
@@ -41,7 +48,7 @@ public final class SignalMap {
         if (m.get("hLx") instanceof Number && m.get("hLy") instanceof Number) s.hand.put("L", new Signals.Hand(num(m, "hLx"), num(m, "hLy")));
         if (m.get("hRx") instanceof Number && m.get("hRy") instanceof Number) s.hand.put("R", new Signals.Hand(num(m, "hRx"), num(m, "hRy")));
         Object v = m.get("vis");
-        s.viseme = v instanceof String ? (String) v : "Neutral";
+        s.viseme = v instanceof String ? (String) v : v instanceof Number ? shape(((Number) v).intValue()) : "Neutral";      // (a pilot take stores the shape's number)
         for (Map.Entry<String, Object> e : m.entrySet()) {
             String k = e.getKey();
             if (k.startsWith("g:") && e.getValue() instanceof Number && ((Number) e.getValue()).doubleValue() > 0.5) s.trig.put(k.substring(2), true);

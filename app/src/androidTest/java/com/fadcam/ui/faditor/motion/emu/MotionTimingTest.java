@@ -98,6 +98,7 @@ public final class MotionTimingTest {
                     new Case("PREVIEW Streak 8 fr", new Controls(8 * 360, Timing.TRAILING, 0, 100, 60, Look.SMEAR, 4), slide(40)),
                     new Case("PREVIEW 32 fr", new Controls(32 * 360, Timing.TRAILING, 0, 100, 0, Look.SMEAR, 4), slide(20)),
                     new Case("PREVIEW Both 5", new Controls(8 * 360, Timing.TRAILING, 0, 100, 60, Look.BOTH, 5), slide(40)),
+                    new Case("PREVIEW Both 7, Mix 80", new Controls(8 * 360, Timing.TRAILING, 0, 80, 60, Look.BOTH, 7), slide(40)),
             };
             MotionEmu.log("timing on " + android.os.Build.MODEL + " / " + GLES20.glGetString(GLES20.GL_RENDERER)
                     + ", " + W + "x" + H + " frame, " + SIZE + " px picture, median of " + RUNS);
@@ -108,6 +109,11 @@ public final class MotionTimingTest {
                         ? RigidTextureShutterPass.planPreview(c.controls(), c.sampler(), NOW, PERIOD, MotionBreaks.none(), W, H)
                         : RigidTextureShutterPass.plan(c.controls(), c.sampler(), NOW, PERIOD, MotionBreaks.none(), W, H);
                 assertNotNull(c.name(), plan);
+                if (c.name().startsWith("PREVIEW") && plan.trail() != null) {
+                    // the preview stays in one small program: never the export's 48 or 64 taps
+                    assertTrue(c.name() + " preview program " + plan.trail().program(),
+                            plan.trail().program() <= RigidTextureShutterPass.PREVIEW_TAPS);
+                }
                 for (int i = 0; i < 5; i++) pass.draw(source, W, H, plan, backdrop, 1f);   // compile + warm
                 GLES20.glFinish();
                 long[] ns = new long[RUNS];
@@ -120,7 +126,8 @@ public final class MotionTimingTest {
                 java.util.Arrays.sort(ns);
                 MotionEmu.log(String.format(java.util.Locale.ROOT, "timing %-36s median %6.2f ms  p90 %6.2f ms  (%s)",
                         c.name(), ns[RUNS / 2] / 1e6, ns[RUNS * 9 / 10] / 1e6,
-                        plan.trail() == null ? "camera program" : "smooth program, " + plan.taps().size() + " poses"));
+                        plan.trail() == null ? "camera program"
+                                : plan.trail().program() + "-tap program, " + plan.taps().size() + " taps"));
             }
             pass.release();
         } finally {

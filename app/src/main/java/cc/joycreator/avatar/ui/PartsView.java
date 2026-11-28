@@ -67,6 +67,10 @@ public final class PartsView extends ScrollView {
         default void mouthAction(String nodeId, String action) {
         }
 
+        /** Try a sound, on Set up: the mouth says this shape (null = off), shown on the stage without a step. */
+        default void tryVis(String shape) {
+        }
+
         /** Try: talk, on Set up: the mouth open this much (0 = off), shown on the stage without a step. */
         default void tryMouth(double v) {
         }
@@ -119,6 +123,11 @@ public final class PartsView extends ScrollView {
 
     private int px(float v) {
         return Math.round(v * dp);
+    }
+
+    /** Forget the drawing being tried (the stage was told separately). */
+    public void clearTrying() {
+        trying = null;
     }
 
     public void show(CharacterDoc doc, String inHandId, int stage) {
@@ -206,6 +215,33 @@ public final class PartsView extends ScrollView {
         scroll.addView(row);
         column.addView(scroll);
         column.addView(body(getContext().getString(R.string.avatar_try_note)));
+        if ("viseme".equals(node.pickBy) && host.motion() != null) {                  // a mouth with one drawing per sound
+            final String[] sounds = {"Neutral", "Aa", "Ee", "Oh", "W-Oo", "M", "F", "L", "S", "D", "R", "Uh", "Smile", "Surprised"};
+            if (trying != null) {
+                column.addView(label("This is the sound"));
+                LinearLayout snd = new LinearLayout(getContext());
+                String cur = "";
+                for (CharacterDoc.Node k : node.kids) if (k.id.equals(trying)) cur = k.json.optString("shape", "");
+                final String tid = trying;
+                for (String sName : sounds)
+                    snd.addView(chip(sName, sName.equals(cur), v -> host.motion().setValue(tid, "shape", sName, "This is the sound"), "The sound this drawing is, for the voice to pick"));
+                HorizontalScrollView ss = new HorizontalScrollView(getContext());
+                ss.setHorizontalScrollBarEnabled(false);
+                ss.addView(snd);
+                column.addView(ss);
+            }
+            column.addView(label("Try a sound"));
+            LinearLayout tr = new LinearLayout(getContext());
+            for (CharacterDoc.Node k : node.kids) {
+                final String sh = k.json.optString("shape", "");
+                if (!sh.isEmpty()) tr.addView(chip(sh, false, v -> host.tryVis(sh), "Say it: the mouth shows this shape"));
+            }
+            tr.addView(chip("Stop", false, v -> host.tryVis(null), "Back to the still mouth"));
+            HorizontalScrollView ts = new HorizontalScrollView(getContext());
+            ts.setHorizontalScrollBarEnabled(false);
+            ts.addView(tr);
+            column.addView(ts);
+        }
         if ("turn".equals(node.pickBy) && node.kids.size() > 1) {
             LinearLayout lm = new LinearLayout(getContext());
             lm.addView(chip(getContext().getString(R.string.avatar_marks_title), false, v -> host.openLandmarks(node.id), getContext().getString(R.string.avatar_hover_marks_open)));

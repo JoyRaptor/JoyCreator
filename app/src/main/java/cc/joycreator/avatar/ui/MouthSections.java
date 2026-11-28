@@ -75,8 +75,6 @@ final class MouthSections {
                 }, v -> parts.tryMouth(v), dp));
         LinearLayout acts = new LinearLayout(c);
         acts.addView(MotionSections.chip(c, "Same on every angle", false, "Copy this way of talking to the mouth at every head angle (each keeps its own hinge pin)", dp, v -> parts.mouthAction(art.id, "everywhere")));
-        if (hinge != null)
-            acts.addView(MotionSections.chip(c, "Guess again", false, "Work the hinge out from the art again", dp, v -> parts.guessPins(art.id, "mouth")));
         col.addView(MotionSections.scroll(c, acts));
     }
 }

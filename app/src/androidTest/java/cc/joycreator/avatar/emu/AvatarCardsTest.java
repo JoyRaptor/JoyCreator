@@ -58,6 +58,8 @@ public class AvatarCardsTest {
             shot("setup-eye-lower");
             scrollTo(0f);
             part("mouth", "setup-mouth");
+            scrollTo(0.3f);
+            shot("setup-mouth-middle");
             scrollTo(1f);
             shot("setup-mouth-lower");
             scrollTo(0f);

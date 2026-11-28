@@ -258,9 +258,15 @@ public final class PerformPanel extends ScrollView {
             paintChip(stickChip, host.stickOpen());
             if (compact) {                                                   // Mic, Face and Joystick become pictures only (their words are in their hover labels)
                 chipRow.addView(stickChip, 0);
-                micChip.setText("\uD83C\uDFA4");
-                faceChip.setText("\uD83D\uDE42");
-                stickChip.setText("\uD83D\uDD79");
+                micChip.setTag(R.drawable.ic_avatar_mic);
+                faceChip.setTag(R.drawable.ic_avatar_face);
+                stickChip.setTag(R.drawable.ic_avatar_joystick);
+                micChip.setText("");
+                faceChip.setText("");
+                stickChip.setText("");
+                paintChip(micChip, false);
+                paintChip(faceChip, false);
+                paintChip(stickChip, true);
                 for (int i = 0; i < chipRow.getChildCount(); i++) chipRow.getChildAt(i).setPadding(px(12), 0, px(12), 0);
             } else chipRow.addView(stickChip);
         }
@@ -663,6 +669,11 @@ public final class PerformPanel extends ScrollView {
         g.setColor(on ? Studio.ARMED : 0xFF27272A);
         t.setBackground(g);
         t.setTextColor(on ? Studio.GROUND : 0xFFD4D4D8);
+        if (t.getTag() instanceof Integer) {                         // a picture-only chip: the room's own vector, white, cyan cut-out when ON
+            android.graphics.drawable.Drawable d = getContext().getDrawable((Integer) t.getTag()).mutate();
+            d.setTint(on ? Studio.GROUND : 0xFFFFFFFF);
+            t.setCompoundDrawablesWithIntrinsicBounds(d, null, null, null);
+        }
     }
 
     private TextView label(String s) {

@@ -41,18 +41,24 @@ tap_text "Eagerly" >/dev/null 2>&1; tap 789 1218; settle 8   # the dialog has no
 shot audio_added
 dump audio_added
 python3 "$HERE_LIB/uia.py" list /tmp/ui.xml | head -40
-# leave the editor (Back saves) and look at the lobby / library, then reopen the project
-key KEYCODE_BACK; settle 4
+# leave the editor by its back arrow (top left), then the lobby, the Library, and reopen the project
+tap 48 48; settle 5
 shot after_back
 dump after_back
 python3 "$HERE_LIB/uia.py" list /tmp/ui.xml | head -30
-key KEYCODE_BACK; settle 3
-shot lobby_again
 tap_text "Library" >/dev/null 2>&1; settle 4
 shot library
 dump library
 python3 "$HERE_LIB/uia.py" list /tmp/ui.xml | head -30
-tap_text "Untitled" >/dev/null 2>&1; settle 8
+tap_text "Untitled audio" >/dev/null 2>&1 || tap_text "Untitled" >/dev/null 2>&1; settle 9
+tap 789 1218 ; settle 1   # the waveform question may come again on reopen
 shot reopened
 dump reopened
 python3 "$HERE_LIB/uia.py" list /tmp/ui.xml | head -40
+# the clip is on its row: select it and open Clean
+tap 540 1800; settle 2
+shot clip_selected
+tap_text "Clean" >/dev/null 2>&1; settle 3
+shot clean_open
+dump clean_open
+python3 "$HERE_LIB/uia.py" list /tmp/ui.xml | head -50

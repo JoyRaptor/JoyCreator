@@ -408,19 +408,9 @@ public final class PartsView extends ScrollView {
 
     // ── small pieces ──────────────────────────────────────────────────────────────────────────────
 
+    /** A part's small picture: the whole drawing as it shows, not its first piece (the owner, 11-28: a blank white box). */
     private Bitmap thumbOf(CharacterDoc.Node n) {
-        String img = firstImg(n);
-        return img == null ? null : thumbs.of(img, 100);
-    }
-
-    private static String firstImg(CharacterDoc.Node n) {
-        if ("art".equals(n.type)) return n.img;
-        for (CharacterDoc.Node k : n.kids) {
-            if (k.hidden) continue;
-            String i = firstImg(k);
-            if (i != null) return i;
-        }
-        return null;
+        return thumbs.ofDrawing(n, 100);
     }
 
     private View tile(Bitmap pic, String name, boolean on, View.OnClickListener tap, String hover) {

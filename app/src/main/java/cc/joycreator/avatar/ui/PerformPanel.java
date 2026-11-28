@@ -222,10 +222,11 @@ public final class PerformPanel extends ScrollView {
         TooltipCompat.setTooltipText(pad, c.getString(R.string.avatar_hover_head_pad));
         pad.setContentDescription(c.getString(R.string.avatar_hover_head_pad));
         row.addView(pad);
+        row.setGravity(Gravity.CENTER_VERTICAL);
         LinearLayout side = new LinearLayout(c);
         side.setOrientation(LinearLayout.VERTICAL);
         compact = host.stick() != null && host.stickOpen();                 // two pads share the width: the middle column steps in, as the pilot's
-        side.setPadding(px(compact ? 6 : 12), 0, 0, 0);
+        side.setPadding(px(compact ? 6 : 12), 0, px(compact ? 6 : 0), 0);
         side.addView(holdButton(c, c.getString(R.string.avatar_hold_to_talk), c.getString(R.string.avatar_hover_hold_to_talk), new Hold() {
             @Override
             public void down() {
@@ -264,49 +265,6 @@ public final class PerformPanel extends ScrollView {
                 }
             }), new LinearLayout.LayoutParams(bl));
         }
-        micChip = chip(c, c.getString(R.string.avatar_mic), c.getString(R.string.avatar_hover_mic), v -> host.toggleMic());
-        LinearLayout.LayoutParams ml = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, px(36));
-        ml.topMargin = px(8);
-        HorizontalScrollView chipScroll = new HorizontalScrollView(c);                     // Mic, Face and Joystick in one row, as the pilot has them
-        chipScroll.setHorizontalScrollBarEnabled(false);
-        LinearLayout chipRow = new LinearLayout(c);
-        chipScroll.addView(chipRow);
-        side.addView(chipScroll, ml);
-        chipRow.addView(micChip);
-        faceChip = chip(c, c.getString(R.string.avatar_face), c.getString(R.string.avatar_hover_face_cycle), v -> host.toggleFace());
-        faceWords = R.string.avatar_face;                               // (a new chip: its words follow the mode from the next paint)
-        chipRow.addView(faceChip);
-        if (host.stick() != null) {
-            stickChip = chip(c, c.getString(R.string.avatar_joystick), c.getString(R.string.avatar_hover_joystick), v -> {
-                host.setStickOpen(!host.stickOpen());
-                bind(doc, takeBar);
-            });
-            paintChip(stickChip, host.stickOpen());
-            if (compact) {                                                   // Mic, Face and Joystick become pictures only (their words are in their hover labels)
-                chipRow.addView(stickChip, 0);
-                micChip.setTag(R.drawable.ic_avatar_mic);
-                faceChip.setTag(R.drawable.ic_avatar_face);
-                stickChip.setTag(R.drawable.ic_avatar_joystick);
-                micChip.setText("");
-                faceChip.setText("");
-                stickChip.setText("");
-                paintChip(micChip, false);
-                paintChip(faceChip, false);
-                paintChip(stickChip, true);
-                for (int i = 0; i < chipRow.getChildCount(); i++) {              // three pictures fit the middle column: 18 dp each, close together
-                    View ch = chipRow.getChildAt(i);
-                    ch.setPadding(px(7), 0, px(7), 0);
-                    ((LinearLayout.LayoutParams) ch.getLayoutParams()).rightMargin = px(3);
-                }
-            } else chipRow.addView(stickChip);
-        }
-        // the face's settings live in a sheet behind the Face chip (the owner, 11-28: no half-width column of them): a chip
-        // beside Face while the face is on (no long press on Face: a slow tap would open the sheet instead of changing the mode)
-        if (faceSheet == null) faceSheet = new FaceSheet((android.app.Activity) c, host);
-        faceSettingsChip = chip(c, c.getString(R.string.avatar_face_settings), c.getString(R.string.avatar_hover_face_settings), v -> faceSheet.open());
-        faceSettingsChip.setVisibility(View.GONE);
-        chipRow.addView(faceSettingsChip, chipRow.indexOfChild(faceChip) + 1);
-        View walkWithFace = host.faceWalkDrawer();
         row.addView(side, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
         stickPad = null;
         if (host.stick() != null && host.stickOpen()) {                      // the second pad, for the other thumb
@@ -316,18 +274,45 @@ public final class PerformPanel extends ScrollView {
             row.addView(stickPad);
         }
         column.addView(row);
-        if (walkWithFace != null && host.motion() != null) {                  // the walk's settings, there while performing: Walk settings
-            LinearLayout wrow = new LinearLayout(c);
-            wrow.setPadding(0, px(4), 0, px(4));
+
+        // Mic, Face and its settings, the joystick and the walk's settings: one row in words under the pads (the lead, 11-28: as
+        // pictures between the pads they were squeezed against the stick pad, and Walk settings sat alone on a row of its own)
+        HorizontalScrollView chipScroll = new HorizontalScrollView(c);
+        chipScroll.setHorizontalScrollBarEnabled(false);
+        LinearLayout chipRow = new LinearLayout(c);
+        chipScroll.addView(chipRow);
+        micChip = chip(c, c.getString(R.string.avatar_mic), c.getString(R.string.avatar_hover_mic), v -> host.toggleMic());
+        chipRow.addView(micChip);
+        faceChip = chip(c, c.getString(R.string.avatar_face), c.getString(R.string.avatar_hover_face_cycle), v -> host.toggleFace());
+        faceWords = R.string.avatar_face;                               // (a new chip: its words follow the mode from the next paint)
+        chipRow.addView(faceChip);
+        // the face's settings live in a sheet behind a chip beside Face while the face is on (the owner, 11-28: no half-width
+        // column of them; no long press on Face: a slow tap would open the sheet instead of changing the mode)
+        if (faceSheet == null) faceSheet = new FaceSheet((android.app.Activity) c, host);
+        faceSettingsChip = chip(c, c.getString(R.string.avatar_face_settings), c.getString(R.string.avatar_hover_face_settings), v -> faceSheet.open());
+        faceSettingsChip.setVisibility(View.GONE);
+        chipRow.addView(faceSettingsChip);
+        if (host.stick() != null) {
+            stickChip = chip(c, c.getString(R.string.avatar_joystick), c.getString(R.string.avatar_hover_joystick), v -> {
+                host.setStickOpen(!host.stickOpen());
+                bind(doc, takeBar);
+            });
+            paintChip(stickChip, host.stickOpen());
+            chipRow.addView(stickChip);
+        }
+        boolean walkSettings = host.faceWalkDrawer() != null && host.motion() != null;   // the walk's settings, there while performing
+        if (walkSettings) {
             TextView wchip = chip(c, c.getString(R.string.avatar_walk_settings), c.getString(R.string.avatar_hover_walk_settings), v -> {
                 walkOpen = !walkOpen;
                 bind(doc, takeBar);
             });
             paintChip(wchip, walkOpen);
-            wrow.addView(wchip);
-            column.addView(wrow);
-            if (walkOpen) WalkSections.add(c, column, doc, host.motion(), dp);
+            chipRow.addView(wchip);
         }
+        LinearLayout.LayoutParams cl = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        cl.bottomMargin = px(4);
+        column.addView(chipScroll, cl);
+        if (walkSettings && walkOpen) WalkSections.add(c, column, doc, host.motion(), dp);
 
         // moods: only for a character that has eyelids
         if (hasRole(doc, "lidU") || hasRole(doc, "lidL")) {
@@ -494,7 +479,7 @@ public final class PerformPanel extends ScrollView {
             paintChip(faceChip, in.faceOn());
             int words = !in.faceOn() ? R.string.avatar_face : in.faceDrive().mode() == cc.joycreator.avatar.face.FaceDrive.Mode.TALK
                     ? R.string.avatar_face_talk : R.string.avatar_face_always;
-            if (words != faceWords && !compact) {
+            if (words != faceWords) {
                 faceWords = words;
                 faceChip.setText(words);
             }
@@ -566,6 +551,20 @@ public final class PerformPanel extends ScrollView {
         t.setTextColor(on ? Studio.GROUND : Studio.INK);
     }
 
+    /**
+     * The take bar's words as the lines it draws within {@code room}: one line when it fits, else its two sentences on two lines
+     * (the owner, 11-28: "No take yet. Tap the red dot, then pe" was cut off), each cut short with an ellipsis only if it still
+     * cannot fit. Package-visible for the emulator's check.
+     */
+    static String[] lines(String t, Paint p, float room) {
+        android.text.TextPaint tp = new android.text.TextPaint(p);
+        int cut = t.indexOf(". ");
+        String[] parts = p.measureText(t) <= room || cut < 0 ? new String[]{t} : new String[]{t.substring(0, cut + 1), t.substring(cut + 2)};
+        for (int k = 0; k < parts.length; k++)
+            parts[k] = android.text.TextUtils.ellipsize(parts[k], tp, room, android.text.TextUtils.TruncateAt.END).toString();
+        return parts;
+    }
+
     /** The take strip: drag to move through the take (silent), the time and length written on it. */
     private final class TakeStrip extends View {
         private final Paint p = new Paint(Paint.ANTI_ALIAS_FLAG);
@@ -574,6 +573,7 @@ public final class PerformPanel extends ScrollView {
             super(c);
             setContentDescription(c.getString(R.string.avatar_hover_strip));
             TooltipCompat.setTooltipText(this, c.getString(R.string.avatar_hover_strip));
+            p.setTypeface(com.fadcam.ui.type.Type.body(c, com.fadcam.ui.type.Type.REGULAR));
         }
 
         @Override
@@ -592,7 +592,9 @@ public final class PerformPanel extends ScrollView {
             p.setColor(Studio.INK_DIM);
             p.setTextSize(11 * dp);
             String t = total <= 0 ? getContext().getString(R.string.avatar_no_take) : String.format(Locale.US, "%.1f / %.1f s", now, total);
-            c.drawText(t, 10 * dp, h / 2 + 4 * dp, p);
+            String[] lines = lines(t, p, w - 20 * dp);
+            if (lines.length == 1) c.drawText(lines[0], 10 * dp, h / 2 + 4 * dp, p);
+            else for (int k = 0; k < lines.length; k++) c.drawText(lines[k], 10 * dp, h / 2 - 2 * dp + 13 * dp * k, p);
         }
 
         @Override
@@ -695,12 +697,6 @@ public final class PerformPanel extends ScrollView {
         g.setColor(on ? Studio.ARMED : Studio.RAISED);
         t.setBackground(g);
         t.setTextColor(on ? Studio.GROUND : Studio.LABEL);
-        if (t.getTag() instanceof Integer) {                         // a picture-only chip: the room's own vector, white, cyan cut-out when ON
-            android.graphics.drawable.Drawable d = getContext().getDrawable((Integer) t.getTag()).mutate();
-            d.setTint(on ? Studio.GROUND : Studio.INK);
-            d.setBounds(0, 0, px(18), px(18));
-            t.setCompoundDrawables(d, null, null, null);
-        }
     }
 
     private TextView label(String s) {

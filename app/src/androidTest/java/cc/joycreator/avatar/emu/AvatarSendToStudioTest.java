@@ -136,11 +136,27 @@ public class AvatarSendToStudioTest {
             Emu.tapText("I already have one", 8000);
             Emu.sleep(2500);
             shot(out, "0-picker", log);
-            Emu.clickText("JoyTest", 15000);
-            // the picker opens the folder a moment later: until then "Use this folder" is greyed out (the top of storage
-            // cannot be chosen), so wait for the top's "Can't use this folder" card to go, then tap; tap again if no Allow came
-            long until = System.currentTimeMillis() + 15000;
-            while (System.currentTimeMillis() < until && Emu.find("Can’t use this folder", 300) != null) Emu.sleep(500);
+            // the picker opens JoyTest; until it has, "Use this folder" is greyed out (the top of storage cannot be chosen) and
+            // the top's "Can't use this folder" card shows. Taps from inside a test did not open it on the emulator, so each
+            // way in is tried in turn until the card has gone: an accessibility click, a held press, the keyboard.
+            log.append(Emu.describeAround("JoyTest"));
+            String[] ways = {"click", "press", "keys"};
+            for (String way : ways) {
+                if (Emu.find("Can’t use this folder", 500) == null) break;
+                if (way.equals("click")) Emu.clickText("JoyTest", 15000);
+                else if (way.equals("press")) {
+                    float[] c = Emu.centreOf("JoyTest", 5000);
+                    if (c != null) Emu.shell("input touchscreen swipe " + (int) c[0] + " " + (int) c[1] + " " + (int) c[0] + " " + (int) c[1] + " 180");
+                } else {
+                    for (int i = 0; i < 12 && Emu.find("Can’t use this folder", 200) != null; i++) {   // move focus through the grid
+                        Emu.shell("input keyevent 61");
+                        if (Emu.focusedSays("JoyTest")) { Emu.shell("input keyevent 66"); break; }
+                    }
+                }
+                long until = System.currentTimeMillis() + 6000;
+                while (System.currentTimeMillis() < until && Emu.find("Can’t use this folder", 300) != null) Emu.sleep(500);
+                log.append("way into JoyTest: ").append(way).append(Emu.find("Can’t use this folder", 300) == null ? " opened it\n" : " did not\n");
+            }
             Emu.sleep(1000);
             shot(out, "0-picker-joytest", log);
             boolean asked = false;

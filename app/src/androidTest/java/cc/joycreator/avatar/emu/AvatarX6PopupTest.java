@@ -57,8 +57,28 @@ public class AvatarX6PopupTest {
             final FaditorEditorActivity[] ed = new FaditorEditorActivity[1];
             sc.onActivity(a -> ed[0] = a);
 
-            // M14: a pass, then Take back in the pop-up
             open(sc, item);
+
+            // M13 (first, from the video's start: the blank video is only as long as the take): Play, a short pass, then
+            // Play again must play
+            Emu.tapText("Play the take", 5000);
+            Emu.sleep(500);
+            boolean firstPlays = playing(ed[0]);
+            Emu.tapText("Record a pass", 5000);
+            Emu.sleep(700);
+            Emu.tapText("Record a pass", 5000);
+            Emu.sleep(800);
+            boolean pausedAfterPass = !playing(ed[0]);
+            Emu.tapText("Play the take", 5000);
+            Emu.sleep(500);
+            boolean playsAgain = playing(ed[0]);
+            log.append("M13: Play plays ").append(firstPlays).append(", paused after the pass ").append(pausedAfterPass)
+                .append(", Play plays again ").append(playsAgain).append('\n');
+            if (!playsAgain) failed.add("M13 play");
+            if (playing(ed[0])) Emu.tapText("Play the take", 2000);
+            Emu.sleep(500);
+
+            // M14: a pass, then Take back in the pop-up
             String before = item.getCharacterTake();
             Emu.tapText("Record a pass", 5000);
             Emu.sleep(600);
@@ -71,22 +91,6 @@ public class AvatarX6PopupTest {
             boolean back = String.valueOf(item.getCharacterTake()).equals(before);
             log.append("M14: pass changed the take ").append(passed).append(", Take back restored it ").append(back).append('\n');
             if (!passed || !back) failed.add("M14 take back");
-
-            // M13: Play, a pass, then Play again must play
-            Emu.tapText("Play the take", 5000);
-            Emu.sleep(800);
-            Emu.tapText("Record a pass", 5000);
-            Emu.sleep(1200);
-            Emu.tapText("Record a pass", 5000);
-            Emu.sleep(1000);
-            boolean pausedAfterPass = !playing(ed[0]);
-            Emu.tapText("Play the take", 5000);
-            Emu.sleep(800);
-            boolean playsAgain = playing(ed[0]);
-            log.append("M13: paused after the pass ").append(pausedAfterPass).append(", Play plays again ").append(playsAgain).append('\n');
-            if (!playsAgain) failed.add("M13 play");
-            if (playing(ed[0])) Emu.tapText("Play the take", 2000);
-            Emu.sleep(500);
 
             // M1: the item's take starts 150 s in: the recorder (longest take 120 s) ends the pass by itself at once
             Emu.ins().runOnMainSync(() -> item.setCharacterTakeOffsetMs(150_000));

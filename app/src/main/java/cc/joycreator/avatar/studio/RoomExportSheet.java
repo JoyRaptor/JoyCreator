@@ -62,6 +62,7 @@ public final class RoomExportSheet {
         root.setPadding(pad, pad / 2, pad, 0);
 
         EditText fileName = ExportSheetParts.nameRow(a, root, name.isEmpty() ? "Character" : name, pad);
+        SheetKit.label(fileName, a.getString(R.string.ava_export_name_hover));
 
         TextView what = new TextView(a);
         what.setText(R.string.ava_export_what);
@@ -98,6 +99,7 @@ public final class RoomExportSheet {
         CheckBox seeThrough = ExportSheetParts.checkbox(a, frameExtras, R.string.ava_export_see_through,
                 R.string.ava_export_see_through_desc, pad);
         seeThrough.setChecked(true);
+        SheetKit.label(seeThrough, a.getString(R.string.ava_export_see_through_hover));
 
         // the key colour behind him: none, green, blue, or any colour
         final int[] key = {SolidColour.KEY_GREEN};
@@ -144,6 +146,8 @@ public final class RoomExportSheet {
                 .setNegativeButton(android.R.string.cancel, null)
                 .create();
         d.show();
+        SheetKit.label(d.getButton(AlertDialog.BUTTON_POSITIVE), a.getString(R.string.ava_export_go_hover));
+        SheetKit.label(d.getButton(AlertDialog.BUTTON_NEGATIVE), a.getString(R.string.ava_cancel_hover));
         d.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(v -> {
             String base = ExportSheetParts.sanitizeName(fileName.getText().toString(), name.isEmpty() ? "Character" : name);
             switch (kind[0]) {

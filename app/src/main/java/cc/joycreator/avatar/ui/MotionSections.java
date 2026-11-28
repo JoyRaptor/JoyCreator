@@ -57,6 +57,7 @@ public final class MotionSections {
         JSONObject st = doc.json.optJSONObject("settings");
         if (st == null) st = new JSONObject();
         String facing = st.optString("facing", "front");
+        WalkSections.add(c, col, doc, host, dp);
         col.addView(label(c, "Breathing and blinking", dp));
         col.addView(slider(c, "Breaths a minute", 6, 40, 1, Math.round(st.optDouble("breathRate", 0.28) * 60), v -> String.valueOf((int) v), "How fast the chest rises and falls",
                 v -> host.setValue(null, "settings.breathRate", v / 60.0, "Breathing speed"), dp));
@@ -159,15 +160,15 @@ public final class MotionSections {
 
     // ── small pieces ──────────────────────────────────────────────────────────────────────────────
 
-    private interface Fmt {
+    interface Fmt {
         String of(double v);
     }
 
-    private interface Commit {
+    interface Commit {
         void to(double v);
     }
 
-    private static View slider(Context c, String label, double min, double max, double step, double value, Fmt fmt, String hover, Commit commit, float dp) {
+    static View slider(Context c, String label, double min, double max, double step, double value, Fmt fmt, String hover, Commit commit, float dp) {
         LinearLayout box = new LinearLayout(c);
         box.setOrientation(LinearLayout.VERTICAL);
         LinearLayout head = new LinearLayout(c);
@@ -204,7 +205,7 @@ public final class MotionSections {
         return box;
     }
 
-    private static View chip(Context c, String text, boolean on, String hover, float dp, View.OnClickListener tap) {
+    static View chip(Context c, String text, boolean on, String hover, float dp, View.OnClickListener tap) {
         TextView t = text(c, text, 12, on ? Studio.GROUND : 0xFFD4D4D8);
         t.setGravity(Gravity.CENTER);
         t.setPadding(Math.round(12 * dp), 0, Math.round(12 * dp), 0);
@@ -221,26 +222,26 @@ public final class MotionSections {
         return t;
     }
 
-    private static View scroll(Context c, LinearLayout row) {
+    static View scroll(Context c, LinearLayout row) {
         HorizontalScrollView hs = new HorizontalScrollView(c);
         hs.setHorizontalScrollBarEnabled(false);
         hs.addView(row);
         return hs;
     }
 
-    private static TextView label(Context c, String s, float dp) {
+    static TextView label(Context c, String s, float dp) {
         TextView t = text(c, s, 12, 0xFF71717A);
         t.setPadding(0, Math.round(10 * dp), 0, Math.round(6 * dp));
         return t;
     }
 
-    private static TextView note(Context c, String s, float dp) {
+    static TextView note(Context c, String s, float dp) {
         TextView t = text(c, s, 13, 0xFFA1A1AA);
         t.setPadding(0, Math.round(6 * dp), 0, Math.round(6 * dp));
         return t;
     }
 
-    private static TextView text(Context c, String s, int sp, int color) {
+    static TextView text(Context c, String s, int sp, int color) {
         TextView t = new TextView(c);
         t.setText(s);
         t.setTextSize(sp);

@@ -81,6 +81,8 @@ choose_folder() {
     settle 8; shot folder_picker_open; dump folder_picker; python3 "$HERE_LIB/uia.py" list /tmp/ui.xml | head -14
     tap_text "=Documents" >/dev/null 2>&1 || tap_text "Documents" >/dev/null 2>&1 || { shot folder_no_documents; return 1; }
     settle 3
+    # the app refuses the top of a storage folder ("Make a folder there called Joy Creator"): go one level in
+    tap_text "JoyCreatorTest" >/dev/null 2>&1; settle 3
     shot folder_in_documents
     tap_text "ALLOW ACCESS TO" >/dev/null 2>&1 || tap_text "Allow access to" >/dev/null 2>&1; settle 3
     tap_text "=ALLOW" >/dev/null 2>&1 || tap_text "ALLOW" >/dev/null 2>&1; settle 5

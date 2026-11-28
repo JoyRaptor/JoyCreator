@@ -268,8 +268,11 @@ object DrawingLibrary {
             // thumbnail waits for a save that read everything (leaving the screen always is one).
             // [leaving]: the person is about to see the Library, so its picture is made from this very save whatever its age
             // (it could be 45 s of drawing behind).
-            if (whole && (leaving || !thumb.isFile || System.currentTimeMillis() - thumb.lastModified() > THUMB_EVERY_MS)) {
-                thumbnailOf(contents)?.let { bmp ->
+            // A save on leaving that read only what changed (JBX-36 S3): the picture is the file just written, read a tile
+            // at a time.
+            val fromFile = !whole && leaving
+            if ((whole || fromFile) && (leaving || !thumb.isFile || System.currentTimeMillis() - thumb.lastModified() > THUMB_EVERY_MS)) {
+                (if (fromFile) thumbnailOfFile(file) else thumbnailOf(contents))?.let { bmp ->
                     thumb.parentFile?.mkdirs()
                     val tmp = File(thumb.path + ".tmp")
                     FileOutputStream(tmp).use { bmp.compress(Bitmap.CompressFormat.PNG, 100, it) }
@@ -623,6 +626,12 @@ object DrawingLibrary {
      * screen shows it ([ExportPicture.asShown], as every export is): handed its line storage, the renderer refused it, and
      * the Library kept a blank or old picture (second code review E8; the Note 9's log, 2026-10-31).
      */
+    /** [thumbnailOf] the drawing as [file] holds it, its tiles read from the file as the picture needs them. */
+    internal fun thumbnailOfFile(file: File): Bitmap? {
+        val contents = cc.joycreator.joybrush.androidkit.io.JbArchive.openDeferringMedia(file)
+        try { return thumbnailOf(contents) } finally { (contents.tiles as? java.io.Closeable)?.close(); (contents.mediaTiles as? java.io.Closeable)?.close() }
+    }
+
     internal fun thumbnailOf(saved: JbContents): Bitmap? {
         val contents = cc.joycreator.joybrush.androidkit.io.ExportPicture.asShown(saved)
         val full = contents.doc
@@ -635,7 +644,15 @@ object DrawingLibrary {
         val th = max(1, (r.h * scale).roundToInt())
         val paper = full.paper.color.takeIf { Regex("^#[0-9a-fA-F]{6}$").matches(it) } ?: "#FFFFFF"
         val look = paperLookOf(full.paper)
-        val source = TileSource { layer, cel, tx, ty -> contents.tiles[Triple(layer, cel, DocOps.key(tx, ty))] }
+        // The rows go down the picture, so the tiles one band of rows needs are kept while it is drawn: a tile still in its
+        // file (thumbnailOfFile) is read once, not once a row.
+        val recent = object : LinkedHashMap<Triple<String, String, String>, ByteArray?>(64, 0.75f, true) {
+            override fun removeEldestEntry(eldest: MutableMap.MutableEntry<Triple<String, String, String>, ByteArray?>) = size > 48
+        }
+        val source = TileSource { layer, cel, tx, ty ->
+            val key = Triple(layer, cel, DocOps.key(tx, ty))
+            if (recent.containsKey(key)) recent[key] else contents.tiles[key].also { recent[key] = it }
+        }
         val out = IntArray(tw * th)
         for (oy in 0 until th) {
             val sy = min(r.h - 1, ((oy + 0.5f) / scale).toInt())

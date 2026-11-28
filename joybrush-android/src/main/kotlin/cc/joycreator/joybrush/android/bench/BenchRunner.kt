@@ -242,7 +242,8 @@ class BenchRunner(private val canvas: JbCanvasView, private val spec: Spec,
         if (spec.streamSaves) {
             cc.joycreator.joybrush.androidkit.io.ArchiveCarrying.streamTiles = true
             cc.joycreator.joybrush.androidkit.io.ArchiveCarrying.finishInterruptedMove = true
-            Log.i(TAG, "JBX-36: streamed saves on for this run")
+            cc.joycreator.joybrush.androidkit.io.ArchiveCarrying.sparseLeave = true
+            Log.i(TAG, "JBX-36: streamed saves on for this run (S1, S2, S3, S4)")
         }
         spec.savePaintMb?.let { canvas.savePaintBudgetBytes = it.toLong() shl 20 }
         spec.sheetLong?.let { cc.joycreator.joybrush.androidkit.gl.media.WetSheet.longCells = it; Log.i(TAG, "wet sheet: $it cells along the screen") }

@@ -104,5 +104,18 @@ file) is acceptable, because it is the one place the artist could lose the newes
   Tests: `BatchedTileSourceTest` (at most two batches, a stopped read refuses and leaves the file, a stopped view
   refuses at once). The GPU copy itself is proven only on the Note 9 (no Fold run); the lifecycle gate
   (`jb_bench_life` recreate / graphics lost) with the switch on is still owed.
-- **S3** (the save on leaving; owner 11-27: about 3 s of lost work is acceptable) is next. **S5** waits for S3 and the
-  lifecycle gate; its switches stay off at launch unless the owner says otherwise.
+- **11-27, S3 landed (switch `ArchiveCarrying.sparseLeave`, off):** the save on leaving the screen reads only the tiles
+  that changed since the last save, as the autosave does, in the one GL task it takes before the screen stops drawing
+  (it never streams: nothing is left to read after the surface goes). It read everything before only for the Library's
+  picture, which is now drawn from the file just written, a tile at a time (`DrawingLibrary.thumbnailOfFile`; the
+  tiles a band of rows needs are kept, so each is unpacked once, not once a row: `ThumbnailFromFileTest`, 192 asks of
+  one tile before). A drawing with editable lines, or a file that cannot stand in for unread tiles, reads everything as
+  before; a save that cannot be read before the screen stops is refused and the last good file stands (owner 11-27).
+  **Note 9 lifecycle gate (build e73176ba0, full page of oil, all JBX-36 switches on):** Android rebuilt the screen
+  after a save and an undo: the save on leaving read the 106 undone tiles (274 ms on the graphics thread, written in
+  1.5 s) and the new screen opened the same drawing (digests `383082e9` / `fcc2fc9e` both sides); the same with the
+  graphics destroyed at the pause (`0e1e8199` / `186b4f05` both sides); switch off, the same as before. The autosaves in
+  those runs streamed (330 to 336 tiles frozen). Not run on the phone: the Library picture from the file (a bench
+  drawing is not in the Library; covered by the JVM test).
+- **S5** (raising `SAVE_PAINT_MAX_BYTES`, `MEDIA_RAM_SHARE` and the read limits) is next, in measured steps. All
+  JBX-36 switches stay off at launch unless the owner says otherwise.

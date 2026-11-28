@@ -7,9 +7,9 @@ Skipped on purpose: Landmarks (replaces "Match two angles"), face-capture intern
 
 | # | Status | Area | Pilot label (file) | Phone | Size |
 |---|---|---|---|---|---|
-| 1 | ⬜ | Set up, eyes | Eyes card: Looking, Blink by itself / About every / Eyes lead the head / Blink now / Hold the blink / Centre the blink (`al-cards.js`) | none (Motion has Blinks about every; Perform the tick) | L |
+| 1 | 🟡 | Set up, eyes | Eyes card: Looking, Blink by itself / About every / Eyes lead the head / Blink now / Hold the blink / Centre the blink (`al-cards.js`) | Looking, Blink by itself / About every / Eyes lead / Blink now built 11-27; Hold the blink, Centre the blink owed | L |
 | 2 | ⬜ | Set up, eyelids | Add eyelids, Invisible / Drawn, tilt/cheek reach, Blink by closing the lids, Remove | none | M |
-| 3 | ⬜ | Set up, mouth | How it talks: Hinge / Squash / Swap, Open / Shut, Shuts to, Try: talk | only Guess the hinge | M |
+| 3 | 🟡 | Set up, mouth | How it talks: Hinge / Squash / Swap, Open / Shut, Shuts to, Try: talk | hinge or swap only, drawn open/shut, Swing, Shuts to, Guess again built 11-27; Squash switch, Try: talk, Same on every angle owed | M |
 | 4 | ⬜ | Set up, mouth shapes | Its shapes, This is the sound, Try a sound, Other mouths | none | M |
 | 5 | ⬜ | Set up, brows/jaw/nose | Lift, Drops, The face stretches with it, Depth | none | M |
 | 6 | ⬜ | Set up, head angles | Its angles pad, Move the dots, Mirror, Copy/Rename/Remove angle, Tip, Size | only Landmarks | L |
@@ -19,7 +19,7 @@ Skipped on purpose: Landmarks (replaces "Match two angles"), face-capture intern
 | 10 | ⬜ | Motion, limb bending | At the elbow / Like a hose, Stretch, Wobble, Thickness, Bend to reach, Cross-fade, hand rests | none | L |
 | 11 | ⬜ | Motion, limb walking | arms can become feet, This leg walks, Step timing | none (Walker supports it) | M |
 | 12 | ⬜ | Motion, Showing now | Showing now strip, Flip elbow, Mend its pins | none | M |
-| 13 | ⬜ | Motion, ground and walking | Drops to all fours, Jumps, Which limbs walk, Stride, Step height, Rise and fall, Heel to toe, Lean, Arm swing, Falls back, Smaller far away, Turns to face, Ground, Floats (`al-ground.js`) | none | L |
+| 13 | ✅ | Motion, ground and walking | Drops to all fours, Jumps, Which limbs walk, Stride, Step height, Rise and fall, Heel to toe, Lean, Arm swing, Falls back, Smaller far away, Turns to face, Ground, Floats (`al-ground.js`) | none | L |
 | 14 | ⬜ | Set up, colour sets | From a picture, Add by hand, See it, Pick on the picture, Becomes/Reaches/More colour/Lighter, How it arrives (`al-tone.js`) | none (shader and Inputs support them) | L |
 | 15 | ⬜ | Perform, walking | Walking / Floating label and the walk settings | Walk with your face drawer only | M |
 | 16 | 🟡 | Set up, shapes | Add pins around it, How far, Bouncy, Add a shape, Handles in Perform | Reshape with pins only (built 11-27); no named shapes | L |
@@ -38,7 +38,7 @@ Skipped on purpose: Landmarks (replaces "Match two angles"), face-capture intern
 | 29 | ⬜ | Stage buttons | Onion skin | not there (spec) | S |
 | 30 | ⬜ | Motion, swing | Make it move by itself, Bendy/Stiff, Hangs down, Hangs from | no way to add a swing | M |
 | 31 | ⬜ | Motion, body | Breathing toggle, How deep, Never quite still | Breaths a minute only | S |
-| 32 | ⬜ | Set up, facing | Drawn facing Left/Front/Right, See it flipped, Turn around by itself | tick only if not front | S |
+| 32 | ✅ | Set up, facing | Drawn facing Left/Front/Right, See it flipped, Turn around by itself | tick only if not front | S |
 | 33 | ⬜ | Set up, body angles | Give the body its own angles, Follows the head | none | M |
 | 34 | ⬜ | Perform | Voice file | none (spec A7) | S |
 | 35 | 🟡 | Perform | Let go of everything (built 11-27); Show-off loop; voice meter | Let go only | S each |
@@ -46,7 +46,7 @@ Skipped on purpose: Landmarks (replaces "Match two angles"), face-capture intern
 | 37 | ✅ | Perform words | Mood (eyelids and brows); Weather with readout; hover texts | Mood, Breeze, shorter hovers | S |
 | 38 | ⬜ | Perform take strip | lane bars, writing: head, face; recording… | time only | S |
 | 39 | ⬜ | Menu | Create new avatar card, open now/unsaved/built in, long-press Rename/Copy/Remove | names only | M |
-| 40 | ⬜ | Menu | Add pictures, What can this do?, door sentences, One long card per part | only separate pictures door | M |
+| 40 | 🟡 | Menu | Add pictures, What can this do?, door sentences, One long card per part | door sentences, one prefix and What can this do? built 11-27; Add pictures to the open character and One long card toggle owed | M |
 
 ## Order of work (value to a user, then size)
 Small first (37, 23, 31, 32, 35, 28), then 13 (Ground and walking: the walker is built, its settings are not), 40 + 39 (the menu), 1 to 5 (the

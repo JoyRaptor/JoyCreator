@@ -57,7 +57,7 @@ Updated 11-27 by the lead.
 | The performing pop-up on the timeline | 5 | ✅ landed (room's PerformPanel + Mic via X4); no joystick yet (the room has none) | slice 2 (cloud) |
 | **Slice 3: scenes** | | | |
 | Scene file and clock, the camera lane | 3 | 🟡 built, landing now: `avatar/scene/` (`Scene` + undo, `SceneGeometry`, `SceneClock` with passes, shots, camera lane; `SceneFile` read / write with takes, carried characters, pictures); `run-avatar-scene.sh` 53 checks, 6 planted faults caught, numbers matched to the pilot (depth, frames, Topps placement, camera clamp) | slice 3 |
-| Path tabs, the chair, the frame, the strip | 5 | ⬜ | after slice 1 |
+| Path tabs, the chair, the frame, the strip | 5 | 🟡 frame, chair and strip landed on the empty scene (frame button with sheet, strip from the side or bottom pushing the frame, Studio texture, Wide / Close / kept shots, Cut / Glide); `AvatarSceneUiTest` real taps on the emulator green, 69 JVM checks; the path tabs with the chair come with the scene on the four stages | slice 3 |
 | The scene on the four stages; the empty scene | 3 | ⬜ | after slice 1 |
 | Several characters, shots, walking on and off, the joystick in a scene | 8 | ⬜ | after slice 1 |
 | Exporting a scene; Send to Studio not flattened | 5 | ⬜ | after slice 1 |

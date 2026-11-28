@@ -3273,11 +3273,12 @@ class JbCanvasView(context: Context) : GLSurfaceView(context), UnibrushCanvasPor
      * Everything is read when that cannot be asked, when the drawing holds editable lines, and the first time.
      */
     fun snapshotSparse(onReady: (cc.joycreator.joybrush.androidkit.io.SparseContents) -> Unit, onFailure: (String) -> Unit, keepWet: Boolean = false,
-                       readAll: Boolean = false) =
-        snapshotOf(if (readAll) 2 else 1, onReady, onFailure, keepWet)
+                       readAll: Boolean = false, mayStream: Boolean = true) =
+        snapshotOf(if (readAll) 2 else 1, onReady, onFailure, keepWet, mayStream)
 
     /** [sparse]: 0 a plain readback; 1 only the tiles that changed; 2 every tile, with its fingerprint (after [JbArchiveNeedsBytes]); 3 the picture alone ([snapshotPicture]). */
-    private fun snapshotOf(sparse: Int, onReady: (cc.joycreator.joybrush.androidkit.io.SparseContents) -> Unit, onFailure: (String) -> Unit, keepWet: Boolean) {
+    private fun snapshotOf(sparse: Int, onReady: (cc.joycreator.joybrush.androidkit.io.SparseContents) -> Unit, onFailure: (String) -> Unit, keepWet: Boolean,
+                           mayStream: Boolean = true) {
         // The view no longer draws (paused, its surface gone, or the screen closing): no frame will run this request. The picture
         // read when the screen left answers it ([keepPausePicture]); a closing screen without one says so at once
         // instead of leaving the save to its watchdog.
@@ -3304,10 +3305,10 @@ class JbCanvasView(context: Context) : GLSurfaceView(context), UnibrushCanvasPor
                 // A wash stamped into its tiles for this readback alone is gone from them right after: such a tile's
                 // fingerprint would be remembered for bytes the tile no longer holds only until the next save asks, which
                 // is harmless (it reads as changed), and its fingerprint in the file is that of what was saved.
-                if (keepWet) mediaCanvas.withSheetStamped { readContentsSparse(w, h, sparse) }
+                if (keepWet) mediaCanvas.withSheetStamped { readContentsSparse(w, h, sparse, mayStream) }
                 else {
                     if (mediaCanvas.settleSheet()) reportHistory()
-                    readContentsSparse(w, h, sparse)
+                    readContentsSparse(w, h, sparse, mayStream)
                 }
             } catch (e: OutOfMemoryError) {
                 mainThread.post { onFailure("there is not enough memory to save this drawing; your previous save is kept") }

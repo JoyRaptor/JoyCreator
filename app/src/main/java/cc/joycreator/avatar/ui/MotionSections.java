@@ -36,6 +36,14 @@ public final class MotionSections {
         /** The round head: "on" (fit it if it has no ball yet), "off", or "guess" (fit it again), as one named undo step. */
         void roundHead(String nodeId, String action, String stepName);
 
+        /** Several values as ONE named undo step: each item is {nodeId or null, path, value}. */
+        default void setMany(String stepName, java.util.List<Object[]> items) {
+        }
+
+        /** A blink right now, to see it. */
+        default void blinkNow() {
+        }
+
         /** Removes one key (e.g. "swing") as a named undo step. */
         void remove(String nodeId, String path, String stepName);
     }
@@ -57,11 +65,26 @@ public final class MotionSections {
         JSONObject st = doc.json.optJSONObject("settings");
         if (st == null) st = new JSONObject();
         String facing = st.optString("facing", "front");
+        WalkSections.add(c, col, doc, host, dp);
         col.addView(label(c, "Breathing and blinking", dp));
         col.addView(slider(c, "Breaths a minute", 6, 40, 1, Math.round(st.optDouble("breathRate", 0.28) * 60), v -> String.valueOf((int) v), "How fast the chest rises and falls",
                 v -> host.setValue(null, "settings.breathRate", v / 60.0, "Breathing speed"), dp));
         col.addView(slider(c, "Blinks about every", 1.5, 9, 0.1, st.optDouble("blinkEvery", 3.6), v -> String.format(Locale.US, "%.1f s", v), "How often it blinks by itself",
                 v -> host.setValue(null, "settings.blinkEvery", Math.round(v * 10) / 10.0, "Blink rate"), dp));
+        col.addView(label(c, "Which way it faces", dp));
+        LinearLayout face = new LinearLayout(c);
+        face.addView(chip(c, "Drawn facing left", "left".equals(facing), "Which way the body was drawn", dp, v -> host.setValue(null, "settings.facing", "left", "Drawn facing left")));
+        face.addView(chip(c, "Front", "front".equals(facing), "Which way the body was drawn", dp, v -> host.setValue(null, "settings.facing", "front", "Drawn facing front")));
+        face.addView(chip(c, "Drawn facing right", "right".equals(facing), "Which way the body was drawn", dp, v -> host.setValue(null, "settings.facing", "right", "Drawn facing right")));
+        col.addView(scroll(c, face));
+        final boolean auto = st.optBoolean("autoFlip", false);
+        col.addView(WalkSections.tick(c, "Turn around by itself", auto, "When the head turns the other way the whole character flips, so one three-quarter drawing faces both ways", dp, v -> {
+            if (v && "front".equals(facing)) host.setValue(null, "settings.facing", "left", "Drawn facing left");
+            host.setValue(null, "settings.autoFlip", v, "Turn around by itself");
+        }));
+        if (auto)
+            col.addView(slider(c, "Flips past", 0.1, 0.9, 0.05, st.optDouble("flipAt", 0.4), v -> Math.round(v * 100) + "% turned", "How far the head has turned when the whole character flips",
+                    v -> host.setValue(null, "settings.flipAt", v, "Flip point"), dp));
         if (!"front".equals(facing)) {
             col.addView(label(c, "Turning around", dp));
             final String style = st.optString("flipStyle", "smooth");
@@ -70,9 +93,6 @@ public final class MotionSections {
             seg.addView(chip(c, "Instant", "snap".equals(style), "Straight to the mirror image, no in-between", dp, v -> host.setValue(null, "settings.flipStyle", "snap", "Turn style: instant")));
             seg.addView(chip(c, "A card", "turn".equals(style), "It swings round like a cardboard cut-out", dp, v -> host.setValue(null, "settings.flipStyle", "turn", "Turn style: a card")));
             col.addView(scroll(c, seg));
-            if (st.optBoolean("autoFlip", false))
-                col.addView(slider(c, "Flips past", 0.1, 0.9, 0.05, st.optDouble("flipAt", 0.4), v -> Math.round(v * 100) + "% turned", "How far the head has turned when the whole character flips",
-                        v -> host.setValue(null, "settings.flipAt", v, "Flip point"), dp));
             if ("smooth".equals(style)) {
                 col.addView(slider(c, "It takes", 0.04, 0.6, 0.02, st.optDouble("flipTime", 0.14), v -> Math.round(v * 24) + " frames", "How long the turn lasts, in frames of film (24 a second)",
                         v -> host.setValue(null, "settings.flipTime", v, "Turn time"), dp));
@@ -159,15 +179,15 @@ public final class MotionSections {
 
     // ── small pieces ──────────────────────────────────────────────────────────────────────────────
 
-    private interface Fmt {
+    interface Fmt {
         String of(double v);
     }
 
-    private interface Commit {
+    interface Commit {
         void to(double v);
     }
 
-    private static View slider(Context c, String label, double min, double max, double step, double value, Fmt fmt, String hover, Commit commit, float dp) {
+    static View slider(Context c, String label, double min, double max, double step, double value, Fmt fmt, String hover, Commit commit, float dp) {
         LinearLayout box = new LinearLayout(c);
         box.setOrientation(LinearLayout.VERTICAL);
         LinearLayout head = new LinearLayout(c);
@@ -204,7 +224,7 @@ public final class MotionSections {
         return box;
     }
 
-    private static View chip(Context c, String text, boolean on, String hover, float dp, View.OnClickListener tap) {
+    static View chip(Context c, String text, boolean on, String hover, float dp, View.OnClickListener tap) {
         TextView t = text(c, text, 12, on ? Studio.GROUND : 0xFFD4D4D8);
         t.setGravity(Gravity.CENTER);
         t.setPadding(Math.round(12 * dp), 0, Math.round(12 * dp), 0);
@@ -221,26 +241,26 @@ public final class MotionSections {
         return t;
     }
 
-    private static View scroll(Context c, LinearLayout row) {
+    static View scroll(Context c, LinearLayout row) {
         HorizontalScrollView hs = new HorizontalScrollView(c);
         hs.setHorizontalScrollBarEnabled(false);
         hs.addView(row);
         return hs;
     }
 
-    private static TextView label(Context c, String s, float dp) {
+    static TextView label(Context c, String s, float dp) {
         TextView t = text(c, s, 12, 0xFF71717A);
         t.setPadding(0, Math.round(10 * dp), 0, Math.round(6 * dp));
         return t;
     }
 
-    private static TextView note(Context c, String s, float dp) {
+    static TextView note(Context c, String s, float dp) {
         TextView t = text(c, s, 13, 0xFFA1A1AA);
         t.setPadding(0, Math.round(6 * dp), 0, Math.round(6 * dp));
         return t;
     }
 
-    private static TextView text(Context c, String s, int sp, int color) {
+    static TextView text(Context c, String s, int sp, int color) {
         TextView t = new TextView(c);
         t.setText(s);
         t.setTextSize(sp);

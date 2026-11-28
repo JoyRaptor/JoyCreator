@@ -115,14 +115,17 @@ public class AvatarX6Test {
         SpriteOverlayItem item = topps(busy());
         ItemPuppet a = ItemPuppets.forItem(app(), item, null, null, null), b = ItemPuppets.forItem(app(), item, null, null, null);
         try {
-            Bitmap pa = null, pb = null;
-            for (int i = 0; i <= 30; i++) {
+            Bitmap wobble = null, steady = null;
+            for (int i = 0; i <= 20; i++) {
                 long ms = i * 1000L / 30;
-                pa = at(a, item, ms);
-                if (i == 20) at(a, item, ms - 12);                                // the player's position wobbles back 12 ms
-                pb = at(b, item, ms);
+                at(a, item, ms);
+                Bitmap pb = at(b, item, ms);
+                if (i == 20) {
+                    wobble = at(a, item, ms - 12);                                // the player's position wobbles back 12 ms
+                    steady = pb;
+                }
             }
-            double d = apart(pa, pb);
+            double d = apart(wobble, steady);
             Log.i(Emu.TAG, String.format(Locale.ROOT, "x6 M8: with a 12 ms wobble %.3f%% differs from without", d * 100));
             assertTrue("a 12 ms wobble back must not restart the character (" + d * 100 + "% differs)", d < 0.0005);
         } finally {

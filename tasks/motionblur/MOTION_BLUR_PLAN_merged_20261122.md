@@ -459,3 +459,26 @@ Engine rules:
    budget would be broken, preview uses fewer samples and shows the Auto chip, and export stays
    exact.
 5. Mix still applies on top.
+
+### K.3 On, off, export only, and the picture at rest (owner, 11-28)
+
+Context: the owner put Motion Blur on a sprite in an ordinary project and could see it only through Show exact frame. The live path covers only narrow "ordinary runs" (for sprites: exactly one sprite and no other visual layer). His design:
+
+1. **The card's icon (swatch) is the on/off switch.**
+   - Tap toggles. In colour = on, and you see it. Grey = off.
+   - Off keeps every setting on the card. The card stays, and nothing is drawn in preview or export.
+   - One undo step per tap.
+   - ✕ still removes the card.
+2. **Hold the icon to peek at the other state.** While held, the preview shows the opposite: sharp if the blur is on, blurred if it is off (the exact frame). Release returns.
+3. **Export only:** a separate toggle in the card's title row.
+   - When it is on (cyan knock-out), the blur is kept for export but never drawn in the editor, so a heavy project stays nimble.
+   - The icon stays in colour.
+   - A small "export only" mark makes the state readable at a glance.
+   - One undo step.
+4. **Default is On (live), with a picture at rest.**
+   - While playing or scrubbing, the preview draws the blur live wherever the live path can afford it.
+   - When the playhead comes to rest (paused, no finger down, no control moving), the editor renders the exact export frame in the background and shows it in place of the preview. It disappears the moment anything moves.
+   - A cheap live blur needs no at-rest frame; a heavy or unsupported one always gets it.
+   - Rule: render at rest whenever an item visible at the playhead has live-mode blur that changes the picture and the live path did not draw it at export quality.
+5. Three display states per item, then: **Off** (grey), **On** (live plus at rest), **Export only**.
+   - Saved per item: `motionBlurOff` and `motionBlurExportOnly`. Written only when true, so old projects load unchanged.

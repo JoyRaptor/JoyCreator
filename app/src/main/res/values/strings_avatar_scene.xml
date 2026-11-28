@@ -91,4 +91,5 @@
     <string name="avatar_sc_new_hover">Make a new scene on a set</string>
     <string name="avatar_sc_new_title">A new scene on which set?</string>
     <string name="avatar_sc_scene_hover">%1$s. Tap to open it.</string>
+    <string name="avatar_sc_not_kept">This scene could not be kept. Choose your Joy Creator folder first, then change it again.</string>
 </resources>

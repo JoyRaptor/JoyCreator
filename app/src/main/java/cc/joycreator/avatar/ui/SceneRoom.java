@@ -87,6 +87,7 @@ public final class SceneRoom {
     private double f = 0.2, cx, cy;                                    // glass pixels per stage unit and the stage's centre on the glass
     private float[] frameRect;                                         // px, or null when the frame is off
     private boolean dirtyCard;
+    private boolean toldNoFolder;
 
     public SceneRoom(Host host, SceneStage gl) {
         this.host = host;
@@ -272,6 +273,10 @@ public final class SceneRoom {
             boolean first = p == null && np != null;
             if (np != null && scene == s) path = np;
             if (first) main.post(host::saved);
+            if (np == null && !toldNoFolder) {
+                toldNoFolder = true;
+                main.post(() -> host.toast(c.getString(com.fadcam.R.string.avatar_sc_not_kept)));
+            }
         });
     }
 

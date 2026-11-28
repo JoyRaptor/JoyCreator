@@ -159,8 +159,11 @@ final class Emu {
     private static android.view.accessibility.AccessibilityNodeInfo search(android.view.accessibility.AccessibilityNodeInfo n, String want) {
         if (n == null) return null;
         CharSequence t = n.getText(), d = n.getContentDescription();
-        if ((t != null && t.toString().toLowerCase(java.util.Locale.ROOT).startsWith(want))
-                || (d != null && d.toString().toLowerCase(java.util.Locale.ROOT).startsWith(want))) {
+        boolean exact = want.startsWith("=");          // "=Allow": those words exactly (not the dialog's "Allow ... to access?")
+        String w = exact ? want.substring(1) : want;
+        String ts = t == null ? null : t.toString().toLowerCase(java.util.Locale.ROOT).trim();
+        String ds = d == null ? null : d.toString().toLowerCase(java.util.Locale.ROOT).trim();
+        if ((ts != null && (exact ? ts.equals(w) : ts.startsWith(w))) || (ds != null && (exact ? ds.equals(w) : ds.startsWith(w)))) {
             android.graphics.Rect b = new android.graphics.Rect();
             n.getBoundsInScreen(b);
             if (b.width() > 0 && b.height() > 0) return n;

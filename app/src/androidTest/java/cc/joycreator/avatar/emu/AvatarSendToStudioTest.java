@@ -162,10 +162,10 @@ public class AvatarSendToStudioTest {
             boolean asked = false;
             for (int i = 0; i < 3 && !asked; i++) {
                 Emu.clickText("Use this folder", 10000);
-                asked = Emu.find("Allow", 5000) != null;
+                asked = Emu.find("=Allow", 5000) != null;
             }
             shot(out, "0-picker-allow", log);
-            Emu.clickText("Allow", 5000);
+            Emu.clickText("=Allow", 5000);
             long end = System.currentTimeMillis() + 30000;
             while (System.currentTimeMillis() < end && !JoyFolderHome.isReachable(app)) Emu.sleep(500);
             Emu.sleep(3000);   // the folder's first index

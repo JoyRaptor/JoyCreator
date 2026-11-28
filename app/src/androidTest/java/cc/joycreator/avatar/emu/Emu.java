@@ -193,6 +193,29 @@ final class Emu {
         return new float[] {b.exactCenterX(), b.exactCenterY(), b.width(), b.height()};
     }
 
+    /**
+     * Closes a screen a test opened, waiting at most {@code ms}: Studio's editor can take far longer to finish than a
+     * test should wait (a run once sat 25 minutes in ActivityScenario.close), and a test's verdict never depends on it.
+     */
+    static void closeSoon(androidx.test.core.app.ActivityScenario<?> s, long ms) {
+        if (s == null) return;
+        Thread t = new Thread(() -> {
+            try {
+                s.close();
+            } catch (RuntimeException e) {
+                Log.w(TAG, "closing the screen", e);
+            }
+        }, "close-screen");
+        t.setDaemon(true);
+        t.start();
+        try {
+            t.join(ms);
+        } catch (InterruptedException ignored) {
+            Thread.currentThread().interrupt();
+        }
+        if (t.isAlive()) Log.w(TAG, "the screen did not close within " + ms + " ms; going on");
+    }
+
     /** The activity on screen now (resumed), or null. */
     static android.app.Activity resumed() {
         android.app.Activity[] a = new android.app.Activity[1];

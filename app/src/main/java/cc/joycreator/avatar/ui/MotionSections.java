@@ -281,6 +281,8 @@ public final class MotionSections {
         });
         box.addView(sb);
         box.setPadding(0, Math.round(4 * dp), 0, Math.round(2 * dp));
+        if (c.getResources().getConfiguration().smallestScreenWidthDp >= 600)        // a tablet: sliders stop at 320 dp (more columns, never wider controls)
+            box.setLayoutParams(new LinearLayout.LayoutParams(Math.round(320 * dp), ViewGroup.LayoutParams.WRAP_CONTENT));
         TooltipCompat.setTooltipText(box, hover);
         box.setContentDescription(label + ": " + hover);
         return box;

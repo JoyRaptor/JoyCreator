@@ -238,4 +238,69 @@ class RasterTracerTest {
         assertEquals(a.size, b.size)
         for (i in a.indices) assertTrue(a[i].xs.contentEquals(b[i].xs) && a[i].ys.contentEquals(b[i].ys))
     }
+
+    // ── harder marks ─────────────────────────────────────────────────────────────────────────
+
+    @Test
+    fun aThickXIsStillTwoLines() {
+        val c = Canvas(160, 160)
+        val a = listOf(20.0 to 20.0, 140.0 to 140.0)
+        val b = listOf(20.0 to 140.0, 140.0 to 20.0)
+        c.line(a, 4.0)
+        c.line(b, 4.0)
+        val lines = RasterTracer.trace(c.image())
+        assertEquals(2, lines.size, "was ${lines.size}")
+        for (l in lines) assertTrue(stray(l) { x, y -> min(distToPolyline(x, y, a), distToPolyline(x, y, b)) } <= 2.0)
+        assertTrue(missed(lines, along(a) + along(b)) <= 5.0)
+        val hw = lines.flatMap { it.halfWidths.toList() }.sorted()
+        assertTrue(abs(hw[hw.size / 2] - 4.0) <= 1.0, "a thick mark keeps its width, was ${hw[hw.size / 2]}")
+    }
+
+    @Test
+    fun aVDrawnInOneGoIsOneLine() {
+        val c = Canvas(140, 120)
+        val v = listOf(15.0 to 15.0, 70.0 to 105.0, 125.0 to 15.0)
+        c.line(v, 2.0)
+        val lines = RasterTracer.trace(c.image())
+        assertEquals(1, lines.size, "a corner is not a crossing, was ${lines.size}")
+        assertTrue(stray(lines[0]) { x, y -> distToPolyline(x, y, v) } <= 1.5)
+        assertTrue(missed(lines, along(v)) <= 3.5, "the corner is kept")
+    }
+
+    @Test
+    fun aTaperedMarkGetsThinnerAlongItsLine() {
+        val c = Canvas(200, 60)
+        for (i in 0..160) {
+            val x = 20.0 + i
+            c.disc(x, 30.0, 5.0 - 4.0 * i / 160.0)
+        }
+        val lines = RasterTracer.trace(c.image())
+        assertEquals(1, lines.size)
+        val l = lines[0]
+        val byX = (0 until l.pointCount).sortedBy { l.xs[it] }
+        val thick = l.halfWidths[byX[byX.size / 6]]
+        val thin = l.halfWidths[byX[byX.size * 5 / 6]]
+        assertTrue(thick > thin + 1.0, "the wide end stays wider ($thick) than the narrow end ($thin)")
+    }
+
+    @Test
+    fun aDotIsALine() {
+        val c = Canvas(40, 40)
+        c.disc(20.0, 20.0, 2.5)
+        val lines = RasterTracer.trace(c.image())
+        assertEquals(1, lines.size)
+        assertTrue(stray(lines[0]) { x, y -> hypot(x - 20.0, y - 20.0) } <= 1.5, "on the dot")
+    }
+
+    @Test
+    fun aLoopThatCrossesItselfIsOneLine() {
+        // a looped stroke like a cursive "l": it runs up, loops over and crosses its own path once
+        val c = Canvas(160, 160)
+        val path = (0..240).map { val t = it / 240.0 * 2 * PI * 1.0; (80.0 + 50.0 * sin(t)) to (80.0 + 40.0 * sin(2 * t)) }
+        c.line(path, 1.8)
+        val lines = RasterTracer.trace(c.image())
+        assertEquals(1, lines.size, "a figure eight drawn in one go traces as one line through its crossing, was ${lines.size}")
+        assertTrue(stray(lines[0]) { x, y -> distToPolyline(x, y, path) } <= 1.5)
+        assertTrue(missed(lines, path) <= 3.0)
+    }
 }

@@ -1584,3 +1584,19 @@ was away) as "decided: …" so it can be overturned later.
 ### 2026-11-28 Claude (Opus 5.5, Avatar X6 audit) → STU-7: a character under its own Motion Blur shows its standing picture
 - Found by the X6 audit (`tasks/audits/claude/AVA_X6_20261128.md`, M2): `compositor/RigidSpriteMotion.supports()` leaves out old avatars (`hasAvatarPerformance`) but not new-format characters (`isCharacter()`). With a character's own Motion Blur on, `SpriteBlendGlEffect.drawShutter` (export) and `FxLivePreviewController.addSpriteMotion` / `SpriteOverlayView.motionCellFor` (preview) stamp its one sheet cell, so the character stands still under blur.
 - Ask: may I add `|| item.isCharacter()` beside the `hasAvatarPerformance()` exclusion (the character then draws sharp, through `ItemPuppets`, as an old avatar does), or do you want to take it? A blurred character (sampling `ItemPuppets.forItem(...).draw` per shutter tap) is yours whenever you want it.
+
+### 2026-11-28 Claude (Opus 5.5) → STU-7 / Avatar X6: characters blur with their performance; polish landed (`2341b1e64`)
+- **X6 M2 answer: taken, and blurred, not sharp.** New `compositor/CharacterMotionRaster` draws the character's puppet at the frame time into a 512 px bitmap shaped like its box.
+  - Preview: `SpriteOverlayView.motionCellFor` → `characterMotionCell`, which also feeds `FxLivePreviewController.addSpriteMotion`.
+  - Export: `SpriteBlendGlEffect.drawShutter` → `prepareCharacterTexture`.
+  - The blur smears that picture along the character's placement. Its acting stays sharp each frame. No `supports()` exclusion is needed.
+  - Emulator `MotionCharacterBlurTest`: Topps acting and sliding. Natural, Heavy and Streak each differ from sharp, and the performance differs from the standing picture on 17.9% of pixels.
+- **Preview cap:** the live preview takes 24 taps in all (`PREVIEW_TAPS`); Both's copies and Mix's sharp tap come out of the smear. It never runs the 48-tap export program, and `MotionTimingTest` asserts this. The heavy preview cost is about 12.8 ms at 1080p (the measured 24-tap program), about +4 ms at 720p. Re-time it on the Note 9 when the owner is back.
+- **Card screenshots:** the off-window capture now runs the pre-draw pass, so one-line chips draw their labels. It was a test artifact; the app was fine.
+- **Proof:** emulator 10/10 (`e1f0129fd`); Studio CI 104/104 on the merge; PC motioncard 66 + 22 + 87.
+- **Owner review page:** [STU7-motion-blur-review.html](../design/STU7-motion-blur-review.html), with card shots, clips, characters, speeds and a five-minute phone check.
+- **Test APK:** `claude/stu7-phonecheck-20261127` at `2de9c218e` (Motion Blur unhidden; never land). Built in the cloud and re-signed with the PC debug key. Not installed: the owner holds the Note 9 until he is back.
+- **Codex branches:** all checked; nothing owed ([BRANCHES.md](BRANCHES.md#claude-takeover-check-2026-11-28)).
+- **Next:**
+  - Owner test on the Note 9, then his green light: remove `studio_motion_blur` from `hidden_features.json`.
+  - Later: C5 physical parity, C7 replay on the release candidate, and the effect-layer card (after True layer order).

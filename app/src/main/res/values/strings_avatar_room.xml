@@ -303,5 +303,7 @@
 Heads turn through as many angles as you drew, and missing sides can be mirrored. Arms swap between drawings and bend to reach. Mouths talk on a hinge, by squashing, or by swapping shapes to the voice. Eyes follow and blink. Tails swing. The chest breathes.
 
 Perform by talking, turning the head on the pad, tapping buttons and walking the body. Record in passes: a second pass only replaces what you touch.</string>
+    <string name="avatar_step_mouth_squash">Mouth: squash</string>
+    <string name="avatar_step_mouth_everywhere">Mouth: same on every angle</string>
 </resources>
 

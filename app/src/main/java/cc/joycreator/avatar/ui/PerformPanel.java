@@ -301,16 +301,11 @@ public final class PerformPanel extends ScrollView {
             } else chipRow.addView(stickChip);
         }
         // the face's settings live in a sheet behind the Face chip (the owner, 11-28: no half-width column of them): a chip
-        // while the face is on, and a long press on Face
+        // beside Face while the face is on (no long press on Face: a slow tap would open the sheet instead of changing the mode)
         if (faceSheet == null) faceSheet = new FaceSheet((android.app.Activity) c, host);
         faceSettingsChip = chip(c, c.getString(R.string.avatar_face_settings), c.getString(R.string.avatar_hover_face_settings), v -> faceSheet.open());
         faceSettingsChip.setVisibility(View.GONE);
         chipRow.addView(faceSettingsChip, chipRow.indexOfChild(faceChip) + 1);
-        faceChip.setOnLongClickListener(v -> {
-            if (!host.inputs().faceOn()) return false;
-            faceSheet.open();
-            return true;
-        });
         View walkWithFace = host.faceWalkDrawer();
         row.addView(side, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
         stickPad = null;

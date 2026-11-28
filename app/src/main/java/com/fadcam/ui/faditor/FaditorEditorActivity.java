@@ -33471,7 +33471,9 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 R.drawable.ic_volume_off_24, R.drawable.ic_volume_up_24,
                 () -> !c.isOverlayAudioEnabled() || c.isAudioMuted(),
                 () -> {
-                    c.setOverlayAudioEnabled(!c.isOverlayAudioEnabled());
+                    // One tap turns the PiP's sound on (audio included AND unmuted) or off, as the icon shows it
+                    // (STU-F6: flipping Include audio alone left a PiP added muted still silent).
+                    setVolumeMuted(c, !volumeShownMuted(c));
                     if (overlayVideoLayer != null) overlayVideoLayer.refreshVolume();
                     syncTimelineOverlays();
                     scheduleAutoSave();
@@ -33989,16 +33991,20 @@ public class FaditorEditorActivity extends AppCompatActivity {
     private void addPipAudioAction(@NonNull java.util.List<ObjectMenuSheet.Action> actions,
             @NonNull Clip c) {
         final boolean was = c.isOverlayAudioEnabled();
+        final boolean mutedWas = c.isAudioMuted();
         actions.add(new ObjectMenuSheet.Action(
                 was ? getString(R.string.studio_opt_mute_overlay_audio) : getString(R.string.studio_opt_include_audio), false, () -> {
             final Runnable apply = () -> {
                 c.setOverlayAudioEnabled(!was);
+                // A PiP is added muted too: including its audio unmutes it, or it stays silent (STU-F6).
+                c.setAudioMuted(com.fadcam.ui.faditor.model.PipVolume.mutedAfterInclude(!was, mutedWas));
                 if (overlayVideoLayer != null) overlayVideoLayer.refreshVolume();
                 syncTimelineOverlays(); // the row's mute icon is content-derived
                 scheduleAutoSave();
             };
             final Runnable revert = () -> {
                 c.setOverlayAudioEnabled(was);
+                c.setAudioMuted(mutedWas);
                 if (overlayVideoLayer != null) overlayVideoLayer.refreshVolume();
                 syncTimelineOverlays();
                 scheduleAutoSave();

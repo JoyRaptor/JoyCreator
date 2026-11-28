@@ -15,10 +15,11 @@ public final class PipVolume {
 
     /**
      * Whether a PiP is muted after its audio is included or left out ("Include audio", the drawer's sound toggle).
-     * Today's rule: the switch is flipped alone.
+     * A PiP is added muted as well as with its audio left out, so including its audio unmutes it, or it stays silent
+     * (STU-F6 on the Note 9, 11-28). Leaving it out keeps the mute as it was.
      */
     public static boolean mutedAfterInclude(boolean include, boolean mutedBefore) {
-        return mutedBefore;
+        return !include && mutedBefore;
     }
 
     /** Whether the clip's audio is included after the Volume controls set it muted or not. */

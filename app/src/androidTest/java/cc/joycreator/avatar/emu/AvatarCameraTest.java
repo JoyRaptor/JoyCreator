@@ -120,10 +120,11 @@ public class AvatarCameraTest {
                 // the face on as the Face chip does, minus the camera's own start (the trackers' models are not built for this
                 // emulator's processor): the room's own face capture knows the cameras and plans them
                 Emu.ins().runOnMainSync(() -> in.face(true));
-                Emu.sleep(2500);
+                Emu.sleep(1000);
+                openFaceSheet(a);                                            // (the cameras live in the face sheet; it makes the room's face capture)
+                Emu.sleep(2500);                                             // (the camera list arrives, the sheet is laid out again)
                 FaceCapture fc = (FaceCapture) field(a, "faceCapture");
                 assertNotNull("the room has its face capture", fc);
-                openFaceSheet(a);                                            // (the cameras live in the face sheet)
                 if (fc.shouldersOn()) {                                      // Shoulders off by a real tap (it is on as built)
                     tapText(a, a.getString(R.string.avatar_shoulders));
                     Emu.sleep(1200);

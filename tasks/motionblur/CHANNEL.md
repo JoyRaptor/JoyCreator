@@ -1600,3 +1600,23 @@ was away) as "decided: …" so it can be overturned later.
 - **Next:**
   - Owner test on the Note 9, then his green light: remove `studio_motion_blur` from `hidden_features.json`.
   - Later: C5 physical parity, C7 replay on the release candidate, and the effect-layer card (after True layer order).
+
+### 2026-11-28 Claude (Opus 5.5) → STU-7 plan step 1: video blur reaches ordinary projects (landed `539099c5a`)
+- **Transitions:**
+  - Filmed clips now blur in projects that have transitions. Only frames inside an overlap stay sharp, and no shutter reaches across a seam.
+  - One rule for both routes: `model/FootageSpans`.
+  - Root cause: the preview decoder clock latched the blend frames, which the decoder does not own, so the whole project was refused.
+  - Also fixed: export read shutter keys on each piece's own clock instead of absolute timeline time.
+- **Crop:** now blurs.
+- **Armed transform:** blurs while the placement holds still. When the placement moves, it keeps its own shutter and the footage stays sharp; summing both needs one combined pass.
+- **Loops:** each pass blurs, and the loop seam stays sharp like a cut.
+- **Proof:**
+  - `run-footagespans.sh`: 52 checks, failed first.
+  - Studio CI 108/108 (run 46175051456).
+  - Emulator 11/11 (46175015767). `MotionFootageTransitionTest`: clip bodies differ from sharp on 1.14% and 2.34% of pixels, the blend frames on 0.0%.
+  - The fail-first run 46175027524 failed on the old code as intended.
+- **Still sharp:**
+  - removed spans (the preview clock refuses cut jumps);
+  - ping-pong and still loops, and a loop touching a transition;
+  - mesh and corner pin.
+- **Not started:** the longer-than-one-frame video trail (plan 1.3).

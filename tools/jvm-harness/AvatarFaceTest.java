@@ -345,10 +345,11 @@ public class AvatarFaceTest {
                         && "your right mouth corner".equals(cc.joycreator.avatar.face.FacePins.nameOf(61)) && fsh.getJSONObject(0).getString("name").contains("your right mouth corner")
                         && java.util.Arrays.equals(cc.joycreator.avatar.face.FacePins.points(fch), new int[]{61}),
                 "a face pin on a slice goes on the head's whole drawing (one piece, bent last), two Shapes follow the point, named in his words");
-        cc.joycreator.avatar.face.FacePins.strength(fch, fid, 0.5);
         cc.joycreator.avatar.face.FacePins.setGain(fch, fch.getJSONObject("root"), 2);
-        check(Math.abs(fsh.getJSONObject(0).getDouble("amt") - 1.0) < 1e-9 && Math.abs(cc.joycreator.avatar.face.FacePins.gain(fch) - 2) < 1e-9,
-                "a pin's strength times the All pins dial (0.5 x 2)");
+        double afterDial = fsh.getJSONObject(0).getDouble("amt");
+        cc.joycreator.avatar.face.FacePins.strength(fch, fid, 0.5);
+        check(Math.abs(afterDial - 2.0) < 1e-9 && Math.abs(fsh.getJSONObject(0).getDouble("amt") - 1.0) < 1e-9 && Math.abs(cc.joycreator.avatar.face.FacePins.gain(fch) - 2) < 1e-9,
+                "the All pins dial scales every pin (1 x 2), and a pin's strength is times the dial (0.5 x 2)");
         cc.joycreator.avatar.face.FacePins.unbind(fch, fid);
         check(!fch.has("facePins") && sheet.getJSONArray("shapes").length() == 0 && sheet.getJSONObject("mesh").getJSONArray("pins").length() == 0,
                 "taking a face pin off takes its Shapes, and the pin made for it");

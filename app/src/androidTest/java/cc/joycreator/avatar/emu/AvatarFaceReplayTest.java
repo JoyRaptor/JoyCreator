@@ -239,6 +239,19 @@ public class AvatarFaceReplayTest {
             check(a.pendingPoint() < 0, "...and the point is used (a new tap needs a new point)");
             Emu.tap(tabs[3]);                                            // Perform: his smile pulls the pin's point
             Emu.sleep(1500);
+            // (Set up let the camera go, as the room does; on again as the room's Face chip would, minus the camera itself:
+            // the face on, and the camera told which points the pins follow)
+            Emu.ins().runOnMainSync(() -> {
+                in.face(true);
+                try {
+                    java.lang.reflect.Method wf = AvatarRoomActivity.class.getDeclaredMethod("watchFacePins");
+                    wf.setAccessible(true);
+                    wf.invoke(a);
+                } catch (Exception e) {
+                    throw new RuntimeException(e);
+                }
+            });
+            Emu.sleep(600);
             replay.play(21.6, 22.4);
             double pull = 0;
             long until2 = SystemClock.uptimeMillis() + 20000;
@@ -249,9 +262,14 @@ public class AvatarFaceReplayTest {
             check(pull > 0.02, "his smile moves the pinned point: the camera watches it (" + f(pull) + ")");
             Emu.tap(tabs[0]);
             Emu.sleep(1200);
+            RoomEdit ed = (RoomEdit) field(a, "edit");
+            String[] top = new String[1];
+            Emu.ins().runOnMainSync(() -> top[0] = ed.undoName());
             Emu.tap((View) field(a, "undoButton"));
             Emu.sleep(1200);
-            check(FacePins.list(((CharacterDoc) field(a, "character")).json).length() == 0, "one Undo takes the face pin away (one step)");
+            int leftPins = FacePins.list(((CharacterDoc) field(a, "character")).json).length();
+            check(a.getString(R.string.avatar_step_facepin_add).equals(top[0]) && leftPins == 0,
+                    "one Undo takes the face pin away (one step; Undo held \"" + top[0] + "\", " + leftPins + " pins left)");
             Emu.ins().runOnMainSync(() -> fc[0].bus().stop());
             assertFalse("the room closed", a.isFinishing());
         } finally {

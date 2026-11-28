@@ -167,6 +167,7 @@ public final class ActFromVideoSheet {
         View bake = d.getButton(AlertDialog.BUTTON_NEUTRAL);
         SheetKit.label(read, c.getString(R.string.ava_act_read_hover));
         SheetKit.label(bake, c.getString(R.string.ava_act_bake_hover));
+        SheetKit.label(d.getButton(AlertDialog.BUTTON_NEGATIVE), c.getString(R.string.ava_cancel_hover));
         read.setOnClickListener(v -> {
             plan.tidy();
             if (plan.isEmpty()) {

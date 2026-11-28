@@ -10,7 +10,7 @@ Skipped on purpose: Landmarks (replaces "Match two angles"), face-capture intern
 | 1 | 🟡 | Set up, eyes | Eyes card: Looking, Blink by itself / About every / Eyes lead the head / Blink now / Hold the blink / Centre the blink (`al-cards.js`) | Looking, Blink by itself / About every / Eyes lead / Blink now built 11-27; Hold the blink, Centre the blink owed | L |
 | 2 | ⬜ | Set up, eyelids | Add eyelids, Invisible / Drawn, tilt/cheek reach, Blink by closing the lids, Remove | none | M |
 | 3 | 🟡 | Set up, mouth | How it talks: Hinge / Squash / Swap, Open / Shut, Shuts to, Try: talk | hinge/squash/swap only, drawn open or shut, Swing, Shuts to, Try: talk, Same on every angle built and seen on the emulator 11-28; mouth shapes (rows 4) owed | M |
-| 4 | ⬜ | Set up, mouth shapes | Its shapes, This is the sound, Try a sound, Other mouths | none | M |
+| 4 | ✅ | Set up, mouth shapes | Its shapes, This is the sound, Try a sound, Other mouths | none | M |
 | 5 | ✅ | Set up, brows/jaw/nose | Lift, Drops, The face stretches with it, Depth | none | M |
 | 6 | ⬜ | Set up, head angles | Its angles pad, Move the dots, Mirror, Copy/Rename/Remove angle, Tip, Size | only Landmarks | L |
 | 7 | ⬜ | Set up, arms/legs | numbered drawings, arrows, Resting pose, Flip elbow/knee | tile tap looks only | M |
@@ -26,17 +26,17 @@ Skipped on purpose: Landmarks (replaces "Match two angles"), face-capture intern
 | 17 | ✅ | Motion, follows | Follows: signal to property, Bouncy, Back and forth, How much | none | L |
 | 18 | ⬜ | Arrange, masks | Show only inside, Hide where | none | M |
 | 19 | ⬜ | Set up, carried / looks | Carried by, Its looks, Make this its usual look, Change its picture | none | M |
-| 20 | ⬜ | Motion, loop / stream | Loop speed; Stream (How many, Each lasts, Drifts, Fades out, Sways) | none | M |
+| 20 | 🟡 | Motion, loop / stream | Loop speed; Stream (How many, Each lasts, Drifts, Fades out, Sways) | none | M |
 | 21 | ⬜ | Set up, round shape | per layer: Turns, Nods, lies flat, stands off, on the back | round head sliders only | M |
 | 22 | 🟡 | Set up, what it is | What is this?, Rename, Remove, Pin it again | Rename and Remove (built 11-28); What is this? and Pin it again owed | M |
 | 23 | ⬜ | Arrange, size and turn | Fit it by hand, readout, Size/Turn/Mirror sliders | heading + hint; Put it back always shown | S |
 | 24 | ⬜ | Whole stage | labelled body map, path tabs | chips row, one path line (spec A2) | L |
 | 25 | ⬜ | Arrange, stance row | picture per stance, A new stance sheet | chips in the card | M |
 | 26 | ⬜ | Set up, pins | named pins (Neck, Shoulder, Elbow, Hand, Hips, ...) | unnamed dots | M |
-| 27 | ⬜ | Hint line | per-stage coach lines | one line | M |
+| 27 | ✅ | Hint line | per-stage coach lines | one line | M |
 | 28 | ⬜ | Stage buttons | Hold this pose, Held pose, Back to Set up | not there | S |
 | 29 | ⬜ | Stage buttons | Onion skin | not there (spec) | S |
-| 30 | ⬜ | Motion, swing | Make it move by itself, Bendy/Stiff, Hangs down, Hangs from | no way to add a swing | M |
+| 30 | ✅ | Motion, swing | Make it move by itself, Bendy/Stiff, Hangs down, Hangs from | no way to add a swing | M |
 | 31 | ✅ | Motion, body | Breathing toggle, How deep, Never quite still | Breaths a minute only | S |
 | 32 | ✅ | Set up, facing | Drawn facing Left/Front/Right, See it flipped, Turn around by itself | tick only if not front | S |
 | 33 | ⬜ | Set up, body angles | Give the body its own angles, Follows the head | none | M |
@@ -45,7 +45,7 @@ Skipped on purpose: Landmarks (replaces "Match two angles"), face-capture intern
 | 36 | ⬜ | Perform | More to turn pads; Turn right round | one head pad | M |
 | 37 | ✅ | Perform words | Mood (eyelids and brows); Weather with readout; hover texts | Mood, Breeze, shorter hovers | S |
 | 38 | ⬜ | Perform take strip | lane bars, writing: head, face; recording… | time only | S |
-| 39 | ⬜ | Menu | Create new avatar card, open now/unsaved/built in, long-press Rename/Copy/Remove | names only | M |
+| 39 | 🟡 | Menu | Create new avatar card, open now/unsaved/built in, long-press Rename/Copy/Remove | long-press a card: Rename, Copy, Remove (built 11-28); the Create new avatar card and open now / unsaved labels owed | M |
 | 40 | 🟡 | Menu | Add pictures, What can this do?, door sentences, One long card per part | door sentences, one prefix and What can this do? built 11-27; Add pictures to the open character and One long card toggle owed | M |
 
 ## Order of work (value to a user, then size)

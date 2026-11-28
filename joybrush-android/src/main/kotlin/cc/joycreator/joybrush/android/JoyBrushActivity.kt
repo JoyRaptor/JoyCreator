@@ -3115,8 +3115,7 @@ class JoyBrushActivity : Activity() {
             out.use { stream -> temp.inputStream().use { source -> source.copyTo(stream) } }
         } finally {
             // Whatever happened, the temporary is not left lying around: it is a whole drawing
-            // sitting in a cache directory, and the next copy would overwrite it anyway.
-            temp.delete()
+            // FAIL-FIRST PROBE: the temporary is left behind on purpose (never land this branch).
         }
     }
 

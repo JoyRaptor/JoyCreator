@@ -236,7 +236,7 @@ class BrushPreviewRenderer(private val memory: () -> Pair<Long, Long>) {
         // selector shows just the stroke (owner, 11-16: the colour lines distracted there).
         val ground = HashMap<Long, ByteArray>()
         if (kind == PreviewKind.SMUDGE || shown.engine == cc.joycreator.joybrush.core.brush.ENGINE_PUSH) {
-            PreviewRaster.checker(ground, 0, 0, w, h, CHECKER_CELL)
+            PreviewRaster.checker(ground, 0, 0, w, h, maxOf(CHECKER_CELL, h / 3))
         } else if (erase) {
             PreviewRaster.fillRect(ground, 0, (h * STRIP_INSET).toInt(), w, h - (h * STRIP_INSET).toInt(), req.style.strip)
         }

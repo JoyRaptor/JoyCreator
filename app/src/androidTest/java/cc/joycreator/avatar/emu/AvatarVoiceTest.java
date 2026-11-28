@@ -77,7 +77,7 @@ public class AvatarVoiceTest {
             boolean playing = false;
             double lo = 9, hi = -9;
             int opened = 0, shut = 0;
-            for (int k = 0; k < 50; k++) {                                 // 2.5 s of the room's own mouth signal, every 50 ms
+            for (int k = 0; k < 80; k++) {                                 // 4 s of the room's own mouth signal, every 50 ms
                 Emu.sleep(50);
                 if (field(a[0], "voicePlayer") != null) playing = true;
                 Object sig = field(a[0], "lastSignals");
@@ -89,7 +89,7 @@ public class AvatarVoiceTest {
                     if (v > 0.2) opened++;
                     if (v < 0.05) shut++;
                 }
-                if (k == 20) {
+                if (k == 40) {
                     Bitmap shot = Emu.screen();
                     Emu.save(shot, new File(out, "2-playing.png"));
                     shot.recycle();

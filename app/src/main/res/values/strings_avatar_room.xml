@@ -318,5 +318,7 @@ Perform by talking, turning the head on the pad, tapping buttons and walking the
     <string name="avatar_remove_body">It goes from the character. Undo brings it back.</string>
     <string name="avatar_step_rename_part">Rename a part</string>
     <string name="avatar_step_remove_part">Remove %1$s</string>
+    <string name="avatar_step_mouth_hinge">Mouth: hinge</string>
+    <string name="avatar_step_mouth_swap">Mouth: swap only</string>
 </resources>
 

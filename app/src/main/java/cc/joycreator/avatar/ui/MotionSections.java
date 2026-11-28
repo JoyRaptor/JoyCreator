@@ -124,8 +124,10 @@ public final class MotionSections {
         col.addView(scroll(c, face));
         final boolean auto = st.optBoolean("autoFlip", false);
         col.addView(WalkSections.tick(c, "Turn around by itself", auto, "When the head turns the other way the whole character flips, so one three-quarter drawing faces both ways", dp, v -> {
-            if (v && "front".equals(facing)) host.setValue(null, "settings.facing", "left", "Drawn facing left");
-            host.setValue(null, "settings.autoFlip", v, "Turn around by itself");
+            java.util.List<Object[]> items = new java.util.ArrayList<>();                    // one undo step
+            if (v && "front".equals(facing)) items.add(new Object[]{null, "settings.facing", "left"});
+            items.add(new Object[]{null, "settings.autoFlip", v});
+            host.setMany("Turn around by itself", items);
         }));
         if (auto)
             col.addView(slider(c, "Flips past", 0.1, 0.9, 0.05, st.optDouble("flipAt", 0.4), v -> Math.round(v * 100) + "% turned", "How far the head has turned when the whole character flips",

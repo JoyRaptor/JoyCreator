@@ -1023,9 +1023,30 @@ public final class AvatarRoomActivity extends Activity implements RoomMenu.Host,
         final cc.joycreator.avatar.ui.PoseRenderer r = stage.renderer();
         if (r == null || character == null) return;
         final cc.joycreator.avatar.solve.Pics pics = r.pics();
-        edit.apply(getString(action.equals("squash") ? R.string.avatar_step_mouth_squash : R.string.avatar_step_mouth_everywhere), d -> {
+        edit.apply(getString(action.equals("squash") ? R.string.avatar_step_mouth_squash : action.equals("hinge") ? R.string.avatar_step_mouth_hinge : action.equals("swap") ? R.string.avatar_step_mouth_swap : R.string.avatar_step_mouth_everywhere), d -> {
             org.json.JSONObject j = d.find(nodeId).json;
             org.json.JSONObject art = mouthArt(j);
+            if (action.equals("swap")) {
+                art.remove("hinge");
+                art.remove("squash");
+                return;
+            }
+            if (action.equals("hinge")) {
+                String keep = art.optJSONObject("squash") != null ? art.getJSONObject("squash").optString("rest", "open")
+                        : art.optJSONObject("hinge") != null ? art.getJSONObject("hinge").optString("rest", "open") : "open";
+                art.remove("squash");
+                final double[][] nose1 = {null}, face1 = {null};
+                d.walk((k, dd, p) -> {
+                    if (nose1[0] == null && "nose".equals(k.role)) nose1[0] = r.restBounds(k);
+                    if (face1[0] == null && "face".equals(k.role)) face1[0] = r.restBounds(k);
+                });
+                cc.joycreator.avatar.file.PinGuess.guessMouth(art, pics, nose1[0], face1[0]);
+                art.remove("squash");
+                org.json.JSONObject h = art.optJSONObject("hinge");
+                if (h == null) art.put("hinge", h = new org.json.JSONObject().put("angle", 30));
+                h.put("rest", keep);
+                return;
+            }
             if (action.equals("squash")) {
                 String keep = art.optJSONObject("hinge") != null ? art.getJSONObject("hinge").optString("rest", "open") : "open";
                 double[] b = r.restBounds(d.find(art.optString("id")));
@@ -1227,6 +1248,7 @@ public final class AvatarRoomActivity extends Activity implements RoomMenu.Host,
         glPictures = pics;
         inputs.setSettings(d.json.optJSONObject("settings"));
         inputs.setStances(d.json);
+        inputs.setButtons(triggerIds(d));                        // a new stance's button works at once, not when the character is reopened
         if (walker == null || walkerDoc != d.json) {
             walker = new cc.joycreator.avatar.perform.Walker(d.json, inputs);
             walkerDoc = d.json;
@@ -1267,16 +1289,21 @@ public final class AvatarRoomActivity extends Activity implements RoomMenu.Host,
     // ── performing: the hands, the take and the frame loop ──────────────────────────────────────────
 
     /** A new character on the stage: its buttons, its take, hands let go, the controls rebuilt. */
-    private void feedInputs(CharacterDoc d) {
+    /** The ids of the character's buttons (a stance made, copied or worked out brings a new one). */
+    private static java.util.ArrayList<String> triggerIds(CharacterDoc d) {
         java.util.ArrayList<String> ids = new java.util.ArrayList<>();
         org.json.JSONArray tr = d.json.optJSONArray("triggers");
         for (int i = 0; tr != null && i < tr.length(); i++) {
             org.json.JSONObject t = tr.optJSONObject(i);
             if (t != null) ids.add(t.optString("id"));
         }
+        return ids;
+    }
+
+    private void feedInputs(CharacterDoc d) {
         inputs.recorder.stop();
         inputs.letGoOfEverything();
-        inputs.setButtons(ids);
+        inputs.setButtons(triggerIds(d));
         inputs.recorder.setTake(takeOf(d));
         performPanel.bind(d, stageIndex == 3);
     }
@@ -1840,7 +1867,7 @@ public final class AvatarRoomActivity extends Activity implements RoomMenu.Host,
         final Take t = inputs.recorder.take();
         edit.apply(stepName, doc -> {
             if (t == null || t.n == 0) doc.json.remove("take");
-            else doc.json.put("take", t.toJson());
+            else doc.json.put("take", t.toJson(doc.json.optJSONObject("take")));          // (a take's voice stays through a pass)
         });
     }
 

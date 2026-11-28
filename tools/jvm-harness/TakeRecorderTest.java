@@ -1,6 +1,7 @@
 import cc.joycreator.avatar.perform.Take;
 import cc.joycreator.avatar.perform.TakeRecorder;
 
+import org.json.JSONObject;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashSet;
@@ -51,7 +52,7 @@ public class TakeRecorderTest {
         return new HashSet<>(Arrays.asList(o));
     }
 
-    public static void main(String[] a) {
+    public static void main(String[] a) throws Exception {
         // who owns what
         ok("head".equals(TakeRecorder.ownerOf("turnY")) && "head".equals(TakeRecorder.ownerOf("dx:head")), "turnY and dx: belong to the head");
         ok("p:pin1".equals(TakeRecorder.ownerOf("p:pin1:x")) && "g:t1".equals(TakeRecorder.ownerOf("g:t1")), "a pin and a button own themselves");
@@ -130,6 +131,15 @@ public class TakeRecorderTest {
             ok(back.sameAs(first), "a take survives being written and read as text");
         } catch (Exception e) {
             ok(false, "a take survives being written and read as text: " + e);
+        }
+        // a pass must not erase the voice kept with a take
+        {
+            Take vt = new Take();
+            vt.ch.put("turnX", new ArrayList<Object>(Arrays.<Object>asList(0.5, 0.6)));
+            JSONObject before = new JSONObject().put("fps", 30).put("n", 1).put("voice", new JSONObject().put("name", "hello.wav"));
+            JSONObject after = vt.toJson(before);
+            ok(after.has("voice") && "hello.wav".equals(after.getJSONObject("voice").optString("name")), "a pass keeps the take's voice");
+            ok(!vt.toJson().has("voice"), "(the plain take has none)");
         }
         System.out.println((fail > 0 ? "FAILED " : "PASSED ") + pass + " checks, " + fail + " failures");
         System.exit(fail > 0 ? 1 : 0);

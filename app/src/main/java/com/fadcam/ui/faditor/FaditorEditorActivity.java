@@ -12987,24 +12987,26 @@ public class FaditorEditorActivity extends AppCompatActivity {
             // In MEDIA ms, the unit currentPos is in: the clip's own length and the export's
             // clamped blend length at this clip's speed (they were mixed with timeline ms, so at 2x
             // the blend opened a second early and at 0.5x never opened; STU-5).
-            long clipDuration = Math.max(1L, clip.getOutPointMs() - clip.getInPointMs());
             Transition seamTransition = getTransitionAtSeam(selectedClipIndex);
             if (seamTransition != null) {
                 long transitionSourceDuration = com.fadcam.ui.faditor.model.PreviewClock.blendMediaMs(project.getTimeline(), selectedClipIndex);
+                // A looped clip blends on its last pass only (STU-F7): this pass started at loop-before + passes played.
+                long blendOpensAt = com.fadcam.ui.faditor.model.PreviewClock.blendOpensAtInPass(project.getTimeline(),
+                        selectedClipIndex, clip.getLoopBeforeMs() + loopVisualOffsetMs);
                 // Warm the GL endpoint frames off-main BEFORE the window opens, so the
                 // blend can start on its first frame instead of eating decode latency.
                 if (seamTransition.isGlShader() && glTransitionPrefetchSeam != selectedClipIndex
-                        && currentPos >= clipDuration - transitionSourceDuration - 1200) {
+                        && blendOpensAt != Long.MAX_VALUE && currentPos >= blendOpensAt - 1200) {
                     glTransitionPrefetchSeam = selectedClipIndex;
                     prefetchGlTransitionEndpoints(selectedClipIndex);
                     // Live tier: warm a muted player on B so the blend can composite B's real
                     // MOTION (not a frozen endpoint). Prepared here so it's READY at the seam.
                     prepareGlTransitionNextPlayer(selectedClipIndex);
                 }
-                if (currentPos >= clipDuration - transitionSourceDuration) {
+                if (blendOpensAt != Long.MAX_VALUE && currentPos >= blendOpensAt) {
                     transitionPlaybackActive = true;
                     transitionPlaybackSeam = selectedClipIndex;
-                    transitionPlaybackStartPositionMs = clipDuration - transitionSourceDuration;
+                    transitionPlaybackStartPositionMs = blendOpensAt;
                     transitionPlaybackDurationMs = transitionSourceDuration;
                     transitionPreviewOverlay.setVisibility(View.GONE);
                     glTransitionHold = false; // a stale handoff-hold must not survive a new seam

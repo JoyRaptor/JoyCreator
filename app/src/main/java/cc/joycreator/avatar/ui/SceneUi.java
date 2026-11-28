@@ -101,6 +101,7 @@ public final class SceneUi extends FrameLayout {
         overlay = new Overlay(c);
         addView(overlay, new LayoutParams(-1, -1));
         strip = new LinearLayout(c);
+        strip.setTag("scene-strip");
         addView(strip, new LayoutParams(-2, -2));
         buttons = new LinearLayout(c);
         buttons.setGravity(Gravity.END | Gravity.BOTTOM);

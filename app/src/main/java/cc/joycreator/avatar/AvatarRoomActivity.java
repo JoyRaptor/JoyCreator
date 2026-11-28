@@ -136,6 +136,9 @@ public final class AvatarRoomActivity extends Activity implements RoomMenu.Host,
     private CharacterDoc character;
     /** The character's file in the Joy Creator folder; null for Topps (his copy is made on the first save). */
     private String characterPath;
+    /** Where each character on this screen was saved, by the character itself: a save finishing late never points another character at its file. */
+    private final java.util.Map<CharacterDoc, String> savedAs = java.util.Collections.synchronizedMap(new java.util.IdentityHashMap<>());
+    private int editStamp;                                            // counts the edits, so a save knows whether more came while it ran
     /** What is on the stage differs from what is in the folder. Nothing edits yet, so this stays false. */
     private boolean unsaved;
     /** Perform is where Topps opens (spec A1): ready to play. */
@@ -376,23 +379,15 @@ public final class AvatarRoomActivity extends Activity implements RoomMenu.Host,
 
     /** The export sheet (slice 2's RoomExportSheet): the character is saved first, so the file it works from is current. */
     private void openExport() {
-        final CharacterDoc d = character;
-        if (d == null) return;
-        final String path = characterPath;
+        if (character == null) return;
         final java.util.Map<String, Object> sig = lastSignals;
-        JoyFolderHome.io().execute(() -> {
-            String rel = CharacterStore.save(this, d, path);
-            main.post(() -> {
-                if (isFinishing()) return;
-                if (rel == null) {
-                    Toast.makeText(this, R.string.avatar_cannot_save, Toast.LENGTH_LONG).show();
-                    return;
-                }
-                characterPath = rel;
-                unsaved = false;
-                paintSaveDot();
-                cc.joycreator.avatar.studio.RoomExportSheet.show(this, rel, characterName(), sig);
-            });
+        saveCurrent(rel -> {
+            if (isFinishing()) return;
+            if (rel == null) {
+                Toast.makeText(this, R.string.avatar_cannot_save, Toast.LENGTH_LONG).show();
+                return;
+            }
+            cc.joycreator.avatar.studio.RoomExportSheet.show(this, rel, characterName(), sig);
         });
     }
 
@@ -1235,17 +1230,17 @@ public final class AvatarRoomActivity extends Activity implements RoomMenu.Host,
         if (walker == null || walkerDoc != d.json) {
             walker = new cc.joycreator.avatar.perform.Walker(d.json, inputs);
             walkerDoc = d.json;
-            stick = new cc.joycreator.avatar.perform.Stick(d.json, inputs, walker, new cc.joycreator.avatar.perform.Stick.Later() {
+            stick = new cc.joycreator.avatar.perform.Stick(d.json, inputs, walker, new cc.joycreator.avatar.perform.OwnJobs(new cc.joycreator.avatar.perform.OwnJobs.Poster() {
                 @Override
-                public void after(long ms, Runnable r) {
+                public void post(Runnable r, long ms) {
                     main.postDelayed(r, ms);
                 }
 
                 @Override
-                public void cancel(Object tag) {
-                    main.removeCallbacksAndMessages(null);
+                public void remove(Runnable r) {
+                    main.removeCallbacks(r);
                 }
-            });
+            }));
         } else walker.refresh();
         stickSize();
         bodyBox = null;                                         // (walking with your face measures the drawing again)
@@ -1261,6 +1256,7 @@ public final class AvatarRoomActivity extends Activity implements RoomMenu.Host,
         performPanel.refreshSettings(d);
         if (fromEdit) {
             unsaved = true;
+            editStamp++;
             paintSaveDot();
             main.removeCallbacks(autosave);
             main.postDelayed(autosave, 1500);   // it saves by itself in a moment
@@ -2146,20 +2142,53 @@ public final class AvatarRoomActivity extends Activity implements RoomMenu.Host,
         if (unsaved && character != null) saveQuietly();
     }
 
-    private void saveQuietly() {
-        final CharacterDoc d = character;
-        final String path = characterPath;
+    /**
+     * Saves one character in the folder, one save at a time (the folder has one thread), reading where it was saved before at the
+     * moment its turn comes: two saves of a never-saved character make one file, not two. {@code done} gets the path, or null.
+     */
+    private void saveDoc(final CharacterDoc d, final String startPath, final java.util.function.Consumer<String> done) {
         JoyFolderHome.io().execute(() -> {
-            String rel = CharacterStore.save(this, d, path);
-            main.post(() -> {
-                if (rel == null) return;       // still on the stage; tried again with the next change
+            String known = savedAs.get(d);
+            String rel = CharacterStore.save(this, d, known != null ? known : startPath);
+            if (rel != null) savedAs.put(d, rel);
+            main.post(() -> done.accept(rel));
+        });
+    }
+
+    /** The character on the stage, saved now: its path is kept only while it is still the one on the stage. */
+    private void saveCurrent(final java.util.function.Consumer<String> after) {
+        final CharacterDoc d = character;
+        if (d == null) return;
+        final int stamp = editStamp;
+        saveDoc(d, characterPath, rel -> {
+            if (rel != null && character == d) {
                 characterPath = rel;
-                if (character == d) {
+                if (editStamp == stamp) {
                     unsaved = false;
                     paintSaveDot();
+                } else if (unsaved) {                                   // more edits came while it saved: again in a moment
+                    main.removeCallbacks(autosave);
+                    main.postDelayed(autosave, 1500);
                 }
-            });
+            }
+            if (after != null) after.accept(rel);
         });
+    }
+
+    private void saveQuietly() {
+        saveCurrent(null);
+    }
+
+    /** Puts another character on the stage. The one that was there is saved first if it has changes (edits younger than the autosave included). */
+    private void adopt(CharacterDoc next, String path, boolean isUnsaved) {
+        main.removeCallbacks(autosave);
+        if (unsaved && character != null && character != next) saveDoc(character, characterPath, rel -> {
+        });
+        character = next;
+        characterPath = path;
+        unsaved = isUnsaved;
+        if (path != null) savedAs.put(next, path);
+        else savedAs.remove(next);
     }
 
     // ── the Menu ──────────────────────────────────────────────────────────────────────────────────
@@ -2181,9 +2210,7 @@ public final class AvatarRoomActivity extends Activity implements RoomMenu.Host,
     @Override
     public void openBuiltIn(String asset) {
         try {
-            character = CharacterAssets.load(this, asset);
-            characterPath = null;
-            unsaved = false;
+            adopt(CharacterAssets.load(this, asset), null, false);
             showCharacter();
         } catch (Exception e) {
             Log.w(TAG, "built-in character did not open", e);
@@ -2201,9 +2228,7 @@ public final class AvatarRoomActivity extends Activity implements RoomMenu.Host,
                     Toast.makeText(this, R.string.avatar_cannot_open, Toast.LENGTH_LONG).show();
                     return;
                 }
-                character = d;
-                characterPath = entry.path;
-                unsaved = false;
+                adopt(d, entry.path, false);
                 showCharacter();
             });
         });
@@ -2338,9 +2363,7 @@ public final class AvatarRoomActivity extends Activity implements RoomMenu.Host,
                     Toast.makeText(this, R.string.avatar_no_pictures, Toast.LENGTH_LONG).show();
                     return;
                 }
-                character = result;
-                characterPath = null;
-                unsaved = true;
+                adopt(result, null, true);
                 inHand = null;
                 showCharacter();
                 setLayersShown(true);
@@ -2448,9 +2471,7 @@ public final class AvatarRoomActivity extends Activity implements RoomMenu.Host,
                     Toast.makeText(this, R.string.avatar_no_pictures, Toast.LENGTH_LONG).show();
                     return;
                 }
-                character = result;
-                characterPath = null;
-                unsaved = true;
+                adopt(result, null, true);
                 inHand = null;
                 showCharacter();
                 Toast.makeText(this, R.string.avatar_wizard_pinned, Toast.LENGTH_LONG).show();
@@ -2559,9 +2580,7 @@ public final class AvatarRoomActivity extends Activity implements RoomMenu.Host,
                     Toast.makeText(this, line != null ? line : getString(R.string.avatar_psd_unreadable), Toast.LENGTH_LONG).show();
                     return;
                 }
-                character = result;
-                characterPath = null;
-                unsaved = true;
+                adopt(result, null, true);
                 inHand = null;
                 showCharacter();
                 setLayersShown(true);
@@ -2614,9 +2633,7 @@ public final class AvatarRoomActivity extends Activity implements RoomMenu.Host,
                     Toast.makeText(this, R.string.avatar_no_pictures, Toast.LENGTH_LONG).show();
                     return;
                 }
-                character = result;
-                characterPath = null;
-                unsaved = true;
+                adopt(result, null, true);
                 inHand = null;
                 showCharacter();
                 setLayersShown(true);      // the pictures are the layers: show them
@@ -2682,9 +2699,7 @@ public final class AvatarRoomActivity extends Activity implements RoomMenu.Host,
                     Toast.makeText(this, R.string.avatar_cannot_open, Toast.LENGTH_LONG).show();
                     return;
                 }
-                character = opened;
-                characterPath = null;      // not in the folder yet: Save puts it there
-                unsaved = true;
+                adopt(opened, null, true);                // not in the folder yet: Save puts it there
                 showCharacter();
             });
         });
@@ -2692,21 +2707,9 @@ public final class AvatarRoomActivity extends Activity implements RoomMenu.Host,
 
     @Override
     public void saveNow() {
-        final CharacterDoc d = character;
-        if (d == null) return;
-        JoyFolderHome.io().execute(() -> {
-            String rel = CharacterStore.save(this, d, characterPath);
-            main.post(() -> {
-                if (isFinishing()) return;
-                if (rel == null) {
-                    Toast.makeText(this, R.string.avatar_cannot_save, Toast.LENGTH_LONG).show();
-                    return;
-                }
-                characterPath = rel;
-                unsaved = false;
-                paintSaveDot();
-                Toast.makeText(this, R.string.avatar_saved, Toast.LENGTH_SHORT).show();
-            });
+        saveCurrent(rel -> {
+            if (isFinishing()) return;
+            Toast.makeText(this, rel == null ? R.string.avatar_cannot_save : R.string.avatar_saved, rel == null ? Toast.LENGTH_LONG : Toast.LENGTH_SHORT).show();
         });
     }
 }

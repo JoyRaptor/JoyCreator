@@ -110,6 +110,15 @@ public final class CharacterSolver {
         st = o;
     }
 
+    /**
+     * Back to the very start, as a new solver would be (frame count, facing, springs, fades), keeping the meshes and the
+     * distance fields made from the pictures: Studio rewinds a character this way, so a replay from the start draws what
+     * a fresh export draws without making every mesh again (X6 M5).
+     */
+    public void restart() {
+        st = new State();
+    }
+
     /** One frame. {@code S} is changed only where the pilot changes it ({@link Signals#anchor}, {@link Signals#tips}). */
     public SolveOut eval(Signals S, Opt opt) {
         return new Frame(this, S, opt == null ? new Opt() : opt).run();

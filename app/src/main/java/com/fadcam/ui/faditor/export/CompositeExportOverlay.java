@@ -1149,19 +1149,21 @@ public class CompositeExportOverlay extends BitmapOverlay {
                 com.fadcam.ui.faditor.sprite.SpriteSheet sheet = sheetById(o.getSheetId());
                 com.fadcam.ui.faditor.sprite.SpriteSheetRenderer r =
                         sheet != null ? spriteRendererFor(o.getSheetId()) : null;
-                if (sheet == null || r == null) continue; // missing art: preview shows
-                                                          // the placeholder; export omits
+                // a character draws from its own file, so it exports even when its standing picture is
+                // missing, as the preview draws it (X6 M7); other missing art: preview shows the placeholder, export omits
+                final cc.joycreator.avatar.studio.ItemPuppet fCharacter = characterPuppetFor(o);
+                if ((sheet == null || r == null) && fCharacter == null) continue;
                 com.fadcam.ui.faditor.avatar.AvatarItemPuppet puppet = puppetFor(o);
-                int cell = com.fadcam.ui.faditor.sprite.SpriteFrameResolver
-                        .resolveCellAt(sheet, o, timelineMs);
-                if (puppet == null
+                int cell = sheet == null ? com.fadcam.ui.faditor.sprite.SpriteFrameResolver.NO_CELL
+                        : com.fadcam.ui.faditor.sprite.SpriteFrameResolver.resolveCellAt(sheet, o, timelineMs);
+                if (puppet == null && fCharacter == null
                         && cell == com.fadcam.ui.faditor.sprite.SpriteFrameResolver.NO_CELL) {
                     continue;
                 }
                 float cx = o.animatedCenterX(timelineMs) * outW;
                 float cy = o.animatedCenterY(timelineMs) * outH;
                 float h = o.animatedSizeFraction(timelineMs) * outH;
-                float aspect = r.cellAspect();
+                float aspect = r != null ? r.cellAspect() : 1f;   // (the preview's box when the picture is missing)
                 float w = h * (aspect > 0 ? aspect : 1f);
                 spritePaint.setAlpha(Math.round(opacity * 255));
                 canvas.save();
@@ -1188,7 +1190,6 @@ public class CompositeExportOverlay extends BitmapOverlay {
                 final int fCell = cell;
                 final com.fadcam.ui.faditor.avatar.AvatarItemPuppet fPuppet = puppet;
                 final float fOpacity = opacity;
-                final cc.joycreator.avatar.studio.ItemPuppet fCharacter = characterPuppetFor(o);
                 com.fadcam.ui.faditor.sprite.SpriteMeshDraw.Content content = (c, into) -> {
                     if (fCharacter != null) {
                         fCharacter.draw(c, into, o, Math.max(0, o.toLocalMs(timelineMs)), fOpacity);

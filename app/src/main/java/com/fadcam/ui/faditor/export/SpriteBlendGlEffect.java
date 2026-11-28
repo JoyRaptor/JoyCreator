@@ -819,7 +819,12 @@ final class SpriteBlendGlEffect implements GlEffect {
             }
             var plan = RigidSpriteMotion.plan(item, sheet, shutterSampler, shutterBreaks,
                     timeUs, periodUs, frameW, frameH);
-            if (plan == null || !prepareCellTexture(renderer, cell)) return false;
+            if (plan == null) return false;
+            // STU-7: a character carries its performance at this moment, not its standing picture
+            boolean ready = item.isCharacter()
+                    ? prepareCharacterTexture(renderer.cellAspect(), timeMs)
+                    : prepareCellTexture(renderer, cell);
+            if (!ready) return false;
             drawCellPlan(plan, inputTexId, opacity);
             return true;
         }
@@ -856,6 +861,25 @@ final class SpriteBlendGlEffect implements GlEffect {
             }
             shutter.draw(cellTexture, frameW, frameH, plan, inputTexId, opacity);
             GLES20.glActiveTexture(GLES20.GL_TEXTURE0);
+        }
+
+        @Nullable private Bitmap characterPicture;
+
+        /** The character drawn at {@code timeMs} into the cell texture (redrawn every frame). */
+        private boolean prepareCharacterTexture(float aspect, long timeMs) {
+            var puppet = characterFor();
+            if (puppet == null) return false;
+            // sized for the export frame: the longer side at most the frame's, capped at 1024
+            int side = Math.min(1024, Math.max(frameW, frameH));
+            Bitmap b = com.fadcam.ui.faditor.compositor.CharacterMotionRaster.draw(
+                    puppet, item, timeMs, aspect, side, characterPicture);
+            if (b == null) return false;
+            characterPicture = b;
+            if (cellTexture == 0) cellTexture = PipGl.newStillTexture();
+            GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, cellTexture);
+            GLUtils.texImage2D(GLES20.GL_TEXTURE_2D, 0, b, 0);
+            textureCell = -1;   // not a sheet cell: the next sheet cell uploads afresh
+            return true;
         }
 
         private boolean prepareCellTexture(SpriteSheetRenderer renderer, int cell) {

@@ -1234,6 +1234,12 @@ public class FaditorEditorActivity extends AppCompatActivity {
     @androidx.annotation.StringRes
     private static int motionBlurCannotReason(@NonNull MotionBlurItem item) {
         if (item instanceof SpriteOverlayItem sprite) {
+            if (sprite.isCharacter()) {
+                // An Avatar Studio character blurs as it moves across the frame (its performance
+                // is drawn sharp at each frame): it needs placement keys to blur at all.
+                return com.fadcam.ui.faditor.compositor.RigidSpriteMotion.supports(sprite)
+                        ? 0 : R.string.studio_motion_why_character;
+            }
             return com.fadcam.ui.faditor.compositor.RigidSpriteMotion.supports(sprite)
                     ? 0 : R.string.studio_motion_why_sprite;
         }

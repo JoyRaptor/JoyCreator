@@ -373,6 +373,7 @@ public class SpriteOverlayView extends View {
     @Nullable
     public MotionCell motionCellFor(@NonNull SpriteOverlayItem item, long playheadMs) {
         if (callback == null || item == manipulating) return null;
+        if (item.isCharacter()) return characterMotionCell(item, playheadMs);
         if (item.hasAvatarPerformance()) {
             if (!item.isRigidMotionBlurEnabled() || !item.isVisibleAt(playheadMs)
                     || !com.fadcam.ui.faditor.compositor.RecordedAvatarMotion.supports(item)) return null;
@@ -392,6 +393,26 @@ public class SpriteOverlayView extends View {
             motionCells.put(key, bitmap);
         }
         return new MotionCell(bitmap, renderer.cellAspect(), window);
+    }
+
+    /**
+     * STU-7: an Avatar Studio character's motion cell is its performance at this moment (drawn by
+     * its puppet), smeared along its placement; the time window is its standing sheet's, which
+     * never changes cell, so the blur is never cut by a false cell swap.
+     */
+    @Nullable
+    private MotionCell characterMotionCell(@NonNull SpriteOverlayItem item, long playheadMs) {
+        if (!item.isRigidMotionBlurEnabled() || !item.isVisibleAt(playheadMs)) return null;
+        cc.joycreator.avatar.studio.ItemPuppet puppet = characterPuppetFor(item);
+        var sheet = callback.lookupSheet(item.getSheetId());
+        var renderer = callback.lookupRenderer(item.getSheetId());
+        if (puppet == null || sheet == null || renderer == null || renderer.isSequence()) return null;
+        var window = MotionTimelineBreaks.directCellWindow(sheet, item, playheadMs);
+        if (window == null) return null;
+        // a fresh bitmap each frame: a published GL plan may still own the last one
+        Bitmap picture = com.fadcam.ui.faditor.compositor.CharacterMotionRaster.draw(
+                puppet, item, playheadMs, renderer.cellAspect(), 512, null);
+        return picture == null ? null : new MotionCell(picture, renderer.cellAspect(), window);
     }
 
     private void drawSprite(@NonNull Canvas canvas, @NonNull SpriteOverlayItem o,

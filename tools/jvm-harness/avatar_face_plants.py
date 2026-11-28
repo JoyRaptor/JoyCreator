@@ -23,6 +23,8 @@ DP = "app/src/main/java/cc/joycreator/avatar/face/DirectionPrompts.java"
 MD = "app/src/main/java/cc/joycreator/avatar/face/MaskDrive.java"
 FPN = "app/src/main/java/cc/joycreator/avatar/face/FacePins.java"
 M = "app/src/main/java/cc/joycreator/avatar/ui/SignalMap.java"
+SF = "app/src/main/java/com/fadcam/ui/faditor/avatar/face/ShoulderFeed.java"
+SH = "app/src/main/java/cc/joycreator/avatar/face/Shrugs.java"
 
 PLANTS = [
     ("the chip skips while-talking-only", [(D, "mode == Mode.ALWAYS ? Mode.TALK : Mode.OFF", "mode == Mode.ALWAYS ? Mode.OFF : Mode.OFF")]),
@@ -76,6 +78,20 @@ PLANTS = [
     ("taking a face pin off leaves the pin made for it", [(FPN, "        if (q.optBoolean(\"made\") && !used && mesh != null && mesh.optJSONArray(\"pins\") != null) {", "        if (false) {")]),
     ("the All pins dial is ignored", [(FPN, "            if (x != null && id.equals(x.optString(\"face\"))) x.put(\"amt\", v * gain(ch));", "            if (x != null && id.equals(x.optString(\"face\"))) x.put(\"amt\", v);")]),
     ("the camera starts but the face does not drive", [(I, "if (on && faceDrive.mode() == cc.joycreator.avatar.face.FaceDrive.Mode.OFF) faceDrive.setMode(cc.joycreator.avatar.face.FaceDrive.Mode.ALWAYS);", "")]),
+    # shoulder shrugs (SHRUG-1): the camera's side (ShoulderFeed), the rig's questions (Shrugs) and Motion's Try (Inputs)
+    ("the shrug steps to each body reading (no glide: the owner's 11-22 'a little bit jerky')", [(SF, "        return Math.max(0, Math.min(1, e[0]));", "        return Math.max(0, Math.min(1, target));")]),
+    ("the shrug's glide overshoots (too little damping)", [(SF, "e[1] += (GLIDE * GLIDE * (target - e[0]) - 2 * GLIDE * e[1]) * h;", "e[1] += (GLIDE * GLIDE * (target - e[0]) - 0.5 * GLIDE * e[1]) * h;")]),
+    ("Shoulders off freezes the last shrug", [(SF, "        if (!on && g(o, ShoulderStage.BODY) > 0) {", "        if (false) {")]),
+    ("the shoulders ignore Mirror", [(SF, "        Map<String, Float> o = stage.process(d, t, mirror);", "        Map<String, Float> o = stage.process(d, t, false);")]),
+    ("shoulders out of the picture are never counted (no hint)", [(SF, "            unseenS += dt;", "            unseenS = 0;")]),
+    ("Re-centre forgets the shoulders", [(SF, "    public synchronized void requestNeutral() {\n        stage.requestNeutral();", "    public synchronized void requestNeutral() {\n")]),
+    ("Shoulder sensitivity does nothing", [(SF, "        stage.setSensitivity(sensitivity);", "        stage.setSensitivity(1f);")]),
+    ("the arms lift a third as far as the pilot's", [(SH, "if (armL != null) { double l = armLength(armL, b) * 0.6;", "if (armL != null) { double l = armLength(armL, b) * 0.2;")]),
+    ("No shrugs leaves the Links on", [(SH, "            for (String role : new String[]{\"armL\", \"armR\", \"head\"}) strip(firstRole(r, role));", "")]),
+    ("a character that said no shrugs still shows the Shoulders tick box", [(SH, "        return !ch.optBoolean(\"noShrug\") && rigs(ch) && !has(ch);", "        return rigs(ch) && !has(ch);")]),
+    ("a part's own shrug Link is not seen (no Shoulders tick box for it)", [(SH, "l.optJSONObject(i).optString(\"sig\").startsWith(SHRUG)) return true;", "l.optJSONObject(i).optString(\"sig\").startsWith(\"never\")) return true;")]),
+    ("Try does nothing", [(I, "        if (tryShrug > 0) for (String k : SHRUG_LANES) {", "        if (false) for (String k : SHRUG_LANES) {")]),
+    ("Try stays up after the finger lifts", [(I, "        tryShrug = Math.max(0, Math.min(1, v));", "        tryShrug = Math.max(tryShrug, Math.min(1, v));")]),
 ]
 
 

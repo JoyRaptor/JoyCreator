@@ -29,6 +29,8 @@ import com.google.mediapipe.tasks.vision.core.ImageProcessingOptions;
 import com.google.mediapipe.tasks.vision.core.RunningMode;
 import com.google.mediapipe.tasks.vision.facelandmarker.FaceLandmarker;
 import com.google.mediapipe.tasks.vision.facelandmarker.FaceLandmarkerResult;
+import com.google.mediapipe.tasks.vision.poselandmarker.PoseLandmarker;
+import com.google.mediapipe.tasks.vision.poselandmarker.PoseLandmarkerResult;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -80,6 +82,10 @@ public final class MediaPipeTrackingSource implements TrackingSource, LifecycleO
 
     /** Asset path for the FaceLandmarker model bundle (float16 v1). */
     public static final String MODEL_ASSET = "mediapipe/face_landmarker.task";
+    /** SHRUG-1: the body model (MediaPipe Pose, lite, float16 v1: the one the web pilot loads). */
+    public static final String POSE_ASSET = "mediapipe/pose_landmarker_lite.task";
+    /** Shoulders move slowly: a body reading every tenth of a second at most (the pilot's). */
+    private static final long POSE_EVERY_MS = 100;
 
     /** Front feed size — small on purpose (Note 9 CPU): landmarks stay stable. */
     private static final int CAP_W = 320, CAP_H = 240;
@@ -108,6 +114,23 @@ public final class MediaPipeTrackingSource implements TrackingSource, LifecycleO
          */
         void onPreview(@Nullable Bitmap picture, @Nullable float[] outline, boolean found);
     }
+
+    /**
+     * SHRUG-1: where the body's readings go (the MediaPipe thread). {@code xyv}: x, y and visibility of the body's 33
+     * points in the upright picture (0..1, unmirrored), or null when no body is seen; {@code tall}: the upright
+     * picture's height over its width.
+     */
+    public interface BodySink {
+        void onBody(@Nullable float[] xyv, float tall, double tSeconds);
+    }
+
+    @Nullable private volatile BodySink bodySink;
+    @Nullable private volatile PoseLandmarker pose;
+    private volatile boolean poseFailed;
+    private long lastPoseUptimeMs;
+    /** Analysis-thread ring: a body reading's stamp -> {stamp, rotation, upright height over width x1000}. */
+    private final long[][] poseRing = new long[4][3];
+    private int poseAt;
 
     @Nullable private volatile PreviewSink previewSink;
     private volatile boolean previewPicture = true;
@@ -172,6 +195,23 @@ public final class MediaPipeTrackingSource implements TrackingSource, LifecycleO
         previewPicture = picture;
     }
 
+    /**
+     * SHRUG-1: read the body as well, about ten times a second, on the same pictures (null: the face only, a little
+     * lighter on the phone). The body model starts with the first reading and is let go with the camera.
+     */
+    public void setBodySink(@Nullable BodySink sink) {
+        bodySink = sink;
+    }
+
+    /** SHRUG-1: the body model is in the app. */
+    public static boolean isPoseModelPresent(@NonNull Context context) {
+        try (InputStream in = context.getAssets().open(POSE_ASSET)) {
+            return in.read() != -1;
+        } catch (IOException e) {
+            return false;
+        }
+    }
+
     /** FACE-1: run the model on the graphics chip (falls back to the processor if it will not start). */
     public void setUseGpu(boolean gpu) {
         useGpu = gpu;
@@ -232,6 +272,10 @@ public final class MediaPipeTrackingSource implements TrackingSource, LifecycleO
             landmarker.close();
             landmarker = null;
         }
+        PoseLandmarker p = pose;
+        pose = null;
+        poseFailed = false;
+        if (p != null) p.close();
         if (analysisExecutor != null) {
             analysisExecutor.shutdown();
             analysisExecutor = null;
@@ -346,9 +390,76 @@ public final class MediaPipeTrackingSource implements TrackingSource, LifecycleO
             lastRotation = rotation;
             publishPreview(bmp, rotation);
             lm.detectAsync(mp, ipo, stamp);
+            // SHRUG-1: the body on the same picture, ten times a second at most, while the room wants shoulders
+            if (bodySink != null && now - lastPoseUptimeMs >= POSE_EVERY_MS) {
+                PoseLandmarker p = poseLandmarker();
+                if (p != null) {
+                    lastPoseUptimeMs = now;
+                    long[] ps = poseRing[poseAt++ % poseRing.length];
+                    ps[0] = stamp;
+                    ps[1] = rotation;
+                    ps[2] = slot[4];
+                    try {
+                        p.detectAsync(mp, ipo, stamp);
+                    } catch (RuntimeException e) {
+                        // transient: the next reading tries again
+                    }
+                }
+            }
         } finally {
             image.close();
         }
+    }
+
+    /** SHRUG-1: the body model, built on the analysis thread at the first reading (the processor: it never queues behind the face). */
+    @Nullable
+    private PoseLandmarker poseLandmarker() {
+        PoseLandmarker p = pose;
+        if (p != null || poseFailed) return p;
+        try {
+            BaseOptions base = BaseOptions.builder().setModelAssetPath(POSE_ASSET).setDelegate(Delegate.CPU).build();
+            PoseLandmarker.PoseLandmarkerOptions options = PoseLandmarker.PoseLandmarkerOptions.builder()
+                    .setBaseOptions(base)
+                    .setRunningMode(RunningMode.LIVE_STREAM)
+                    .setNumPoses(1)
+                    .setResultListener((result, input) -> onPose(result))
+                    .setErrorListener(e -> { /* transient: the next reading retries */ })
+                    .build();
+            p = PoseLandmarker.createFromOptions(appContext, options);
+            pose = p;
+            return p;
+        } catch (RuntimeException e) {
+            poseFailed = true;                                  // the face goes on without the shoulders
+            return null;
+        }
+    }
+
+    /** SHRUG-1: a body reading (MediaPipe thread) to the sink, upright as the face's points are. */
+    private void onPose(@NonNull PoseLandmarkerResult result) {
+        BodySink sink = bodySink;
+        if (sink == null) return;
+        long[] at = null;
+        for (long[] s : poseRing) if (s[0] == result.timestampMs()) { at = s; break; }
+        int rotation = at != null ? (int) at[1] : lastRotation;
+        float tall = at != null && at[2] > 0 ? at[2] / 1000f : 4f / 3f;
+        sink.onBody(bodyPoints(result, rotation), tall, result.timestampMs() / 1000.0);
+    }
+
+    /** SHRUG-1: the 33 body points as x, y, visibility in the upright picture (unmirrored), or null with no body. */
+    @Nullable
+    static float[] bodyPoints(@NonNull PoseLandmarkerResult result, int rotation) {
+        if (result.landmarks().isEmpty()) return null;
+        List<com.google.mediapipe.tasks.components.containers.NormalizedLandmark> b = result.landmarks().get(0);
+        int n = com.fadcam.ui.faditor.avatar.face.ShoulderStage.COUNT;
+        if (b.size() < n) return null;
+        float[] out = new float[n * 3];
+        for (int i = 0; i < n; i++) {
+            float[] u = com.fadcam.ui.faditor.avatar.face.FaceFrame.upright(b.get(i).x(), b.get(i).y(), rotation);
+            out[i * 3] = u[0];
+            out[i * 3 + 1] = u[1];
+            out[i * 3 + 2] = b.get(i).visibility().orElse(1f);
+        }
+        return out;
     }
 
     /**

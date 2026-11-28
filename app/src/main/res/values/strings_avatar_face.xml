@@ -56,4 +56,29 @@
     <string name="avatar_face_walk_up_sub">It walks up to the camera; untick and it walks back</string>
     <string name="avatar_hover_face_walk_up">On: the character walks up to the camera and stays there. Off: it walks back to its place. No face needed.</string>
     <string name="avatar_face_walk_needs_face">These two follow your face: turn on Face above. Up close works without it.</string>
+    <!-- SHRUG-1: shoulder shrugs from the camera (the pilot's al-pose.js words) -->
+    <string name="avatar_shoulders">Shoulders</string>
+    <string name="avatar_hover_shoulders">On: shrug and the character shrugs (your shoulders need to be in the picture). Off: the face only, a little lighter on the phone. Kept on this phone.</string>
+    <string name="avatar_shoulder_sens">Shoulder sensitivity</string>
+    <string name="avatar_hover_shoulder_sens">Higher: a small shrug lifts the character all the way. Lower: it takes a big one. Kept on this phone.</string>
+    <string name="avatar_shoulders_hint">Shoulders: keep them in the picture to shrug (hold the phone a little further away).</string>
+    <string name="avatar_shrugs_set_up">Shrugs set up for %1$s. Motion, Shrug changes how far.</string>
+    <string name="avatar_step_shrugs_set_up">Shrugs set up</string>
+    <string name="avatar_shrug">Shrug</string>
+    <string name="avatar_shrug_on">Shrugs with your shoulders</string>
+    <string name="avatar_hover_shrug_on">With the face camera on in Perform and your shoulders in the picture: shrug and the arms lift, the head sinks a little.</string>
+    <string name="avatar_step_shrugs">Shrugs</string>
+    <string name="avatar_step_no_shrugs">No shrugs</string>
+    <string name="avatar_arms_lift">Arms lift</string>
+    <string name="avatar_hover_arms_lift">How far the arms lift in a full shrug</string>
+    <string name="avatar_step_arms_lift">Shrug: arms lift</string>
+    <string name="avatar_head_sinks">Head sinks</string>
+    <string name="avatar_hover_head_sinks">How far the head sinks in a full shrug</string>
+    <string name="avatar_step_head_sinks">Shrug: head sinks</string>
+    <string name="avatar_shrug_try">Try</string>
+    <string name="avatar_hover_shrug_try">Slide and hold to see a shrug without the camera; let go and it rests</string>
+    <string name="avatar_shrug_rest">rest</string>
+    <string name="avatar_shrug_shrug">shrug</string>
+    <string name="avatar_px">%1$s px</string>
+    <string name="avatar_times">%1$s×</string>
 </resources>

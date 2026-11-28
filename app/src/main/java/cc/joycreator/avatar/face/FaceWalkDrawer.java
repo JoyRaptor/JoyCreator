@@ -141,7 +141,8 @@ public final class FaceWalkDrawer extends LinearLayout {
         if (on) g.setColor(Studio.ARMED);
         else g.setStroke(Math.max(1, px(1.5f)), 0xFF52525B);
         box.setBackground(g);
-        box.setText(on ? "✓" : "");
+        box.setTypeface(com.fadcam.ui.faditor.SheetKit.icons(box.getContext()));             // (Studio's tick, not a typed mark)
+        box.setText(on ? "check" : "");
         box.setTextColor(Studio.GROUND);
     }
 

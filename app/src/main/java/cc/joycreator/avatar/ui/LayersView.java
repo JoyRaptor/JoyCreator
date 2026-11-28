@@ -120,10 +120,13 @@ public final class LayersView extends RecyclerView {
             e.setCornerRadius(8 * dp);
             if (n.hidden) {
                 e.setStroke(Math.max(1, Math.round(dp)), 0xFF52525B);
-                h.eye.setText("");
+                h.eye.setTypeface(com.fadcam.ui.faditor.SheetKit.icons(getContext()));
+                h.eye.setText("visibility_off");                        // (Studio's eye, not a typed mark)
+                h.eye.setTextColor(Studio.INK_FAINT);
             } else {
                 e.setColor(on ? Studio.GROUND : Studio.ARMED);
-                h.eye.setText("✓");
+                h.eye.setTypeface(com.fadcam.ui.faditor.SheetKit.icons(getContext()));
+                h.eye.setText("visibility");
                 h.eye.setTextColor(on ? Studio.ARMED : Studio.GROUND);
             }
             h.eye.setBackground(inset(e, Math.round(6 * dp)));

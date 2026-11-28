@@ -132,6 +132,16 @@ public class TakeRecorderTest {
         } catch (Exception e) {
             ok(false, "a take survives being written and read as text: " + e);
         }
+        // a NaN in a lane (a face lane can make one) must not poison the file: it is written as a gap
+        {
+            Take nt = new Take();
+            nt.ch.put("turnX", new ArrayList<Object>(Arrays.<Object>asList(0.5, Double.NaN, Double.POSITIVE_INFINITY)));
+            org.json.JSONArray lane = nt.toJson().getJSONObject("ch").getJSONArray("turnX");
+            ok(lane.isNull(1) && lane.isNull(2) && lane.getDouble(0) == 0.5, "a NaN or infinite value in a lane is written as a gap");
+        }
+        // a hand-edited fps must not make a take that never plays or one that fills memory
+        ok(Take.fromJson(new JSONObject().put("fps", 0.5)).fps >= 1, "fps 0.5 does not read as 0");
+        ok(Take.fromJson(new JSONObject().put("fps", 1e10)).fps == Take.FPS, "fps 1e10 reads as the usual rate");
         // a pass must not erase the voice kept with a take
         {
             Take vt = new Take();

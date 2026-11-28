@@ -65,7 +65,9 @@ public final class Wav {
                     for (int i = 0; i < n; i++) d[i] = b.getShort(o + 8 + i * step) / 32768f;
                     return new Pcm(rate, d);
                 }
-                o += 8 + (int) sz + (int) (sz & 1);
+                long next = o + 8L + sz + (sz & 1);                // (a chunk size near 4 GB used to add up to nothing and loop for ever)
+                if (next <= o || next > bytes.length) return null;
+                o = (int) next;
             }
         } catch (RuntimeException e) {
             return null;

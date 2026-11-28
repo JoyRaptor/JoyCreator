@@ -47,7 +47,10 @@ public final class Take {
         JSONObject lanes = new JSONObject();
         for (Map.Entry<String, List<Object>> e : ch.entrySet()) {
             JSONArray a = new JSONArray();
-            for (Object v : e.getValue()) a.put(v == null ? JSONObject.NULL : v);
+            for (Object v : e.getValue()) {
+                boolean bad = v == null || (v instanceof Double && (((Double) v).isNaN() || ((Double) v).isInfinite()));   // NaN would make the whole file text null
+                a.put(bad ? JSONObject.NULL : v);
+            }
             lanes.put(e.getKey(), a);
         }
         return new JSONObject().put("fps", fps).put("n", n).put("ch", lanes);
@@ -55,7 +58,8 @@ public final class Take {
 
     public static Take fromJson(JSONObject j) {
         Take t = new Take();
-        t.fps = j.optInt("fps", FPS);
+        double f = j.optDouble("fps", FPS);                          // a hand-edited 0.5 read as 0 and never looped; 1e10 filled memory
+        t.fps = f >= 1 && f <= 120 ? (int) Math.round(f) : FPS;
         t.n = j.optInt("n", 0);
         JSONObject lanes = j.optJSONObject("ch");
         if (lanes != null) {

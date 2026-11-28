@@ -42,7 +42,9 @@ shot audio_added
 dump audio_added
 python3 "$HERE_LIB/uia.py" list /tmp/ui.xml | head -40
 # leave the editor by its back arrow (top left), then the lobby, the Library, and reopen the project
-tap 48 48; settle 5
+tap 48 48; settle 3
+shot close_dialog
+tap_text "Close & Save" >/dev/null 2>&1 || tap 755 1169; settle 5
 shot after_back
 dump after_back
 python3 "$HERE_LIB/uia.py" list /tmp/ui.xml | head -30

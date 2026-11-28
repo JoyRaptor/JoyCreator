@@ -32,6 +32,8 @@ public final class FaceDrive {
     /** What the face sets this frame. {@link #drives} false: only {@link #lanes} (easing back to rest) count. */
     public static final class Out {
         public boolean drives, head, expression;
+        /** The camera sees your shoulders now (SHRUG-1): the shrug lanes are the shoulders' in a take. */
+        public boolean shoulders;
         public double turnX, turnY, roll, mouth, browL, browR, lidUp, lidLow, lidTilt, lookX, lookY, blinkL, blinkR;
         public String vis = "Neutral";
         public final Map<String, Double> lanes = new LinkedHashMap<>();
@@ -44,6 +46,8 @@ public final class FaceDrive {
     static final double EASE_POINTS = 30, EASE_EXPR = 20;
 
     private Mode mode = Mode.OFF;
+    static final String[] SHRUGS = {"shrugL", "shrugR", "shrug"};
+    private boolean shrugSeen;
     private boolean puff;                                     // the Puff button is held
     private org.json.JSONObject maskSet;                      // the head wearing the face mask (FACE-2), or null
     private boolean maskMirrored = true;
@@ -133,6 +137,14 @@ public final class FaceDrive {
             o.lookY = g(face, "lookY");
         }
         lanes(seen ? face : null, dt, o.lanes);
+        // SHRUG-1: the shrugs as the camera glides them (the face capture reads the body a few times a second)
+        boolean body = face != null && cameraOn() && g(face, "body") > 0.5f;
+        for (String k : SHRUGS) {
+            Float v = cameraOn() && face != null ? face.get(k) : null;
+            if (v != null) { o.lanes.put(k, (double) v); shrugSeen = true; }
+            else if (shrugSeen) o.lanes.put(k, 0.0);
+        }
+        o.shoulders = body;
         return o;
     }
 

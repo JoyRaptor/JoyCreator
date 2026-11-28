@@ -356,11 +356,147 @@ public class AvatarFaceTest {
         fch.put("settings", new org.json.JSONObject().put("faceSheet", false));
         check(cc.joycreator.avatar.face.FacePins.sheetOf(fch, cheekN) == cheekN, "one piece off: the slice itself");
 
+        // ── shoulder shrugs (SHRUG-1, the pilot's al-pose.js): the rig on Topps, the glide, the lanes in a take ──
+        org.json.JSONObject tp = new org.json.JSONObject(new String(java.nio.file.Files.readAllBytes(java.nio.file.Paths.get("tools/avatarlab/characters/topps.character.json")), java.nio.charset.StandardCharsets.UTF_8));
+        for (String role : new String[]{"armL", "armR", "head"}) {                    // (as the pilot's test: any old shrug Links off first)
+            org.json.JSONObject n = cc.joycreator.avatar.face.Shrugs.firstRole(tp.getJSONObject("root"), role);
+            org.json.JSONArray l = n == null ? null : n.optJSONArray("links"), keep = new org.json.JSONArray();
+            for (int i = 0; l != null && i < l.length(); i++) if (!l.getJSONObject(i).has("shrug")) keep.put(l.get(i));
+            if (n != null) n.put("links", keep);
+        }
+        tp.remove("noShrug");
+        boolean rigged = cc.joycreator.avatar.face.Shrugs.rig(tp, nd -> null);
+        check(rigged && cc.joycreator.avatar.face.Shrugs.amount(tp, true) == 32.5 && cc.joycreator.avatar.face.Shrugs.amount(tp, false) == 16
+                        && shrugAmt(tp, "armR") == -24.5 && !cc.joycreator.avatar.face.Shrugs.rig(tp, nd -> null),
+                "Topps's shrug, as the pilot rigs it: the left arm lifts 32.5, the right 24.5, the head sinks 16; once");
+        cc.joycreator.avatar.face.Shrugs.setOn(tp, false, nd -> null);
+        check(tp.optBoolean("noShrug") && !cc.joycreator.avatar.face.Shrugs.has(tp) && !cc.joycreator.avatar.face.Shrugs.rig(tp, nd -> null),
+                "no shrugs: the Links come off, and he is not set up again");
+        check(!cc.joycreator.avatar.face.Shrugs.canRig(tp) && cc.joycreator.avatar.face.Shrugs.rigs(tp) && !cc.joycreator.avatar.face.Shrugs.drives(tp),
+                "said no shrugs: nothing a shrug moves (no Shoulders tick box), the parts still there to turn it on again");
+        cc.joycreator.avatar.face.Shrugs.setOn(tp, true, nd -> null);
+        check(cc.joycreator.avatar.face.Shrugs.has(tp) && cc.joycreator.avatar.face.Shrugs.drives(tp) && cc.joycreator.avatar.face.Shrugs.amount(tp, true) == 32.5,
+                "shrugs on again: set up as before");
+        org.json.JSONObject bare = new org.json.JSONObject().put("root", new org.json.JSONObject().put("kids", new org.json.JSONArray()
+                .put(new org.json.JSONObject().put("id", "t").put("links", new org.json.JSONArray().put(new org.json.JSONObject().put("sig", "shrugR").put("prop", "rot").put("amt", 9))))));
+        check(!cc.joycreator.avatar.face.Shrugs.rigs(bare) && cc.joycreator.avatar.face.Shrugs.drives(bare),
+                "no arms or head, but a part follows a shrug: the Shoulders tick box is not a dead control");
+
+        // the camera's side (ShoulderFeed: the pilot's reading and feed): body readings ten a second, the screen thirty
+        com.fadcam.ui.faditor.avatar.face.ShoulderFeed sf = new com.fadcam.ui.faditor.avatar.face.ShoulderFeed();
+        double[] clock = {0};
+        Map<String, Float> fs = feed(sf, 0, 0, 1.0, false, clock, null);           // a still second: the rest
+        double[] trail = new double[1];
+        fs = feed(sf, 0.05f, 0.05f, 0.05, false, clock, null);                     // a half shrug starts: the first frames
+        double firstFrames = fs.get("shrug");
+        fs = feed(sf, 0.05f, 0.05f, 1.0, false, clock, trail);
+        double half = fs.get("shrug");
+        check(half > 0.3 && half < 0.8 && firstFrames < half * 0.6,
+                "a half shrug glides in, no step (" + r(firstFrames) + " after a moment, " + r(half) + " settled)");
+        check(trail[0] <= half + 1e-3, "...and never overshoots where it settles (" + r(trail[0]) + ")");
+        fs = feed(sf, 0.1f, 0.1f, 0.8, false, clock, null);
+        check(fs.get("shrugL") > 0.9 && fs.get("shrugR") > 0.9 && fs.get("body") > 0.9, "both shoulders up: a full shrug (" + r(fs.get("shrug")) + ")");
+        feed(sf, 0, 0, 1.0, false, clock, null);
+        fs = feed(sf, 0.1f, 0, 1.0, false, clock, null);                            // the person's right shoulder only
+        check(fs.get("shrugL") > 0.8 && fs.get("shrugR") < 0.1,
+                "Mirror on (a reflection): your right shoulder lifts the character's left (" + r(fs.get("shrugL")) + ", " + r(fs.get("shrugR")) + ")");
+        fs = feed(sf, 0.1f, 0, 1.0, true, clock, null);
+        check(fs.get("shrugR") > 0.8 && fs.get("shrugL") < 0.1,
+                "Mirror off (someone facing you): your right shoulder lifts its right (" + r(fs.get("shrugL")) + ", " + r(fs.get("shrugR")) + ")");
+        Map<String, Float> off1 = sf.sample(1 / 30.0, false);
+        Map<String, Float> off = off1;
+        for (int i = 0; i < 45; i++) off = sf.sample(1 / 30.0, false);
+        check(off1.get("shrugR") > 0.5 && off.get("shrugR") < 0.02 && off.get("body") == 0,
+                "Shoulders off (or the camera gone): the shrug eases away, not frozen and not snapped (" + r(off1.get("shrugR")) + " then " + r(off.get("shrugR")) + ")");
+        for (int i = 0; i < 30; i++) { clock[0] += 0.1; sf.reading(null, 0.75f, clock[0], false, 1f); }
+        check(!sf.seen() && sf.unseenSeconds() > 2.5, "three seconds out of the picture: the room can say so (" + r(sf.unseenSeconds()) + " s)");
+        sf.reading(shoulderBody(0, 0), 0.75f, clock[0] += 0.1, false, 1f);
+        check(sf.seen() && sf.unseenSeconds() == 0, "back in the picture: seen again");
+        feed(sf, 0.1f, 0.1f, 1.0, false, clock, null);
+        sf.requestNeutral();
+        fs = feed(sf, 0.1f, 0.1f, 1.5, false, clock, null);
+        check(fs.get("shrug") < 0.05, "Re-centre: the shoulders as they are now become their rest (" + r(fs.get("shrug")) + ")");
+        feed(sf, 0, 0, 1.0, false, clock, null);
+        sf.requestNeutral();
+        feed(sf, 0, 0, 1.0, false, clock, null);
+        Map<String, Float> lessSens = feed(sf, 0.05f, 0.05f, 1.0, false, clock, null, 0.5f);
+        Map<String, Float> moreSens = feed(sf, 0.05f, 0.05f, 1.0, false, clock, null, 2f);
+        check(moreSens.get("shrug") > lessSens.get("shrug") + 0.3,
+                "Shoulder sensitivity: higher, the same shrug lifts further (" + r(lessSens.get("shrug")) + " at 0.5x, " + r(moreSens.get("shrug")) + " at 2x)");
+
+        // the app's notice for Google's models names them by their hashes (Apache 2.0 asks for the licence beside them)
+        String notice = new String(java.nio.file.Files.readAllBytes(java.nio.file.Paths.get("app/src/main/assets/licenses/mediapipe-models.txt")), java.nio.charset.StandardCharsets.UTF_8);
+        boolean named = notice.contains("Apache License") && notice.contains("Version 2.0, January 2004");
+        for (String m : new String[]{"face_landmarker.task", "pose_landmarker_lite.task"}) {
+            byte[] dig = java.security.MessageDigest.getInstance("SHA-256").digest(java.nio.file.Files.readAllBytes(java.nio.file.Paths.get("app/src/main/assets/mediapipe/" + m)));
+            StringBuilder hex = new StringBuilder();
+            for (byte x : dig) hex.append(String.format("%02x", x));
+            named &= notice.contains(m) && notice.contains(hex.toString());
+        }
+        check(named, "the MediaPipe notice in the app carries the licence and both models' true hashes (a swapped model must update it)");
+
+        // Motion's Try: a shrug to see without the camera, while the finger is on it
+        Inputs ti = new Inputs();
+        long tnow = 0;
+        ti.tryShrug(0.7);
+        Map<String, Object> tf = null;
+        for (int i = 0; i < 5; i++) tf = ti.frame(1 / 30.0, tnow += 33);
+        check(tf.get("shrugL") instanceof Number && ((Number) tf.get("shrugL")).doubleValue() == 0.7 && ((Number) tf.get("shrug")).doubleValue() == 0.7,
+                "Try: the shrug lanes at the slider's value, no camera");
+        ti.tryShrug(0);
+        tf = ti.frame(1 / 30.0, tnow += 33);
+        check(tf.get("shrug") == null || ((Number) tf.get("shrug")).doubleValue() == 0, "let go of Try: it rests");
+        FaceDrive sd = new FaceDrive();
+        sd.setMode(FaceDrive.Mode.ALWAYS);
+        FaceDrive.Out so = sd.apply(sig("turnX", 0, "shrugL", 0.6, "shrugR", 0.1, "shrug", 0.35, "body", 1), false, false, false, 0, 0, 0, 0.033);
+        check(so.shoulders && Math.abs(so.lanes.get("shrugL") - 0.6) < 1e-6 && Math.abs(so.lanes.get("shrug") - 0.35) < 1e-6
+                        && "shoulders".equals(cc.joycreator.avatar.perform.TakeRecorder.ownerOf("shrugL")),
+                "the shrugs ride the lanes (the shoulders' in a take) while your shoulders are seen");
+
         System.out.println(fails == 0 ? "PASSED" : "FAILED " + fails);
         System.exit(fails == 0 ? 0 : 1);
     }
 
     /** A lane's value; a missing lane is NaN, so every comparison with it fails. */
+    /**
+     * A body as the tracker gives it (33 points: x, y, visibility, 0..1 of a 4:3 picture), the person facing an unmirrored
+     * front camera: their right shoulder on the picture's left. {@code liftR}, {@code liftL}: the person's right and left
+     * shoulder raised by this much of the picture's height.
+     */
+    static float[] shoulderBody(float liftR, float liftL) {
+        float[] p = new float[com.fadcam.ui.faditor.avatar.face.ShoulderStage.COUNT * 3];
+        for (int i = 0; i < com.fadcam.ui.faditor.avatar.face.ShoulderStage.COUNT; i++) { p[i * 3] = 0.5f; p[i * 3 + 1] = 0.5f; p[i * 3 + 2] = 0.9f; }
+        p[7 * 3] = 0.55f; p[7 * 3 + 1] = 0.30f;                      // the person's left ear (the picture's right)
+        p[8 * 3] = 0.45f; p[8 * 3 + 1] = 0.30f;                      // the right ear
+        p[11 * 3] = 0.72f; p[11 * 3 + 1] = 0.62f - liftL;            // the left shoulder
+        p[12 * 3] = 0.28f; p[12 * 3 + 1] = 0.62f - liftR;            // the right shoulder
+        return p;
+    }
+
+    /** {@code secs} of body readings (ten a second) and screen frames (thirty) into {@code sf}; the last frame's shrugs. {@code peak}: the highest shrug shown. */
+    static Map<String, Float> feed(com.fadcam.ui.faditor.avatar.face.ShoulderFeed sf, float liftR, float liftL, double secs, boolean mirror, double[] clock, double[] peak) {
+        return feed(sf, liftR, liftL, secs, mirror, clock, peak, 1f);
+    }
+
+    static Map<String, Float> feed(com.fadcam.ui.faditor.avatar.face.ShoulderFeed sf, float liftR, float liftL, double secs, boolean mirror, double[] clock, double[] peak, float sens) {
+        Map<String, Float> last = null;
+        int frames = (int) Math.round(secs * 30);
+        for (int i = 0; i < frames; i++) {
+            clock[0] += 1 / 30.0;
+            if (i % 3 == 0) sf.reading(shoulderBody(liftR, liftL), 0.75f, clock[0], mirror, sens);
+            last = sf.sample(1 / 30.0, true);
+            if (peak != null && last != null) peak[0] = Math.max(peak[0], last.get("shrug"));
+        }
+        return last;
+    }
+
+    static double shrugAmt(org.json.JSONObject ch, String role) {
+        org.json.JSONObject n = cc.joycreator.avatar.face.Shrugs.firstRole(ch.optJSONObject("root"), role);
+        org.json.JSONArray l = n == null ? null : n.optJSONArray("links");
+        for (int i = 0; l != null && i < l.length(); i++) if (l.optJSONObject(i).has("shrug")) return l.optJSONObject(i).optDouble("amt");
+        return Double.NaN;
+    }
+
     static int dirsAnswered;
 
     /** A face stage on a camera that may hand the picture over mirrored; optionally the five moves first (the fourth, lean,

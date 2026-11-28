@@ -50,7 +50,7 @@ import java.util.List;
  * Perform and recording are filled in by the later steps of slice 1; a control appears only when it works (a dead knob
  * is worse than a missing one).</p>
  */
-public final class AvatarRoomActivity extends Activity implements RoomMenu.Host, LayersView.Host, PartsView.Host, PerformPanel.Host, cc.joycreator.avatar.ui.LandmarksScreen.Host, cc.joycreator.avatar.ui.PinsLayer.Host, cc.joycreator.avatar.ui.BoxLayer.Host, cc.joycreator.avatar.ui.MotionSections.Host, cc.joycreator.avatar.ui.StanceCard.Host, cc.joycreator.avatar.ui.ReshapeLayer.Host, cc.joycreator.avatar.face.FacePinsLayer.Host, cc.joycreator.avatar.face.FacePinsSection.Host {
+public final class AvatarRoomActivity extends Activity implements RoomMenu.Host, LayersView.Host, PartsView.Host, PerformPanel.Host, cc.joycreator.avatar.ui.LandmarksScreen.Host, cc.joycreator.avatar.ui.PinsLayer.Host, cc.joycreator.avatar.ui.BoxLayer.Host, cc.joycreator.avatar.ui.MotionSections.Host, cc.joycreator.avatar.ui.StanceCard.Host, cc.joycreator.avatar.ui.ReshapeLayer.Host, cc.joycreator.avatar.face.FacePinsLayer.Host, cc.joycreator.avatar.face.FacePinsSection.Host, cc.joycreator.avatar.ui.ShrugSections.Host {
     private static final String TAG = "AvatarRoom";
     private static final int REQ_OPEN = 41;
     private static final int REQ_PICTURES = 42;
@@ -1051,6 +1051,8 @@ public final class AvatarRoomActivity extends Activity implements RoomMenu.Host,
         }
         if (landmarks.isOpen()) landmarks.close();
         edit.reset(character);
+        shrugTried = false;                                     // (a new character: set up to shrug when the shoulders are next seen)
+        shoulderHinted = false;
         feedInputs(character);
         pathName.setText(character.name.isEmpty() ? getString(R.string.avatar_untitled) : character.name);
         stage.setHint(getString(R.string.avatar_hint_character, character.name.isEmpty() ? getString(R.string.avatar_untitled) : character.name));
@@ -1473,6 +1475,87 @@ public final class AvatarRoomActivity extends Activity implements RoomMenu.Host,
         faceCapture.setTuning(t);
     }
 
+    // ── shoulder shrugs (SHRUG-1: the pilot's al-pose.js) ──────────────────────────────────────────────────────
+
+    private boolean shrugTried, shoulderHinted;
+
+    /** The face capture, made when first asked for (its settings are this phone's; the camera starts only with Face). */
+    private com.fadcam.ui.faditor.avatar.face.FaceCapture faceCaptureNow() {
+        if (faceCapture == null) faceCapture = new com.fadcam.ui.faditor.avatar.face.FaceCapture(this);
+        return faceCapture;
+    }
+
+    @Override
+    public boolean shouldersShown() {
+        return character != null && faceCaptureNow().canReadShoulders() && cc.joycreator.avatar.face.Shrugs.drives(character.json);
+    }
+
+    @Override
+    public boolean shouldersOn() {
+        return faceCaptureNow().shouldersOn();
+    }
+
+    @Override
+    public void setShouldersOn(boolean on) {
+        faceCaptureNow().setShouldersOn(on);
+        shoulderHinted = false;
+    }
+
+    @Override
+    public float shoulderSensitivity() {
+        return faceCaptureNow().shoulderSensitivity();
+    }
+
+    @Override
+    public void setShoulderSensitivity(float v) {
+        faceCaptureNow().setShoulderSensitivity(v);
+    }
+
+    @Override
+    public void setShrugs(boolean on, String stepName) {
+        edit.apply(stepName, d -> cc.joycreator.avatar.face.Shrugs.setOn(d.json, on, shrugBounds()));
+        if (stageIndex == 2) performPanel.bind(character, false);
+    }
+
+    @Override
+    public void setShrugAmount(boolean arms, double px, String stepName) {
+        edit.apply(stepName, d -> cc.joycreator.avatar.face.Shrugs.setAmount(d.json, arms, px));
+        if (stageIndex == 2) performPanel.bind(character, false);
+    }
+
+    @Override
+    public void tryShrug(double v) {
+        inputs.tryShrug(v);
+    }
+
+    private cc.joycreator.avatar.face.Shrugs.Bounds shrugBounds() {
+        return n -> {
+            CharacterDoc.Node k = character.find(n.optString("id"));
+            cc.joycreator.avatar.ui.PoseRenderer r = stage.renderer();
+            return k == null || r == null ? null : r.restBounds(k);
+        };
+    }
+
+    /**
+     * Each frame while the camera reads the shoulders: the first time they are seen, the character is set up to shrug (one
+     * undo step, said in a toast); out of the picture for a while, a word on how to bring them in (once per tick of Shoulders).
+     */
+    private void watchShoulders() {
+        com.fadcam.ui.faditor.avatar.face.FaceCapture fc = faceCapture;
+        if (fc == null || !fc.shouldersOn() || !fc.canReadShoulders() || character == null) return;
+        if (fc.shouldersSeen()) {
+            if (shrugTried) return;
+            shrugTried = true;
+            if (cc.joycreator.avatar.face.Shrugs.canRig(character.json)
+                    && edit.apply(getString(R.string.avatar_step_shrugs_set_up), d -> cc.joycreator.avatar.face.Shrugs.rig(d.json, shrugBounds())))
+                Toast.makeText(this, getString(R.string.avatar_shrugs_set_up, character.name.isEmpty() ? getString(R.string.avatar_untitled) : character.name),
+                        Toast.LENGTH_LONG).show();
+        } else if (!shoulderHinted && fc.shouldersUnseenSeconds() > 2.5) {
+            shoulderHinted = true;
+            Toast.makeText(this, R.string.avatar_shoulders_hint, Toast.LENGTH_LONG).show();
+        }
+    }
+
     @Override
     public View facePreview() {
         if (facePreview == null) facePreview = new com.fadcam.ui.faditor.avatar.face.FacePreviewView(this);
@@ -1664,6 +1747,7 @@ public final class AvatarRoomActivity extends Activity implements RoomMenu.Host,
         if (inputs.faceOn() && faceCapture != null) {
             inputs.faceSaw(faceCapture.sample(System.nanoTime()));
             inputs.faceDrive().mask(maskSet, faceMirror(), faceCapture.restPoints());   // FACE-2: the mask, as Mirror and your neutral are now
+            watchShoulders();                                   // SHRUG-1: set up to shrug when your shoulders are first seen
         }
         java.util.Map<String, Object> sig = inputs.frame(dt, System.currentTimeMillis());
         lastSignals = sig;

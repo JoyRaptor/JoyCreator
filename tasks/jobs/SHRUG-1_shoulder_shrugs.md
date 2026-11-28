@@ -1,6 +1,6 @@
 # SHRUG-1: shoulder shrugs from the camera
 
-**Milestone:** Avatar Studio (with FACE-1)  ·  **State:** ✅ (pilot)  ·  **Owner:** "face capture scout" (side session of the 11-22 Avatar lead)  ·  **Checked:** 2026-11-22 against `9991eae1c`
+**Milestone:** Avatar Studio (with FACE-1)  ·  **State:** ✅ (pilot); phone half landed 11-27 evening (`a5a1337fc`), not yet on a phone  ·  **Owner:** "face capture scout" (side session of the 11-22 Avatar lead)  ·  **Checked:** 2026-11-22 against `9991eae1c`
 
 ## Why it matters (for the user)
 The owner asked while testing face capture on his Note 9 (11-22): "Is there a way for us to get the shoulders animated
@@ -73,8 +73,16 @@ He also found the face camera did nothing until Hold to talk: the Face chip now 
 - [x] His look: "That looks good" (11-22, third try), with sensitivity on a slider.
 - [ ] The drift after a one-sided shrug and the half shrug from a head tilt: find the cause (an ear out of view is the
       first suspect: one ear then stands for both) before widening the dead zone again.
-- [ ] Phone half (step 5) with the phone room: PoseLandmarker in `MediaPipeTrackingSource`, `ShoulderStage` per reading,
-      `FaceFollower` for the glide.
+- [x] Phone half (step 5), 11-27 evening (`a5a1337fc`), the owner: "Yes, add it" (Google's 5.8 MB body model in the app).
+      Below.
+- [ ] The body model's cost on the Note 9 (the face's readings a second with Shoulders on and off), and a real shrug.
+
+## The phone half (11-27 evening, the face scout, to the pilot)
+| | What | Checked |
+|---|---|---|
+| ✅ | `MediaPipeTrackingSource`: the body model (`mediapipe/pose_landmarker_lite.task`, the one the pilot loads) on the same pictures as the face, on the processor, ten readings a second at most, only while Shoulders is ticked; let go with the camera | cloud build (studio 98/0 (run 46104696095, on a tree containing these commits)) |
+| ✅ | `face/ShoulderFeed` (new, pure): each reading through `ShoulderStage` with Mirror and the sensitivity; the glide every frame; Shoulders off or the camera gone eases the shrug away; how long the shoulders are out of the picture. `FaceCapture` holds it, adds `shrugL`/`shrugR`/`shrug` to the face, keeps Shoulders and the sensitivity on the phone; Re-centre takes the shoulders' rest too | `AvatarFaceTest`: glide with no step and no overshoot, full shrug, Mirror both ways, easing away, the unseen timer, Re-centre, sensitivity; Try. 13 new plants, 61 of 61 caught |
+| ✅ | The room: the first time your shoulders are seen the character is set up to shrug (`face/Shrugs.rig`, one undo step, a toast); a hint after 2.5 s out of the picture; Perform's face row: **Shoulders** and **Shoulder sensitivity**; Motion, **Shrug** (`ui/ShrugSections`): Shrugs with your shoulders, Arms lift, Head sinks, sensitivity, **Try** (a shrug without the camera while the finger is on it). Shown only where a shrug moves something | emulator `AvatarShoulderTest` in the real room (run 46104628933): set up as one step, both arms up and the head down, one side per Mirror, Shoulders off eases away, the hint, Try, Arms lift as one step, No shrugs and Undo; `-e fault flip` swaps sides. The face test still passes with it in (run 46104664221) |
 
 ## Specs, handoffs and evidence
 - [FACE-1](FACE-1_face_capture.md): the face engine this sits beside (neutral, Mirror, lost and found, passes).

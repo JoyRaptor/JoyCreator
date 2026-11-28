@@ -48,6 +48,9 @@
     <string name="aboutjoy_open_label">Open source</string>
     <string name="aboutjoy_based_on">Built on FadCam by FadSec Lab</string>
     <string name="aboutjoy_source_hint">Open the source code in your browser</string>
+    <string name="aboutjoy_mediapipe">Face and body tracking use Google\'s MediaPipe models, under the Apache License 2.0.</string>
+    <string name="aboutjoy_mediapipe_read">MediaPipe licence</string>
+    <string name="aboutjoy_mediapipe_hint">Show the MediaPipe models\' licence and where they come from</string>
 
     <!-- sign-off -->
     <string name="aboutjoy_made_by">Made by</string>

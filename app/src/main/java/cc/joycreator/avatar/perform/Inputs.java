@@ -60,6 +60,7 @@ public final class Inputs implements Walker.Body {
     private final cc.joycreator.avatar.face.FaceDrive faceDrive = new cc.joycreator.avatar.face.FaceDrive();
     private final Set<String> faceLanes = new java.util.LinkedHashSet<>();   // the face's lanes (pt.*, face.*) so far, for a take
     private boolean faceSeen;                                                 // the face drives and is seen this frame
+    private boolean shouldersSeen;                                            // the camera sees your shoulders (SHRUG-1)
     private double micOpen;
     private String micVis = "Neutral";
     private long moodUntil, windUntil, blinkUntil;
@@ -300,6 +301,14 @@ public final class Inputs implements Walker.Body {
         faceDrive.puff(on);
     }
 
+    private static final String[] SHRUG_LANES = {"shrugL", "shrugR", "shrug"};
+    private double tryShrug;
+
+    /** Motion's Try slider (SHRUG-1): a shrug to see without the camera, while the finger is on it (0: none). */
+    public void tryShrug(double v) {
+        tryShrug = Math.max(0, Math.min(1, v));
+    }
+
     /** What the face camera saw this frame, as it came (null: none), for walking with your face. */
     public Map<String, Float> faceNow() {
         return faceOn ? face : null;
@@ -393,6 +402,7 @@ public final class Inputs implements Walker.Body {
             o.add("puff");
         }
         if (faceDrive.puffing()) o.add("puff");
+        if (shouldersSeen) o.add("shoulders");
         if (nowMs < moodUntil) o.add("mood");
         if (blinkHold || nowMs < blinkUntil) o.add("blink");
         if (nowMs < windUntil) o.add("wind");
@@ -417,6 +427,7 @@ public final class Inputs implements Walker.Body {
         cc.joycreator.avatar.face.FaceDrive.Out fo = faceDrive.apply(faceOn ? face : null, talking, headHeld, nowMs < moodUntil, turnX, turnY, roll, dt);
         boolean faceDrives = faceOn && faceDrive.drives(talking), faceEx = fo.expression;
         faceSeen = fo.drives;
+        shouldersSeen = fo.shoulders;
         if (talking && !fo.drives) babble(dt);               // (a face seen while talking: the mouth is yours, not a babble)
         t += dt;
         boolean blink = blinkHold || nowMs < blinkUntil;
@@ -509,6 +520,10 @@ public final class Inputs implements Walker.Body {
         m.put("wind", wi);
         for (String id : buttonIds) m.put("g:" + id, isOn(id) ? 1.0 : 0.0);
         m.putAll(fo.lanes);                                  // the face's own lanes: points pt.<i>.x/y, expressions face.<name>
+        if (tryShrug > 0) for (String k : SHRUG_LANES) {     // Motion's Try: at least that much shrug
+            Object v = m.get(k);
+            m.put(k, Math.max(tryShrug, v instanceof Number ? ((Number) v).doubleValue() : 0));
+        }
         if (handsUsed) {                                     // hands: eased toward where a finger put them; null = at rest (the pilot's flat())
             for (int i = 0; i < 2; i++) {
                 double[] want = handTo[i];

@@ -87,5 +87,6 @@ choose_folder() {
     tap_text "ALLOW ACCESS TO" >/dev/null 2>&1 || tap_text "Allow access to" >/dev/null 2>&1; settle 3
     tap_text "=ALLOW" >/dev/null 2>&1 || tap_text "ALLOW" >/dev/null 2>&1; settle 5
     shot folder_chosen
+    tap_text "Start creating" >/dev/null 2>&1; settle 4      # the folder step ends with this button
     return 0
 }

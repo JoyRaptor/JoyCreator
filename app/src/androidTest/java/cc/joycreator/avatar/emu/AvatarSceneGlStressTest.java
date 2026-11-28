@@ -102,7 +102,7 @@ public class AvatarSceneGlStressTest {
             Log.i(Emu.TAG, "vertex arrays left enabled after a frame: " + enabled[0]);
             shot(out, "1-still-alive");
             assertTrue("the drawing was asked (got " + enabled[0] + ")", enabled[0] >= 0);
-            assertTrue("only the character's two vertex arrays are left enabled after a frame (found " + enabled[0] + ")", enabled[0] <= 2);
+            assertTrue("no vertex array is left enabled after a frame (found " + enabled[0] + ")", enabled[0] == 0);
             assertFalse("the room is still there", a[0].isFinishing());
         }
     }

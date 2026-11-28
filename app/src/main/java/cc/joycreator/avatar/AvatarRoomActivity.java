@@ -139,7 +139,7 @@ public final class AvatarRoomActivity extends Activity implements RoomMenu.Host,
     /** The character's file in the Joy Creator folder; null for Topps (his copy is made on the first save). */
     private String characterPath;
     /** Where each character on this screen was saved, by the character itself: a save finishing late never points another character at its file. */
-    private final java.util.Map<CharacterDoc, String> savedAs = java.util.Collections.synchronizedMap(new java.util.IdentityHashMap<>());
+    private final cc.joycreator.avatar.file.SaveLedger<CharacterDoc> ledger = new cc.joycreator.avatar.file.SaveLedger<>();
     private View doorView;                                            // the pin wizard or the sheet cutter, while one is over the room
     private android.graphics.Bitmap doorBitmap;
     private int editStamp;                                            // counts the edits, so a save knows whether more came while it ran
@@ -2242,9 +2242,7 @@ public final class AvatarRoomActivity extends Activity implements RoomMenu.Host,
      */
     private void saveDoc(final CharacterDoc d, final String startPath, final java.util.function.Consumer<String> done) {
         JoyFolderHome.io().execute(() -> {
-            String known = savedAs.get(d);
-            String rel = CharacterStore.save(this, d, known != null ? known : startPath);
-            if (rel != null) savedAs.put(d, rel);
+            String rel = ledger.run(d, startPath, (doc, path) -> CharacterStore.save(this, doc, path));
             main.post(() -> done.accept(rel));
         });
     }
@@ -2282,8 +2280,7 @@ public final class AvatarRoomActivity extends Activity implements RoomMenu.Host,
         character = next;
         characterPath = path;
         unsaved = isUnsaved;
-        if (path != null) savedAs.put(next, path);
-        else savedAs.remove(next);
+        ledger.adopt(next, path);
     }
 
     // ── the Menu ──────────────────────────────────────────────────────────────────────────────────

@@ -25,16 +25,8 @@ final class RestPose implements PoseRenderer {
     private final Map<String, Bitmap> bitmaps = new HashMap<>();
     private final Paint paint = new Paint(Paint.FILTER_BITMAP_FLAG | Paint.ANTI_ALIAS_FLAG);
 
-    /** Pictures decoded at 1 / {@code sample} of their pixels (a small preview), still drawn at their size on the character. */
-    private final int sample;
-
     RestPose(CharacterDoc doc) {
-        this(doc, 1);
-    }
-
-    RestPose(CharacterDoc doc, int sample) {
         this.doc = doc;
-        this.sample = Math.max(1, sample);
     }
 
     /** The same character after an edit of its tree: the pictures are the same, so the decoded ones are kept. */
@@ -193,9 +185,7 @@ final class RestPose implements PoseRenderer {
         if (!src.startsWith("data:") || comma < 0) return null; // a picture beside the file: the folder reader's job
         try {
             byte[] raw = Base64.decode(src.substring(comma + 1), Base64.DEFAULT);
-            BitmapFactory.Options o = new BitmapFactory.Options();
-            o.inSampleSize = sample;
-            b = BitmapFactory.decodeByteArray(raw, 0, raw.length, o);
+            b = BitmapFactory.decodeByteArray(raw, 0, raw.length);
         } catch (IllegalArgumentException e) {
             b = null;
         }
@@ -208,7 +198,7 @@ final class RestPose implements PoseRenderer {
     private float[] shownSize(String img, Bitmap b) {
         org.json.JSONObject fine = doc.json.optJSONObject("fine");
         org.json.JSONArray f = fine == null ? null : fine.optJSONArray(img);
-        return f != null && f.length() >= 2 ? new float[]{(float) f.optDouble(0), (float) f.optDouble(1)} : new float[]{b.getWidth() * sample, b.getHeight() * sample};
+        return f != null && f.length() >= 2 ? new float[]{(float) f.optDouble(0), (float) f.optDouble(1)} : new float[]{b.getWidth(), b.getHeight()};
     }
 
     @Override

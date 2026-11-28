@@ -37,7 +37,7 @@ if ! python3 "$HERE_LIB/uia.py" count /tmp/ui.xml "stu4_gaps_test" | grep -qv '^
 fi
 tap_text "stu4_gaps_test" >/dev/null 2>&1 || { shot sound_not_found; exit 1; }
 settle 6
-tap_text "Eagerly" >/dev/null 2>&1; settle 8
+tap_text "Eagerly" >/dev/null 2>&1; tap 789 1218; settle 8   # the dialog has no text node in the dump: by position too
 shot audio_added
 dump audio_added
 python3 "$HERE_LIB/uia.py" list /tmp/ui.xml | head -40

@@ -186,6 +186,7 @@ public class AvatarCameraTest {
                 check("back".equals(settings(a).optString("bodyCamera")) && !plan.refused && find(a, a.getString(R.string.avatar_cams_refused)) == null,
                         "One camera for both by a real tap: the body reads the face's camera (Back), the line goes, one undo step (\"" + undoName(a) + "\")");
                 shot(out, "05-one-camera-for-both");
+                closeFaceSheet(a);                                           // (a sheet takes a touch outside it: Undo needs it closed)
                 Emu.tap((View) field(a, "undoButton"));
                 Emu.sleep(1500);
                 check("front".equals(settings(a).optString("bodyCamera")) && fc.cameraPlan().refused, "one Undo: the body back on Front, refused again");

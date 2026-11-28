@@ -90,6 +90,9 @@ public final class SceneUi extends FrameLayout {
     private float fromZ, fromX, fromY, toZ, toX, toY;
     private double animT, animDur;
     private boolean wasFrame;
+    private SceneRoom room;
+    private java.util.List<cc.joycreator.avatar.ui.SceneStore.Entry> sceneList = new java.util.ArrayList<>();
+    private boolean sceneTex;
 
     public SceneUi(Context c, Host host) {
         super(c);
@@ -123,6 +126,10 @@ public final class SceneUi extends FrameLayout {
             sync(true);
         });
         frameBtn.setOnLongClickListener(v -> {
+            if (inScene()) {
+                prefs.emptyShape = room.scene().shape();
+                prefs.emptySafe = room.scene().safe();
+            }
             SceneSheets.frame(getContext(), prefs, this::changed);
             return true;
         });
@@ -145,6 +152,12 @@ public final class SceneUi extends FrameLayout {
 
     private void changed() {
         save();
+        if (inScene()) {
+            cc.joycreator.avatar.scene.Scene sc = room.scene();
+            if (!prefs.emptyShape.equals(sc.shape())) sc.shape(prefs.emptyShape);
+            if (!prefs.emptySafe.equals(sc.safe())) sc.margins(prefs.emptySafe);
+            room.edited();
+        }
         sync(true);
     }
 
@@ -161,15 +174,59 @@ public final class SceneUi extends FrameLayout {
         return prefs;
     }
 
+    /** The scene in hand (or none): scenes plug into the same frame, chair and strip. */
+    public void attachRoom(SceneRoom r) {
+        room = r;
+        refreshScenes();
+    }
+
+    private boolean inScene() {
+        return room != null && room.isOpen();
+    }
+
+    /** A scene came, went or was made: the plain stage lets go of the frame and the strip is built again. */
+    public void roomChanged() {
+        StageView st = host.stage();
+        st.setFit(null, null);
+        st.setView(1f, 0f, 0f);
+        host.gl().setBackdrop(null, null);
+        overlay.set(null, null, null);
+        shot = "wide";
+        animating = false;
+        lastZoom = 1f;
+        lastPanX = lastPanY = 0;
+        wasFrame = false;
+        sceneTex = false;
+        if (inScene()) {
+            prefs.emptyShape = room.scene().shape();
+            prefs.emptySafe = room.scene().safe();
+        }
+        refreshScenes();
+        sync(true);
+    }
+
+    /** The folder's scenes, read off the main thread, then the strip is built again. */
+    public void refreshScenes() {
+        final android.content.Context cx = getContext();
+        com.fadcam.joyfolder.android.JoyFolderHome.io().execute(() -> {
+            final java.util.List<cc.joycreator.avatar.ui.SceneStore.Entry> l = cc.joycreator.avatar.ui.SceneStore.list(cx);
+            post(() -> {
+                sceneList = l;
+                sync(true);
+            });
+        });
+    }
+
     // ── what shows ──
     /** Keep the buttons and the strip true to the room. {@code force}: build the strip again even if nothing it shows changed. */
     private void sync(boolean force) {
         boolean perf = host.performing();
         setVisibility(VISIBLE);
         buttons.setVisibility(perf ? VISIBLE : GONE);
-        java.util.List<String> parts = perf ? prefs.parts() : new java.util.ArrayList<String>();
+        java.util.List<String> parts = perf ? new java.util.ArrayList<String>(prefs.parts()) : new java.util.ArrayList<String>();
+        if (inScene()) parts.remove("sh");                  // shots of a scene come with its clock
         boolean side = SceneGeometry.aspect(prefs.emptyShape) < 0.999 || (Math.abs(SceneGeometry.aspect(prefs.emptyShape) - 1) < 0.001 && lastSide);
-        String sig = perf + "|" + parts + "|" + prefs.glide + "|" + prefs.frame + "|" + prefs.emptyShape + "|" + shot + "|" + host.characterName() + "|" + side + "|" + menuOpen + "|" + prefs.air;
+        String sig = perf + "|" + parts + "|" + prefs.glide + "|" + prefs.frame + "|" + prefs.emptyShape + "|" + shot + "|" + host.characterName() + "|" + side + "|" + menuOpen + "|" + prefs.air + "|" + (room == null ? "" : room.signature()) + "|" + sceneList.size();
         if (!force && sig.equals(stripSig)) return;
         stripSig = sig;
         lastSide = side;
@@ -228,10 +285,11 @@ public final class SceneUi extends FrameLayout {
     private void buildMenu(boolean perf) {
         menu.removeAllViews();
         menu.setVisibility(menuOpen && perf ? VISIBLE : GONE);
+        int nChips = inScene() ? 2 : 3;
         String[] keys = {"sc", "ch", "sh"};
         int[] names = {R.string.avatar_sc_part_sc, R.string.avatar_sc_part_ch, R.string.avatar_sc_part_sh};
         int[] tips = {R.string.avatar_sc_tip_sc, R.string.avatar_sc_tip_ch, R.string.avatar_sc_tip_sh};
-        for (int i = 0; i < 3; i++) {
+        for (int i = 0; i < nChips; i++) {
             final String k = keys[i];
             boolean on = i == 0 ? prefs.sc : i == 1 ? prefs.ch : prefs.sh && prefs.frame;
             String name = getContext().getString(names[i]);
@@ -354,10 +412,25 @@ public final class SceneUi extends FrameLayout {
     }
 
     private void fillCards(int idx, LinearLayout cards, boolean side) {
-        if (idx == 0) {                                      // Scene: the empty scene is the only one until scenes come in
-            card(cards, null, getContext().getString(R.string.avatar_sc_empty), getContext().getString(R.string.avatar_sc_empty_hover), true, 0, side,
+        if (idx == 0) {                                      // Scene: the empty scene, then yours, then a new one
+            card(cards, null, getContext().getString(R.string.avatar_sc_empty), getContext().getString(R.string.avatar_sc_empty_hover), !inScene(), 0, side,
                     () -> {
+                        if (inScene()) room.close(true);
                     }, host::setUpCharacter, true);
+            for (cc.joycreator.avatar.ui.SceneStore.Entry e : sceneList) {
+                final String path = e.path;
+                boolean on = inScene() && path.equals(room.pathNow());
+                card(cards, null, e.name, getContext().getString(R.string.avatar_sc_scene_hover, e.name), on, 0, side,
+                        () -> room.open(path), () -> room.host().stageChosen(0), true);
+            }
+            add(cards, getContext().getString(R.string.avatar_sc_new_hover), idx, side, this::newScene);
+        } else if (idx == 1 && inScene()) {                  // Character: who is in the scene
+            for (org.json.JSONObject it : room.scene().cast()) {
+                final String id = it.optString("id");
+                card(cards, null, it.optString("name"), getContext().getString(R.string.avatar_sc_item_hover, it.optString("name")), id.equals(room.selected()), 1, side,
+                        () -> room.select(id), () -> room.host().stageChosen(1), true);
+            }
+            add(cards, getContext().getString(R.string.avatar_sc_add_hover), idx, side, room::addCharacterSheet);
         } else if (idx == 1) {                               // Character: the one in hand
             card(cards, host.characterPic(), host.characterName(), getContext().getString(R.string.avatar_sc_char_hover, host.characterName()), true, 1, side,
                     () -> {
@@ -377,6 +450,19 @@ public final class SceneUi extends FrameLayout {
             add(cards, getContext().getString(R.string.avatar_sc_keep_shot), idx, side, this::keepNow);
         }
     }
+
+    /** A new scene: which set it stands on, then it opens, named for its number, and is kept at once. */
+    private void newScene() {
+        final String[] names = new String[SETS + 1];
+        for (int i = 0; i < SETS; i++) names[i] = cc.joycreator.avatar.scene.Scene.SET_NAMES[i];
+        names[SETS] = getContext().getString(R.string.avatar_sc_set_none);
+        new android.app.AlertDialog.Builder(getContext()).setTitle(R.string.avatar_sc_new_title).setItems(names, (d, i) -> {
+            String key = i < SETS ? cc.joycreator.avatar.scene.Scene.SET_KEYS[i] : "plain";
+            room.create(key, getContext().getString(R.string.avatar_sc_new) + " " + (sceneList.size() + 1));
+        }).setNegativeButton(android.R.string.cancel, null).show();
+    }
+
+    private static final int SETS = 4;
 
     private void card(LinearLayout row, Bitmap pic, String label, String hover, boolean on, int idx, boolean side, Runnable choose, Runnable setUp, boolean plain) {
         FrameLayout c = new FrameLayout(getContext());
@@ -557,6 +643,10 @@ public final class SceneUi extends FrameLayout {
     // ── once a frame ──
     /** Called from the room's frame loop: the frame's place, the picture fitted into it, the shot's camera. */
     public void tick(double dt) {
+        if (inScene()) {
+            tickScene(dt);
+            return;
+        }
         boolean perf = host.performing();
         if (perf != lastPerf) sync(true);
         float w = getWidth() / dp, h = getHeight() / dp;
@@ -610,6 +700,41 @@ public final class SceneUi extends FrameLayout {
                 if (v != null && bv[0] > 0) setStageView((float) (v[0] / bv[0]), (float) (v[1] - bv[1]), (float) (v[2] - bv[2]));
             }
         }
+    }
+
+
+    /** The same frame, push and glide for a scene in hand: its own shape, and the scene's stage draws into it. */
+    private void tickScene(double dt) {
+        cc.joycreator.avatar.scene.Scene sc = room.scene();
+        boolean perf = host.performing();
+        if (perf != lastPerf) sync(true);
+        sync(false);
+        float w = getWidth() / dp, h = getHeight() / dp;
+        if (w <= 0 || h <= 0) return;
+        if (!sceneTex) {
+            if (texture == null) texture = BitmapFactory.decodeResource(getResources(), R.drawable.studio_backdrop_graffiti, rgb565());
+            room.setTexture(texture);
+            sceneTex = true;
+        }
+        FramePlan.Rect area = FramePlan.area(w, h, 8, 8, 52, 28);
+        float[] ap = {(float) (area.x * dp), (float) (area.y * dp), (float) (area.right() * dp), (float) (area.bottom() * dp)};
+        if (!(prefs.frame && perf)) {
+            overlay.set(null, null, null);
+            room.tick(dt, getWidth(), getHeight(), null, ap, null);
+            return;
+        }
+        double ar = SceneGeometry.aspect(sc.shape());
+        boolean side = FramePlan.side(ar, area, prefs.air);
+        if (side != lastSide && Math.abs(ar - 1) < 0.001) sync(true);
+        double from = Double.NaN;
+        if (strip.getVisibility() == VISIBLE && strip.getWidth() > 0) from = side ? strip.getLeft() / dp : strip.getTop() / dp;
+        FramePlan.Rect fit = FramePlan.fit(area, ar, prefs.air);
+        double[] d = FramePlan.push(fit, area, w, h, side, from, buttons.getVisibility() == VISIBLE);
+        double[] g = glide.to(d[0], d[1], dt);
+        frameNow = new FramePlan.Rect(fit.x + g[0], fit.y + g[1], fit.w, fit.h);
+        float[] rp = {(float) (frameNow.x * dp), (float) (frameNow.y * dp), (float) (frameNow.right() * dp), (float) (frameNow.bottom() * dp)};
+        overlay.set(new RectF(rp[0], rp[1], rp[2], rp[3]), sc.safe(), sc.shape() + "  " + getContext().getString(R.string.avatar_sc_wide).toUpperCase());
+        room.tick(dt, getWidth(), getHeight(), rp, ap, rp);
     }
 
     private String shotName() {

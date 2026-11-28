@@ -93,6 +93,7 @@ public final class AvatarRoomActivity extends Activity implements RoomMenu.Host,
     private cc.joycreator.avatar.ui.LandmarksScreen landmarks;
     private cc.joycreator.avatar.ui.SolverStage glStage;
     private cc.joycreator.avatar.ui.SceneUi sceneUi;
+    private cc.joycreator.avatar.ui.SceneRoom sceneRoom;       // a scene in hand (slice 3, row 3)
     private boolean glWorks = true;
     private Object glPictures;
     private final java.util.Map<String, String> forced = new java.util.HashMap<>();
@@ -201,10 +202,42 @@ public final class AvatarRoomActivity extends Activity implements RoomMenu.Host,
                 if (walker != null) walker.release();
             }
         }));
+        cc.joycreator.avatar.ui.SceneStage sceneGl = new cc.joycreator.avatar.ui.SceneStage(this);
+        sceneRoom = new cc.joycreator.avatar.ui.SceneRoom(new cc.joycreator.avatar.ui.SceneRoom.Host() {
+            @Override
+            public android.content.Context ctx() {
+                return AvatarRoomActivity.this;
+            }
+
+            @Override
+            public void toast(String text) {
+                Toast.makeText(AvatarRoomActivity.this, text, Toast.LENGTH_SHORT).show();
+            }
+
+            @Override
+            public void sceneShown(boolean shown) {
+                glStage.setVisibility(shown ? View.GONE : View.VISIBLE);
+                stage.setVisibility(shown ? View.GONE : View.VISIBLE);
+                applyPanels();
+                if (sceneUi != null) sceneUi.roomChanged();
+            }
+
+            @Override
+            public void stageChosen(int idx) {
+                if (idx != stageIndex) selectStage(idx);
+            }
+
+            @Override
+            public void saved() {
+                if (sceneUi != null) sceneUi.refreshScenes();
+            }
+        }, sceneGl);
+        stageBox.addView(sceneRoom.stageView(), new android.widget.FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
         stageBox.addView(buildStageTools(), new android.widget.FrameLayout.LayoutParams(px(44), ViewGroup.LayoutParams.WRAP_CONTENT, Gravity.END | Gravity.TOP));
         sceneUi = new cc.joycreator.avatar.ui.SceneUi(this, new cc.joycreator.avatar.ui.SceneHost(this, () -> stageIndex == 3, () -> character, this::characterName,
                 () -> characterPath, () -> stage, () -> glStage, () -> selectStage(1)));      // the frame, the director's chair and the strip (slice 3)
         stageBox.addView(sceneUi, new android.widget.FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
+        sceneUi.attachRoom(sceneRoom);
         left.addView(stageBox, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f));
         root.addView(left, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, 1f));
 
@@ -221,6 +254,7 @@ public final class AvatarRoomActivity extends Activity implements RoomMenu.Host,
         performPanel = new PerformPanel(this, this);
         body.addView(performPanel, new android.widget.FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
         body.addView(layers, new android.widget.FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
+        body.addView(sceneRoom.cardView(), new android.widget.FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
         panel.addView(body, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f));
         rail = new cc.joycreator.avatar.ui.LayersView(this, this);
         rail.setBackgroundColor(0xFF0D0D10);
@@ -421,10 +455,12 @@ public final class AvatarRoomActivity extends Activity implements RoomMenu.Host,
     private void applyPanels() {
         if (layers == null || parts == null || performPanel == null) return;
         boolean matching = landmarks != null && landmarks.isOpen();
-        boolean perform = !showLayers && !matching && stageIndex >= 2;
-        layers.setVisibility(showLayers && !matching ? View.VISIBLE : View.GONE);
-        parts.setVisibility(!showLayers && !matching && !perform ? View.VISIBLE : View.GONE);
+        boolean inScene = sceneRoom != null && sceneRoom.isOpen();         // a scene in hand has its own cards
+        boolean perform = !showLayers && !matching && !inScene && stageIndex >= 2;
+        layers.setVisibility(showLayers && !matching && !inScene ? View.VISIBLE : View.GONE);
+        parts.setVisibility(!showLayers && !matching && !perform && !inScene ? View.VISIBLE : View.GONE);
         performPanel.setVisibility(perform ? View.VISIBLE : View.GONE);
+        if (sceneRoom != null) sceneRoom.cardView().setVisibility(inScene && !matching ? View.VISIBLE : View.GONE);
         if (landmarks != null) landmarks.view().setVisibility(matching ? View.VISIBLE : View.GONE);
         if (glStage != null) updateGl();
     }
@@ -985,6 +1021,7 @@ public final class AvatarRoomActivity extends Activity implements RoomMenu.Host,
         }
         applyPanels();
         refreshPins();
+        if (sceneRoom != null && sceneRoom.isOpen() && sceneRoom.stage() != idx) sceneRoom.setStage(idx);
     }
 
     private TextView roundButton(String glyph, String hover) {

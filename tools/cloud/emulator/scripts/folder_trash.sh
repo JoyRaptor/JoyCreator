@@ -1,9 +1,11 @@
 # FILE-1: with a real Joy Creator folder chosen, a drawing goes to Trash and comes back from Recently deleted.
 . "$HERE_LIB/lib_app.sh"
+adb shell pm enable com.android.documentsui >/dev/null 2>&1; settle 15      # the picker must be back before the app asks for it
 launch_app; settle 10
 for label in "Start creating" "Continue" "Skip" "Not now"; do tap_text "$label" >/dev/null 2>&1 && settle 3; done
 settle 3
 choose_folder || echo "choose_folder stopped early"
+for i in 1 2 3; do dump; python3 "$HERE_LIB/uia.py" list /tmp/ui.xml | head -12; sleep 2; done
 dump after_folder; python3 "$HERE_LIB/uia.py" list /tmp/ui.xml | head -20
 adb shell "cat /data/data/$PKG/shared_prefs/joy_folder.xml 2>&1 | head -8"
 adb shell am force-stop "$PKG"; settle 2; launch_app; settle 9

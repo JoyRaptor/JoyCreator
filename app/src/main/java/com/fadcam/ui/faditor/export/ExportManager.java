@@ -3449,7 +3449,11 @@ public class ExportManager {
             List<long[]> keptEditor = cuts.isEmpty() ? null : cuts.keptRanges(fromEditor, toEditor);
             boolean masterCut = keptEditor != null && !(keptEditor.size() == 1
                     && keptEditor.get(0)[0] == fromEditor && keptEditor.get(0)[1] == toEditor);
-            if (masterCut && (clip.isImageClip() || clip.isAudioMuted())) {
+            // STU-C3: a video with no sound track lays silence, as a picture or a muted clip does (the picture-in-
+            // picture lane already skipped such a source; this lane handed it to Media3 and the export failed).
+            boolean silent = MasterSound.laysSilence(clip.isImageClip(), clip.isAudioMuted(),
+                    clip.isImageClip() ? 0L : audioDurationMsOf(resolveSeekableSourceUri(clip)));
+            if (masterCut && silent) {
                 for (long[] kr : keptEditor) {
                     if (kr[1] - kr[0] >= MIN_EXPORT_SEGMENT_MS) {
                         addSilence(master, silenceUri, kr[1] - kr[0]);
@@ -3476,7 +3480,7 @@ public class ExportManager {
                 long endMs = Math.min(clipOutMs, clip.getSourceDurationMs());
                 long srcDurMs = Math.max(1L, endMs - clipInMs);
                 long timelineDurMs = Math.max(1L, (long) (srcDurMs / Math.max(0.1f, speed)));
-                if (clip.isAudioMuted()) {
+                if (silent) {
                     addSilence(master, silenceUri, timelineDurMs);
                 } else {
                     master.add(masterAudioItem(clip, clipInMs, endMs));
@@ -6536,6 +6540,12 @@ public class ExportManager {
             if (ac.isMuted() || LayerPreviewController.isAudioClipTrackMuted(timeline, ac)) {
                 FLog.d(TAG, "buildAudioSequence: skipping muted audio clip " + ac.getId()
                         + " (clipMuted=" + ac.isMuted() + ")");
+                continue;
+            }
+            // STU-C3: a source with no sound track (a silent video laid on a sound lane) is skipped as a muted clip is:
+            // a sound-only item with nothing in it fails the whole export. Its place is kept by the gap logic below.
+            if (audioDurationMsOf(seekableUriFor(ac.getSourceUri())) <= 0) {
+                FLog.d(TAG, "buildAudioSequence: skipping audio clip " + ac.getId() + " (its source has no sound track)");
                 continue;
             }
 

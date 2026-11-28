@@ -78,7 +78,7 @@ choose_folder() {
     tap_text "Setup" >/dev/null 2>&1; settle 4
     tap_text "Joy Creator folder" >/dev/null 2>&1; settle 5
     tap_text "Make my Joy Creator folder" >/dev/null 2>&1 || { shot folder_no_button; return 1; }
-    settle 5
+    settle 8; shot folder_picker_open; dump folder_picker; python3 "$HERE_LIB/uia.py" list /tmp/ui.xml | head -14
     tap_text "=Documents" >/dev/null 2>&1 || tap_text "Documents" >/dev/null 2>&1 || { shot folder_no_documents; return 1; }
     settle 3
     shot folder_in_documents

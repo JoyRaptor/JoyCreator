@@ -74,7 +74,8 @@ public final class PsdUpdate {
             pictures.put(img, url);
             art.put("img", img);
             boolean sameShape = old != null && now != null && Math.abs(old[0] * (double) now[1] - old[1] * (double) now[0]) <= 0.01 * old[0] * now[1];
-            if (old != null && now != null && (old[0] != now[0] || old[1] != now[1]) && sameShape) {
+            boolean wasFiner = fine.has(oldImg);                    // the same 2x file again: the picture is already finer art, so it stays so and keeps its place
+            if (old != null && now != null && ((old[0] != now[0] || old[1] != now[1]) || wasFiner) && sameShape) {
                 int[] shown = fine.has(oldImg) ? new int[]{fine.getJSONArray(oldImg).getInt(0), fine.getJSONArray(oldImg).getInt(1)} : old;
                 fine.put(img, new JSONArray().put(shown[0]).put(shown[1]));            // finer art: the same size on the character
                 res.finer++;

@@ -158,6 +158,7 @@ public final class PerformPanel extends ScrollView {
     private final List<String> moodNames = new ArrayList<>();
     private TextView micChip, faceChip, recentreChip, mirrorChip;
     private boolean compact, walkOpen;
+    private final List<Hold> activeHolds = new ArrayList<>();                  // hold buttons with a finger on them now
     private LinearLayout faceRow, shoulderBox, cameraBox;
     private final List<TextView> cameraChips = new ArrayList<>();
     private final List<String[]> cameraKeys = new ArrayList<>();      // {key, "b" for the body's row}
@@ -189,6 +190,8 @@ public final class PerformPanel extends ScrollView {
     public void bind(CharacterDoc doc, boolean takeBar) {
         boolean newStage = boundTakeBar == null || boundTakeBar != takeBar;
         boundTakeBar = takeBar;
+        for (Hold held : new ArrayList<>(activeHolds)) held.up();               // a hold button the rebuild takes away would never hear its finger lift
+        activeHolds.clear();
         column.removeAllViews();
         buttonChips.clear();
         buttonIds.clear();
@@ -712,12 +715,13 @@ public final class PerformPanel extends ScrollView {
                 case MotionEvent.ACTION_DOWN:
                     v.getParent().requestDisallowInterceptTouchEvent(true);
                     paintHold(t, true);
+                    activeHolds.add(h);
                     h.down();
                     return true;
                 case MotionEvent.ACTION_UP:
                 case MotionEvent.ACTION_CANCEL:
                     paintHold(t, false);
-                    h.up();
+                    if (activeHolds.remove(h)) h.up();
                     return true;
                 default:
                     return true;

@@ -20,7 +20,7 @@ tap 995 2059; settle 4; shot after_ime_tick      # the keyboard's own tick key i
 shot after_rename; dump after_rename; python3 "$HERE_LIB/uia.py" list /tmp/ui.xml | grep -i "renamed\|Drawing" | head
 echo "== C. Move to Trash"
 hold 270 440 1300; settle 4
-tap_text "Move to Trash" >/dev/null 2>&1; settle 4; shot after_trash
+tap_text "Move to Trash" >/dev/null 2>&1; settle 2; shot trash_asks_again; tap_text "Tap again" >/dev/null 2>&1; settle 4; shot after_trash
 dump after_trash; python3 "$HERE_LIB/uia.py" list /tmp/ui.xml | head -16
 adb shell am force-stop "$PKG"; settle 2; launch_app; settle 8
 tap_text "Setup" >/dev/null 2>&1; settle 4

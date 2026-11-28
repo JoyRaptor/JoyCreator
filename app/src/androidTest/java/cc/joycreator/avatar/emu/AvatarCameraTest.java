@@ -162,22 +162,29 @@ public class AvatarCameraTest {
                 check("front".equals(settings(a).optString("bodyCamera")) && a.getString(R.string.avatar_step_body_camera, a.getString(R.string.avatar_cam_front)).equals(undo),
                         "Body camera, Front by a real tap: saved, one undo step (\"" + undo + "\")");
                 shot(out, "03-body-on-front");
+                String where = "this phone cannot open both";
                 if (canPair) {
                     check(plan.two && find(a, a.getString(R.string.avatar_cams_refused)) == null,
                             "this phone opens Front and Back together: the face on the back camera, the body on the front, nothing refused");
-                } else {
-                    check(plan.refused && find(a, a.getString(R.string.avatar_cams_refused)) != null && find(a, a.getString(R.string.avatar_cams_one)) != null,
-                            "this phone cannot open both: one plain line says so, and One camera for both is offered");
-                    tapText(a, a.getString(R.string.avatar_cams_one));
-                    Emu.sleep(1500);
+                    // and a phone that cannot open that pair: stood in for by telling the room's face capture that no two cameras
+                    // open together, then laying the panel out again as the room does after a step
+                    Emu.ins().runOnMainSync(() -> setField(fc, "pairs", CameraPlan.none()));
+                    rebind(a);
                     plan = fc.cameraPlan();
-                    check("back".equals(settings(a).optString("bodyCamera")) && !plan.refused && find(a, a.getString(R.string.avatar_cams_refused)) == null,
-                            "One camera for both: the body reads the face's camera (Back), the line goes, one undo step (\"" + undoName(a) + "\")");
-                    shot(out, "04-one-camera-for-both");
-                    Emu.tap((View) field(a, "undoButton"));
-                    Emu.sleep(1500);
-                    check("front".equals(settings(a).optString("bodyCamera")) && fc.cameraPlan().refused, "one Undo: the body back on Front, refused again");
+                    where = "a phone that cannot open both (stood in for)";
                 }
+                check(plan.refused && find(a, a.getString(R.string.avatar_cams_refused)) != null && find(a, a.getString(R.string.avatar_cams_one)) != null,
+                        where + ": one plain line says so, and One camera for both is offered");
+                shot(out, "04-refused");
+                tapText(a, a.getString(R.string.avatar_cams_one));
+                Emu.sleep(1500);
+                plan = fc.cameraPlan();
+                check("back".equals(settings(a).optString("bodyCamera")) && !plan.refused && find(a, a.getString(R.string.avatar_cams_refused)) == null,
+                        "One camera for both by a real tap: the body reads the face's camera (Back), the line goes, one undo step (\"" + undoName(a) + "\")");
+                shot(out, "05-one-camera-for-both");
+                Emu.tap((View) field(a, "undoButton"));
+                Emu.sleep(1500);
+                check("front".equals(settings(a).optString("bodyCamera")) && fc.cameraPlan().refused, "one Undo: the body back on Front, refused again");
                 Emu.tap((View) field(a, "undoButton"));
                 Emu.sleep(1500);
                 Emu.tap((View) field(a, "undoButton"));
@@ -283,6 +290,30 @@ public class AvatarCameraTest {
         Emu.ins().runOnMainSync(() -> v.requestRectangleOnScreen(new Rect(0, 0, v.getWidth(), v.getHeight()), true));
         Emu.sleep(300);
         Emu.tap(v);
+    }
+
+    /** The Perform panel laid out again for the character (what the room does after a step). */
+    private static void rebind(AvatarRoomActivity a) throws Exception {
+        Object panel = field(a, "performPanel");
+        CharacterDoc d = (CharacterDoc) field(a, "character");
+        Emu.ins().runOnMainSync(() -> {
+            try {
+                panel.getClass().getMethod("bind", CharacterDoc.class, boolean.class).invoke(panel, d, true);
+            } catch (Exception e) {
+                throw new RuntimeException(e);
+            }
+        });
+        Emu.sleep(800);
+    }
+
+    private static void setField(Object o, String name, Object val) {
+        try {
+            Field f = o.getClass().getDeclaredField(name);
+            f.setAccessible(true);
+            f.set(o, val);
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
     }
 
     private static Object field(Object o, String name) throws Exception {

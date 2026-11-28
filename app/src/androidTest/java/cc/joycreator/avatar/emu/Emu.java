@@ -184,6 +184,22 @@ final class Emu {
         Log.i(TAG, "tapped \"" + text + "\" at " + b.toShortString());
     }
 
+    /**
+     * Clicks the thing labelled {@code text} through accessibility (the nearest clickable box around the words), as a
+     * screen reader would: for other apps' windows (the system's folder picker), where a label is not itself the button.
+     */
+    static void clickText(String text, long timeoutMs) {
+        android.view.accessibility.AccessibilityNodeInfo n = find(text, timeoutMs);
+        if (n == null) throw new AssertionError("nothing on screen says \"" + text + "\"");
+        android.view.accessibility.AccessibilityNodeInfo c = n;
+        while (c != null && !c.isClickable()) c = c.getParent();
+        if (c != null && c.performAction(android.view.accessibility.AccessibilityNodeInfo.ACTION_CLICK)) {
+            Log.i(TAG, "clicked \"" + text + "\"");
+            return;
+        }
+        tapText(text, 1000);
+    }
+
     /** Where the thing labelled {@code text} is on screen (its middle), or null. */
     static float[] centreOf(String text, long timeoutMs) {
         android.view.accessibility.AccessibilityNodeInfo n = find(text, timeoutMs);

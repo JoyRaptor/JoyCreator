@@ -1387,6 +1387,14 @@ class JbCanvasView(context: Context) : GLSurfaceView(context), UnibrushCanvasPor
         }
     }
 
+    /** Which of [ids] hold editable lines now (the layer column's "lines" tag, Concepts parity item 5), on the UI thread. */
+    fun layersWithLines(ids: List<String>, onReady: (Set<String>) -> Unit) {
+        onGl {
+            val out = ids.filterTo(HashSet()) { engine.layerHasLines(it) }
+            post { onReady(out) }
+        }
+    }
+
     /** True board/frame pictures for the visible strip only, never an archive or saved navigation. */
     fun boardFrameThumbnails(boardId: String, frameIds: List<String>, w: Int, h: Int,
                              onReady: (Map<String, IntArray>) -> Unit) {

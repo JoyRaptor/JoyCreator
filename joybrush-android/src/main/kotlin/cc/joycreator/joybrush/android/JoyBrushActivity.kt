@@ -2157,6 +2157,11 @@ class JoyBrushActivity : Activity() {
             val bitmaps = pixels.mapValues { (_, argb) -> Bitmap.createBitmap(argb, w, h, Bitmap.Config.ARGB_8888) }
             column.setThumbnails(bitmaps)
         }
+        // Which layers hold editable lines: their cells wear the lines mark (Concepts parity item 5).
+        canvas.layersWithLines(canvas.layers.layers.map { it.id }) { ids ->
+            if (revision != boardThumbnailRevision || destroyed) return@layersWithLines
+            column.setLinedLayers(ids)
+        }
         // And the masks, keyed back to their layers (JB-2.23).
         val masked = canvas.layers.layers.filter { it.hasMask }.map { it.id }
         if (masked.isNotEmpty()) canvas.layerThumbnails(masked.map { maskStoreId(it) }, w, h, bounds) { pixels ->

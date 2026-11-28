@@ -819,6 +819,8 @@ public final class AvatarRoomActivity extends Activity implements RoomMenu.Host,
         e.put("rot", rot);
         if (sc != 1) e.put("sc", sc);
         else e.remove("sc");
+        if (dx == 0 && dy == 0 && rot == 0 && sc == 1 && !e.has("z") && !e.has("orbit") && !e.has("auto") && p.optJSONObject("d") != null)
+            p.getJSONObject("d").remove(nodeId);                          // put back to nothing: no empty entry is left (Undo of a box move)
     }
 
     @Override

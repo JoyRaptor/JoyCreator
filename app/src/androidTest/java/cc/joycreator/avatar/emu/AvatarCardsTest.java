@@ -54,7 +54,13 @@ public class AvatarCardsTest {
             Emu.tap(tabs[0]);
             Emu.sleep(1200);
             part("eyeL", "setup-eye");
+            scrollTo(1f);
+            shot("setup-eye-lower");
+            scrollTo(0f);
             part("mouth", "setup-mouth");
+            scrollTo(1f);
+            shot("setup-mouth-lower");
+            scrollTo(0f);
             part("head", "setup-head");
             part("armL", "setup-arm");
 

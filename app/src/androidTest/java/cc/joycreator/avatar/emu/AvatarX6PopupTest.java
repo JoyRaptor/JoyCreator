@@ -34,7 +34,8 @@ import cc.joycreator.avatar.ui.StageView;
  * <ul>
  *   <li>M14: Take back in the pop-up takes the last pass back (before: it only showed a message);</li>
  *   <li>M13: Play after a pass plays (before: the pop-up's own flag could send pause to a paused player);</li>
- *   <li>M1: a pass the recorder ends by itself (its longest take) is ended and kept (before: nothing was kept);</li>
+ *   <li>M1: a pass begun 150 s into the take records and is kept when ended (before: the recorder stopped it unseen on
+ *   its first frame and nothing was kept);</li>
  *   <li>F10: going Home closes the pop-up, so its camera and microphone let go (before: it stayed open, holding them).</li>
  * </ul>
  */
@@ -89,9 +90,12 @@ public class AvatarX6PopupTest {
 
             // M1: the item's take starts 150 s in: the recorder (longest take 120 s) ends the pass by itself at once
             Emu.ins().runOnMainSync(() -> item.setCharacterTakeOffsetMs(150_000));
+            // (before the fixes the recorder stopped itself at once, unseen, so this second tap began a new pass: no step)
             int stepsBefore = undoCount(ed[0]);
             Emu.tapText("Record a pass", 5000);
             Emu.sleep(2500);
+            Emu.tapText("Record a pass", 5000);
+            Emu.sleep(1200);
             int stepsAfter = undoCount(ed[0]);
             boolean kept = stepsAfter == stepsBefore + 1;
             log.append("M1: undo steps ").append(stepsBefore).append(" -> ").append(stepsAfter).append(" (\"").append(undoName(ed[0]))

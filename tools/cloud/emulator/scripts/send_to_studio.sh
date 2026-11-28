@@ -25,7 +25,7 @@ send_it() {
     # the export sheet: "This board" with the Send to Studio chip, then the big Export button
     # the sheet opens on PNG the first time and remembers Send to Studio afterwards: tap the chip only once
     if [ "${CHIP_DONE:-0}" = 0 ]; then tap_text "=Send to Studio" >/dev/null 2>&1; CHIP_DONE=1; settle 2; fi
-    tap_text "=Export" >/dev/null 2>&1; settle 8
+    tap_text "=Export" 1 >/dev/null 2>&1 || tap_text "=Export" >/dev/null 2>&1; settle 8
 }
 echo "== 1. back out of the chooser"
 send_it; shot chooser; dump chooser; python3 "$HERE_LIB/uia.py" list /tmp/ui.xml | head -30

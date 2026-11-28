@@ -65,6 +65,19 @@ public final class PerformPanel extends ScrollView {
         default void checkDirections() {
         }
 
+        /** Shoulders (SHRUG-1): the camera can read them and a shrug moves something on this character. */
+        default boolean shouldersShown() {
+            return false;
+        }
+
+        /** Shoulders ticked: the camera reads the body too (this phone's setting). */
+        default boolean shouldersOn() {
+            return false;
+        }
+
+        default void setShouldersOn(boolean on) {
+        }
+
         /** The small private preview of the face (never kept): the view to give the camera, or null. */
         default View facePreview() {
             return null;
@@ -121,7 +134,7 @@ public final class PerformPanel extends ScrollView {
     private final List<TextView> moodChips = new ArrayList<>();
     private final List<String> moodNames = new ArrayList<>();
     private TextView micChip, faceChip, recentreChip, mirrorChip;
-    private LinearLayout faceRow;
+    private LinearLayout faceRow, shoulderBox;
     private int faceWords = R.string.avatar_face;
     private final List<TextView> tickBoxes = new ArrayList<>();
     private final List<String[]> tickKeys = new ArrayList<>();   // {settings key, "t" when a missing key means on}
@@ -259,6 +272,20 @@ public final class PerformPanel extends ScrollView {
         LinearLayout.LayoutParams fl = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
         fl.topMargin = px(6);
         side.addView(faceRow, fl);
+        // SHRUG-1: Shoulders (the pilot's tick box beside Mirror) and, while on, how little shrug makes a full one
+        shoulderBox = null;
+        if (host.shouldersShown()) {
+            shoulderBox = new LinearLayout(c);
+            shoulderBox.setOrientation(LinearLayout.VERTICAL);
+            shoulderBox.setVisibility(View.GONE);
+            boolean shOn = host.shouldersOn();
+            shoulderBox.addView(WalkSections.tick(c, c.getString(R.string.avatar_shoulders), shOn, c.getString(R.string.avatar_hover_shoulders), dp, v -> {
+                host.setShouldersOn(v);
+                bind(doc, takeBar);
+            }));
+            if (shOn && host instanceof ShrugSections.Host) shoulderBox.addView(ShrugSections.sensitivity(c, (ShrugSections.Host) host, dp));
+            side.addView(shoulderBox);
+        }
         View walkWithFace = host.faceWalkDrawer();
         if (walkWithFace != null) {
             if (walkWithFace.getParent() instanceof ViewGroup) ((ViewGroup) walkWithFace.getParent()).removeView(walkWithFace);
@@ -441,6 +468,7 @@ public final class PerformPanel extends ScrollView {
             }
         }
         if (faceRow != null) faceRow.setVisibility(in.faceOn() ? View.VISIBLE : View.GONE);
+        if (shoulderBox != null) shoulderBox.setVisibility(in.faceOn() ? View.VISIBLE : View.GONE);
         if (mirrorChip != null) paintChip(mirrorChip, host.faceMirror());
     }
 

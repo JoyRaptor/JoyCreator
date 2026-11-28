@@ -8,3 +8,6 @@
 
 ## Added later 11-28: one-button text case cycle (drawer polish row)
 ✅ PASS: the single "Aa" button in the text drawer cycles on each tap: Normal case -> Capitalize first -> All caps -> Small caps -> Normal case (its description names the state after every tap). **One thing to look at:** the Undo counter stayed at 2 through all four taps, i.e. a case change adds no Undo step (the other drawer toggles each add one). Whether that is intended is for the Studio lane. Still unrun: visualiser two columns, "Follow what" dialog, caption drawer above the preset strip, hex colour never wraps, bent-sprite link, drag-rotation fold, paused-effect redraw.
+
+## Added 11-28 (later): hex colour never wraps (drawer polish row)
+✅ PASS on the text colour picker: the hex field reads `#FFFFFF` on one line, 116 px wide, beside the swatch (`text_colour_picker_hex_one_line.png`; the end of the field shows the edit cursor). Only the 6-digit case was seen; a longer value (with alpha, `#FFFFFFFF`) was not typed. Still unrun: bent-sprite link, drag-rotation fold, paused-effect redraw, visualiser two columns, "Follow what" dialog, caption drawer above the preset strip.

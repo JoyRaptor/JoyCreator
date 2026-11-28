@@ -1677,10 +1677,59 @@ public class TextOverlayLayer extends FrameLayout {
      * flips a PiP's: this layer works in view space, whose origin is top-left and whose positive
      * rotation is clockwise on screen, while the shader works in a bottom-up uv.</p>
      */
+    /** A text's full-frame picture for the GL composite, kept while it would draw the same (see textFxPipFor). */
+    private static final class TextFxStill {
+        final String key;
+        final android.graphics.Bitmap bitmap;
+        TextFxStill(String key, android.graphics.Bitmap bitmap) { this.key = key; this.bitmap = bitmap; }
+    }
+    private final java.util.Map<String, TextFxStill> textFxStills = new java.util.HashMap<>();
+
+    /**
+     * A TEXT carrying its own effects, for the GL composite (STU-C6, 11-28). It joined the composite's list on the same
+     * question the export asks ({@code wantsGlExport}), which hid its plain view, but this method returned nothing for a
+     * text, so the editor drew it with no effect at all while the export ran them. It is now the export's own picture
+     * ({@link com.fadcam.ui.faditor.export.TextFxRaster}: the whole frame with the words placed, turned and pinned), with
+     * the text's effects, composited as the export does: over the frame, straight, at full strength.
+     */
+    @Nullable
+    private com.fadcam.ui.faditor.compositor.FxPreviewTextureView.Pip textFxPipFor(
+            @NonNull TextOverlayItem o, int frameW, int frameH) {
+        if (!o.hasActiveFx() || !o.isVisibleAt(currentTimeMs) || frameW <= 0 || frameH <= 0) return null;
+        long t = currentTimeMs;
+        // Everything that changes the picture: the words and their style, the animated values at this moment, a look's
+        // own clock, the frame. Kept while it is the same, so a paused or still title is drawn once.
+        String key = frameW + "x" + frameH + "|" + o.getText() + "|" + o.getColorInt() + "|" + o.getFontFamily()
+                + "|" + o.isBold() + o.isItalic() + o.isUnderline() + "|" + o.getTextCase() + "|" + o.getTextAlign()
+                + "|" + o.getWrapEm() + "|" + o.isFitWidth() + "|" + o.getBackgroundColorInt()
+                + "|" + o.getStrokeColorInt() + "|" + o.animatedStrokeWidthPx(t)
+                + "|" + o.getShadowColorInt() + "|" + o.animatedShadowRadiusPx(t) + "|" + o.animatedShadowAngleDeg(t)
+                + "|" + o.animatedShadowDistancePx(t) + "|" + o.getGlowColorInt() + "|" + o.animatedGlowRadiusPx(t)
+                + "|" + o.animatedCenterX(t) + "|" + o.animatedCenterY(t) + "|" + o.animatedSizeFraction(t)
+                + "|" + o.animatedRotation(t) + "|" + java.util.Objects.hashCode(o.getStyleSpans())
+                + "|" + (o.hasTextLook() ? o.getTextLook().lookSignature() + "@" + o.lookTime(t) : "")
+                + "|" + (o.hasCornerPin() ? t : 0);
+        TextFxStill held = textFxStills.get(o.getId());
+        android.graphics.Bitmap bmp;
+        if (held != null && held.key.equals(key) && !held.bitmap.isRecycled()) {
+            bmp = held.bitmap;
+        } else {
+            // The previous picture is not recycled: the GL thread may still be uploading it. It goes with the garbage.
+            bmp = com.fadcam.ui.faditor.export.TextFxRaster.picture(getContext(), o, t, frameW, frameH);
+            if (bmp == null) return null;
+            textFxStills.put(o.getId(), new TextFxStill(key, bmp));
+        }
+        return com.fadcam.ui.faditor.compositor.FxPreviewTextureView.Pip.ofImage(
+                0.5f, 0.5f, 0.5f, 0.5f, 0f, 1f, o.getFx(), t, null,
+                com.fadcam.ui.faditor.model.BlendModes.modeCode(o.getOverlayBlendMode()),
+                frameW, frameH, o.getId(), bmp, 1f);
+    }
+
     @Nullable
     public com.fadcam.ui.faditor.compositor.FxPreviewTextureView.Pip fxPipFor(
             @NonNull TextOverlayItem o, int frameW, int frameH) {
-        if (callback == null || !o.isImage()) return null;
+        if (callback == null) return null;
+        if (!o.isImage()) return textFxPipFor(o, frameW, frameH);
         if (!o.isVisibleAt(currentTimeMs)) return null;
         RectF r = callback.getVideoContentRect();
         if (r.width() <= 0 || r.height() <= 0) return null;

@@ -132,6 +132,19 @@ public final class FxGlSource {
     @NonNull
     public static String fragment(@NonNull FxCompiler.Pass pass, int kernelHalf,
                                   boolean composite, int maskShapes) {
+        return fragment(pass, kernelHalf, composite, maskShapes, false);
+    }
+
+    /**
+     * The same, with the composite's mask coverage READ from {@link #U_MASK_COVER} instead of
+     * folded here ({@code coverFromTexture}): the export's fallback for a GPU that cannot compile
+     * a layer's whole mask in one program (GL-MASK, Codex audit round 4). {@link #maskChunkFragment}
+     * folds the shapes into that texture a few at a time, in the same order with the same
+     * arithmetic, so every shape still counts. The preview never asks for this.
+     */
+    @NonNull
+    public static String fragment(@NonNull FxCompiler.Pass pass, int kernelHalf,
+                                  boolean composite, int maskShapes, boolean coverFromTexture) {
         String body = FxCompiler.emitGlsl(pass, kernelHalf);
         int mainAt = body.indexOf("void main()");
         if (mainAt < 0) {
@@ -140,6 +153,7 @@ public final class FxGlSource {
         String fragment = "#version 100\n"
                 + body.substring(0, mainAt)
                 + COMPOSITE_UNIFORMS
+                + (coverFromTexture ? "uniform sampler2D " + U_MASK_COVER + ";\n" : "")
                 + MaskSdf.GLSL_MASK_FN
                 // Same shared-source discipline as the mask function: the key and blend
                 // equations live in ChromaKey/BlendModes so export and preview cannot compile
@@ -147,7 +161,53 @@ public final class FxGlSource {
                 + com.fadcam.ui.faditor.model.ChromaKey.GLSL_KEY_FN
                 + com.fadcam.ui.faditor.model.BlendModes.GLSL_BLEND_FN
                 + body.substring(mainAt);
-        return withMaskShapes(composite ? withComposite(fragment) : fragment, maskShapes);
+        return withMaskShapes(composite ? withComposite(fragment, coverFromTexture) : fragment, maskShapes);
+    }
+
+    /** The sampler a {@code coverFromTexture} composite reads its mask coverage from (channel r). */
+    public static final String U_MASK_COVER = "uMaskCover";
+
+    /**
+     * One step of the mask fold for {@code coverFromTexture} (GL-MASK): up to {@code chunk}
+     * shapes folded onto the coverage the previous step left in {@code uMaskPrev}, written to
+     * channel r. {@code uMaskSeed} = 1 on the first step: its first shape seeds the fold, as
+     * shape 0 does in the one-program composite. {@code uMaskChunk} = how many slots this step
+     * uses (the last step may use fewer). The per-shape arithmetic is the composite's own
+     * ({@link MaskSdf#GLSL_MASK_FN}, highp as the compiler emits), so the result differs from
+     * the one-program fold only by the coverage being stored between steps.
+     */
+    @NonNull
+    public static String maskChunkFragment(int chunk) {
+        int n = Math.max(1, Math.min(MaskSdf.MAX_SHAPES, chunk));
+        return ("#version 100\n"
+                + "precision highp float;\n"
+                + "varying vec2 vFxUv;\n"
+                + "uniform vec2 uTexel;\n"
+                + "uniform sampler2D uMaskPrev;\n"
+                + "uniform float uMaskSeed;\n"
+                + "uniform float uMaskChunk;\n"
+                + "uniform vec4 uMaskGeo[__MASKN__];\n"
+                + "uniform vec2 uMaskRot[__MASKN__];\n"
+                + "uniform float uMaskCorner[__MASKN__];\n"
+                + "uniform float uMaskFeather[__MASKN__];\n"
+                + "uniform float uMaskOp[__MASKN__];\n"
+                + MaskSdf.GLSL_MASK_FN
+                + "void main() {\n"
+                + "  vec2 frame = vec2(1.0) / uTexel;\n"
+                + "  float inside = texture2D(uMaskPrev, vFxUv).r;\n"
+                + "  for (int i = 0; i < __MASKN__; i++) {\n"
+                + "    if (float(i) < uMaskChunk) {\n"
+                + "      float sd = fxShapeSd(vFxUv, frame, uMaskGeo[i], uMaskRot[i],\n"
+                + "                           uMaskCorner[i]);\n"
+                + "      float cvg = fxCoverageOf(sd, uMaskFeather[i]);\n"
+                + "      if (i == 0 && uMaskSeed > 0.5) inside = cvg;\n"
+                + "      else if (uMaskOp[i] > 1.5) inside = min(inside, cvg);\n"
+                + "      else if (uMaskOp[i] > 0.5) inside = min(inside, 1.0 - cvg);\n"
+                + "      else inside = max(inside, cvg);\n"
+                + "    }\n"
+                + "  }\n"
+                + "  gl_FragColor = vec4(inside, 0.0, 0.0, 1.0);\n"
+                + "}\n").replace("__MASKN__", Integer.toString(n));
     }
 
     /**
@@ -162,6 +222,19 @@ public final class FxGlSource {
         int n = Math.max(1, Math.min(MaskSdf.MAX_SHAPES, maskShapes));
         return fragment.replace("__MASKN__", Integer.toString(n));
     }
+
+    /** The composite's one-program mask fold (see withComposite). */
+    private static final String MASK_FOLD =
+                  "    float inside = 0.0;\n"
+                + "    for (int i = 0; i < __MASKN__; i++) {\n"
+                + "      float sd = fxShapeSd(vFxUv, frame, uMaskGeo[i], uMaskRot[i],\n"
+                + "                           uMaskCorner[i]);\n"
+                + "      float cvg = fxCoverageOf(sd, uMaskFeather[i]);\n"
+                + "      if (i == 0) inside = cvg;\n"
+                + "      else if (uMaskOp[i] > 1.5) inside = min(inside, cvg);\n"
+                + "      else if (uMaskOp[i] > 0.5) inside = min(inside, 1.0 - cvg);\n"
+                + "      else inside = max(inside, cvg);\n"
+                + "    }\n";
 
     /**
      * Rewrite the compiler's {@code main} so the graded colour is mixed back over the original by
@@ -180,7 +253,7 @@ public final class FxGlSource {
      * <p>Textual because the compiler deliberately knows nothing about layers.</p>
      */
     @NonNull
-    private static String withComposite(@NonNull String fragment) {
+    private static String withComposite(@NonNull String fragment, boolean coverFromTexture) {
         return fragment.replace(
                 "  gl_FragColor = c;\n",
                 "  vec4 base = texture2D(uBaseSampler, fxClamp(vFxUv));\n"
@@ -193,16 +266,9 @@ public final class FxGlSource {
                 // driver. The coverage local is cvg, NOT c: c is the GRADED COLOUR the
                 // compiler's main() left in scope, and shadowing it would mix the frame
                 // with a float.
-                + "    float inside = 0.0;\n"
-                + "    for (int i = 0; i < __MASKN__; i++) {\n"
-                + "      float sd = fxShapeSd(vFxUv, frame, uMaskGeo[i], uMaskRot[i],\n"
-                + "                           uMaskCorner[i]);\n"
-                + "      float cvg = fxCoverageOf(sd, uMaskFeather[i]);\n"
-                + "      if (i == 0) inside = cvg;\n"
-                + "      else if (uMaskOp[i] > 1.5) inside = min(inside, cvg);\n"
-                + "      else if (uMaskOp[i] > 0.5) inside = min(inside, 1.0 - cvg);\n"
-                + "      else inside = max(inside, cvg);\n"
-                + "    }\n"
+                + (coverFromTexture
+                    ? "    float inside = texture2D(" + U_MASK_COVER + ", vFxUv).r;\n"
+                    : MASK_FOLD)
                 // HOLE BY DEFAULT — see fxMaskCover in MaskSdf.GLSL_MASK_FN, the single
                 // statement of this policy shared by all three GL consumers.
                 + "    cover = fxMaskCover(inside, uMaskInvert);\n"

@@ -22,7 +22,7 @@ send_it() {
     tap_text "Export this board" >/dev/null 2>&1 || { echo "no export control found"; return 1; }
     settle 4
     # the export sheet: "This board" with the Send to Studio chip, then the big Export button
-    tap_text "=Send to Studio" 1 >/dev/null 2>&1 || tap_text "Send to Studio" >/dev/null 2>&1; settle 2
+    # "Send to Studio" is already the chosen way (tapping its chip again switches it back to PNG)
     tap_text "=Export" >/dev/null 2>&1; settle 8
 }
 echo "== 1. back out of the chooser"

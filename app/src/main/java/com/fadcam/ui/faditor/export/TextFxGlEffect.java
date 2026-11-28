@@ -100,95 +100,12 @@ public final class TextFxGlEffect implements GlEffect {
         @Override
         public Bitmap getBitmap(long presentationTimeUs) {
             long timelineMs = (presentationTimeUs / 1000L) + editorTimeOffsetMs;
-            // The ANIMATED transform, through the same accessors CompositeExportOverlay uses.
-            // Rendering the AUTHORED values instead was a real bug caught by the first export:
-            // an overlay with a scale keyframe came out at its authored size, so styling a
-            // caption silently resized it.
-            TextOverlayItem frameItem = new TextOverlayItem(
-                    item.getText(), item.getColorInt(),
-                    item.animatedCenterX(timelineMs), item.animatedCenterY(timelineMs),
-                    item.animatedSizeFraction(timelineMs), item.animatedRotation(timelineMs));
-            frameItem.setStrokeColorInt(item.getStrokeColorInt());
-            frameItem.setStrokeWidthPx(item.animatedStrokeWidthPx(timelineMs));
-            frameItem.setShadowColorInt(item.getShadowColorInt());
-            frameItem.setShadowRadiusPx(item.animatedShadowRadiusPx(timelineMs));
-            frameItem.setShadowAngleDeg(item.animatedShadowAngleDeg(timelineMs));
-            frameItem.setShadowDistancePx(item.animatedShadowDistancePx(timelineMs));
-            frameItem.setGlowColorInt(item.getGlowColorInt());
-            frameItem.setGlowRadiusPx(item.animatedGlowRadiusPx(timelineMs));
-            frameItem.setBackgroundColorInt(item.getBackgroundColorInt());
-            frameItem.setFontFamily(item.getFontFamily());
-            frameItem.setBold(item.isBold());
-            frameItem.setItalic(item.isItalic());
-            frameItem.setUnderline(item.isUnderline());
-            frameItem.setTextCase(item.getTextCase());
-            frameItem.setTextAlign(item.getTextAlign());
-            // the wrap width and "fit width" shape the lines: without them an FX'd title exported on one line
-            frameItem.setWrapEm(item.getWrapEm());
-            frameItem.setFitWidth(item.isFitWidth());
-            // W5-2 §3.8: the per-selection spans ride into the GL rasteriser too — render()
-            // delegates to TextBoxRenderer, which resolves them exactly like the preview and
-            // the no-FX export, so an FX'd caption cannot lose its formatting at export.
-            frameItem.setStyleSpans(item.getStyleSpans());
-            // A title wearing a TextLab look (TEXT-1): its look's picture at this moment is what the FX work on, drawn
-            // by TextLab at this letter size; turned, pinned and placed below exactly as the plain words are.
-            // k: how much to grow it when TextLab had to draw it smaller than asked (its size cap).
-            Bitmap textBmp = null;
-            float k = 1f;
-            if (item.hasTextLook()) {
-                float fontPx = Math.max(1f, frameItem.getSizeFraction() * outH);
-                cc.joycreator.textlab.StudioTextLab.Frame f = cc.joycreator.textlab.StudioTextLab.get(context)
-                        .renderForExport(cc.joycreator.textlab.StudioTextLab.exportKey(item.getId()),
-                                item.getTextLook(), item.getText(), item.lookTime(timelineMs), fontPx);
-                if (f != null) {
-                    textBmp = f.bitmap;
-                    k = (float) (fontPx / f.em);
-                }
-            }
-            if (textBmp == null) textBmp = TextOverlayRenderer.render(frameItem, outW, outH);
-            // COMPOSE ONTO A FULL FRAME. render() returns a bitmap sized to the TEXT, which
-            // CompositeExportOverlay then positions with canvas.drawBitmap(cx - w/2, ...).
-            // Handing that small bitmap to BitmapOverlay stretched it across the whole frame,
-            // so a styled caption came out enormous -- caught by looking at the first export
-            // rather than by reading, because both paths call the same renderer and the bug
-            // was in what happens AFTER it.
             if (textFxPinMatrix == null) textFxPinMatrix = new android.graphics.Matrix();
-            if (textBmp == null || textBmp.isRecycled()) return frames.empty(outW, outH);
-            {
-                // One of two reusable pictures, never the one handed over last; it replaces a
-                // new full-frame Bitmap per frame (code review 11-11, E17; OverlayFramePair).
-                android.graphics.Canvas c = frames.begin(outW, outH);
-                float cx = frameItem.getCenterX() * outW;
-                float cy = frameItem.getCenterY() * outH;
-                float rot = frameItem.getRotationDeg();
-                c.save();
-                if (rot != 0f) c.rotate(rot, cx, cy);
-                // SPEC ZC — THE CORNER PIN, on the FX path too. Acceptance 1 held only for PLAIN
-                // text: this path rebuilds a frameItem property by property and the pin was never
-                // among the properties, so a pinned box with any effect on it exported UNPINNED
-                // while the preview showed it pinned. A preview/export disagreement, which is the
-                // bug class this project has paid for most.
-                //
-                // Built by the SAME TextOverlayItem.cornerPinMatrix the preview and the plain
-                // export call, concat-ed at the same point — inside the rotate, immediately around
-                // the draw. An undistorted box concats nothing and takes the byte-identical path
-                // it always did.
-                //
-                // Asked of the ORIGINAL item, not frameItem: the pin lives on the authored
-                // overlay, and frameItem is a per-frame copy of the things the rasteriser needs.
-                float tw = textBmp.getWidth() * k, th = textBmp.getHeight() * k;
-                if (item.cornerPinMatrix(textFxPinMatrix, timelineMs,
-                        cx - tw / 2f, cy - th / 2f, tw, th)) {
-                    c.concat(textFxPinMatrix);
-                }
-                if (k == 1f) {
-                    c.drawBitmap(textBmp, cx - tw / 2f, cy - th / 2f, null);
-                } else {
-                    c.drawBitmap(textBmp, null, new android.graphics.RectF(cx - tw / 2f, cy - th / 2f,
-                            cx + tw / 2f, cy + th / 2f), lookPaint);
-                }
-                c.restore();
-                textBmp.recycle();
+            // The ONE drawing the preview's GL composite uses too (TextFxRaster, STU-C6), into one of two reusable
+            // pictures, never the one handed over last (code review 11-11, E17; OverlayFramePair).
+            if (!TextFxRaster.draw(context, item, timelineMs, outW, outH,
+                    () -> frames.begin(outW, outH), textFxPinMatrix, lookPaint)) {
+                return frames.empty(outW, outH);
             }
             // A DIFFERENT instance from last frame: BitmapOverlay caches the GL texture on
             // bitmap IDENTITY, so returning the same scratch would freeze frame one forever.

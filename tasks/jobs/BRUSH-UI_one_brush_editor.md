@@ -302,3 +302,7 @@ All other brush properties follow below, as now. Owner's design: build to the mo
   - Note 9 before and after shots (`tasks/screens/brush-editor-20261127/`). The phone was offline.
   - The owner's look.
   - On a real pen, whether a picture-tip mode's live test stroke matches the drawing's.
+- **Owner's pick 11-28: number 4, the large grey checker.** The stage lays it under smudge, push and erasers
+  (`UnderpaintPatterns.STAGE`, 40 dp squares); drawer smudge rows get squares a third of the row high; `TestStroke.VERSION`
+  11 so stored rows redraw. Note 9 seen (c470ca7df): Flat Paint drags whole squares; the rows show the bigger squares.
+  Cloud: jb-core 3026, androidkit 1394, android 642 pass.

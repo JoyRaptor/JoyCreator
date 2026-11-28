@@ -125,6 +125,13 @@ public final class MediaPipeTrackingSource implements TrackingSource, LifecycleO
     }
 
     @Nullable private volatile BodySink bodySink;
+    /** Cameras per tracker: which camera the face reads and which the body (null: the front camera for both, as always). */
+    @Nullable private volatile com.fadcam.ui.faditor.avatar.face.CameraPlan.Plan plan;
+    /** Two cameras open now (the body on its own); the phone refused two when they were opened. */
+    private volatile boolean twoCameras, refusedAtOpen;
+    @Nullable private ExecutorService bodyExecutor;
+    @Nullable private Bitmap bodyBitmap;
+    private long lastBodyStamp;
     @Nullable private volatile PoseLandmarker pose;
     private volatile boolean poseFailed;
     private long lastPoseUptimeMs;
@@ -202,6 +209,17 @@ public final class MediaPipeTrackingSource implements TrackingSource, LifecycleO
     public void setBodySink(@Nullable BodySink sink) {
         bodySink = sink;
     }
+
+    /** Cameras per tracker: what to open at the next {@link #start} (null: the front camera, as every other host has it). */
+    public void setPlan(@Nullable com.fadcam.ui.faditor.avatar.face.CameraPlan.Plan p) {
+        plan = p;
+    }
+
+    /** Two cameras are open: the face on one, the body on the other. */
+    public boolean isTwoCameras() { return twoCameras; }
+
+    /** The phone refused two cameras when they were opened (one camera feeds both). */
+    public boolean refusedAtOpen() { return refusedAtOpen; }
 
     /** SHRUG-1: the body model is in the app. */
     public static boolean isPoseModelPresent(@NonNull Context context) {
@@ -284,6 +302,15 @@ public final class MediaPipeTrackingSource implements TrackingSource, LifecycleO
             frameBitmap.recycle();
             frameBitmap = null;
         }
+        if (bodyExecutor != null) {
+            bodyExecutor.shutdown();
+            bodyExecutor = null;
+        }
+        if (bodyBitmap != null) {
+            bodyBitmap.recycle();
+            bodyBitmap = null;
+        }
+        twoCameras = false;
         listener = null;
         lastOutline = null;
         PreviewSink sink = previewSink;
@@ -331,16 +358,34 @@ public final class MediaPipeTrackingSource implements TrackingSource, LifecycleO
                 cameraProvider = future.get();
                 if (listener == null) return; // stopped while the provider warmed up
                 cameraProvider.unbindAll();
-                ImageAnalysis analysis = new ImageAnalysis.Builder()
-                        .setTargetResolution(new Size(CAP_W, CAP_H))
-                        .setOutputImageFormat(ImageAnalysis.OUTPUT_IMAGE_FORMAT_RGBA_8888)
-                        .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
-                        .build();
+                ImageAnalysis analysis = newAnalysis();
                 ExecutorService exec = analysisExecutor;
                 if (exec == null) return;
-                analysis.setAnalyzer(exec, this::analyze);
-                cameraProvider.bindToLifecycle(
-                        this, CameraSelector.DEFAULT_FRONT_CAMERA, analysis);
+                com.fadcam.ui.faditor.avatar.face.CameraPlan.Plan pl = plan;
+                refusedAtOpen = false;
+                if (pl == null || pl.face == null) {                 // every other host: the front camera
+                    analysis.setAnalyzer(exec, img -> analyze(img, true));
+                    cameraProvider.bindToLifecycle(this, CameraSelector.DEFAULT_FRONT_CAMERA, analysis);
+                    return;
+                }
+                if (pl.two) {                                        // cameras per tracker: the body on its own camera
+                    ImageAnalysis bodyAnalysis = newAnalysis();
+                    bodyExecutor = Executors.newSingleThreadExecutor();
+                    analysis.setAnalyzer(exec, img -> analyze(img, false));
+                    bodyAnalysis.setAnalyzer(bodyExecutor, this::analyzeBody);
+                    try {
+                        TrackerCameras.open(cameraProvider, this, pl, analysis, bodyAnalysis);
+                        twoCameras = true;
+                        return;
+                    } catch (RuntimeException e) {                   // the phone said no after all: one camera for both
+                        refusedAtOpen = true;
+                        cameraProvider.unbindAll();
+                        analysis = newAnalysis();
+                        pl = com.fadcam.ui.faditor.avatar.face.CameraPlan.oneCamera(pl);
+                    }
+                }
+                analysis.setAnalyzer(exec, img -> analyze(img, true));
+                TrackerCameras.open(cameraProvider, this, pl, analysis, analysis);
             } catch (Exception e) {
                 Toast.makeText(appContext,
                         "The front camera isn't free right now", Toast.LENGTH_SHORT).show();
@@ -348,9 +393,20 @@ public final class MediaPipeTrackingSource implements TrackingSource, LifecycleO
         }, ContextCompat.getMainExecutor(appContext));
     }
 
+    /** The small picture stream every tracker reads (320x240, the newest picture only). */
+    @NonNull
+    private static ImageAnalysis newAnalysis() {
+        return new ImageAnalysis.Builder()
+                .setTargetResolution(new Size(CAP_W, CAP_H))
+                .setOutputImageFormat(ImageAnalysis.OUTPUT_IMAGE_FORMAT_RGBA_8888)
+                .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
+                .build();
+    }
+
     // ── Per-frame analysis (analysis executor) ────────────────────────────────
 
-    private void analyze(@NonNull ImageProxy image) {
+    /** One picture of the face's camera: the face, and the body too when one camera feeds both ({@code withBody}). */
+    private void analyze(@NonNull ImageProxy image, boolean withBody) {
         try {
             // Thermal / baseline throttle: skip frames to hold the target rate so
             // the tracker never drives the device hotter (spec §MINED governor).
@@ -362,7 +418,7 @@ public final class MediaPipeTrackingSource implements TrackingSource, LifecycleO
             FaceLandmarker lm = landmarker;
             if (lm == null) return;
 
-            Bitmap bmp = toBitmap(image);
+            Bitmap bmp = frameBitmap = toBitmap(image, frameBitmap);
             if (bmp == null) return;
             MPImage mp = new BitmapImageBuilder(bmp).build();
 
@@ -391,7 +447,7 @@ public final class MediaPipeTrackingSource implements TrackingSource, LifecycleO
             publishPreview(bmp, rotation);
             lm.detectAsync(mp, ipo, stamp);
             // SHRUG-1: the body on the same picture, ten times a second at most, while the room wants shoulders
-            if (bodySink != null && now - lastPoseUptimeMs >= POSE_EVERY_MS) {
+            if (withBody && bodySink != null && now - lastPoseUptimeMs >= POSE_EVERY_MS) {
                 PoseLandmarker p = poseLandmarker();
                 if (p != null) {
                     lastPoseUptimeMs = now;
@@ -500,9 +556,41 @@ public final class MediaPipeTrackingSource implements TrackingSource, LifecycleO
         sink.onPreview(picture, o, o != null);
     }
 
-    /** RGBA_8888 ImageProxy → upright-agnostic Bitmap (rotation handled by MP). */
+    /**
+     * Cameras per tracker: one picture of the body's own camera (its thread), ten readings a second at most, into the body
+     * model with its own clock (the two cameras' pictures never share a buffer).
+     */
+    private void analyzeBody(@NonNull ImageProxy image) {
+        try {
+            long now = SystemClock.uptimeMillis();
+            if (bodySink == null || now - lastPoseUptimeMs < POSE_EVERY_MS) return;
+            PoseLandmarker p = poseLandmarker();
+            if (p == null) return;
+            Bitmap bmp = bodyBitmap = toBitmap(image, bodyBitmap);
+            if (bmp == null) return;
+            lastPoseUptimeMs = now;
+            long stamp = SystemClock.elapsedRealtime() - baseTimeMs;
+            if (stamp <= lastBodyStamp) stamp = lastBodyStamp + 1;
+            lastBodyStamp = stamp;
+            int rotation = image.getImageInfo().getRotationDegrees();
+            boolean sideways = rotation == 90 || rotation == 270;
+            long[] ps = poseRing[poseAt++ % poseRing.length];
+            ps[0] = stamp;
+            ps[1] = rotation;
+            ps[2] = Math.round(1000.0 * (sideways ? image.getWidth() : image.getHeight())
+                    / Math.max(1, sideways ? image.getHeight() : image.getWidth()));
+            p.detectAsync(new BitmapImageBuilder(bmp).build(),
+                    ImageProcessingOptions.builder().setRotationDegrees(rotation).build(), stamp);
+        } catch (RuntimeException e) {
+            // transient: the next picture tries again
+        } finally {
+            image.close();
+        }
+    }
+
+    /** RGBA_8888 ImageProxy → upright-agnostic Bitmap (rotation handled by MP), into {@code reuse} when it fits. */
     @Nullable
-    private Bitmap toBitmap(@NonNull ImageProxy image) {
+    private static Bitmap toBitmap(@NonNull ImageProxy image, @Nullable Bitmap reuse) {
         ImageProxy.PlaneProxy[] planes = image.getPlanes();
         if (planes.length == 0) return null;
         ByteBuffer buffer = planes[0].getBuffer();
@@ -511,13 +599,13 @@ public final class MediaPipeTrackingSource implements TrackingSource, LifecycleO
         int rowStride = planes[0].getRowStride();
         int rowPadding = rowStride - pixelStride * image.getWidth();
         int bufW = image.getWidth() + (pixelStride > 0 ? rowPadding / pixelStride : 0);
-        if (frameBitmap == null || frameBitmap.getWidth() != bufW
-                || frameBitmap.getHeight() != image.getHeight()) {
-            if (frameBitmap != null) frameBitmap.recycle();
-            frameBitmap = Bitmap.createBitmap(bufW, image.getHeight(), Bitmap.Config.ARGB_8888);
+        Bitmap b = reuse;
+        if (b == null || b.getWidth() != bufW || b.getHeight() != image.getHeight()) {
+            if (b != null) b.recycle();
+            b = Bitmap.createBitmap(bufW, image.getHeight(), Bitmap.Config.ARGB_8888);
         }
-        frameBitmap.copyPixelsFromBuffer(buffer);
-        return frameBitmap;
+        b.copyPixelsFromBuffer(buffer);
+        return b;
     }
 
     // ── Result → TrackingFrame (MediaPipe callback thread) ────────────────────

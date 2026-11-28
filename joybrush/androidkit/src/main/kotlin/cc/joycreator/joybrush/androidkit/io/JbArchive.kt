@@ -82,6 +82,12 @@ object ArchiveCarrying {
      * and opens it (a kill between the save's two moves, JBX-36 S4, 11-27), or opens the `.bak` before it, as before.
      */
     @Volatile var finishInterruptedMove: Boolean = false
+    /**
+     * Whether the save on leaving the screen reads only the tiles that changed since the last save, as the autosave does,
+     * and the Library's thumbnail is drawn from the saved file (JBX-36 S3, 11-27), or reads the whole drawing, as before.
+     * It never streams: everything it reads is read before the screen stops drawing.
+     */
+    @Volatile var sparseLeave: Boolean = false
 }
 
 /** Thrown by every function here. The message is the whole error report, so it says what is wrong. */

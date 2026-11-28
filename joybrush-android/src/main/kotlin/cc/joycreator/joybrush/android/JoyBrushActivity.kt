@@ -2956,7 +2956,8 @@ class JoyBrushActivity : Activity() {
         // remembered and reads everything; leaving reads everything; and this one reads everything again if the file
         // cannot stand in for what was not read.
         val leaving = viewPausePending
-        val sparse = dest is SaveDest.Working && !viewPausePending &&
+        // JBX-36 S3: leaving reads only what changed too (switch sparseLeave), and the thumbnail is made from the file.
+        val sparse = dest is SaveDest.Working && (!viewPausePending || cc.joycreator.joybrush.androidkit.io.ArchiveCarrying.sparseLeave) &&
             cc.joycreator.joybrush.androidkit.io.ArchiveCarrying.on && cc.joycreator.joybrush.androidkit.io.ArchiveCarrying.rereadChangedOnly
         lateinit var take: (Boolean) -> Unit
         take = { whole -> try {
@@ -3075,7 +3076,8 @@ class JoyBrushActivity : Activity() {
             }
             val failed: (String) -> Unit = { why -> answer("Could not read the drawing: $why") }
             val keepWet = !viewPausePending && dest !is SaveDest.Open && dest !is SaveDest.BoardHandoff
-            if (sparse) { workingSparseInFlight = true; canvas.snapshotSparse(onContents, failed, keepWet, readAll = whole) }
+            // Leaving never streams: every tile it needs is read before the screen stops drawing (frames end with the surface).
+            if (sparse) { workingSparseInFlight = true; canvas.snapshotSparse(onContents, failed, keepWet, readAll = whole, mayStream = !leaving) }
             // Leaving: everything is read (the thumbnail needs it), with each tile's fingerprint, so the file still
             // stands in for what did not change when it is known only from having been opened (JbArchive.memoOf).
             else if (dest is SaveDest.Working && cc.joycreator.joybrush.androidkit.io.ArchiveCarrying.on && cc.joycreator.joybrush.androidkit.io.ArchiveCarrying.rereadChangedOnly)

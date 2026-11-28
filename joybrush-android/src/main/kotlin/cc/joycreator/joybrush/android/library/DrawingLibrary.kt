@@ -268,8 +268,11 @@ object DrawingLibrary {
             // thumbnail waits for a save that read everything (leaving the screen always is one).
             // [leaving]: the person is about to see the Library, so its picture is made from this very save whatever its age
             // (it could be 45 s of drawing behind).
-            if (whole && (leaving || !thumb.isFile || System.currentTimeMillis() - thumb.lastModified() > THUMB_EVERY_MS)) {
-                thumbnailOf(contents)?.let { bmp ->
+            // A save on leaving that read only what changed (JBX-36 S3): the picture is the file just written, read a tile
+            // at a time.
+            val fromFile = !whole && leaving
+            if ((whole || fromFile) && (leaving || !thumb.isFile || System.currentTimeMillis() - thumb.lastModified() > THUMB_EVERY_MS)) {
+                (if (fromFile) thumbnailOfFile(file) else thumbnailOf(contents))?.let { bmp ->
                     thumb.parentFile?.mkdirs()
                     val tmp = File(thumb.path + ".tmp")
                     FileOutputStream(tmp).use { bmp.compress(Bitmap.CompressFormat.PNG, 100, it) }
@@ -623,6 +626,12 @@ object DrawingLibrary {
      * screen shows it ([ExportPicture.asShown], as every export is): handed its line storage, the renderer refused it, and
      * the Library kept a blank or old picture (second code review E8; the Note 9's log, 2026-10-31).
      */
+    /** [thumbnailOf] the drawing as [file] holds it, its tiles read from the file as the picture needs them. */
+    internal fun thumbnailOfFile(file: File): Bitmap? {
+        val contents = cc.joycreator.joybrush.androidkit.io.JbArchive.openDeferringMedia(file)
+        try { return thumbnailOf(contents) } finally { (contents.tiles as? java.io.Closeable)?.close(); (contents.mediaTiles as? java.io.Closeable)?.close() }
+    }
+
     internal fun thumbnailOf(saved: JbContents): Bitmap? {
         val contents = cc.joycreator.joybrush.androidkit.io.ExportPicture.asShown(saved)
         val full = contents.doc

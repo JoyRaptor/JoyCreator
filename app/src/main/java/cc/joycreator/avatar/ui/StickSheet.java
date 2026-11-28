@@ -60,7 +60,8 @@ public final class StickSheet {
         TextView box = new TextView(c);
         box.setGravity(Gravity.CENTER);
         box.setTextSize(15);
-        box.setText(on ? "\u2713" : "");
+        box.setTypeface(com.fadcam.ui.faditor.SheetKit.icons(box.getContext()));             // (Studio's tick, not a typed mark)
+        box.setText(on ? "check" : "");
         box.setTextColor(Studio.GROUND);                                    // ON = solid cyan with the tick punched out
         GradientDrawable g = new GradientDrawable();
         g.setCornerRadius(5 * dp);

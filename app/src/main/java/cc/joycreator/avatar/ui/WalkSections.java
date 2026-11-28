@@ -101,7 +101,8 @@ final class WalkSections {
         LinearLayout row = new LinearLayout(c);
         row.setGravity(Gravity.CENTER_VERTICAL);
         row.setPadding(0, Math.round(6 * dp), 0, Math.round(6 * dp));
-        TextView box = MotionSections.text(c, on ? "✓" : "", 15, Studio.GROUND);
+        TextView box = MotionSections.text(c, on ? "check" : "", 16, Studio.GROUND);
+        box.setTypeface(com.fadcam.ui.faditor.SheetKit.icons(c));                               // (Studio's tick, not a typed mark)
         box.setGravity(Gravity.CENTER);
         GradientDrawable g = new GradientDrawable();
         g.setCornerRadius(5 * dp);

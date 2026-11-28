@@ -454,7 +454,7 @@ public final class PerformPanel extends ScrollView {
         tickBoxes.add(box);
         tickKeys.add(new String[]{key, defaultOn ? "t" : "f"});
         row.setOnClickListener(v -> {
-            boolean now = !"\u2713".contentEquals(box.getText());
+            boolean now = !"check".contentEquals(box.getText());
             host.setSetting(key, now, c.getString(now ? R.string.avatar_step_on : R.string.avatar_step_off, c.getString(label)));
         });
         TooltipCompat.setTooltipText(row, c.getString(hover));
@@ -469,7 +469,8 @@ public final class PerformPanel extends ScrollView {
         if (on) g.setColor(Studio.ARMED);
         else g.setStroke(Math.max(1, px(1.5f)), 0xFF52525B);
         box.setBackground(g);
-        box.setText(on ? "\u2713" : "");
+        box.setTypeface(com.fadcam.ui.faditor.SheetKit.icons(box.getContext()));             // (Studio's tick, not a typed mark)
+        box.setText(on ? "check" : "");
         box.setTextColor(Studio.GROUND);
     }
 
@@ -515,7 +516,7 @@ public final class PerformPanel extends ScrollView {
     private View takeBar(Context c) {
         LinearLayout bar = new LinearLayout(c);
         bar.setGravity(Gravity.CENTER_VERTICAL);
-        rec = round(c, "●", c.getString(R.string.avatar_hover_record));
+        rec = round(c, "fiber_manual_record", c.getString(R.string.avatar_hover_record));
         rec.setOnClickListener(v -> host.toggleRecord());
         bar.addView(rec, new LinearLayout.LayoutParams(px(40), px(40)));
         strip = new TakeStrip(c);
@@ -523,15 +524,15 @@ public final class PerformPanel extends ScrollView {
         sl.leftMargin = px(8);
         sl.rightMargin = px(8);
         bar.addView(strip, sl);
-        play = round(c, "▶", c.getString(R.string.avatar_hover_play));
+        play = round(c, "play_arrow", c.getString(R.string.avatar_hover_play));
         play.setOnClickListener(v -> host.togglePlay());
         bar.addView(play, new LinearLayout.LayoutParams(px(40), px(40)));
-        back = round(c, "↺", c.getString(R.string.avatar_hover_take_back));
+        back = round(c, "undo", c.getString(R.string.avatar_hover_take_back));
         back.setOnClickListener(v -> host.takeBack());
         LinearLayout.LayoutParams gap = new LinearLayout.LayoutParams(px(40), px(40));
         gap.leftMargin = px(6);
         bar.addView(back, gap);
-        clear = round(c, "✕", c.getString(R.string.avatar_hover_clear_take));
+        clear = round(c, "delete", c.getString(R.string.avatar_hover_clear_take));
         clear.setOnClickListener(v -> host.clearTake());
         bar.addView(clear, gap);
         paintTakeBar();
@@ -542,24 +543,32 @@ public final class PerformPanel extends ScrollView {
         Inputs in = host.inputs();
         boolean recording = in.recorder.recording(), playing = in.recorder.playing() && !recording;
         boolean hasTake = in.recorder.take() != null && in.recorder.take().n > 0;
-        GradientDrawable g = new GradientDrawable();
-        g.setShape(GradientDrawable.OVAL);
-        g.setColor(recording ? Studio.LIVE : 0xFF27272A);
-        rec.setBackground(g);
-        rec.setTextColor(recording ? Studio.GROUND : Studio.LIVE);
-        paintRound(play, playing);
-        play.setText(playing ? "■" : "▶");
+        paintRound(rec, recording, Studio.LIVE);                          // (recording: solid red, the dot cut out; else a red dot)
+        if (!recording) rec.setTextColor(Studio.LIVE);
+        paintRound(play, playing, Studio.ARMED);
+        play.setText(playing ? "stop" : "play_arrow");
         play.setAlpha(hasTake || playing ? 1f : 0.35f);
         back.setAlpha(!recording && in.recorder.hasPassToTakeBack() ? 1f : 0.35f);
         clear.setAlpha(hasTake ? 1f : 0.35f);
     }
 
-    private void paintRound(TextView t, boolean on) {
-        GradientDrawable g = new GradientDrawable();
-        g.setShape(GradientDrawable.OVAL);
-        g.setColor(on ? Studio.ARMED : 0xFF27272A);
-        t.setBackground(g);
-        t.setTextColor(on ? Studio.GROUND : 0xFFE4E4E7);
+    /** On: solid {@code onColour} with the icon cut out (the owner's rule); off: borderless, in Studio's ink. */
+    private void paintRound(TextView t, boolean on, int onColour) {
+        Integer was = (Integer) t.getTag();                               // (painted every frame: only a change repaints)
+        int now = on ? onColour : 0;
+        if (was != null && was == now) return;
+        t.setTag(now);
+        if (on) {
+            GradientDrawable g = new GradientDrawable();
+            g.setShape(GradientDrawable.OVAL);
+            g.setColor(onColour);
+            t.setBackground(g);
+        } else {
+            android.util.TypedValue tv = new android.util.TypedValue();
+            if (t.getContext().getTheme().resolveAttribute(android.R.attr.selectableItemBackgroundBorderless, tv, true)) t.setBackgroundResource(tv.resourceId);
+            else t.setBackground(null);
+        }
+        t.setTextColor(on ? Studio.GROUND : Studio.INK);
     }
 
     /** The take strip: drag to move through the take (silent), the time and length written on it. */
@@ -651,12 +660,16 @@ public final class PerformPanel extends ScrollView {
         t.setTextColor(on ? Studio.GROUND : 0xFFE4E4E7);
     }
 
-    private TextView round(Context c, String glyph, String hover) {
+    /** A take bar button as Studio's own: a Material icon ({@code ligature}), borderless, its hover label. */
+    private TextView round(Context c, String ligature, String hover) {
         TextView t = new TextView(c);
-        t.setText(glyph);
+        t.setTypeface(com.fadcam.ui.faditor.SheetKit.icons(c));
+        t.setText(ligature);
         t.setGravity(Gravity.CENTER);
-        t.setTextSize(16);
-        paintRound(t, false);
+        t.setTextSize(22);
+        t.setIncludeFontPadding(false);
+        com.fadcam.ui.faditor.SheetKit.press(t);
+        paintRound(t, false, Studio.ARMED);
         TooltipCompat.setTooltipText(t, hover);
         t.setContentDescription(hover);
         return t;
